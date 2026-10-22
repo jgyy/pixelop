@@ -15,6 +15,7 @@ export interface Particle {
   /** Optional attractor (qi flowing into the cultivator). */
   tx?: number;
   ty?: number;
+  drag?: number;
 }
 
 export interface Floater {
@@ -27,12 +28,17 @@ export interface Floater {
   scale: number;
 }
 
-/** Small particle + floating-text system, in whichever coordinate space the caller uses. */
+/**
+ * Particle + floating-text system. Coordinates are in "world screen space"
+ * (isometric projection without the camera), so effects stay glued to the
+ * world while the camera moves.
+ */
 export class Effects {
   particles: Particle[] = [];
   floaters: Floater[] = [];
 
   emit(p: Partial<Particle> & { x: number; y: number }): void {
+    if (this.particles.length > 900) this.particles.shift();
     this.particles.push({ vx: 0, vy: 0, life: 1, age: 0, color: "#ffffff", size: 1, gravity: 0, ...p });
   }
 
@@ -40,7 +46,7 @@ export class Effects {
     for (let i = 0; i < n; i++) {
       const a = (i / n) * Math.PI * 2 + Math.random() * 0.4;
       const v = speed * (0.4 + Math.random() * 0.8);
-      this.emit({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0.5 + Math.random() * 0.5, color: colors[i % colors.length], size: Math.random() < 0.3 ? 2 : 1, ...opts });
+      this.emit({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.6, life: 0.5 + Math.random() * 0.5, color: colors[i % colors.length], size: Math.random() < 0.3 ? 2 : 1, ...opts });
     }
   }
 
@@ -57,6 +63,10 @@ export class Effects {
         p.vx *= 0.92;
         p.vy *= 0.92;
       }
+      if (p.drag) {
+        p.vx *= 1 - p.drag * dt;
+        p.vy *= 1 - p.drag * dt;
+      }
       p.vy += p.gravity * dt;
       p.x += p.vx * dt;
       p.y += p.vy * dt;
@@ -66,17 +76,18 @@ export class Effects {
     this.floaters = this.floaters.filter((f) => f.age < f.life);
   }
 
-  draw(s: Surface, offsetX = 0): void {
+  draw(s: Surface, ox = 0, oy = 0): void {
     for (const p of this.particles) {
       const k = 1 - p.age / p.life;
-      s.rect(p.x - offsetX, p.y, p.size, p.size, alpha(p.color, Math.min(1, k * 1.5)));
+      s.rect(p.x + ox, p.y + oy, p.size, p.size, alpha(p.color, Math.min(1, k * 1.5)));
     }
     for (const f of this.floaters) {
       const k = f.age / f.life;
       const rise = Math.min(1, k * 3) * 14 + k * 6;
       const pop = k < 0.12 ? 1 : 0;
       const w = textWidth(f.text, f.scale + pop);
-      drawText(s, f.text, f.x - offsetX - w / 2, f.y - rise, k > 0.75 ? alpha(f.color, (1 - k) * 4) : f.color, { outline: k > 0.75 ? alpha("#140c20", (1 - k) * 4) : "#140c20", scale: f.scale + pop });
+      const fade = k > 0.75 ? (1 - k) * 4 : 1;
+      drawText(s, f.text, f.x + ox - w / 2, f.y + oy - rise, alpha(f.color, fade), { outline: alpha("#140c20", fade), scale: f.scale + pop });
     }
   }
 

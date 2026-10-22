@@ -4,8 +4,8 @@ import "@fontsource/pixelify-sans/700.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Jade Lotus Ascension — a pixel xianxia RPG",
-  description: "Guide Lin Yue, a female cultivator of the Azure Cloud Sect, from Qi Condensation to Immortal Ascension.",
+  title: "Jade Lotus Ascension — a 2.5D pixel xianxia RPG",
+  description: "Guide Lin Yue across an isometric jianghu, from Qi Condensation to Immortal Ascension, to recover the stolen Jade Lotus Heart.",
 };
 
 export const viewport: Viewport = {

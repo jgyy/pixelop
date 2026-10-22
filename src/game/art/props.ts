@@ -1,0 +1,839 @@
+import { PixelBuffer } from "../pixel/PixelBuffer";
+import { alpha, mix } from "../pixel/color";
+import { fbm, hash2 } from "../pixel/noise";
+import { add, LEVEL_U, Raster, spline, TILE_U, WORLD_BASIS, type Mat, type Ramp, type Shader, type V3 } from "../iso/raster";
+import { OUTLINE, PAL, ramp, tones } from "./palette";
+
+/**
+ * World props — trees, lanterns, halls, shrines — ray cast in world-aligned
+ * model space (1 tile = TILE_U units, 1 height level = LEVEL_U units).
+ * Animated props (swaying trees, flickering fire, waving banners, bobbing
+ * lotuses) render several frames; all frames are auto-cropped to a shared box.
+ */
+
+export interface PropSheet {
+  frames: PixelBuffer[];
+  fps: number;
+  /** Screen offset of the prop's ground anchor inside each frame. */
+  ox: number;
+  oy: number;
+}
+
+export interface Light {
+  color: string;
+  radius: number;
+  /** Height of the light source above the anchor, in screen px. */
+  dy: number;
+}
+
+export type Emitter = "petals" | "smoke" | "embers" | "sparkle" | "mist" | "leaves";
+
+export interface PropDef {
+  /** Footprint in tiles relative to the anchor tile (inclusive). */
+  foot: [number, number, number, number];
+  blocks: boolean;
+  frames: number;
+  fps: number;
+  light?: Light;
+  emit?: Emitter;
+  paint: (r: Raster, f: number, n: number) => void;
+}
+
+const T = TILE_U;
+const L = LEVEL_U;
+const TAU = Math.PI * 2;
+
+const m = (ramp: Ramp, group = 0, extra: Partial<Mat> = {}): Mat => ({ ramp, group, outline: OUTLINE, ...extra });
+const md = (ramp: Ramp, group = 0, extra: Partial<Mat> = {}): Mat => m(ramp, group, { dither: true, ...extra });
+
+const LEAVES = ramp("#4a8a3a", { lo: "#123a2a" });
+const PINE = ramp("#2e6a4a", { lo: "#0a2a2a" });
+const BLOSSOM = tones("#fff0f6", "#f8bcd6", "#e48ab4", "#a85a8a");
+const MAPLE = tones("#ffd070", "#f08a3a", "#c04a2a", "#7a2030");
+const BAMBOO = ramp("#7ab848", { lo: "#1a4a2a" });
+const BARK = ramp("#6a4a3a", { lo: "#20141a" });
+const ROOF_TEAL = ramp("#3a8a8a", { lo: "#10304a" });
+const ROOF_GREY = ramp("#5a5a72", { lo: "#1a1a2a" });
+const ROOF_RED = ramp("#a83a3a", { lo: "#3a0a20" });
+const PILLAR = ramp("#c03a32", { lo: "#4a0a1a" });
+const WALL = ramp("#f2e8d6", { lo: "#8a7a8a" });
+const BRONZE = ramp("#b08a40", { lo: "#3a2a1a" });
+const FIRE = tones("#fff6c0", "#ffb040", "#f0601e", "#a81a10");
+
+const leafShader =
+  (r: Ramp, seed: number): Shader =>
+  (s, tone) => {
+    const n = fbm(s.p[0] * 0.5 + seed, s.p[1] * 0.5 + s.p[2] * 0.3, seed);
+    return tone(r, n > 0.62 ? -1 : n < 0.36 ? 1 : 0);
+  };
+
+/** Wind sway offset in world-aligned model space (screen-horizontal), growing with height. */
+const swayAt = (f: number, n: number, z: number, amp: number): V3 => {
+  const s = Math.sin((f / n) * TAU) * amp * (z / 60);
+  return [s * 0.7, -s * 0.7, 0];
+};
+
+function roofTiles(base: Ramp): Shader {
+  return (s, tone) => {
+    const along = (s.p[0] - s.p[1]) * 0.35;
+    if (Math.sin(along * 2.2) > 0.75) return tone(base, 1);
+    return tone(base);
+  };
+}
+
+const PROPS = {
+  pine: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 6,
+    fps: 4,
+    paint: (r, f, n) => {
+      r.sweep([[0, 0, 0], [1, -1, 18], add([0, 0, 30], swayAt(f, n, 30, 1.5))], [2.6, 2, 1.4], m(BARK, 1));
+      for (let i = 0; i < 4; i++) {
+        const z = 16 + i * 10;
+        const sw = swayAt(f, n, z, 2);
+        r.cone(sw[0], sw[1], 13 - i * 2.6, z, 2 - i * 0.3, z + 14, 9, md(PINE, 2 + i, { shader: leafShader(PINE, i) }), i * 0.4);
+      }
+    },
+  },
+  cherry: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 6,
+    fps: 4,
+    emit: "petals",
+    paint: (r, f, n) => {
+      r.sweep([[0, 0, 0], [1, 0, 14], [-2, 3, 24]], [2.8, 2.2, 1.4], m(BARK, 1));
+      r.sweep([[1, 0, 14], [7, -4, 26]], [1.6, 0.9], m(BARK, 1));
+      const blobs: [number, number, number, number][] = [
+        [-4, 4, 30, 9],
+        [7, -4, 30, 8.5],
+        [2, -1, 36, 9],
+        [-5, -5, 32, 7],
+        [6, 5, 31, 7],
+      ];
+      blobs.forEach(([x, y, z, rr], k) => r.sphere(add([x, y, z], swayAt(f, n, z, 1.8)), rr, md(BLOSSOM, 2 + k, { shader: leafShader(BLOSSOM, k + 3) })));
+    },
+  },
+  maple: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 6,
+    fps: 4,
+    emit: "leaves",
+    paint: (r, f, n) => {
+      r.sweep([[0, 0, 0], [0, 0, 16], [2, -2, 24]], [2.6, 2, 1.4], m(BARK, 1));
+      const blobs: [number, number, number, number][] = [
+        [0, 0, 34, 10],
+        [-6, 3, 28, 7.5],
+        [6, -3, 28, 7.5],
+        [3, 5, 30, 6.5],
+      ];
+      blobs.forEach(([x, y, z, rr], k) => r.sphere(add([x, y, z], swayAt(f, n, z, 1.6)), rr, md(MAPLE, 2 + k, { shader: leafShader(MAPLE, k + 7) })));
+    },
+  },
+  bamboo: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 6,
+    fps: 4,
+    paint: (r, f, n) => {
+      const stalks: [number, number, number][] = [
+        [-5, 3, 74],
+        [4, -4, 82],
+        [0, 6, 66],
+        [6, 4, 70],
+        [-4, -5, 78],
+      ];
+      stalks.forEach(([x, y, hgt], k) => {
+        const ph = (f / n) * TAU + k;
+        const top: V3 = [x + Math.sin(ph) * 2.2, y - Math.sin(ph) * 2.2, hgt];
+        const mid: V3 = [x + Math.sin(ph) * 0.8, y - Math.sin(ph) * 0.8, hgt * 0.5];
+        r.sweep([[x, y, 0], mid, top], [1.2, 1.0, 0.7], m(BAMBOO, 1 + k, { shader: (s, tone) => (Math.abs(((s.p[2] + k * 3) % 11) - 0.5) < 0.7 ? tone(BAMBOO, 1) : tone(BAMBOO)) }));
+        for (let l = 0; l < 3; l++) {
+          const lz = hgt * (0.55 + l * 0.17);
+          const base: V3 = [x + Math.sin(ph) * (lz / hgt) * 2, y - Math.sin(ph) * (lz / hgt) * 2, lz];
+          const dir = (k + l) % 2 ? 1 : -1;
+          r.sweep([base, add(base, [dir * 6, dir * 2, -3]), add(base, [dir * 9, dir * 3, -7])], [0.4, 1.3, 0.3], m(LEAVES, 6 + k));
+        }
+      });
+    },
+  },
+  willow: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 6,
+    fps: 4,
+    paint: (r, f, n) => {
+      r.sweep([[0, 0, 0], [-1, 1, 14], [0, 0, 26]], [3, 2.4, 1.8], m(BARK, 1));
+      r.ellipsoid([0, 0, 32], [10, 10, 6], md(ramp("#7ab060", { lo: "#1a3a2a" }), 2, { shader: leafShader(ramp("#7ab060", { lo: "#1a3a2a" }), 2) }));
+      for (let k = 0; k < 12; k++) {
+        const a = (k / 12) * TAU;
+        const sw = Math.sin((f / n) * TAU + k * 0.7) * 1.8;
+        const top: V3 = [Math.cos(a) * 8.5, Math.sin(a) * 8.5, 30];
+        r.sweep([top, add(top, [sw * 0.6, -sw * 0.6, -12]), add(top, [sw * 1.2, -sw * 1.2, -20 - (k % 3) * 2])], [1.1, 0.8, 0.4], m(ramp("#8ac46a", { lo: "#1a3a2a" }), 3));
+      }
+    },
+  },
+  deadtree: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      const bark = ramp("#4a3a4a", { lo: "#0a060e" });
+      r.sweep(spline([[0, 0, 0], [2, -1, 12], [-2, 1, 24], [1, 0, 34]], 3), [3, 2.2, 1.4, 0.5], m(bark, 1));
+      r.sweep(spline([[1, -1, 14], [7, -3, 20], [10, -2, 27]], 3), [1.3, 0.9, 0.3], m(bark, 1));
+      r.sweep(spline([[-2, 1, 22], [-8, 3, 27], [-9, 6, 33]], 3), [1.1, 0.7, 0.2], m(bark, 1));
+    },
+  },
+  spirittree: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 8,
+    fps: 5,
+    light: { color: "#9ff5de", radius: 46, dy: 40 },
+    emit: "sparkle",
+    paint: (r, f, n) => {
+      r.sweep(spline([[0, 0, 0], [-2, 2, 16], [1, -1, 30], [0, 0, 40]], 3), [5, 3.6, 2.6, 1.8], m(ramp("#8a7a9a", { lo: "#1a1030" }), 1));
+      const canopy = tones("#e6fff8", "#7ae0c8", "#3a9a9a", "#1a4a5a");
+      const blobs: [number, number, number, number][] = [
+        [0, 0, 50, 13],
+        [-11, 5, 42, 9],
+        [10, -6, 43, 9],
+        [5, 9, 45, 8],
+        [-6, -9, 46, 8],
+      ];
+      blobs.forEach(([x, y, z, rr], k) => r.sphere(add([x, y, z], swayAt(f, n, z, 1)), rr, md(canopy, 2 + k, { shader: leafShader(canopy, k + 11) })));
+      for (let k = 0; k < 6; k++) {
+        const a = (k / 6) * TAU + (f / n) * TAU * 0.25;
+        r.sphere([Math.cos(a) * 14, Math.sin(a) * 14, 34 + Math.sin(a * 2 + f) * 2], 1.3, m(PAL.gold, 9));
+      }
+    },
+  },
+  rock: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      const st = md(PAL.stone, 1, { shader: (s, tone) => (fbm(s.p[0] * 0.4, s.p[1] * 0.4 + s.p[2] * 0.4, 3) > 0.6 ? tone(ramp("#6a8a5a"), 0) : tone(PAL.stone)) });
+      r.sphere([0, 0, 4], 7.5, st);
+      r.sphere([5, -3, 3], 5, st);
+      r.sphere([-4, 4, 2], 4.5, st);
+      r.sphere([1, 1, 9], 4.5, st);
+    },
+  },
+  boulder: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      const st = md(ramp("#5a4458", { lo: "#120814" }), 1);
+      r.sphere([0, 0, 6], 9, st);
+      r.sphere([6, 4, 3], 5, st);
+      r.cone(-3, -2, 5, 8, 0.5, 22, 5, m(ramp("#3a2a3a", { lo: "#0a040a" }), 2));
+    },
+  },
+  crystal: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 6,
+    fps: 6,
+    light: { color: "#9ff5de", radius: 30, dy: 14 },
+    emit: "sparkle",
+    paint: (r, f, n) => {
+      const glow = Math.sin((f / n) * TAU) * 0.5 + 0.5;
+      const c = tones("#ffffff", mix("#7ae8d0", "#c0fff0", glow), "#3aa8a0", "#1a5a6a");
+      const shards: [number, number, number, number, number][] = [
+        [0, 0, 26, 4, 0],
+        [5, -2, 16, 3, 0.5],
+        [-4, 3, 18, 3, 1],
+        [3, 5, 12, 2.4, 0.2],
+      ];
+      shards.forEach(([x, y, hgt, rr, rot], k) => {
+        r.prism(x, y, rr, 0, hgt * 0.75, 6, m(c, k + 1), rot);
+        r.cone(x, y, rr, hgt * 0.75, 0.2, hgt, 6, m(c, k + 1), rot);
+      });
+    },
+  },
+  lantern: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 4,
+    fps: 6,
+    light: { color: "#ffd070", radius: 34, dy: 22 },
+    paint: (r, f) => {
+      const st = m(PAL.stone, 1);
+      r.prism(0, 0, 5, 0, 3, 6, st);
+      r.prism(0, 0, 2, 3, 13, 6, st);
+      r.prism(0, 0, 4.5, 13, 15, 6, st);
+      const flick = [0.95, 1, 0.85, 1][f];
+      const glow = tones("#ffffff", mix("#ffd070", "#fff6c0", flick - 0.8), "#f0a040", "#a05020");
+      r.box([-3, -3, 15], [3, 3, 22], m(PAL.stone, 2, { shader: (s, tone) => (Math.abs(s.n[2]) < 0.5 && Math.abs(s.p[2] - 18.5) < 2.2 && (Math.abs(s.p[0]) < 1.6 || Math.abs(s.p[1]) < 1.6) ? glow[1] : tone(PAL.stone)) }));
+      r.cone(0, 0, 7, 22, 1, 27, 6, st);
+      r.sphere([0, 0, 28], 1.4, st);
+    },
+  },
+  redlantern: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 6,
+    fps: 5,
+    light: { color: "#ff7050", radius: 30, dy: 30 },
+    paint: (r, f, n) => {
+      r.sweep([[0, 0, 0], [0, 0, 42]], 1.2, m(PAL.woodDark, 1));
+      r.sweep([[0, 0, 40], [7, -7, 40]], 0.8, m(PAL.woodDark, 1));
+      const sw = Math.sin((f / n) * TAU) * 1.5;
+      const c: V3 = [7 + sw, -7 - sw, 32];
+      r.sweep([[7, -7, 40], add(c, [0, 0, 4])], 0.25, m(PAL.black, 2));
+      r.ellipsoid(c, [3.4, 3.4, 4.2], m(tones("#ffd0a0", "#e84a3a", "#a82030", "#5a0a20"), 3, { shader: (s, tone) => (Math.abs(s.p[2] - c[2]) > 3.4 ? tone(PAL.gold) : s.lum > 0.4 ? "#ff8a6a" : tone(PAL.red)) }));
+      r.sweep([add(c, [0, 0, -4]), add(c, [sw * 0.5, -sw * 0.5, -8])], 0.5, m(PAL.gold, 3));
+    },
+  },
+  brazier: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 6,
+    fps: 10,
+    light: { color: "#ff6030", radius: 40, dy: 18 },
+    emit: "embers",
+    paint: (r, f, n) => {
+      for (let k = 0; k < 3; k++) {
+        const a = (k / 3) * TAU;
+        r.sweep([[Math.cos(a) * 5, Math.sin(a) * 5, 0], [Math.cos(a) * 3, Math.sin(a) * 3, 11]], 0.9, m(PAL.black, 1));
+      }
+      r.cone(0, 0, 4, 9, 7, 15, 8, m(BRONZE, 2));
+      for (let k = 0; k < 7; k++) {
+        const ph = (f / n) * TAU + k * 1.7;
+        const hgt = 6 + Math.sin(ph) * 3 + (k % 3) * 2;
+        const x = Math.cos(k * 2.4) * 2.6;
+        const y = Math.sin(k * 2.4) * 2.6;
+        r.sweep([[x, y, 15], [x * 0.4 + Math.sin(ph) * 0.8, y * 0.4, 15 + hgt]], [2.2, 0.2], m(FIRE, 3, { shader: (s, tone) => tone(FIRE, s.u > 0.6 ? 1 : s.u < 0.3 ? -1 : 0) }));
+      }
+    },
+  },
+  shrine: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 8,
+    fps: 6,
+    light: { color: "#9ff5de", radius: 44, dy: 30 },
+    emit: "sparkle",
+    paint: (r, f, n) => {
+      const st = md(ramp("#c8c4d8", { lo: "#4a3a6a" }), 1);
+      r.prism(0, 0, 10, 0, 3, 8, st, Math.PI / 8);
+      r.prism(0, 0, 7.5, 3, 6, 8, st, Math.PI / 8);
+      r.prism(0, 0, 3.4, 6, 15, 8, m(ramp("#a8a4c0", { lo: "#3a2a5a" }), 2), Math.PI / 8);
+      r.cone(0, 0, 3.4, 15, 6, 18, 8, st, Math.PI / 8);
+      const ph = (f / n) * TAU;
+      const z = 26 + Math.sin(ph) * 1.5;
+      for (let k = 0; k < 8; k++) {
+        const a = (k / 8) * TAU + ph * 0.25;
+        r.sweep([[0, 0, z - 1], [Math.cos(a) * 5.5, Math.sin(a) * 5.5, z + 2]], [0.8, 2.2], m(PAL.rose, 3, { shader: (s, tone) => (s.u > 0.7 ? "#fff0f6" : tone(PAL.rose)) }));
+      }
+      r.sphere([0, 0, z + 0.5], 2.4, m(PAL.gold, 4));
+    },
+  },
+  gate: {
+    foot: [0, 0, 0, 0],
+    blocks: false,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      // spans the world x axis, so a road running along y passes through it
+      for (const s of [-1, 1]) {
+        r.prism(s * 17, 0, 2.4, 0, 46, 8, m(PILLAR, 1));
+        r.prism(s * 17, 0, 4, 0, 4, 8, m(PAL.stone, 1));
+      }
+      r.box([-21, -1.6, 36], [21, 1.6, 39], m(PILLAR, 2));
+      r.box([-25, -2.2, 44], [25, 2.2, 47], m(PAL.black, 3));
+      r.hipRoof(0, 0, 30, 5, 47, 26, 0.6, 52, m(ROOF_TEAL, 4, { shader: roofTiles(ROOF_TEAL) }));
+      r.box([-3, -2, 39], [3, 2, 44], m(PAL.gold, 5));
+    },
+  },
+  hall: {
+    foot: [-1, -1, 1, 1],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      const W = T * 1.35;
+      r.box([-W - 2, -W - 2, 0], [W + 2, W + 2, 4], md(PAL.stone, 1));
+      // walls between pillars
+      r.box([-W + 3, -W + 3, 4], [W - 3, W - 3, 30], md(WALL, 2, { shader: (s, tone) => (s.p[2] < 9 ? tone(PILLAR, 1) : Math.abs(s.n[0]) > 0.5 && Math.abs(s.p[1]) < 6 && s.p[2] < 24 ? tone(PAL.woodDark) : Math.abs(s.n[1]) > 0.5 && Math.abs(s.p[0]) < 6 && s.p[2] < 24 ? tone(PAL.woodDark) : (Math.abs(s.n[0]) > 0.5 || Math.abs(s.n[1]) > 0.5) && s.p[2] > 15 && s.p[2] < 22 && Math.abs(((s.p[0] + s.p[1] + 60) % 14) - 7) < 3 ? "#5a3a3a" : tone(WALL)) }));
+      for (const x of [-W + 2, -W / 3, W / 3, W - 2])
+        for (const y of [-W + 2, W - 2]) {
+          r.prism(x, y, 1.9, 4, 31, 8, m(PILLAR, 3));
+          r.prism(y, x, 1.9, 4, 31, 8, m(PILLAR, 3));
+        }
+      r.box([-W - 1, -W - 1, 30], [W + 1, W + 1, 33], m(PAL.jade, 4));
+      r.hipRoof(0, 0, W + 9, W + 9, 33, W * 0.45, W * 0.2, 46, md(ROOF_TEAL, 5, { shader: roofTiles(ROOF_TEAL) }));
+      r.box([-W * 0.55, -W * 0.55, 46], [W * 0.55, W * 0.55, 54], md(WALL, 6, { shader: (s, tone) => (s.p[2] > 51 ? tone(PAL.jade) : tone(PILLAR)) }));
+      r.hipRoof(0, 0, W * 0.75, W * 0.75, 54, W * 0.3, 2, 66, md(ROOF_TEAL, 7, { shader: roofTiles(ROOF_TEAL) }));
+      r.sweep([[-W * 0.3, 0, 66.5], [W * 0.3, 0, 66.5]], 1.3, m(PAL.gold, 8));
+      r.sphere([0, 0, 70], 2.2, m(PAL.gold, 8));
+      // upturned eave corners
+      for (const sx of [-1, 1])
+        for (const sy of [-1, 1]) {
+          r.sweep([[sx * (W + 7), sy * (W + 7), 34], [sx * (W + 11), sy * (W + 11), 38]], [1.2, 0.5], m(ROOF_TEAL, 9));
+          r.sweep([[sx * W * 0.7, sy * W * 0.7, 54.5], [sx * W * 0.86, sy * W * 0.86, 58]], [1, 0.4], m(ROOF_TEAL, 9));
+        }
+      r.box([W + 2, -6, 22], [W + 3.4, 6, 28], m(PAL.black, 10, { shader: (s, tone) => (Math.abs(s.p[1]) < 4 && Math.abs(s.p[2] - 25) < 1.6 ? tone(PAL.gold) : tone(PAL.black)) }));
+    },
+  },
+  house: {
+    foot: [0, 0, 1, 1],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    emit: "smoke",
+    paint: (r) => {
+      const cx = T / 2;
+      const cy = T / 2;
+      const W = T * 0.85;
+      r.box([cx - W - 1, cy - W - 1, 0], [cx + W + 1, cy + W + 1, 3], m(PAL.stone, 1));
+      r.box([cx - W, cy - W, 3], [cx + W, cy + W, 24], md(WALL, 2, { shader: (s, tone) => {
+        const fx = Math.abs(s.n[0]) > 0.5;
+        const along = fx ? s.p[1] - cy : s.p[0] - cx;
+        if (Math.abs(along) > W - 2.5 || s.p[2] > 21.5 || s.p[2] < 5) return tone(PAL.woodDark);
+        if (fx && Math.abs(along + 6) < 4 && s.p[2] < 17) return tone(PAL.wood);
+        if (!fx && Math.abs(along - 5) < 3.5 && Math.abs(s.p[2] - 14) < 3) return Math.abs(along - 5) < 0.6 || Math.abs(s.p[2] - 14) < 0.6 ? tone(PAL.woodDark) : "#ffd890";
+        return tone(WALL);
+      } }));
+      r.hipRoof(cx, cy, W + 7, W + 7, 24, W * 0.6, 1, 40, md(ROOF_GREY, 3, { shader: roofTiles(ROOF_GREY) }));
+      r.sweep([[cx - W * 0.6, cy, 40.5], [cx + W * 0.6, cy, 40.5]], 1.2, m(PAL.black, 4));
+      r.box([cx + 6, cy - 9, 30], [cx + 10, cy - 5, 44], m(PAL.stone, 5));
+    },
+  },
+  pavilion: {
+    foot: [0, 0, 1, 1],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      const cx = T / 2;
+      const cy = T / 2;
+      const W = T * 0.8;
+      r.prism(cx, cy, W + 2, 0, 3, 6, m(PAL.wood, 1));
+      for (let k = 0; k < 6; k++) {
+        const a = (k / 6) * TAU;
+        r.prism(cx + Math.cos(a) * W, cy + Math.sin(a) * W, 1.5, 3, 26, 6, m(PILLAR, 2));
+      }
+      r.prism(cx, cy, W + 0.6, 7, 8.4, 6, m(PILLAR, 3, { shader: (s, tone) => (s.n[2] > 0.5 ? null : tone(PILLAR)) }));
+      r.prism(cx, cy, 5, 3, 9, 8, m(PAL.stone, 4));
+      r.cone(cx, cy, W + 9, 25, 1, 40, 6, md(ROOF_RED, 5, { shader: roofTiles(ROOF_RED) }));
+      r.sphere([cx, cy, 41.5], 2, m(PAL.gold, 6));
+      for (let k = 0; k < 6; k++) {
+        const a = (k / 6) * TAU;
+        r.sweep([[cx + Math.cos(a) * (W + 7), cy + Math.sin(a) * (W + 7), 26], [cx + Math.cos(a) * (W + 11), cy + Math.sin(a) * (W + 11), 30]], [1.1, 0.4], m(ROOF_RED, 7));
+      }
+    },
+  },
+  stall: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 4,
+    fps: 4,
+    paint: (r, f, n) => {
+      const W = T * 0.45;
+      r.box([-W, -W, 0], [W, W, 10], m(PAL.wood, 1));
+      for (let k = 0; k < 5; k++) r.sphere([-W + 3 + k * 3.5, -2 + (k % 2) * 4, 11.5], 1.8, m([PAL.orange, PAL.green, PAL.red, PAL.gold, PAL.rose][k], 2));
+      for (const s of [-1, 1]) for (const t of [-1, 1]) r.sweep([[s * W, t * W, 0], [s * W, t * W, 24]], 0.8, m(PAL.woodDark, 3));
+      const flap = Math.sin((f / n) * TAU) * 1.2;
+      r.convex(beamPlanes(W + 3, W + 3, 24, 26), [-W - 4, -W - 4, 24], [W + 4, W + 4, 26], m(PAL.red, 4, { shader: (s, tone) => (Math.floor((s.p[0] - s.p[1] + 40) / 4) % 2 ? tone(PAL.white) : tone(PAL.red)) }));
+      r.sweep([[W + 3, -W - 3, 24], [W + 3 + flap, W + 3, 21 + flap]], 0.6, m(PAL.red, 5));
+    },
+  },
+  well: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      r.prism(0, 0, 7, 0, 7, 10, md(PAL.stone, 1, { shader: (s, tone) => (s.n[2] > 0.5 && Math.hypot(s.p[0], s.p[1]) < 5 ? "#1a2a4a" : tone(PAL.stone)) }));
+      for (const s of [-1, 1]) r.sweep([[s * 6, -s * 6, 7], [s * 6, -s * 6, 24]], 0.9, m(PAL.woodDark, 2));
+      r.hipRoof(0, 0, 10, 4, 24, 9, 0.5, 30, m(ROOF_GREY, 3));
+      r.sweep([[0, 0, 22], [0, 0, 14]], 0.2, m(PAL.black, 4));
+      r.prism(0, 0, 1.6, 11, 14, 6, m(PAL.wood, 4));
+    },
+  },
+  cauldron: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 6,
+    fps: 6,
+    light: { color: "#b0ff90", radius: 26, dy: 12 },
+    emit: "smoke",
+    paint: (r, f, n) => {
+      for (let k = 0; k < 3; k++) {
+        const a = (k / 3) * TAU + 0.5;
+        r.sweep([[Math.cos(a) * 6, Math.sin(a) * 6, 0], [Math.cos(a) * 4, Math.sin(a) * 4, 6]], 1, m(BRONZE, 1));
+      }
+      const bub = Math.sin((f / n) * TAU);
+      r.ellipsoid([0, 0, 10], [7.5, 7.5, 6], m(BRONZE, 2, { shader: (s, tone) => (s.p[2] > 14 && Math.hypot(s.p[0], s.p[1]) < 5.4 ? (fbm(s.p[0] + bub, s.p[1], 4) > 0.55 ? "#e0ffb0" : "#7ad860") : tone(BRONZE)) }));
+      for (const s of [-1, 1]) r.sweep([[s * 7, 0, 14], [s * 8.5, 0, 17]], 0.8, m(BRONZE, 3));
+    },
+  },
+  dummy: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      r.sweep([[0, 0, 0], [0, 0, 26]], 1.4, m(PAL.woodDark, 1));
+      r.sweep([[-7, 7, 18], [7, -7, 18]], 1.1, m(PAL.woodDark, 2));
+      r.ellipsoid([0, 0, 18], [3.4, 3.4, 6], m(PAL.straw, 3));
+      r.sphere([0, 0, 27], 3, m(PAL.straw, 4));
+    },
+  },
+  banner: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 6,
+    fps: 7,
+    paint: (r, f, n) => {
+      r.sweep([[0, 0, 0], [0, 0, 52]], 1, m(PAL.woodDark, 1));
+      r.sphere([0, 0, 53], 1.6, m(PAL.gold, 1));
+      for (let k = 0; k < 5; k++) {
+        const z = 48 - k * 5;
+        const pts: V3[] = [];
+        for (let s = 0; s <= 6; s++) {
+          const w = Math.sin((f / n) * TAU - s * 0.9 + k * 0.2) * (s / 6) * 2.2;
+          pts.push([s * 2 + w * 0.5, -s * 2 + w * 0.5, z - s * 0.4 + w * 0.3]);
+        }
+        r.sweep(pts, 2.6, m(k === 0 ? PAL.jade : PAL.azure, 2, { shader: (s, tone) => (k === 2 && s.u > 0.35 && s.u < 0.65 ? tone(PAL.white) : tone(k === 0 ? PAL.jade : PAL.azure)) }));
+      }
+    },
+  },
+  lion: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      const st = md(PAL.stone, 1);
+      r.box([-6, -6, 0], [6, 6, 5], m(PAL.stone, 1));
+      r.ellipsoid([0, -1, 10], [4.5, 5.5, 5], st);
+      r.sphere([2, 3, 17], 4.6, md(PAL.stone, 2, { shader: (s, tone) => (fbm(s.p[0], s.p[2], 9) > 0.55 ? tone(PAL.stone, 1) : tone(PAL.stone)) }));
+      r.sphere([5, 6, 15.5], 1.4, m(PAL.stone, 3));
+      r.sphere([-3, -5, 5.5], 2.6, m(PAL.stone, 4));
+    },
+  },
+  lotus: {
+    foot: [0, 0, 0, 0],
+    blocks: false,
+    frames: 4,
+    fps: 3,
+    paint: (r, f, n) => {
+      const bob = Math.sin((f / n) * TAU) * 0.5;
+      r.ellipsoid([3, 2, -1.5 + bob], [6, 6, 0.8], m(ramp("#4aa060", { lo: "#103a2a" }), 1));
+      r.ellipsoid([-5, -4, -1.6 - bob], [4, 4, 0.7], m(ramp("#4aa060", { lo: "#103a2a" }), 2));
+      for (let k = 0; k < 6; k++) {
+        const a = (k / 6) * TAU;
+        r.sweep([[3, 2, 0 + bob], [3 + Math.cos(a) * 2.6, 2 + Math.sin(a) * 2.6, 3 + bob]], [0.6, 1.5], m(PAL.rose, 3, { shader: (s, tone) => (s.u > 0.6 ? "#fff0f6" : tone(PAL.rose)) }));
+      }
+      r.sphere([3, 2, 1.6 + bob], 1, m(PAL.gold, 4));
+    },
+  },
+  reeds: {
+    foot: [0, 0, 0, 0],
+    blocks: false,
+    frames: 6,
+    fps: 5,
+    paint: (r, f, n) => {
+      for (let k = 0; k < 7; k++) {
+        const x = Math.cos(k * 2.3) * 6;
+        const y = Math.sin(k * 2.3) * 6;
+        const hgt = 14 + (k % 3) * 4;
+        const sw = Math.sin((f / n) * TAU + k * 0.8) * 2;
+        r.sweep([[x, y, -1], [x + sw * 0.7, y - sw * 0.7, hgt]], [0.7, 0.3], m(ramp("#8ab050", { lo: "#2a4a2a" }), 1 + k));
+        if (k % 2 === 0) r.ellipsoid([x + sw * 0.7, y - sw * 0.7, hgt], [0.9, 0.9, 2.2], m(PAL.brown, 1 + k));
+      }
+    },
+  },
+  tallgrass: {
+    foot: [0, 0, 0, 0],
+    blocks: false,
+    frames: 6,
+    fps: 5,
+    paint: (r, f, n) => {
+      for (let k = 0; k < 9; k++) {
+        const x = Math.cos(k * 2.7) * (3 + (k % 3) * 2);
+        const y = Math.sin(k * 2.7) * (3 + (k % 3) * 2);
+        const hgt = 5 + (k % 4) * 1.6;
+        const sw = Math.sin((f / n) * TAU + k * 0.5) * 1.3;
+        r.sweep([[x, y, 0], [x + sw * 0.7, y - sw * 0.7, hgt]], [0.8, 0.25], m(ramp("#7ac050", { lo: "#1a4a2a" }), 1));
+      }
+    },
+  },
+  bones: {
+    foot: [0, 0, 0, 0],
+    blocks: false,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      const b = m(ramp("#e8e0c8", { lo: "#5a4a5a" }), 1);
+      r.sweep([[-6, 2, 0.8], [5, -1, 0.8]], 0.8, b);
+      r.sweep([[-3, -5, 0.8], [2, 5, 0.8]], 0.7, b);
+      r.sphere([4, 3, 2.4], 2.6, m(ramp("#e8e0c8", { lo: "#5a4a5a" }), 2, { shader: (s, tone) => (s.n[1] > 0.4 && Math.abs(Math.abs(s.n[0]) - 0.35) < 0.18 && s.n[2] > 0 && s.n[2] < 0.5 ? "#1a0a10" : tone(ramp("#e8e0c8", { lo: "#5a4a5a" }))) }));
+    },
+  },
+  spikes: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 4,
+    fps: 4,
+    light: { color: "#ff3040", radius: 18, dy: 6 },
+    paint: (r, f, n) => {
+      const g = 0.5 + 0.5 * Math.sin((f / n) * TAU);
+      const obs = m(ramp("#2a1a30", { lo: "#050208" }), 1, { shader: (s, tone) => (Math.abs(s.n[0] * 3 + s.p[2] * 0.25 - Math.round(s.n[0] * 3 + s.p[2] * 0.25)) < 0.06 ? mix("#a01020", "#ff5040", g) : tone(ramp("#2a1a30", { lo: "#050208" }))) });
+      r.cone(0, 0, 5, 0, 0.3, 28, 5, obs);
+      r.cone(6, -3, 3.5, 0, 0.2, 17, 5, obs, 0.6);
+      r.cone(-5, 4, 3.6, 0, 0.2, 19, 5, obs, 1.1);
+    },
+  },
+  chest: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 2,
+    fps: 1,
+    paint: (r, f) => {
+      const wood = m(PAL.wood, 1, { shader: (s, tone) => (Math.abs(s.p[0]) > 5.2 || Math.abs(s.p[1]) > 3.4 ? tone(PAL.gold) : tone(PAL.wood)) });
+      r.box([-6, -4, 0], [6, 4, 6], wood);
+      if (f === 0) r.box([-6, -4, 6], [6, 4, 9], m(PAL.wood, 2, { shader: (s, tone) => (Math.abs(s.p[0]) < 1 ? tone(PAL.gold) : tone(PAL.wood)) }));
+      else {
+        r.box([-6, -6, 6], [6, -4, 14], m(PAL.wood, 2));
+        r.sphere([0, 0, 6.5], 2.6, m(PAL.gold, 3));
+      }
+    },
+  },
+  herb: {
+    foot: [0, 0, 0, 0],
+    blocks: false,
+    frames: 6,
+    fps: 6,
+    light: { color: "#c0ff90", radius: 16, dy: 6 },
+    emit: "sparkle",
+    paint: (r, f, n) => {
+      const g = Math.sin((f / n) * TAU);
+      for (let k = 0; k < 5; k++) {
+        const a = (k / 5) * TAU;
+        r.sweep([[0, 0, 0], [Math.cos(a) * 4, Math.sin(a) * 4, 3 + g * 0.3]], [0.5, 1.4], m(ramp("#6ad060", { lo: "#1a4a2a" }), 1));
+      }
+      r.sweep([[0, 0, 0], [0, 0, 8]], 0.4, m(ramp("#6ad060"), 2));
+      r.sphere([0, 0, 9 + g * 0.5], 1.9, m(tones("#ffffff", mix("#e8ffb0", "#ffffff", g * 0.5 + 0.5), "#a0e060", "#5a9a3a"), 3));
+    },
+  },
+  fence: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      const w = m(PAL.wood, 1);
+      for (const x of [-10, 0, 10]) r.box([x - 1, -1, 0], [x + 1, 1, 12], w);
+      r.box([-11.3, -0.6, 8], [11.3, 0.6, 10], m(PAL.wood, 2));
+      r.box([-11.3, -0.6, 3.5], [11.3, 0.6, 5.5], m(PAL.wood, 2));
+    },
+  },
+  fenceY: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      const w = m(PAL.wood, 1);
+      for (const y of [-10, 0, 10]) r.box([-1, y - 1, 0], [1, y + 1, 12], w);
+      r.box([-0.6, -11.3, 8], [0.6, 11.3, 10], m(PAL.wood, 2));
+      r.box([-0.6, -11.3, 3.5], [0.6, 11.3, 5.5], m(PAL.wood, 2));
+    },
+  },
+  dais: {
+    foot: [-1, -1, 1, 1],
+    blocks: false,
+    frames: 8,
+    fps: 4,
+    light: { color: "#c8d8ff", radius: 60, dy: 4 },
+    paint: (r, f, n) => {
+      const rot = (f / n) * TAU * 0.25;
+      r.prism(0, 0, T * 1.45, 0, 3, 16, md(ramp("#d8dcf0", { lo: "#4a4a7a" }), 1, { shader: (s, tone) => {
+        if (s.n[2] < 0.5) return tone(ramp("#b8bcd8", { lo: "#3a3a6a" }));
+        const x = s.p[0];
+        const y = s.p[1];
+        const rr = Math.hypot(x, y);
+        if (rr > T * 1.3) return tone(PAL.gold);
+        const a = Math.atan2(y, x) - rot;
+        const R = T * 1.05;
+        if (rr > R) return tone(ramp("#d8dcf0"));
+        // taiji
+        const ux = Math.cos(a) * rr;
+        const uy = Math.sin(a) * rr;
+        const top = Math.hypot(ux, uy - R / 2) < R / 2;
+        const bot = Math.hypot(ux, uy + R / 2) < R / 2;
+        let dark = ux < 0;
+        if (top) dark = true;
+        if (bot) dark = false;
+        if (Math.hypot(ux, uy - R / 2) < R / 7) dark = false;
+        if (Math.hypot(ux, uy + R / 2) < R / 7) dark = true;
+        return dark ? "#2a2a4a" : "#f4f4fa";
+      } }));
+    },
+  },
+  bloodaltar: {
+    foot: [-1, -1, 1, 1],
+    blocks: true,
+    frames: 6,
+    fps: 6,
+    light: { color: "#ff2040", radius: 56, dy: 30 },
+    emit: "embers",
+    paint: (r, f, n) => {
+      const obs = md(ramp("#3a2030", { lo: "#08030a" }), 1);
+      r.box([-T, -T, 0], [T, T, 6], obs);
+      r.box([-T * 0.6, -T * 0.6, 6], [T * 0.6, T * 0.6, 12], md(ramp("#5a2030", { lo: "#10040a" }), 2));
+      for (const s of [-1, 1]) for (const t of [-1, 1]) r.cone(s * T * 0.8, t * T * 0.8, 3.4, 6, 0.2, 30, 5, m(ramp("#2a1a30", { lo: "#050208" }), 3));
+      const g = 0.5 + 0.5 * Math.sin((f / n) * TAU);
+      const heart = tones("#ffffff", mix("#ff4060", "#ffb0c0", g), "#c01030", "#5a0018");
+      r.prism(0, 0, 4, 12, 22 + g * 2, 6, m(heart, 4), (f / n) * 1.0);
+      r.cone(0, 0, 4, 22 + g * 2, 0.2, 30 + g * 2, 6, m(heart, 4), (f / n) * 1.0);
+    },
+  },
+  boat: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 4,
+    fps: 2,
+    paint: (r, f, n) => {
+      const bob = Math.sin((f / n) * TAU) * 0.6;
+      r.ellipsoid([0, 0, 1 + bob], [5, 13, 3.4], m(PAL.wood, 1, { shader: (s, tone) => (s.n[2] > 0.7 ? tone(PAL.woodDark) : tone(PAL.wood)) }));
+      r.hipRoof(0, 2, 5, 6, 5 + bob, 4, 4, 9 + bob, m(PAL.straw, 2));
+    },
+  },
+  stele: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      r.box([-7, -4, 0], [7, 4, 4], m(PAL.stone, 1));
+      r.box([-5, -1.5, 4], [5, 1.5, 28], md(ramp("#6a6a80", { lo: "#1a1a2a" }), 2, { shader: (s, tone) => (s.n[1] > 0.5 && Math.abs(s.p[0]) < 3 && s.p[2] > 8 && s.p[2] < 25 && Math.floor(s.p[2] * 0.6) % 2 === 0 && hash2(Math.floor(s.p[0] * 0.7), Math.floor(s.p[2] * 0.6), 4) > 0.4 ? "#c8b060" : tone(ramp("#6a6a80"))) }));
+      r.hipRoof(0, 0, 6.5, 2.5, 28, 5, 0.5, 31, m(PAL.stone, 3));
+    },
+  },
+  sign: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      r.sweep([[0, 0, 0], [0, 0, 20]], 1, m(PAL.woodDark, 1));
+      r.box([-1, -7, 13], [1, 7, 20], m(PAL.wood, 2, { shader: (s, tone) => (Math.abs(s.n[0]) > 0.5 && Math.abs(s.p[1]) < 5 && Math.abs(s.p[2] - 16.5) < 0.6 ? tone(PAL.black) : tone(PAL.wood)) }));
+    },
+  },
+} satisfies Record<string, PropDef>;
+
+/** A flat horizontal slab rotated 45° to run along the screen (gate beams, awnings). */
+function beamPlanes(half: number, depth: number, z0: number, z1: number) {
+  const a = Math.SQRT1_2;
+  return [
+    { n: [a, -a, 0] as V3, d: half },
+    { n: [-a, a, 0] as V3, d: half },
+    { n: [a, a, 0] as V3, d: depth },
+    { n: [-a, -a, 0] as V3, d: depth },
+    { n: [0, 0, 1] as V3, d: z1 },
+    { n: [0, 0, -1] as V3, d: -z0 },
+  ];
+}
+
+export type PropId = keyof typeof PROPS;
+export const PROP_IDS = Object.keys(PROPS) as PropId[];
+export const propDef = (id: PropId): PropDef => PROPS[id];
+
+const CANVAS = 200;
+const ORIGIN_X = 100;
+const ORIGIN_Y = 150;
+const cache = new Map<PropId, PropSheet>();
+
+/** Paint every frame of a prop and crop them all to one shared bounding box. */
+export function getProp(id: PropId): PropSheet {
+  let sheet = cache.get(id);
+  if (sheet) return sheet;
+  const def: PropDef = PROPS[id];
+  const raw: PixelBuffer[] = [];
+  for (let f = 0; f < def.frames; f++) {
+    const r = new Raster(CANVAS, CANVAS, ORIGIN_X, ORIGIN_Y, WORLD_BASIS);
+    def.paint(r, f, def.frames);
+    raw.push(r.finish());
+  }
+  let x0 = CANVAS;
+  let y0 = CANVAS;
+  let x1 = 0;
+  let y1 = 0;
+  for (const b of raw)
+    for (let y = 0; y < CANVAS; y++)
+      for (let x = 0; x < CANVAS; x++)
+        if (b.data[(y * CANVAS + x) * 4 + 3] > 0) {
+          x0 = Math.min(x0, x);
+          y0 = Math.min(y0, y);
+          x1 = Math.max(x1, x);
+          y1 = Math.max(y1, y);
+        }
+  if (x1 < x0) {
+    x0 = y0 = 0;
+    x1 = y1 = 0;
+  }
+  const w = x1 - x0 + 1;
+  const h = y1 - y0 + 1;
+  const frames = raw.map((b) => {
+    const out = new PixelBuffer(w, h);
+    for (let y = 0; y < h; y++) out.data.set(b.data.subarray(((y + y0) * CANVAS + x0) * 4, ((y + y0) * CANVAS + x0 + w) * 4), y * w * 4);
+    return out;
+  });
+  sheet = { frames, fps: def.fps, ox: ORIGIN_X - x0, oy: ORIGIN_Y - y0 };
+  cache.set(id, sheet);
+  return sheet;
+}
+
+const miniCache = new Map<string, PropSheet>();
+
+/** A prop rendered at a smaller scale (world-map landmarks). */
+export function getPropScaled(id: PropId, k: number): PropSheet {
+  const key = `${id}/${k}`;
+  let sheet = miniCache.get(key);
+  if (sheet) return sheet;
+  const def: PropDef = PROPS[id];
+  const size = 100;
+  const frames: PixelBuffer[] = [];
+  for (let f = 0; f < def.frames; f++) {
+    const r = new Raster(size, size, size / 2, size * 0.75, WORLD_BASIS, k);
+    def.paint(r, f, def.frames);
+    frames.push(r.finish());
+  }
+  sheet = { frames, fps: def.fps, ox: size / 2, oy: size * 0.75 };
+  miniCache.set(key, sheet);
+  return sheet;
+}
+
+/** Soft radial glow sprite for fake lighting (cached per colour/radius). */
+const glowCache = new Map<string, PixelBuffer>();
+export function glowSprite(color: string, radius: number): PixelBuffer {
+  const key = `${color}/${radius}`;
+  let g = glowCache.get(key);
+  if (!g) {
+    const R = Math.ceil(radius);
+    g = new PixelBuffer(R * 2 + 1, R + 1);
+    for (let y = 0; y <= R; y++)
+      for (let x = 0; x <= R * 2; x++) {
+        const d = Math.hypot((x - R) / R, ((y - R / 2) * 2) / R);
+        if (d >= 1) continue;
+        const k = Math.pow(1 - d, 1.6) * 0.5;
+        const q = Math.round(k * 8) / 8;
+        if (q > 0) g.px(x, y, alpha(color, q));
+      }
+    glowCache.set(key, g);
+  }
+  return g;
+}
+
+export { L as LEVEL_UNITS, T as TILE_UNITS };
