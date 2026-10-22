@@ -1,16 +1,22 @@
 import { alpha } from "../pixel/color";
-import { drawText, textWidth } from "../pixel/font";
-import { sCircle, sLine, sRing, type Surface } from "../pixel/surface";
-import { drawBackground, drawForeground, getScene, GROUND_Y, SCREEN_H, SCREEN_W } from "../scenes";
-import { frameAt, getSprite, type SpriteSheet } from "../sprites";
+import type { Surface } from "../pixel/surface";
+import { sRing } from "../pixel/surface";
+import { isoX, isoY, screenDirToWorld } from "../iso/projection";
+import { charDef, type HumanId } from "../art/characters";
 import { ENEMIES, type EnemyId } from "../engine/enemies";
-import { atBottleneck, cultivationNeeded, levelIndex, realmLabel, REALMS, type Stats } from "../engine/realms";
-import { resolveTurn, reviveAtSect, SKILLS, startBattle, type BattleAction, type BattleEvent, type BattleState } from "../engine/battle";
-import { applyBreakthrough, buyPill, gainCultivation, heal, stats, consumePill, type GameState, type RegionId } from "../engine/state";
-import { elderDialogue, entryBlocker, GATE_MARGIN, REGIONS, sisterDialogue, type DialogueLine, type EnemySpawn } from "../engine/world";
-import { Effects } from "./particles";
+import { reviveAtSect, type BattleAction } from "../engine/battle";
+import { atBottleneck, cultivationNeeded, FINAL_REALM, levelIndex, realmLabel, REALMS, type Stats } from "../engine/realms";
+import { applyBreakthrough, buyPill, consumePill, gainCultivation, heal, stats, type GameState, type SkillId } from "../engine/state";
+import { getArea, type AreaId } from "../world/areas";
+import { AREA_IDS } from "../world/ids";
+import { NODES } from "../world/overworld";
+import type { Step } from "../story/script";
+import { altarScript, areaUnlocked, arrivalScript, endingScript, hasNews, introScript, lockReason, npcScript, preBattleScript, questLog, victoryScript, type Quest } from "../story/story";
+import { BattleScene } from "./battle";
+import { dirFrom, World, type Actor } from "./world";
+import { WorldMap } from "./worldmap";
 
-export type Mode = "explore" | "battle" | "dialog" | "shop" | "meditate" | "tribulation";
+export type Mode = "explore" | "scene" | "battle" | "worldmap" | "shop" | "meditate" | "tribulation";
 
 export interface UiSnapshot {
   mode: Mode;
@@ -20,116 +26,98 @@ export interface UiSnapshot {
   realmColour: string;
   cultivationNeeded: number;
   bottleneck: boolean;
-  regionName: string;
+  area: { id: AreaId; name: string; hanzi: string; subtitle: string };
   prompt: string | null;
   flying: boolean;
-  dialog: (DialogueLine & { index: number; total: number }) | null;
-  battle: { enemy: EnemyId; enemyName: string; enemyHp: number; enemyMax: number; heroHp: number; heroQi: number; busy: boolean; log: string[]; boss: boolean; turn: number } | null;
+  quest: Quest;
+  dialog: { speaker: string; portrait: HumanId | null; text: string; seq: number } | null;
+  narration: { text: string; index: number; total: number } | null;
+  battle: { enemy: EnemyId; enemyName: string; enemyHp: number; enemyMax: number; heroHp: number; heroQi: number; busy: boolean; log: string[]; boss: boolean; skills: SkillId[] } | null;
+  worldmap: { at: AreaId; travelling: boolean; heading: AreaId; nodes: { id: AreaId; name: string; hanzi: string; subtitle: string; locked: string | null }[] } | null;
   tribulation: string | null;
+  banner: { title: string; hanzi: string; subtitle: string; seq: number } | null;
   toasts: { id: number; text: string }[];
+  canSkip: boolean;
 }
 
-interface Actor {
-  sheet: SpriteSheet;
-  anim: string;
-  start: number;
-}
+const MOVE_KEYS: Record<string, [number, number]> = {
+  ArrowUp: [0, -1],
+  KeyW: [0, -1],
+  ArrowDown: [0, 1],
+  KeyS: [0, 1],
+  ArrowLeft: [-1, 0],
+  KeyA: [-1, 0],
+  ArrowRight: [1, 0],
+  KeyD: [1, 0],
+};
 
-interface WorldEnemy {
-  key: string;
-  spawn: EnemySpawn;
-  x: number;
-  dir: 1 | -1;
-  actor: Actor;
-}
+const CONFIRM = new Set(["KeyE", "Enter", "Space", "NumpadEnter"]);
 
-interface Projectile {
-  kind: "orb" | "sword" | "crescent" | "foxfire";
-  x0: number;
-  y0: number;
-  x1: number;
-  y1: number;
-  start: number;
-  dur: number;
-  color: string;
-  arc?: number;
+interface Runner {
+  steps: Step[];
+  i: number;
+  /** Seconds left on a timed step. */
+  wait: number;
+  /** Actor we're waiting on (walk / anim). */
+  waitActor?: Actor;
+  waitAnim?: boolean;
+  waitInput: boolean;
+  narrIndex: number;
 }
-
-interface Timer {
-  at: number;
-  fn: () => void;
-}
-
-const WALK_SPEED = 72;
-const FLY_SPEED = 150;
-const HERO_FOOT = 43;
-const HERO_CX = 24;
-const NON_HOLD_RETURN = new Set(["attack", "cast", "hurt", "jump"]);
 
 /**
- * The live game: owns the mutable runtime around the pure engine, steps the
- * simulation, and paints frames onto any Surface. React only renders HUD/menus
- * from UiSnapshots.
+ * The live game. Owns the save state and the active scene (an explorable
+ * area, the world map, or a battle), runs cutscene scripts, and paints frames
+ * to any Surface. React renders the HUD and menus from UiSnapshots.
  */
 export class Game {
   state: GameState;
   mode: Mode = "explore";
   clock = 0;
+  world: World;
+  worldMap: WorldMap | null = null;
+  battle: BattleScene | null = null;
+
   private keys = new Set<string>();
-  private timers: Timer[] = [];
-  private fx = new Effects();
+  private stick: [number, number] = [0, 0];
+  private tapTarget: [number, number] | null = null;
   private listeners = new Set<(s: UiSnapshot) => void>();
   private dirty = true;
   private toasts: { id: number; text: string; until: number }[] = [];
-  private toastSeq = 0;
-
-  // explore
-  private hero: Actor = { sheet: getSprite("heroine"), anim: "idle", start: 0 };
-  private heroY = 0;
-  private heroVy = 0;
-  private facing: 1 | -1 = 1;
-  private flying = false;
-  private swordX = 0;
-  private swordY = 0;
-  private camX = 0;
-  private enemies: WorldEnemy[] = [];
-  private herbs: number[] = [];
-  private invulnerableUntil = 0;
+  private seq = 0;
+  private runner: Runner | null = null;
+  private queue: Step[][] = [];
+  private dialog: UiSnapshot["dialog"] = null;
+  private narration: UiSnapshot["narration"] = null;
+  private banner: UiSnapshot["banner"] = null;
+  private bannerUntil = 0;
   private prompt: string | null = null;
-  private dustTimer = 0;
-  private meditateTick = 0;
-
-  // dialog / shop
-  private dialog: DialogueLine[] = [];
-  private dialogIndex = 0;
-  private afterDialog: (() => void) | null = null;
-
-  // battle
-  private battle: BattleState | null = null;
-  private battleEnemy: WorldEnemy | null = null;
-  private foe: Actor | null = null;
-  private busy = false;
-  private log: string[] = [];
-  private view = { heroHp: 0, heroQi: 0, enemyHp: 0 };
-  private heroDx = 0;
-  private heroDxTarget = 0;
-  private foeDx = 0;
-  private foeDxTarget = 0;
-  private foeAlpha = 1;
-  private projectiles: Projectile[] = [];
+  private defeated = new Set<string>();
+  private invulnerableUntil = 0;
+  private fade = 0;
+  private fadeTarget = 0;
   private shake = 0;
   private flash = 0;
   private flashColor = "#ffffff";
+  private cameraFocus: [number, number, number] | null = null;
+  private medTick = 0;
+  private trib: { start: number; bolts: number; struck: number; final: boolean; done: boolean } | null = null;
+  private tribText: string | null = null;
+  private boltFx: { at: number }[] = [];
+  private returnMode: Mode = "explore";
 
-  // tribulation
-  private tribStage: string | null = null;
-  private tribStart = 0;
-  private bolts: { at: number; x: number }[] = [];
-
-  constructor(state: GameState, private seed = Date.now()) {
+  constructor(state: GameState, opts: { intro?: boolean; seed?: number } = {}) {
     this.state = state;
-    this.enterRegion(state.region, state.x, false);
+    this.seed = opts.seed ?? Date.now();
+    this.world = this.makeWorld(state.area, [state.x, state.y], state.dir);
+    this.showBanner();
+    if (opts.intro) {
+      this.fade = 1;
+      this.play(introScript());
+    }
   }
+
+  private readonly seed: number;
 
   // ------------------------------------------------------------------ public API
   subscribe(fn: (s: UiSnapshot) => void): () => void {
@@ -150,60 +138,56 @@ export class Game {
 
   releaseAll(): void {
     this.keys.clear();
+    this.stick = [0, 0];
+  }
+
+  /** Analog input from the touch joystick (screen space, -1..1). */
+  setStick(x: number, y: number): void {
+    this.stick = [x, y];
+    if (x || y) this.tapTarget = null;
+  }
+
+  /** Tap/click on the canvas (in canvas pixels): walk there, or pick a world-map destination. */
+  tap(sx: number, sy: number): void {
+    if (this.mode === "worldmap" && this.worldMap) {
+      for (const id of AREA_IDS) {
+        const [x, y] = this.worldMap.nodeScreen(id);
+        if (Math.hypot(sx - x, sy - y) < 18) return this.mapSelect(id);
+      }
+      return;
+    }
+    if (this.mode === "scene") return this.advance();
+    if (this.mode !== "explore") return;
+    const w = this.world;
+    const z = w.hero.z;
+    const a = (sx - w.camX) / 16;
+    const b = (sy - w.camY + z * 8) / 8;
+    this.tapTarget = [(a + b) / 2, (b - a) / 2];
   }
 
   getShake(): [number, number] {
-    if (this.shake <= 0) return [0, 0];
-    const m = Math.ceil(this.shake * 4);
+    const s = Math.max(this.shake, this.battle?.shake ?? 0);
+    if (s <= 0) return [0, 0];
+    const m = Math.ceil(s * 4);
     return [Math.round((Math.random() - 0.5) * m), Math.round((Math.random() - 0.5) * m)];
   }
 
-  /** Replace state wholesale (load game). */
-  load(state: GameState): void {
-    this.state = state;
-    this.mode = "explore";
-    this.battle = null;
-    this.timers = [];
-    this.fx.clear();
-    this.enterRegion(state.region, state.x, false);
-    this.toast(`Welcome back, ${state.name}.`);
+  get flying(): boolean {
+    return !!this.world.hero.flying;
   }
 
-  battleAction(action: BattleAction): void {
-    if (this.mode !== "battle" || !this.battle || this.busy) return;
-    const res = resolveTurn(this.state, this.battle, action);
-    if (res.events.length === 1 && res.events[0].kind === "rejected") {
-      this.toast(res.events[0].reason);
-      return;
+  toggleFly(): void {
+    if (this.mode !== "explore") return;
+    if (!this.state.flags.metElder) return this.toast("You have not learned Sword Riding yet.");
+    const h = this.world.hero;
+    if (h.flying) {
+      const m = this.world.def.map;
+      if (!m.standable(Math.floor(h.x), Math.floor(h.y), false)) return this.toast("You can't land here.");
     }
-    this.state = res.game;
-    this.battle = res.battle;
-    this.busy = true;
-    this.playEvents(res.events);
-    this.markDirty();
-  }
-
-  advanceDialog(): void {
-    if (this.mode !== "dialog") return;
-    this.dialogIndex++;
-    if (this.dialogIndex >= this.dialog.length) {
-      this.mode = "explore";
-      const next = this.afterDialog;
-      this.afterDialog = null;
-      next?.();
-    }
-    this.markDirty();
-  }
-
-  buy(kind: "heal" | "qi"): void {
-    const next = buyPill(this.state, kind);
-    if (!next) return this.toast("Not enough spirit stones.");
-    this.state = next;
-    this.toast(kind === "heal" ? "Bought a Healing Pill." : "Bought a Qi Pill.");
-  }
-
-  closeShop(): void {
-    if (this.mode === "shop") this.mode = "explore";
+    h.flying = !h.flying;
+    this.world.setAnim(h, h.flying ? "fly" : "idle", this.clock);
+    const [x, y] = [isoX(h.x, h.y), isoY(h.x, h.y, h.z)];
+    this.world.fx.burst(x, y, 14, ["#9ff5de", "#ffffff"], 50);
     this.markDirty();
   }
 
@@ -212,807 +196,173 @@ export class Game {
     const next = consumePill(this.state, kind);
     if (!next) return this.toast("No pills of that kind.");
     this.state = next;
-    this.fx.burst(this.state.x, GROUND_Y - 20, 14, kind === "heal" ? ["#ff8aa8", "#ffffff"] : ["#9ff5de", "#ffffff"], 40);
-    this.toast(kind === "heal" ? "Healing Pill restores your vitality." : "Qi Pill replenishes your dantian.");
+    const h = this.world.hero;
+    this.world.fx.burst(isoX(h.x, h.y), isoY(h.x, h.y, h.z) - 14, 14, kind === "heal" ? ["#ff8aa8", "#ffffff"] : ["#9ff5de", "#ffffff"], 40);
+    this.toast(kind === "heal" ? "A Healing Pill restores your vitality." : "A Qi Gathering Pill refills your dantian.");
   }
 
-  toggleFly(): void {
-    if (this.mode !== "explore") return;
-    this.flying = !this.flying;
-    this.play(this.hero, this.flying ? "fly" : "idle");
-    this.fx.burst(this.state.x, GROUND_Y - 4, 12, ["#9ff5de", "#ffffff"], 50);
-    this.markDirty();
+  buy(kind: "heal" | "qi"): void {
+    const next = buyPill(this.state, kind);
+    if (!next) return this.toast("Not enough spirit stones.");
+    this.state = next;
+    this.toast(kind === "heal" ? "Bought a Healing Pill." : "Bought a Qi Gathering Pill.");
   }
 
-  startTribulation(): void {
-    if (!atBottleneck(this.state)) return this.toast("Your qi has not yet reached its peak.");
-    if (this.mode !== "meditate" && this.mode !== "explore") return;
-    this.mode = "tribulation";
-    this.tribStart = this.clock;
-    this.tribStage = "Heaven's lightning gathers above the peak...";
-    this.fx.clear();
-    this.bolts = [];
-    const strikes = [1.6, 3.0, 4.4];
-    strikes.forEach((t, i) =>
-      this.after(t, () => {
-        this.bolts.push({ at: this.clock, x: SCREEN_W / 2 });
-        this.shake = 0.8;
-        this.flash = 0.9;
-        this.flashColor = "#e8e0ff";
-        this.play(this.hero, "hurt");
-        this.after(0.35, () => this.play(this.hero, "meditate"));
-        this.fx.burst(SCREEN_W / 2, GROUND_Y - 20, 30, ["#ffffff", "#b8a4ff", "#9ff5de"], 90);
-        this.fx.float(`BOLT ${i + 1}/3`, SCREEN_W / 2, GROUND_Y - 58, "#e8dcff", 1);
-        this.tribStage = ["The first bolt tempers your meridians!", "The second bolt shatters your old limits!", "The third bolt — your dao heart does not waver!"][i];
-        this.markDirty();
-      }),
-    );
-    this.after(5.6, () => {
-      const before = REALMS[this.state.realm].name;
-      this.state = applyBreakthrough(this.state);
-      const after = REALMS[this.state.realm];
-      this.flash = 1;
-      this.flashColor = after.colour;
-      this.play(this.hero, "victory");
-      for (let r = 0; r < 3; r++) this.fx.burst(SCREEN_W / 2, GROUND_Y - 22, 40, [after.colour, "#ffffff", "#f2c55c"], 60 + r * 40);
-      this.tribStage = `Breakthrough! ${before} → ${after.name}`;
-      this.toast(`Breakthrough! You have reached ${after.name} (${after.hanzi}).`);
-      this.markDirty();
-    });
-    this.after(8.2, () => {
-      this.mode = "explore";
-      this.tribStage = null;
-      this.play(this.hero, "idle");
-      this.fx.clear();
-      this.markDirty();
-    });
-    this.play(this.hero, "meditate");
-    this.markDirty();
-  }
-
-  // ------------------------------------------------------------ debug / testing
-  debugBattle(enemy: EnemyId): void {
-    const spawn: EnemySpawn = { enemy, x: this.state.x + 30, range: 0 };
-    const we: WorldEnemy = { key: `debug-${enemy}`, spawn, x: spawn.x, dir: -1, actor: { sheet: getSprite(ENEMIES[enemy].sprite), anim: "idle", start: 0 } };
-    this.beginBattle(we);
-  }
-
-  debugTeleport(region: RegionId, x?: number): void {
+  closeShop(): void {
+    if (this.mode !== "shop") return;
     this.mode = "explore";
-    this.enterRegion(region, x ?? 120, true);
+    this.advanceRunner();
+    this.markDirty();
   }
 
+  battleAction(action: BattleAction): void {
+    if (this.mode !== "battle" || !this.battle) return;
+    const r = this.battle.act(this.state, action);
+    if ("rejected" in r) return this.toast(r.rejected);
+    this.state = r.state;
+    this.markDirty();
+  }
+
+  /** Advance dialogue / narration (E, Enter, Space, click). */
+  advance(): void {
+    const r = this.runner;
+    if (this.mode !== "scene" || !r || !r.waitInput) return;
+    const step = r.steps[r.i];
+    if (step && "narrate" in step && r.narrIndex < step.narrate.length - 1) {
+      r.narrIndex++;
+      this.narration = { text: step.narrate[r.narrIndex], index: r.narrIndex, total: step.narrate.length };
+      this.markDirty();
+      return;
+    }
+    r.waitInput = false;
+    this.dialog = null;
+    this.narration = null;
+    r.i++;
+    this.markDirty();
+  }
+
+  /** Fast-forward the current cutscene, applying its effects but skipping talk and waits. */
+  skipScene(): void {
+    let guard = 0;
+    while (this.mode === "scene" && this.runner && guard++ < 500) {
+      const r = this.runner;
+      const step = r.steps[r.i];
+      if (step && "battle" in step) break;
+      if (r.waitInput) {
+        r.waitInput = false;
+        this.dialog = null;
+        this.narration = null;
+        r.i++;
+      } else if (r.waitActor) {
+        if (r.waitActor.target) {
+          [r.waitActor.x, r.waitActor.y] = r.waitActor.target;
+          r.waitActor.target = null;
+          this.world.setAnim(r.waitActor, r.waitActor.idleAnim, this.clock);
+        }
+        r.waitActor = undefined;
+        r.i++;
+      } else if (r.wait > 0) {
+        r.wait = 0;
+        r.i++;
+      } else this.runSteps(0);
+    }
+    this.fade = this.fadeTarget;
+    this.markDirty();
+  }
+
+  // ------------------------------------------------------------------ world map
+  openMap(): void {
+    if (this.mode !== "explore") return;
+    if (!this.state.flags.metElder) return this.toast("Elder Mo is waiting for you. Speak with him before leaving the sect.");
+    this.worldMap = new WorldMap(this.state.area);
+    this.mode = "worldmap";
+    this.world.hero.flying = false;
+    this.markDirty();
+  }
+
+  closeMap(): void {
+    if (this.mode !== "worldmap" || this.worldMap?.travelling) return;
+    const at = this.worldMap!.at;
+    this.worldMap = null;
+    if (at === this.state.area) this.mode = "explore";
+    else this.enterArea(at);
+    this.markDirty();
+  }
+
+  /** Pick a destination on the world map (fly there, or enter if already there). */
+  mapSelect(id: AreaId): void {
+    const wm = this.worldMap;
+    if (this.mode !== "worldmap" || !wm) return;
+    const reason = lockReason(id, this.state);
+    if (reason) return this.toast(`${getArea(id).name}: ${reason}`);
+    if (wm.at === id && !wm.travelling) return this.enterArea(id);
+    if (!wm.travelTo(id, (n) => areaUnlocked(n, this.state))) this.toast("No open road leads there yet.");
+    this.markDirty();
+  }
+
+  enterArea(id: AreaId, pos?: [number, number]): void {
+    const def = getArea(id);
+    const [x, y] = pos ?? def.arrive;
+    if (id !== this.state.area) this.defeated.clear();
+    this.state = { ...this.state, area: id, x, y };
+    this.world = this.makeWorld(id, [x, y], 8);
+    this.worldMap = null;
+    this.mode = "explore";
+    this.invulnerableUntil = this.clock + 1.5;
+    this.fade = 1;
+    this.fadeTarget = 0;
+    this.showBanner();
+    const arrival = arrivalScript(id, this.state);
+    if (arrival) this.play(arrival);
+    this.markDirty();
+  }
+
+  // ------------------------------------------------------------------ debug hooks (tests)
   debugPatch(patch: Partial<GameState>): void {
     this.state = { ...this.state, ...patch };
     this.markDirty();
   }
 
-  debugSkipTime(seconds: number): void {
-    const step = 1 / 30;
-    for (let t = 0; t < seconds; t += step) this.update(step);
-  }
-
-  // ------------------------------------------------------------------ simulation
-  update(dt: number): void {
-    dt = Math.min(dt, 0.1);
-    this.clock += dt;
-    this.state.playTime += dt;
-    this.shake = Math.max(0, this.shake - dt * 2.5);
-    this.flash = Math.max(0, this.flash - dt * 3);
-    const due = this.timers.filter((t) => t.at <= this.clock);
-    if (due.length) {
-      this.timers = this.timers.filter((t) => t.at > this.clock);
-      due.sort((a, b) => a.at - b.at).forEach((t) => t.fn());
-    }
-    this.fx.update(dt);
-    if (this.toasts.length && this.toasts[0].until < this.clock) {
-      this.toasts = this.toasts.filter((t) => t.until >= this.clock);
-      this.markDirty();
-    }
-    switch (this.mode) {
-      case "explore":
-        this.updateExplore(dt);
-        break;
-      case "meditate":
-        this.updateMeditate(dt);
-        break;
-      case "battle":
-        this.updateBattle(dt);
-        break;
-      default:
-        break;
-    }
-    this.updateSword(dt);
-    if (this.dirty) {
-      this.dirty = false;
-      const snap = this.snapshot();
-      this.listeners.forEach((l) => l(snap));
-    }
-  }
-
-  private updateExplore(dt: number): void {
-    const region = REGIONS[this.state.region];
-    const left = this.keys.has("ArrowLeft") || this.keys.has("KeyA");
-    const right = this.keys.has("ArrowRight") || this.keys.has("KeyD");
-    const dir = (right ? 1 : 0) - (left ? 1 : 0);
-    const speed = this.flying ? FLY_SPEED : WALK_SPEED;
-    if (dir !== 0) {
-      this.facing = dir as 1 | -1;
-      this.state.x = Math.max(16, Math.min(region.width - 16, this.state.x + dir * speed * dt));
-    }
-    // jump physics
-    if (this.heroY < 0 || this.heroVy !== 0) {
-      this.heroVy += 520 * dt;
-      this.heroY += this.heroVy * dt;
-      if (this.heroY >= 0) {
-        this.heroY = 0;
-        this.heroVy = 0;
-        this.fx.burst(this.state.x, GROUND_Y, 6, ["#d8d0c0", "#ffffff"], 30, { vy: -10, gravity: 40 });
-      }
-    }
-    const airborne = this.heroY < 0;
-    const want = this.flying ? "fly" : airborne ? "jump" : dir !== 0 ? "walk" : "idle";
-    if (this.hero.anim !== want && !(this.hero.anim === "jump" && airborne)) this.play(this.hero, want);
-    // dust / qi trail
-    this.dustTimer -= dt;
-    if (dir !== 0 && this.dustTimer <= 0) {
-      this.dustTimer = this.flying ? 0.04 : 0.18;
-      if (this.flying) this.fx.emit({ x: this.state.x - this.facing * 14, y: GROUND_Y - 10 + Math.random() * 4, vx: -this.facing * 30, vy: -4, life: 0.5, color: Math.random() < 0.5 ? "#9ff5de" : "#ffffff" });
-      else if (!airborne) this.fx.emit({ x: this.state.x - this.facing * 6, y: GROUND_Y - 1, vx: -this.facing * 12, vy: -10, life: 0.4, color: "#d8d0c0", gravity: 30 });
-    }
-    this.camX = Math.max(0, Math.min(region.width - SCREEN_W, this.state.x - SCREEN_W / 2));
-
-    // patrolling enemies + collision
-    for (const e of this.enemies) {
-      if (e.spawn.range > 0) {
-        e.x += e.dir * 22 * dt;
-        if (e.x > e.spawn.x + e.spawn.range) e.dir = -1;
-        if (e.x < e.spawn.x - e.spawn.range) e.dir = 1;
-      }
-      if (Math.abs(e.x - this.state.x) < 20 && this.clock > this.invulnerableUntil && !this.flying) {
-        this.beginBattle(e);
-        return;
-      }
-    }
-    // herbs
-    for (const hx of [...this.herbs]) {
-      if (Math.abs(hx - this.state.x) < 12) {
-        this.herbs = this.herbs.filter((h) => h !== hx);
-        const s = stats(this.state);
-        this.state = heal(this.state, 0, s.maxQi * 0.3);
-        const r = gainCultivation(this.state, 6 + levelIndex(this.state.realm, this.state.stage) * 2);
-        this.state = r.state;
-        this.fx.burst(hx, GROUND_Y - 8, 16, ["#ffd23a", "#ffffff", "#9ff5de"], 45);
-        this.fx.float("+QI", hx, GROUND_Y - 20, "#ffd23a");
-        this.toast(r.stagesGained ? `Spirit herb absorbed — reached ${realmLabel(this.state.realm, this.state.stage)}!` : "Spirit herb absorbed. Qi surges through your meridians.");
-      }
-    }
-    this.updatePrompt();
-  }
-
-  private updatePrompt(): void {
-    const p = this.nearby();
-    const text = p ? p.label : null;
-    if (text !== this.prompt) {
-      this.prompt = text;
-      this.markDirty();
-    }
-  }
-
-  private nearby(): { label: string; act: () => void } | null {
-    const region = REGIONS[this.state.region];
-    const x = this.state.x;
-    for (const npc of region.npcs) {
-      if (Math.abs(npc.x - x) < 28) {
-        const name = npc.id === "elder" ? "Elder Mo" : "Senior Sister Qing";
-        return {
-          label: `E · Talk to ${name}`,
-          act: () => {
-            if (npc.id === "elder") {
-              this.openDialog(elderDialogue(this.state), () => {
-                this.state = { ...this.state, flags: { ...this.state.flags, metElder: true } };
-              });
-            } else this.openDialog(sisterDialogue(), () => {
-              this.mode = "shop";
-              this.markDirty();
-            });
-          },
-        };
-      }
-    }
-    if (region.shrineX !== undefined && Math.abs(region.shrineX - x) < 34) {
-      return { label: atBottleneck(this.state) ? "E · Meditate   B · Face Tribulation" : "E · Meditate at the Lotus Shrine", act: () => this.beginMeditation() };
-    }
-    if (region.prev && x < GATE_MARGIN + 10) {
-      const target = region.prev;
-      return { label: `E · Travel to ${REGIONS[target].name}`, act: () => this.travel(target, "back") };
-    }
-    if (region.next && x > region.width - GATE_MARGIN - 10) {
-      const target = region.next;
-      return { label: `E · Travel to ${REGIONS[target].name}`, act: () => this.travel(target, "forward") };
-    }
-    return null;
-  }
-
-  private travel(target: RegionId, direction: "forward" | "back"): void {
-    const block = entryBlocker(this.state, target);
-    if (block) return this.toast(block);
-    const r = REGIONS[target];
-    this.enterRegion(target, direction === "forward" ? GATE_MARGIN + 30 : r.width - GATE_MARGIN - 30, true);
-  }
-
-  private enterRegion(id: RegionId, x: number, announce: boolean): void {
-    const r = REGIONS[id];
-    this.state = { ...this.state, region: id, x };
-    this.enemies = r.enemies
-      .filter((e) => !(e.enemy === "patriarch" && this.state.bossDefeated))
-      .map((spawn, i) => ({ key: `${id}-${i}`, spawn, x: spawn.x, dir: (i % 2 ? 1 : -1) as 1 | -1, actor: { sheet: getSprite(ENEMIES[spawn.enemy].sprite), anim: "idle", start: i * 0.37 } }));
-    this.herbs = [...r.herbs];
-    this.camX = Math.max(0, Math.min(r.width - SCREEN_W, x - SCREEN_W / 2));
-    this.swordX = x;
-    this.swordY = GROUND_Y - 40;
-    this.invulnerableUntil = this.clock + 1.5;
-    this.fx.clear();
-    if (announce) this.toast(`${r.name} — ${getScene(r.scene).subtitle}`);
-    this.markDirty();
-  }
-
-  private beginMeditation(): void {
-    this.mode = "meditate";
-    this.flying = false;
-    // sit on the cushion beside the altar, facing it
-    const shrineX = REGIONS[this.state.region].shrineX;
-    if (shrineX !== undefined) {
-      this.state.x = shrineX + 30;
-      this.facing = -1;
-    }
-    this.play(this.hero, "meditate");
-    this.meditateTick = 0;
-    this.toast("You sit in lotus position and draw in the qi of heaven and earth.");
-    this.markDirty();
-  }
-
-  private updateMeditate(dt: number): void {
-    const region = REGIONS[this.state.region];
-    this.camX = Math.max(0, Math.min(region.width - SCREEN_W, this.state.x - SCREEN_W / 2));
-    // qi motes spiral into the heroine
-    if (Math.random() < dt * 30) {
-      const a = Math.random() * Math.PI * 2;
-      const r = 40 + Math.random() * 30;
-      this.fx.emit({ x: this.state.x + Math.cos(a) * r, y: GROUND_Y - 18 + Math.sin(a) * r * 0.6, tx: this.state.x, ty: GROUND_Y - 18, life: 1.2, color: Math.random() < 0.6 ? "#9ff5de" : "#ffffff" });
-    }
-    this.meditateTick += dt;
-    if (this.meditateTick >= 1) {
-      this.meditateTick -= 1;
-      const s = stats(this.state);
-      const L = levelIndex(this.state.realm, this.state.stage);
-      const wasBottleneck = atBottleneck(this.state);
-      const r = gainCultivation(heal(this.state, s.maxHp * 0.1, s.maxQi * 0.1), 3 + L * 2);
-      this.state = r.state;
-      if (!wasBottleneck) this.fx.float(`+${3 + L * 2}`, this.state.x, GROUND_Y - 44, "#9ff5de");
-      if (r.stagesGained) {
-        this.fx.burst(this.state.x, GROUND_Y - 18, 30, ["#9ff5de", "#ffffff", "#f2c55c"], 70);
-        this.toast(`Your cultivation deepens: ${realmLabel(this.state.realm, this.state.stage)}.`);
-      }
-      if (!wasBottleneck && atBottleneck(this.state)) this.toast("Your qi has reached its peak! Press B to face the Heavenly Tribulation.");
-      this.markDirty();
-    }
-  }
-
-  private updateSword(dt: number): void {
-    // the bonded jian trails the heroine like a loyal spirit
-    if (this.mode === "battle") return;
-    const tx = this.state.x - this.facing * 16;
-    const ty = GROUND_Y - 40 + Math.sin(this.clock * 2.4) * 3 + this.heroY;
-    this.swordX += (tx - this.swordX) * Math.min(1, dt * 5);
-    this.swordY += (ty - this.swordY) * Math.min(1, dt * 5);
-  }
-
-  private onPress(code: string): void {
-    if (this.mode === "dialog") {
-      if (["KeyE", "Enter", "Space"].includes(code)) this.advanceDialog();
-      return;
-    }
-    if (this.mode === "shop") {
-      if (code === "Escape" || code === "KeyE") this.closeShop();
-      return;
-    }
-    if (this.mode === "meditate") {
-      if (code === "KeyB") return this.startTribulation();
-      if (["KeyE", "Escape", "ArrowLeft", "ArrowRight", "KeyA", "KeyD", "Space"].includes(code)) {
-        this.mode = "explore";
-        this.play(this.hero, "idle");
-        this.fx.clear();
-        this.markDirty();
-      }
-      return;
-    }
-    if (this.mode === "battle") {
-      const map: Record<string, BattleAction> = {
-        Digit1: { type: "skill", skill: "strike" },
-        Digit2: { type: "skill", skill: "palm" },
-        Digit3: { type: "skill", skill: "swords" },
-        Digit4: { type: "skill", skill: "lotus" },
-        Digit5: { type: "item", item: "heal" },
-        Digit6: { type: "item", item: "qi" },
-        Digit0: { type: "flee" },
-      };
-      if (map[code]) this.battleAction(map[code]);
-      return;
-    }
-    if (this.mode !== "explore") return;
-    if ((code === "Space" || code === "ArrowUp" || code === "KeyW") && this.heroY === 0 && !this.flying) {
-      this.heroVy = -170;
-      this.heroY = -0.01;
-      this.play(this.hero, "jump");
-    } else if (code === "KeyE") this.nearby()?.act();
-    else if (code === "KeyF") this.toggleFly();
-    else if (code === "KeyB" && atBottleneck(this.state) && REGIONS[this.state.region].shrineX !== undefined && Math.abs(REGIONS[this.state.region].shrineX! - this.state.x) < 34) this.startTribulation();
-    else if (code === "KeyH") this.takePill("heal");
-    else if (code === "KeyQ") this.takePill("qi");
-  }
-
-  private openDialog(lines: DialogueLine[], then?: () => void): void {
-    this.mode = "dialog";
-    this.dialog = lines;
-    this.dialogIndex = 0;
-    this.afterDialog = then ?? null;
-    this.markDirty();
-  }
-
-  // ---------------------------------------------------------------------- battle
-  private beginBattle(e: WorldEnemy): void {
-    this.mode = "battle";
-    this.flying = false;
-    this.battleEnemy = e;
-    this.battle = startBattle(e.spawn.enemy, (this.seed + Math.floor(this.clock * 1000)) >>> 0);
-    this.foe = { sheet: getSprite(ENEMIES[e.spawn.enemy].sprite), anim: "idle", start: this.clock };
-    this.view = { heroHp: this.state.hp, heroQi: this.state.qi, enemyHp: this.battle.enemyHp };
-    this.heroDx = -80;
-    this.heroDxTarget = 0;
-    this.foeDx = 80;
-    this.foeDxTarget = 0;
-    this.foeAlpha = 1;
-    this.projectiles = [];
-    this.fx.clear();
-    this.flash = 0.8;
-    this.flashColor = "#ffffff";
-    const def = ENEMIES[e.spawn.enemy];
-    this.log = [def.boss ? `${def.name} descends in a storm of blood qi!` : `A wild ${def.name} blocks your path!`];
-    this.busy = true;
-    this.play(this.hero, "walk");
-    this.after(0.6, () => {
-      this.play(this.hero, "idle");
-      this.busy = false;
-      this.markDirty();
-    });
-    this.markDirty();
-  }
-
-  private updateBattle(dt: number): void {
-    const k = Math.min(1, dt * 10);
-    this.heroDx += (this.heroDxTarget - this.heroDx) * k;
-    this.foeDx += (this.foeDxTarget - this.foeDx) * k;
-    this.projectiles = this.projectiles.filter((p) => this.clock - p.start < p.dur);
-    // ambient battle motes
-    if (Math.random() < dt * 8) this.fx.emit({ x: Math.random() * SCREEN_W, y: GROUND_Y, vy: -15 - Math.random() * 15, life: 2, color: alpha("#ffffff", 0.6) });
-  }
-
-  private heroCenter(): [number, number] {
-    return [110 + this.heroDx, GROUND_Y - 20];
-  }
-
-  private foeCenter(): [number, number] {
-    const d = this.battle ? ENEMIES[this.battle.enemy] : null;
-    return [280 + this.foeDx, GROUND_Y - (d ? Math.min(30, d.footY / 2) : 18)];
-  }
-
-  private pushLog(line: string) {
-    this.log = [...this.log.slice(-3), line];
-    this.markDirty();
-  }
-
-  private playEvents(events: BattleEvent[]): void {
-    let t = 0;
-    const at = (delay: number, fn: () => void) => this.after(delay, fn);
-    for (const ev of events) {
-      const start = t;
-      switch (ev.kind) {
-        case "playerSkill": {
-          const sk = SKILLS[ev.skill];
-          at(start, () => this.pushLog(`Lin Yue uses ${sk.name} (${sk.hanzi})!`));
-          if (ev.skill === "strike") {
-            at(start, () => {
-              this.heroDxTarget = 120;
-              this.play(this.hero, "walk");
-            });
-            at(start + 0.25, () => this.play(this.hero, "attack"));
-            at(start + 0.45, () => this.hitFoe(ev.hits[0].damage, ev.hits[0].crit, ["#ffffff", "#9ff5de"]));
-            at(start + 0.8, () => {
-              this.heroDxTarget = 0;
-              this.play(this.hero, "idle");
-            });
-            t += 1.1;
-          } else if (ev.skill === "palm") {
-            at(start, () => this.play(this.hero, "cast"));
-            at(start + 0.35, () => {
-              const [hx, hy] = this.heroCenter();
-              const [fx, fy] = this.foeCenter();
-              this.projectiles.push({ kind: "orb", x0: hx + 16, y0: hy - 2, x1: fx, y1: fy, start: this.clock, dur: 0.35, color: "#9ff5de" });
-            });
-            at(start + 0.7, () => {
-              this.hitFoe(ev.hits[0].damage, ev.hits[0].crit, ["#9ff5de", "#ffffff", "#f6a6c9"]);
-              const [fx, fy] = this.foeCenter();
-              for (let i = 0; i < 10; i++) {
-                const a = (i / 10) * Math.PI * 2;
-                this.fx.emit({ x: fx, y: fy, vx: Math.cos(a) * 50, vy: Math.sin(a) * 30, life: 0.8, color: "#f6a6c9", size: 2 });
-              }
-            });
-            t += 1.2;
-          } else if (ev.skill === "swords") {
-            at(start, () => this.play(this.hero, "victory"));
-            ev.hits.forEach((h, i) => {
-              at(start + 0.3 + i * 0.28, () => {
-                const [fx, fy] = this.foeCenter();
-                this.projectiles.push({ kind: "sword", x0: 60 + i * 40, y0: 20, x1: fx - 4 + i * 4, y1: fy, start: this.clock, dur: 0.3, color: "#e3ecf7" });
-              });
-              at(start + 0.6 + i * 0.28, () => this.hitFoe(h.damage, h.crit, ["#e3ecf7", "#9ff5de", "#ffffff"]));
-            });
-            at(start + 1.5, () => this.play(this.hero, "idle"));
-            t += 1.8;
-          } else {
-            at(start, () => this.play(this.hero, "cast"));
-            at(start + 0.3, () => {
-              const [hx] = this.heroCenter();
-              for (let i = 0; i < 24; i++) this.fx.emit({ x: hx - 20 + Math.random() * 40, y: GROUND_Y, vy: -30 - Math.random() * 40, vx: (Math.random() - 0.5) * 10, life: 1.2, color: i % 3 ? "#f6a6c9" : "#9ff5de", size: 2 });
-              this.view.heroHp = Math.min(this.view.heroHp + ev.heal, stats(this.state).maxHp);
-              this.fx.float(`+${ev.heal}`, hx, GROUND_Y - 50, "#8aff9a", 2);
-              this.markDirty();
-            });
-            at(start + 1.0, () => this.play(this.hero, "idle"));
-            t += 1.2;
-          }
-          at(start + 0.2, () => {
-            this.view.heroQi = Math.max(0, this.view.heroQi - sk.qi);
-            this.markDirty();
-          });
-          break;
-        }
-        case "item": {
-          at(start, () => {
-            const [hx] = this.heroCenter();
-            this.fx.burst(hx, GROUND_Y - 20, 18, ev.item === "heal" ? ["#ff8aa8", "#ffffff"] : ["#9ff5de", "#ffffff"], 45);
-            this.fx.float(`+${ev.amount} ${ev.item === "heal" ? "HP" : "QI"}`, hx, GROUND_Y - 50, ev.item === "heal" ? "#8aff9a" : "#9ff5de", 1);
-            if (ev.item === "heal") this.view.heroHp += ev.amount;
-            else this.view.heroQi += ev.amount;
-            this.pushLog(ev.item === "heal" ? "Lin Yue swallows a Healing Pill." : "Lin Yue swallows a Qi Pill.");
-          });
-          t += 0.8;
-          break;
-        }
-        case "flee": {
-          if (ev.success) {
-            at(start, () => {
-              this.pushLog("Lin Yue mounts her sword and escapes!");
-              this.play(this.hero, "fly");
-              this.heroDxTarget = -200;
-            });
-            at(start + 0.9, () => this.endBattle("fled"));
-          } else {
-            at(start, () => {
-              this.pushLog("You failed to escape!");
-              const [hx] = this.heroCenter();
-              this.fx.float("FAILED", hx, GROUND_Y - 50, "#ffcf4a");
-            });
-          }
-          t += ev.success ? 1 : 0.6;
-          break;
-        }
-        case "enemyAttack": {
-          const def = ENEMIES[this.battle!.enemy];
-          at(start, () => {
-            this.pushLog(`${def.name} uses ${ev.move}!`);
-            if (this.foe) this.play(this.foe, "attack");
-            if (ev.special && (def.id === "fox" || def.id === "patriarch")) return;
-            this.foeDxTarget = -110;
-          });
-          if (ev.special && (def.id === "fox" || def.id === "patriarch")) {
-            at(start + 0.35, () => {
-              const [hx, hy] = this.heroCenter();
-              const [fx, fy] = this.foeCenter();
-              this.projectiles.push({ kind: def.id === "fox" ? "foxfire" : "crescent", x0: fx - 20, y0: fy - 6, x1: hx, y1: hy, start: this.clock, dur: 0.4, color: def.special.colour });
-            });
-          }
-          at(start + 0.75, () => {
-            this.view.heroHp = Math.max(0, this.view.heroHp - ev.damage);
-            const [hx, hy] = this.heroCenter();
-            this.play(this.hero, "hurt");
-            this.fx.float(`${ev.damage}${ev.crit ? "!" : ""}`, hx, hy - 24, ev.crit ? "#ffcf4a" : "#ff6a7a", ev.crit || ev.special ? 2 : 1);
-            this.fx.burst(hx, hy, ev.special ? 22 : 12, [def.special.colour, "#ffffff"], ev.special ? 80 : 50);
-            this.shake = ev.special ? 1 : 0.5;
-            if (ev.special) {
-              this.flash = 0.6;
-              this.flashColor = def.special.colour;
-            }
-            if (ev.drained) {
-              this.view.enemyHp = Math.min(this.battle!.enemyMaxHp, this.view.enemyHp + ev.drained);
-              const [fx, fy] = this.foeCenter();
-              this.fx.float(`+${ev.drained}`, fx, fy - 30, "#ff8aa8");
-            }
-            this.markDirty();
-          });
-          at(start + 1.0, () => {
-            this.foeDxTarget = 0;
-            if (this.hero.anim === "hurt") this.play(this.hero, "idle");
-          });
-          t += 1.3;
-          break;
-        }
-        case "victory": {
-          at(start, () => {
-            const [fx, fy] = this.foeCenter();
-            this.pushLog(`Victory! +${ev.exp} cultivation, +${ev.stones} spirit stones${ev.drop ? `, found a ${ev.drop === "heal" ? "Healing" : "Qi"} Pill` : ""}.`);
-            this.fx.burst(fx, fy, 50, ["#ffffff", "#f2c55c", "#9ff5de", ENEMIES[this.battle!.enemy].special.colour], 90);
-            this.play(this.hero, "victory");
-            this.fx.float(`+${ev.exp} EXP`, 110, GROUND_Y - 60, "#9ff5de", 1, 1.6);
-            this.fx.float(`+${ev.stones} STONES`, 110, GROUND_Y - 70, "#f2c55c", 1, 1.6);
-          });
-          const fadeSteps = 10;
-          for (let i = 1; i <= fadeSteps; i++) at(start + i * 0.06, () => (this.foeAlpha = 1 - i / fadeSteps));
-          if (ev.stagesGained) at(start + 0.8, () => this.toast(`Your cultivation rises to ${realmLabel(this.state.realm, this.state.stage)}!`));
-          if (this.state.bossDefeated && ENEMIES[this.battle!.enemy].boss)
-            at(start + 1.2, () => this.toast("The Jade Lotus Heart is reclaimed! Return to Elder Mo."));
-          at(start + 2.2, () => this.endBattle("won"));
-          t += 2.3;
-          break;
-        }
-        case "defeat": {
-          at(start, () => {
-            this.pushLog(`Lin Yue collapses... (lost ${ev.stonesLost} spirit stones)`);
-            this.play(this.hero, "defeat");
-          });
-          at(start + 2.2, () => this.endBattle("lost"));
-          t += 2.3;
-          break;
-        }
-        default:
-          break;
-      }
-    }
-    at(t + 0.05, () => {
-      if (this.mode === "battle") {
-        this.busy = false;
-        this.view = { heroHp: this.state.hp, heroQi: this.state.qi, enemyHp: this.battle?.enemyHp ?? 0 };
-        this.markDirty();
-      }
-    });
-  }
-
-  private hitFoe(damage: number, crit: boolean, colours: string[]): void {
-    if (!this.foe) return;
-    const [fx, fy] = this.foeCenter();
-    this.play(this.foe, "hurt");
-    this.view.enemyHp = Math.max(0, this.view.enemyHp - damage);
-    this.fx.float(`${damage}${crit ? "!" : ""}`, fx, fy - 26, crit ? "#ffcf4a" : "#ffffff", crit ? 2 : 1);
-    if (crit) this.fx.float("CRIT", fx + 14, fy - 40, "#ffcf4a");
-    this.fx.burst(fx, fy, crit ? 26 : 16, colours, crit ? 90 : 60);
-    this.shake = crit ? 0.9 : 0.4;
-    this.foeDxTarget = 6;
-    this.after(0.2, () => (this.foeDxTarget = 0));
-    this.markDirty();
-  }
-
-  private endBattle(result: "won" | "lost" | "fled"): void {
-    this.mode = "explore";
-    this.busy = false;
-    this.projectiles = [];
-    this.fx.clear();
-    if (result === "won" && this.battleEnemy) {
-      const key = this.battleEnemy.key;
-      this.enemies = this.enemies.filter((e) => e.key !== key);
-    }
-    if (result === "lost") {
-      this.state = reviveAtSect(this.state);
-      this.enterRegion("sect", this.state.x, false);
-      this.toast("You awaken at the Lotus Shrine of the Azure Cloud Sect.");
-    }
-    this.invulnerableUntil = this.clock + 2;
+  debugTeleport(area: AreaId, x: number, y: number): void {
+    this.runner = null;
+    this.queue = [];
+    this.dialog = null;
+    this.narration = null;
     this.battle = null;
-    this.foe = null;
-    this.battleEnemy = null;
-    this.play(this.hero, "idle");
+    this.state = { ...this.state, area, x, y };
+    this.world = this.makeWorld(area, [x, y], 8);
+    this.worldMap = null;
+    this.mode = "explore";
+    this.fade = 0;
+    this.fadeTarget = 0;
+    this.invulnerableUntil = this.clock + 1;
     this.markDirty();
   }
 
-  // ------------------------------------------------------------------ rendering
-  render(s: Surface): void {
-    if (this.mode === "battle") this.renderBattle(s);
-    else if (this.mode === "tribulation") this.renderTribulation(s);
-    else this.renderWorld(s);
-    if (this.flash > 0) s.rect(0, 0, SCREEN_W, SCREEN_H, alpha(this.flashColor, this.flash * 0.5));
+  debugBattle(enemy: EnemyId, key = `debug-${enemy}`): void {
+    this.runner = null;
+    this.startBattle(enemy, key);
   }
 
-  private renderWorld(s: Surface): void {
-    const region = REGIONS[this.state.region];
-    const scene = getScene(region.scene);
-    const t = this.clock;
-    const cam = Math.round(this.camX);
-    drawBackground(scene, s, t, cam);
-    // moon gates at the region edges
-    const gate = getSprite("moonGate").animations.idle;
-    if (region.prev) s.sprite(frameAt(gate, t), 4 - cam, GROUND_Y - 58);
-    if (region.next) s.sprite(frameAt(gate, t), region.width - 52 - cam, GROUND_Y - 58);
-    if (region.shrineX !== undefined) s.sprite(frameAt(getSprite("shrine").animations.idle, t), region.shrineX - 20 - cam, GROUND_Y - 51);
-    const herb = getSprite("herb").animations.idle;
-    for (const hx of this.herbs) s.sprite(frameAt(herb, t + hx), hx - 8 - cam, GROUND_Y - 17);
-    for (const npc of region.npcs) {
-      const sheet = getSprite(npc.sprite);
-      const talking = this.mode === "dialog" && this.dialog[this.dialogIndex]?.speaker.includes(npc.id === "elder" ? "Mo" : "Qing");
-      const anim = sheet.animations[talking ? "talk" : "idle"];
-      s.sprite(frameAt(anim, t + npc.x), npc.x - 24 - cam, GROUND_Y - 47, this.state.x < npc.x);
-      if (Math.abs(npc.x - this.state.x) < 60) {
-        const name = npc.id === "elder" ? "ELDER MO" : "SISTER QING";
-        drawText(s, name, npc.x - cam - textWidth(name) / 2, GROUND_Y - 58, "#fff6dc", { outline: "#1a1226" });
-      }
-    }
-    for (const e of this.enemies) {
-      const d = ENEMIES[e.spawn.enemy];
-      const sheet = e.actor.sheet;
-      const anim = sheet.animations[e.spawn.range > 0 && sheet.animations.run ? "run" : "idle"];
-      s.sprite(frameAt(anim, t + e.actor.start), e.x - sheet.width / 2 - cam, GROUND_Y - d.footY, e.dir > 0);
-      if (d.boss) {
-        const label = "PATRIARCH XUE";
-        drawText(s, label, e.x - cam - textWidth(label) / 2, GROUND_Y - d.footY - 10, "#ff6070", { outline: "#1a0610" });
-      }
-    }
-    // heroine & bonded sword
-    const swordFrame = frameAt(getSprite("spiritSword").animations.hover, t);
-    if (!this.flying && this.mode !== "meditate") s.sprite(swordFrame, this.swordX - 7 - cam, this.swordY);
-    if (this.mode === "meditate") {
-      const r = 22 + Math.sin(t * 2) * 2;
-      sRing(s, this.state.x - cam, GROUND_Y - 18, r, alpha("#9ff5de", 0.45));
-      sRing(s, this.state.x - cam, GROUND_Y - 18, r * 0.7, alpha("#ffffff", 0.25));
-      // sword orbits during meditation
-      const a = t * 1.5;
-      s.sprite(swordFrame, this.state.x - cam + Math.cos(a) * 26 - 7, GROUND_Y - 34 + Math.sin(a) * 8);
-    }
-    const heroFrame = this.actorFrame(this.hero);
-    const hover = this.flying ? -8 + Math.sin(t * 3) * 2 : 0;
-    s.sprite(heroFrame, this.state.x - HERO_CX - cam, GROUND_Y - HERO_FOOT + Math.round(this.heroY + hover), this.facing < 0);
-    this.fx.draw(s, cam);
-    drawForeground(scene, s, t, cam);
+  debugSkipTime(seconds: number, dt = 1 / 30): void {
+    for (let t = 0; t < seconds; t += dt) this.update(dt);
   }
 
-  private renderBattle(s: Surface): void {
-    const region = REGIONS[this.state.region];
-    const scene = getScene(region.scene);
-    const t = this.clock;
-    const cam = Math.round(this.camX);
-    drawBackground(scene, s, t, cam);
-    // dramatic letterbox + vignette
-    s.rect(0, 0, SCREEN_W, SCREEN_H, alpha("#0a0612", 0.35));
-    s.rect(0, 0, SCREEN_W, 14, "#0a0612");
-    s.rect(0, SCREEN_H - 14, SCREEN_W, 14, "#0a0612");
-    // battle circle under each fighter
-    const [hx] = this.heroCenter();
-    const [fx] = this.foeCenter();
-    for (const [x, c] of [
-      [hx, "#9ff5de"],
-      [fx, ENEMIES[this.battle!.enemy].special.colour],
-    ] as [number, string][]) {
-      for (let a = 0; a < 40; a++) {
-        const ang = (a / 40) * Math.PI * 2 + t;
-        s.px(x + Math.cos(ang) * 22, GROUND_Y + 1 + Math.sin(ang) * 4, alpha(c, 0.6));
-      }
-    }
-    if (this.foe && this.battle) {
-      const d = ENEMIES[this.battle.enemy];
-      const frame = this.actorFrame(this.foe);
-      s.sprite(frame, fx - this.foe.sheet.width / 2, GROUND_Y - d.footY, false, this.foeAlpha);
-      if (d.boss) {
-        for (let i = 0; i < 3; i++) s.px(fx - 20 + Math.random() * 40, GROUND_Y - 50 + Math.random() * 50, alpha("#ff2040", 0.8));
-      }
-    }
-    s.sprite(this.actorFrame(this.hero), hx - HERO_CX, GROUND_Y - HERO_FOOT);
-    this.drawProjectiles(s);
-    this.fx.draw(s, 0);
-    drawForeground(scene, s, t, cam);
+  // ------------------------------------------------------------------ internals
+  private makeWorld(area: AreaId, [x, y]: [number, number], dir: number): World {
+    const w = new World(area, { x, y, dir }, this.state.flags, this.state.taken, this.defeated);
+    w.updateCamera(480, 270, 0);
+    return w;
   }
 
-  private drawProjectiles(s: Surface): void {
-    for (const p of this.projectiles) {
-      const k = Math.min(1, (this.clock - p.start) / p.dur);
-      const x = p.x0 + (p.x1 - p.x0) * k;
-      const y = p.y0 + (p.y1 - p.y0) * k - Math.sin(k * Math.PI) * (p.kind === "foxfire" ? 14 : 0);
-      if (p.kind === "orb" || p.kind === "foxfire") {
-        sCircle(s, x, y, 6, alpha(p.color, 0.3));
-        sCircle(s, x, y, 4, alpha(p.color, 0.8));
-        sCircle(s, x, y, 2, "#ffffff");
-        for (let i = 1; i < 6; i++) s.px(x - (p.x1 - p.x0) * 0.04 * i, y + Math.sin(this.clock * 20 + i) * 2, alpha(p.color, 0.8 - i * 0.12));
-      } else if (p.kind === "sword") {
-        const dx = p.x1 - p.x0;
-        const dy = p.y1 - p.y0;
-        const len = Math.hypot(dx, dy);
-        const ux = dx / len;
-        const uy = dy / len;
-        sLine(s, x - ux * 22, y - uy * 22, x - ux * 6, y - uy * 6, alpha("#9ff5de", 0.4));
-        sLine(s, x - ux * 6, y - uy * 6, x + ux * 8, y + uy * 8, "#e3ecf7");
-        sLine(s, x - ux * 6 + 1, y - uy * 6, x + ux * 7 + 1, y + uy * 7, "#93a8c6");
-        sLine(s, x - ux * 6 - uy * 3, y - uy * 6 + ux * 3, x - ux * 6 + uy * 3, y - uy * 6 - ux * 3, "#f2c55c");
-        s.px(x + ux * 9, y + uy * 9, "#ffffff");
-      } else {
-        // blood moon crescent
-        for (let a = -1.2; a <= 1.2; a += 0.08) {
-          s.px(x - Math.cos(a) * 12, y + Math.sin(a) * 16, p.color);
-          s.px(x - Math.cos(a) * 10, y + Math.sin(a) * 14, alpha("#ffffff", 0.8));
-          s.px(x - Math.cos(a) * 14, y + Math.sin(a) * 17, alpha(p.color, 0.4));
-        }
-      }
-    }
-  }
-
-  private renderTribulation(s: Surface): void {
-    const scene = getScene("peak");
-    const t = this.clock;
-    drawBackground(scene, s, t, 0);
-    const cx = SCREEN_W / 2;
-    const elapsed = t - this.tribStart;
-    // gathering qi pillar
-    const charge = Math.min(1, elapsed / 5.6);
-    sRing(s, cx, GROUND_Y - 18, 26 + Math.sin(t * 4) * 2, alpha("#b8a4ff", 0.3 + charge * 0.4));
-    if (Math.random() < 0.6) this.fx.emit({ x: cx + (Math.random() - 0.5) * 120, y: GROUND_Y - Math.random() * 80, tx: cx, ty: GROUND_Y - 18, life: 1, color: Math.random() < 0.5 ? "#b8a4ff" : "#ffffff" });
-    s.sprite(frameAt(getSprite("spiritSword").animations.hover, t), cx + Math.cos(t * 2) * 30 - 7, GROUND_Y - 44 + Math.sin(t * 2) * 8);
-    s.sprite(this.actorFrame(this.hero), cx - HERO_CX, GROUND_Y - HERO_FOOT);
-    // lightning bolts
-    for (const b of this.bolts) {
-      const age = t - b.at;
-      if (age > 0.45) continue;
-      let x = b.x + Math.sin(b.at * 13) * 40;
-      let y = 20;
-      let i = 0;
-      while (y < GROUND_Y - 30) {
-        const nx = x + Math.sin(b.at * 7 + i * 3.1) * 10 + (b.x - x) * 0.25;
-        const ny = y + 12;
-        sLine(s, x, y, nx, ny, age < 0.15 ? "#ffffff" : alpha("#ffffff", 0.6));
-        sLine(s, x + 1, y, nx + 1, ny, alpha("#b8a4ff", 0.8));
-        sLine(s, x - 1, y, nx - 1, ny, alpha("#b8a4ff", 0.5));
-        x = nx;
-        y = ny;
-        i++;
-      }
-      sCircle(s, b.x, GROUND_Y - 22, 18 * (1 - age * 2), alpha("#ffffff", 0.5));
-    }
-    if (elapsed > 5.6) {
-      const k = Math.min(1, (elapsed - 5.6) / 1.5);
-      const c = REALMS[this.state.realm].colour;
-      for (let r = 0; r < 3; r++) sRing(s, cx, GROUND_Y - 22, 10 + k * 120 + r * 12, alpha(c, (1 - k) * 0.8));
-      s.rect(cx - 2, 0, 4, GROUND_Y - 20, alpha(c, (1 - k) * 0.6));
-    }
-    this.fx.draw(s, 0);
-    drawForeground(scene, s, t, 0);
-  }
-
-  private actorFrame(a: Actor) {
-    const anim = a.sheet.animations[a.anim] ?? a.sheet.animations.idle;
-    const elapsed = this.clock - a.start;
-    if (!anim.loop && NON_HOLD_RETURN.has(a.anim) && elapsed > anim.frames.length / anim.fps + 0.25 && a.anim !== "jump") {
-      return frameAt(a.sheet.animations.idle ?? anim, this.clock);
-    }
-    return frameAt(anim, elapsed);
-  }
-
-  private play(a: Actor, anim: string): void {
-    if (!a.sheet.animations[anim]) return;
-    a.anim = anim;
-    a.start = this.clock;
-  }
-
-  private after(delay: number, fn: () => void): void {
-    this.timers.push({ at: this.clock + delay, fn });
+  private showBanner(): void {
+    const d = getArea(this.state.area);
+    this.banner = { title: d.name, hanzi: d.hanzi, subtitle: d.subtitle, seq: ++this.seq };
+    this.bannerUntil = this.clock + 3.5;
   }
 
   private toast(text: string): void {
-    this.toasts = [...this.toasts.slice(-2), { id: ++this.toastSeq, text, until: this.clock + 4 }];
+    this.toasts = [...this.toasts.slice(-2), { id: ++this.seq, text, until: this.clock + 4.5 }];
     this.markDirty();
   }
 
@@ -1020,39 +370,754 @@ export class Game {
     this.dirty = true;
   }
 
+  /** Queue a script; it starts immediately if nothing else is running. */
+  play(steps: Step[]): void {
+    if (steps.length === 0) return;
+    if (this.runner) {
+      this.queue.push(steps);
+      return;
+    }
+    this.runner = { steps, i: 0, wait: 0, waitInput: false, narrIndex: 0 };
+    if (this.mode === "explore" || this.mode === "meditate") this.returnMode = "explore";
+    this.mode = "scene";
+    this.runSteps(0);
+    this.markDirty();
+  }
+
+  private actorByKey(key: string): Actor | undefined {
+    return this.world.actor(key);
+  }
+
+  private endRunner(): void {
+    this.runner = null;
+    this.dialog = null;
+    this.narration = null;
+    this.cameraFocus = null;
+    if (this.mode === "scene") this.mode = this.returnMode === "meditate" ? "meditate" : "explore";
+    const next = this.queue.shift();
+    if (next) this.play(next);
+    this.markDirty();
+  }
+
+  private advanceRunner(): void {
+    if (this.runner) {
+      this.runner.i++;
+      this.mode = "scene";
+      this.runSteps(0);
+    }
+  }
+
+  /** Execute steps until one needs to wait. */
+  private runSteps(dt: number): void {
+    const r = this.runner;
+    if (!r) return;
+    for (let guard = 0; guard < 200; guard++) {
+      if (r.waitInput) return;
+      if (r.wait > 0) {
+        r.wait -= dt;
+        if (r.wait > 0) return;
+        r.wait = 0;
+        r.i++;
+        dt = 0;
+        continue;
+      }
+      if (r.waitActor) {
+        const a = r.waitActor;
+        const busy = r.waitAnim ? a.holdUntil !== undefined : a.target !== null;
+        if (busy) return;
+        r.waitActor = undefined;
+        r.waitAnim = false;
+        r.i++;
+        continue;
+      }
+      const step = r.steps[r.i];
+      if (!step) return this.endRunner();
+      this.markDirty();
+      if ("say" in step) {
+        const portrait = step.say !== "narrator" && charDef(step.say).portrait ? step.say : null;
+        const speaker = step.name ?? (step.say === "narrator" ? "" : charDef(step.say).name);
+        this.dialog = { speaker, portrait, text: step.text, seq: ++this.seq };
+        r.waitInput = true;
+        const actor = step.say === "heroine" ? this.world.hero : this.world.actors.find((a) => a.char === step.say && a.kind === "npc");
+        if (actor && actor.kind === "npc" && actor.idleAnim !== "fish" && charDef(actor.char).anims.includes("talk") && !actor.holdUntil) {
+          this.world.setAnim(actor, "talk", this.clock);
+          const back = actor;
+          setTimeoutish(this, 2.2, () => back.anim === "talk" && this.world.setAnim(back, back.idleAnim, this.clock));
+        }
+        return;
+      }
+      if ("narrate" in step) {
+        r.narrIndex = 0;
+        this.narration = { text: step.narrate[0], index: 0, total: step.narrate.length };
+        r.waitInput = true;
+        this.fade = 1;
+        this.fadeTarget = 1;
+        return;
+      }
+      if ("emote" in step) {
+        const a = step.emote === "hero" ? this.world.hero : this.actorByKey(step.emote);
+        if (a) a.emote = { icon: step.icon, until: this.clock + 1.4 };
+        r.wait = step.wait ?? 0.6;
+        continue;
+      }
+      if ("face" in step) {
+        const a = step.face === "hero" ? this.world.hero : this.actorByKey(step.face);
+        const b = step.to === "hero" ? this.world.hero : this.actorByKey(step.to);
+        if (a && b) a.dir = dirFrom(b.x - a.x, b.y - a.y);
+        r.i++;
+        continue;
+      }
+      if ("walk" in step) {
+        const a = step.walk === "hero" ? this.world.hero : this.actorByKey(step.walk);
+        if (!a) {
+          r.i++;
+          continue;
+        }
+        a.target = [...step.to];
+        if (a.kind === "hero") a.speed = 3;
+        if (step.wait === false) {
+          r.i++;
+          continue;
+        }
+        r.waitActor = a;
+        r.waitAnim = false;
+        return;
+      }
+      if ("anim" in step) {
+        const a = step.anim === "hero" ? this.world.hero : this.actorByKey(step.anim);
+        if (a) {
+          const hold = step.name !== a.idleAnim && step.name !== "fish" && step.name !== "idle";
+          if (step.name === "fish" || step.name === "idle") a.idleAnim = step.name;
+          this.world.setAnim(a, step.name, this.clock, hold);
+          if (step.wait && hold) {
+            r.waitActor = a;
+            r.waitAnim = true;
+            return;
+          }
+        }
+        r.i++;
+        continue;
+      }
+      if ("wait" in step) {
+        r.wait = step.wait;
+        return;
+      }
+      if ("shake" in step) {
+        this.shake = step.shake;
+        r.i++;
+        continue;
+      }
+      if ("flash" in step) {
+        this.flash = 1;
+        this.flashColor = step.flash;
+        r.i++;
+        continue;
+      }
+      if ("fade" in step) {
+        this.fadeTarget = step.fade === "out" ? 1 : 0;
+        r.wait = 0.5;
+        continue;
+      }
+      if ("camera" in step) {
+        const c = step.camera;
+        if (c === null) this.cameraFocus = null;
+        else if (typeof c === "string") {
+          const a = c === "hero" ? this.world.hero : this.actorByKey(c);
+          if (a) this.cameraFocus = [a.x, a.y, a.z];
+        } else this.cameraFocus = [c[0], c[1], this.world.groundZ(c[0], c[1])];
+        r.i++;
+        continue;
+      }
+      if ("toast" in step) {
+        this.toast(step.toast);
+        r.i++;
+        continue;
+      }
+      if ("spawn" in step) {
+        if (!this.actorByKey(step.spawn)) {
+          const a: Actor = { ...this.world.hero, key: step.spawn, kind: "npc", char: step.char, x: step.at[0], y: step.at[1], z: this.world.groundZ(step.at[0], step.at[1]), dir: step.dir ?? 0, anim: "idle", idleAnim: "idle", target: null, speed: 2.4, wander: 0, home: [...step.at], flying: false, holdUntil: undefined, emote: undefined, marker: false };
+          this.world.actors.push(a);
+          this.world.fx.burst(isoX(a.x, a.y), isoY(a.x, a.y, a.z) - 12, 16, ["#ffffff", "#ffb070"], 40);
+        }
+        r.i++;
+        continue;
+      }
+      if ("despawn" in step) {
+        this.world.removeActor(step.despawn);
+        r.i++;
+        continue;
+      }
+      if ("mutate" in step) {
+        this.state = step.mutate(this.state);
+        r.i++;
+        continue;
+      }
+      if ("shop" in step) {
+        this.mode = "shop";
+        return;
+      }
+      if ("meditate" in step) {
+        r.i = r.steps.length;
+        this.endRunner();
+        this.beginMeditation();
+        return;
+      }
+      if ("travel" in step) {
+        r.i = r.steps.length;
+        this.endRunner();
+        this.openMap();
+        return;
+      }
+      if ("battle" in step) {
+        r.i++;
+        const rest = r.steps.slice(r.i);
+        this.runner = null;
+        this.dialog = null;
+        if (rest.length) this.queue.unshift(rest);
+        this.startBattle(step.battle, step.key);
+        return;
+      }
+    }
+  }
+
+  // ------------------------------------------------------------------ battle
+  private startBattle(enemy: EnemyId, key: string): void {
+    this.world.hero.flying = false;
+    this.battle = new BattleScene(this.state.area, enemy, key, this.state, (this.seed + Math.floor(this.clock * 1000)) >>> 0);
+    this.mode = "battle";
+    this.dialog = null;
+    this.markDirty();
+  }
+
+  private endBattle(): void {
+    const b = this.battle!;
+    this.battle = null;
+    this.mode = "explore";
+    this.invulnerableUntil = this.clock + 2.2;
+    this.world.hero.flying = false;
+    this.world.setAnim(this.world.hero, "idle", this.clock);
+    if (b.result === "won") {
+      this.defeated.add(b.enemyKey);
+      this.world.removeActor(b.enemyKey);
+      if (b.levelUp) this.toast(`Your cultivation rises: ${b.levelUp}!`);
+      if (atBottleneck(this.state)) this.toast("Your qi has reached its peak! Meditate at a shrine and press B to face the tribulation.");
+      this.play(victoryScript(b.enemy, b.enemyKey, this.state.area, this.state));
+    } else if (b.result === "lost") {
+      this.queue = [];
+      this.state = reviveAtSect(this.state);
+      this.defeated.clear();
+      this.world = this.makeWorld("sect", [this.state.x, this.state.y], 0);
+      this.fade = 1;
+      this.showBanner();
+      this.toast("You awaken beside the lotus shrine of the Azure Cloud Sect.");
+    } else {
+      const next = this.queue.shift();
+      if (next) this.play(next);
+    }
+    this.markDirty();
+  }
+
+  // ------------------------------------------------------------------ meditation & tribulation
+  private beginMeditation(): void {
+    const h = this.world.hero;
+    h.flying = false;
+    this.mode = "meditate";
+    this.world.setAnim(h, "meditate", this.clock);
+    h.idleAnim = "meditate";
+    this.medTick = 0;
+    this.toast(atBottleneck(this.state) ? "Your qi is full. Press B to call down the Heavenly Tribulation." : "You sit in lotus position and draw in the qi of heaven and earth…");
+    this.markDirty();
+  }
+
+  private stopMeditation(): void {
+    const h = this.world.hero;
+    h.idleAnim = "idle";
+    this.world.setAnim(h, "idle", this.clock);
+    this.mode = "explore";
+    this.markDirty();
+  }
+
+  private updateMeditate(dt: number): void {
+    const h = this.world.hero;
+    const [hx, hy] = [isoX(h.x, h.y), isoY(h.x, h.y, h.z) - 12];
+    if (Math.random() < dt * 30) {
+      const a = Math.random() * Math.PI * 2;
+      const r = 30 + Math.random() * 30;
+      this.world.fx.emit({ x: hx + Math.cos(a) * r, y: hy + Math.sin(a) * r * 0.5, tx: hx, ty: hy, life: 1.2, color: Math.random() < 0.6 ? "#9ff5de" : "#ffffff" });
+    }
+    this.medTick += dt;
+    if (this.medTick < 1) return;
+    this.medTick -= 1;
+    const s = stats(this.state);
+    const altar = this.state.area === "peak";
+    const need = cultivationNeeded(this.state.realm, this.state.stage);
+    const gain = Math.max(3, Math.round(need / (altar ? 7 : 20)));
+    const was = atBottleneck(this.state);
+    const r = gainCultivation(heal(this.state, s.maxHp * 0.08, s.maxQi * 0.08), gain);
+    this.state = r.state;
+    if (!was && this.state.realm < FINAL_REALM) this.world.fx.float(`+${gain}`, hx, hy - 20, "#9ff5de");
+    if (r.stagesGained) {
+      this.world.fx.burst(hx, hy, 30, ["#9ff5de", "#ffffff", "#f2c55c"], 70);
+      this.toast(`Your cultivation deepens: ${realmLabel(this.state.realm, this.state.stage)}.`);
+    }
+    if (!was && atBottleneck(this.state)) this.toast("Your qi has reached its peak! Press B to face the Heavenly Tribulation.");
+    this.markDirty();
+  }
+
+  startTribulation(): void {
+    if (this.mode !== "meditate" && this.mode !== "explore") return;
+    if (!atBottleneck(this.state)) return this.toast("Your qi has not yet reached its peak.");
+    if (this.mode === "explore") {
+      const near = this.world.nearestInteraction();
+      if (!near?.it || (near.it.kind !== "shrine" && near.it.kind !== "altar")) return this.toast("Face the tribulation while meditating at a shrine.");
+      this.beginMeditation();
+    }
+    const final = this.state.realm === FINAL_REALM - 1;
+    if (final && this.state.area !== "peak") return this.toast("The final tribulation can only be faced on Heavenly Tribulation Peak.");
+    this.mode = "tribulation";
+    this.trib = { start: this.clock, bolts: final ? 9 : 3, struck: 0, final, done: false };
+    this.tribText = final ? "The heavens split open. Nine bolts gather above the peak…" : "Heaven's lightning gathers above you…";
+    this.markDirty();
+  }
+
+  private updateTribulation(): void {
+    const tr = this.trib!;
+    const h = this.world.hero;
+    const el = this.clock - tr.start;
+    const gap = tr.final ? 1.1 : 1.4;
+    const due = Math.floor((el - 1.4) / gap) + 1;
+    const [hx, hy] = [isoX(h.x, h.y), isoY(h.x, h.y, h.z)];
+    if (Math.random() < 0.5) this.world.fx.emit({ x: hx + (Math.random() - 0.5) * 140, y: hy - Math.random() * 90, tx: hx, ty: hy - 12, life: 1, color: Math.random() < 0.5 ? "#b8a4ff" : "#ffffff" });
+    while (tr.struck < Math.min(tr.bolts, due)) {
+      tr.struck++;
+      this.boltFx.push({ at: this.clock });
+      this.shake = 0.9;
+      this.flash = 0.9;
+      this.flashColor = "#e8e0ff";
+      this.world.setAnim(h, "hurt", this.clock, true);
+      this.world.fx.burst(hx, hy - 14, 30, ["#ffffff", "#b8a4ff", "#9ff5de"], 90);
+      this.world.fx.float(`BOLT ${tr.struck}/${tr.bolts}`, hx, hy - 44, "#e8dcff");
+      const lines = ["The bolt tempers your meridians!", "Your old limits shatter!", "Your dao heart does not waver!"];
+      this.tribText = tr.final ? `Bolt ${tr.struck} of nine — ${lines[(tr.struck - 1) % 3]}` : lines[tr.struck - 1];
+      this.markDirty();
+    }
+    if (h.holdUntil === undefined && h.anim !== "meditate" && !tr.done) this.world.setAnim(h, "meditate", this.clock);
+    const end = 1.4 + tr.bolts * gap + 0.6;
+    if (!tr.done && el > end) {
+      tr.done = true;
+      const before = REALMS[this.state.realm].name;
+      this.state = applyBreakthrough(this.state);
+      const after = REALMS[this.state.realm];
+      this.flash = 1;
+      this.flashColor = after.colour;
+      this.world.setAnim(h, "victory", this.clock);
+      h.idleAnim = "idle";
+      for (let k = 0; k < 3; k++) this.world.fx.burst(hx, hy - 14, 40, [after.colour, "#ffffff", "#f2c55c"], 60 + k * 40);
+      this.tribText = `Breakthrough! ${before} → ${after.name}`;
+      this.toast(`Breakthrough! You have reached ${after.name} (${after.hanzi}).${this.state.realm === 2 ? " Learned: Nine Heavens Thunder (5)" : ""}`);
+      this.markDirty();
+    }
+    if (tr.done && el > end + 2.6) {
+      this.trib = null;
+      this.tribText = null;
+      this.mode = "explore";
+      this.world.setAnim(h, "idle", this.clock);
+      if (tr.final) this.play(endingScript());
+      this.markDirty();
+    }
+  }
+
+  // ------------------------------------------------------------------ explore
+  private moveInput(): [number, number] {
+    let sx = this.stick[0];
+    let sy = this.stick[1];
+    for (const k of this.keys) {
+      const v = MOVE_KEYS[k];
+      if (v) {
+        sx += v[0];
+        sy += v[1];
+      }
+    }
+    return [Math.max(-1, Math.min(1, sx)), Math.max(-1, Math.min(1, sy))];
+  }
+
+  private updateExplore(dt: number): void {
+    const w = this.world;
+    const h = w.hero;
+    const [sx, sy] = this.moveInput();
+    let dx = 0;
+    let dy = 0;
+    if (sx || sy) {
+      [dx, dy] = screenDirToWorld(sx, sy);
+      const mag = Math.min(1, Math.hypot(sx, sy));
+      dx *= mag;
+      dy *= mag;
+    } else if (this.tapTarget) {
+      const tx = this.tapTarget[0] - h.x;
+      const ty = this.tapTarget[1] - h.y;
+      const d = Math.hypot(tx, ty);
+      if (d < 0.12) this.tapTarget = null;
+      else {
+        dx = tx / d;
+        dy = ty / d;
+      }
+    }
+    const speed = h.flying ? 5.6 : 3.3;
+    if (dx || dy) {
+      h.dir = dirFrom(dx, dy);
+      const moved = w.move(h, dx * speed * dt, dy * speed * dt);
+      if (!moved) this.tapTarget = null;
+      w.setAnim(h, h.flying ? "fly" : "walk", this.clock);
+      if (!h.flying && Math.random() < dt * 6) w.fx.emit({ x: isoX(h.x, h.y) - dx * 4, y: isoY(h.x, h.y, h.z), vx: -dx * 8, vy: -8, life: 0.4, color: "#e8dcc8", gravity: 20 });
+      if (h.flying && Math.random() < dt * 25) w.fx.emit({ x: isoX(h.x, h.y), y: isoY(h.x, h.y, h.z) + 2, vx: -dx * 30 + (dy - dx) * 0, vy: -4, life: 0.5, color: Math.random() < 0.5 ? "#9ff5de" : "#ffffff" });
+    } else if (h.holdUntil === undefined) w.setAnim(h, h.flying ? "fly" : h.idleAnim, this.clock);
+    this.state.x = h.x;
+    this.state.y = h.y;
+    this.state.dir = h.dir;
+
+    const touched = w.update(dt, this.clock, h.flying === true || this.clock < this.invulnerableUntil);
+    if (touched && touched.enemy) {
+      this.tapTarget = null;
+      const pre = preBattleScript(touched.enemy, touched.key);
+      if (pre) {
+        this.invulnerableUntil = this.clock + 999;
+        this.play([...pre, { battle: touched.enemy, key: touched.key }]);
+      } else this.startBattle(touched.enemy, touched.key);
+      return;
+    }
+    this.updatePrompt();
+  }
+
+  private updatePrompt(): void {
+    const near = this.world.nearestInteraction();
+    let text: string | null = null;
+    if (near?.npc) text = `E · Talk to ${charDef(near.npc.char).name}`;
+    else if (near?.it) {
+      const it = near.it;
+      text = {
+        shrine: atBottleneck(this.state) ? "E · Meditate   B · Face the Tribulation" : "E · Meditate at the lotus shrine",
+        exit: "E · Open the world map",
+        chest: "E · Open the chest",
+        herb: "E · Gather the spirit herb",
+        sign: "E · Read",
+        altar: "E · Step onto the taiji dais",
+      }[it.kind];
+    }
+    if (text !== this.prompt) {
+      this.prompt = text;
+      this.markDirty();
+    }
+  }
+
+  private interact(): void {
+    const near = this.world.nearestInteraction();
+    if (!near) return;
+    const h = this.world.hero;
+    if (near.npc) {
+      const npc = near.npc;
+      h.dir = dirFrom(npc.x - h.x, npc.y - h.y);
+      if (npc.idleAnim !== "fish" && npc.idleAnim !== "practice") npc.dir = dirFrom(h.x - npc.x, h.y - npc.y);
+      npc.target = null;
+      this.play(npcScript(npc.key, this.state));
+      return;
+    }
+    const it = near.it!;
+    switch (it.kind) {
+      case "shrine":
+        h.flying = false;
+        h.dir = dirFrom(it.i + 0.5 - h.x, it.j + 0.5 - h.y);
+        this.beginMeditation();
+        break;
+      case "altar":
+        this.play(altarScript(this.state));
+        break;
+      case "exit":
+        this.openMap();
+        break;
+      case "sign":
+        this.play([{ say: "narrator", text: it.text ?? "" }]);
+        break;
+      case "herb": {
+        this.state = { ...this.state, taken: [...this.state.taken, it.key] };
+        this.world.taken.add(it.key);
+        const s = stats(this.state);
+        const r = gainCultivation(heal(this.state, s.maxHp * 0.2, s.maxQi * 0.4), Math.round(cultivationNeeded(this.state.realm, this.state.stage) * 0.35));
+        this.state = r.state;
+        const [x, y] = [isoX(it.i + 0.5, it.j + 0.5), isoY(it.i + 0.5, it.j + 0.5, this.world.groundZ(it.i + 0.5, it.j + 0.5))];
+        this.world.fx.burst(x, y - 8, 18, ["#ffd23a", "#ffffff", "#9ff5de"], 45);
+        this.world.fx.float("+QI", x, y - 16, "#ffd23a");
+        this.toast(r.stagesGained ? `Spirit herb absorbed — you reach ${realmLabel(this.state.realm, this.state.stage)}!` : "Spirit herb absorbed. Qi surges through your meridians.");
+        break;
+      }
+      case "chest": {
+        const L = levelIndex(this.state.realm, this.state.stage);
+        const stones = 25 + L * 10;
+        this.state = { ...this.state, taken: [...this.state.taken, it.key], stones: this.state.stones + stones, pills: { heal: Math.min(99, this.state.pills.heal + 1), qi: Math.min(99, this.state.pills.qi + 1) } };
+        this.world.taken.add(it.key);
+        const [x, y] = [isoX(it.i + 0.5, it.j + 0.5), isoY(it.i + 0.5, it.j + 0.5, this.world.groundZ(it.i + 0.5, it.j + 0.5))];
+        this.world.fx.burst(x, y - 8, 20, ["#f2c55c", "#ffffff"], 50);
+        this.toast(`Found ${stones} spirit stones, a Healing Pill and a Qi Gathering Pill!`);
+        break;
+      }
+    }
+    this.markDirty();
+  }
+
+  private onPress(code: string): void {
+    switch (this.mode) {
+      case "scene":
+        if (CONFIRM.has(code)) this.advance();
+        else if (code === "Escape") this.skipScene();
+        return;
+      case "shop":
+        if (code === "Escape" || code === "KeyE") this.closeShop();
+        else if (code === "Digit1") this.buy("heal");
+        else if (code === "Digit2") this.buy("qi");
+        return;
+      case "meditate":
+        if (code === "KeyB") return this.startTribulation();
+        if (code === "KeyH") return this.takePill("heal");
+        if (code === "KeyQ") return this.takePill("qi");
+        if (CONFIRM.has(code) || code === "Escape" || MOVE_KEYS[code]) this.stopMeditation();
+        return;
+      case "battle": {
+        const map: Record<string, BattleAction> = {
+          Digit1: { type: "skill", skill: "strike" },
+          Digit2: { type: "skill", skill: "palm" },
+          Digit3: { type: "skill", skill: "swords" },
+          Digit4: { type: "skill", skill: "lotus" },
+          Digit5: { type: "skill", skill: "thunder" },
+          Digit6: { type: "item", item: "heal" },
+          Digit7: { type: "item", item: "qi" },
+          Digit0: { type: "flee" },
+        };
+        if (map[code]) this.battleAction(map[code]);
+        return;
+      }
+      case "worldmap": {
+        const v = MOVE_KEYS[code];
+        const wm = this.worldMap!;
+        if (v) {
+          const n = wm.nudge(v[0], v[1] * 0.5, (id) => areaUnlocked(id, this.state));
+          if (!n) this.toast("No open road in that direction.");
+          this.markDirty();
+        } else if (CONFIRM.has(code) && !wm.travelling) this.enterArea(wm.at);
+        else if (code === "Escape" || code === "KeyM") this.closeMap();
+        return;
+      }
+      case "explore":
+        if (CONFIRM.has(code)) this.interact();
+        else if (code === "KeyF") this.toggleFly();
+        else if (code === "KeyB") this.startTribulation();
+        else if (code === "KeyH") this.takePill("heal");
+        else if (code === "KeyQ") this.takePill("qi");
+        else if (code === "KeyM") this.openMap();
+        return;
+      default:
+        return;
+    }
+  }
+
+  // ------------------------------------------------------------------ loop
+  update(dt: number): void {
+    dt = Math.min(dt, 0.1);
+    this.clock += dt;
+    this.state.playTime += dt;
+    this.shake = Math.max(0, this.shake - dt * 2.5);
+    this.flash = Math.max(0, this.flash - dt * 2.5);
+    this.fade += (this.fadeTarget - this.fade) * Math.min(1, dt * 4);
+    if (Math.abs(this.fade - this.fadeTarget) < 0.01) this.fade = this.fadeTarget;
+    this.tickTimers();
+    if (this.toasts.length && this.toasts[0].until < this.clock) {
+      this.toasts = this.toasts.filter((t) => t.until >= this.clock);
+      this.markDirty();
+    }
+    if (this.banner && this.clock > this.bannerUntil) {
+      this.banner = null;
+      this.markDirty();
+    }
+    switch (this.mode) {
+      case "explore":
+        this.updateExplore(dt);
+        break;
+      case "scene":
+        this.world.update(dt, this.clock, true);
+        this.runSteps(dt);
+        break;
+      case "meditate":
+        this.world.update(dt, this.clock, true);
+        this.updateMeditate(dt);
+        break;
+      case "tribulation":
+        this.world.update(dt, this.clock, true);
+        this.updateTribulation();
+        break;
+      case "shop":
+        this.world.update(dt, this.clock, true);
+        break;
+      case "worldmap": {
+        const arrived = this.worldMap!.update(dt);
+        if (arrived) {
+          this.toast(`${getArea(arrived).name} — press E / Enter to land`);
+          this.markDirty();
+        }
+        break;
+      }
+      case "battle": {
+        const b = this.battle!;
+        const before = [b.view.heroHp, b.view.heroQi, b.view.enemyHp, b.busy, b.log.length, b.log[b.log.length - 1]].join("|");
+        b.update(dt);
+        if ([b.view.heroHp, b.view.heroQi, b.view.enemyHp, b.busy, b.log.length, b.log[b.log.length - 1]].join("|") !== before) this.markDirty();
+        if (b.done) this.endBattle();
+        break;
+      }
+    }
+    for (const a of this.world.actors) if (a.kind === "npc") a.marker = this.mode === "explore" && hasNews(a.key, this.state);
+    if (this.dirty) {
+      this.dirty = false;
+      const snap = this.snapshot();
+      this.listeners.forEach((l) => l(snap));
+    }
+  }
+
+  private timers: { at: number; fn: () => void }[] = [];
+  /** @internal used by script helpers */
+  schedule(delay: number, fn: () => void): void {
+    this.timers.push({ at: this.clock + delay, fn });
+  }
+  private tickTimers(): void {
+    if (!this.timers.length) return;
+    const due = this.timers.filter((t) => t.at <= this.clock);
+    if (!due.length) return;
+    this.timers = this.timers.filter((t) => t.at > this.clock);
+    for (const t of due) t.fn();
+  }
+
+  render(s: Surface): void {
+    if (this.mode === "battle" && this.battle) {
+      this.battle.render(s);
+      if (this.battle.flash > 0) s.rect(0, 0, s.width, s.height, alpha(this.battle.flashColor, this.battle.flash * 0.45));
+      return;
+    }
+    if (this.mode === "worldmap" && this.worldMap) {
+      this.worldMap.render(s, this.clock, (id) => areaUnlocked(id, this.state), 1 / 60);
+      this.drawOverlays(s);
+      return;
+    }
+    const w = this.world;
+    w.updateCamera(s.width, s.height, 1 / 60, this.cameraFocus ?? undefined);
+    w.render(s, this.clock);
+    if (this.mode === "meditate" || this.mode === "tribulation") {
+      const h = w.hero;
+      const x = isoX(h.x, h.y) + w.camX;
+      const y = isoY(h.x, h.y, h.z) + w.camY;
+      const r = 18 + Math.sin(this.clock * 2) * 2;
+      sRing(s, x, y - 2, r, alpha("#9ff5de", 0.45));
+      sRing(s, x, y - 2, r * 0.6, alpha("#ffffff", 0.3));
+    }
+    if (this.mode === "tribulation" && this.trib) this.drawTribulation(s);
+    this.drawOverlays(s);
+  }
+
+  private drawTribulation(s: Surface): void {
+    const tr = this.trib!;
+    const w = this.world;
+    const h = w.hero;
+    const el = this.clock - tr.start;
+    const dark = Math.min(0.55, el * 0.3) * (tr.done ? Math.max(0, 1 - (el - (1.4 + tr.bolts * (tr.final ? 1.1 : 1.4) + 0.6)) * 0.8) : 1);
+    s.rect(0, 0, s.width, s.height, alpha("#0a0620", dark));
+    const x = Math.round(isoX(h.x, h.y) + w.camX);
+    const y = Math.round(isoY(h.x, h.y, h.z) + w.camY);
+    for (const b of this.boltFx) {
+      const age = this.clock - b.at;
+      if (age > 0.45) continue;
+      let bx = x + Math.sin(b.at * 13) * 40;
+      let by = 0;
+      let i = 0;
+      while (by < y - 14) {
+        const nx = bx + Math.sin(b.at * 7 + i * 3.1) * 10 + (x - bx) * 0.25;
+        const ny = Math.min(y - 14, by + 12);
+        for (const [ox, c] of [
+          [0, age < 0.15 ? "#ffffff" : alpha("#ffffff", 0.6)],
+          [1, alpha("#b8a4ff", 0.8)],
+          [-1, alpha("#b8a4ff", 0.5)],
+        ] as [number, string][]) {
+          const steps = Math.max(1, Math.ceil(Math.hypot(nx - bx, ny - by)));
+          for (let k = 0; k <= steps; k++) s.px(bx + ((nx - bx) * k) / steps + ox, by + ((ny - by) * k) / steps, c);
+        }
+        bx = nx;
+        by = ny;
+        i++;
+      }
+      sRing(s, x, y - 12, 18 * (1 - age * 2), alpha("#ffffff", 0.5));
+    }
+    this.boltFx = this.boltFx.filter((b) => this.clock - b.at < 0.5);
+    if (tr.done) {
+      const k = Math.min(1, (el - (1.4 + tr.bolts * (tr.final ? 1.1 : 1.4) + 0.6)) / 1.5);
+      const c = REALMS[this.state.realm].colour;
+      for (let r = 0; r < 3; r++) sRing(s, x, y - 12, 10 + k * 120 + r * 12, alpha(c, Math.max(0, 1 - k) * 0.8));
+      s.rect(x - 2, 0, 4, y - 10, alpha(c, Math.max(0, 1 - k) * 0.6));
+    }
+  }
+
+  private drawOverlays(s: Surface): void {
+    if (this.flash > 0) s.rect(0, 0, s.width, s.height, alpha(this.flashColor, this.flash * 0.45));
+    if (this.fade > 0.005) s.rect(0, 0, s.width, s.height, alpha("#0a0612", this.fade));
+  }
+
   snapshot(): UiSnapshot {
     const s = stats(this.state);
-    const region = REGIONS[this.state.region];
-    const d = this.battle ? ENEMIES[this.battle.enemy] : null;
+    const area = getArea(this.state.area);
+    const b = this.battle;
+    const wm = this.worldMap;
     return {
       mode: this.mode,
-      state: { ...this.state, pills: { ...this.state.pills }, flags: { ...this.state.flags } },
+      state: { ...this.state, pills: { ...this.state.pills }, flags: { ...this.state.flags }, skills: [...this.state.skills] },
       stats: s,
       realm: realmLabel(this.state.realm, this.state.stage),
       realmColour: REALMS[this.state.realm].colour,
       cultivationNeeded: cultivationNeeded(this.state.realm, this.state.stage),
       bottleneck: atBottleneck(this.state),
-      regionName: this.mode === "tribulation" ? "Heavenly Tribulation Peak" : region.name,
+      area: { id: area.id, name: area.name, hanzi: area.hanzi, subtitle: area.subtitle },
       prompt: this.mode === "explore" ? this.prompt : null,
       flying: this.flying,
-      dialog: this.mode === "dialog" && this.dialog[this.dialogIndex] ? { ...this.dialog[this.dialogIndex], index: this.dialogIndex, total: this.dialog.length } : null,
-      battle:
-        this.battle && d
-          ? {
-              enemy: d.id,
-              enemyName: d.name,
-              enemyHp: Math.round(this.view.enemyHp),
-              enemyMax: this.battle.enemyMaxHp,
-              heroHp: Math.round(this.view.heroHp),
-              heroQi: Math.round(this.view.heroQi),
-              busy: this.busy,
-              log: this.log,
-              boss: !!d.boss,
-              turn: this.battle.turn,
-            }
-          : null,
-      tribulation: this.tribStage,
+      quest: questLog(this.state),
+      dialog: this.mode === "scene" ? this.dialog : null,
+      narration: this.mode === "scene" ? this.narration : null,
+      battle: b
+        ? {
+            enemy: b.enemy,
+            enemyName: ENEMIES[b.enemy].name,
+            enemyHp: Math.round(b.view.enemyHp),
+            enemyMax: b.battle.enemyMaxHp,
+            heroHp: Math.round(b.view.heroHp),
+            heroQi: Math.round(b.view.heroQi),
+            busy: b.busy,
+            log: b.log,
+            boss: !!ENEMIES[b.enemy].boss,
+            skills: [...this.state.skills],
+          }
+        : null,
+      worldmap: wm
+        ? {
+            at: wm.at,
+            travelling: wm.travelling,
+            heading: wm.heading,
+            nodes: (Object.keys(NODES) as AreaId[]).map((id) => {
+              const d = getArea(id);
+              return { id, name: d.name, hanzi: d.hanzi, subtitle: d.subtitle, locked: lockReason(id, this.state) };
+            }),
+          }
+        : null,
+      tribulation: this.mode === "tribulation" ? this.tribText : null,
+      banner: this.mode === "explore" || this.mode === "scene" ? this.banner : null,
       toasts: this.toasts.map(({ id, text }) => ({ id, text })),
+      canSkip: this.mode === "scene",
     };
   }
+}
+
+/** Run a callback after `delay` seconds of game time. */
+function setTimeoutish(game: Game, delay: number, fn: () => void): void {
+  game.schedule(delay, fn);
 }

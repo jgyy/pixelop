@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { addCultivation, atBottleneck, breakthrough, cultivationNeeded, levelIndex, realmLabel, REALMS, statsFor } from "@/game/engine/realms";
 import { mitigate, resolveTurn, reviveAtSect, SKILLS, startBattle } from "@/game/engine/battle";
-import { applyBreakthrough, buyPill, consumePill, GameStateSchema, gainCultivation, newGame, PILL_PRICE, REGION_IDS, stats } from "@/game/engine/state";
+import { applyBreakthrough, buyPill, consumePill, GameStateSchema, gainCultivation, newGame, PILL_PRICE, SKILL_IDS, stats } from "@/game/engine/state";
 import { ENEMIES } from "@/game/engine/enemies";
-import { elderDialogue, entryBlocker, REGIONS } from "@/game/engine/world";
 
 describe("realms", () => {
   it("requires more cultivation at each level", () => {
@@ -58,6 +57,12 @@ describe("game state", () => {
     expect(up.hp).toBe(stats(up).maxHp);
   });
 
+  it("learns Nine Heavens Thunder on reaching Core Formation", () => {
+    const peak = { ...newGame(), realm: 1, stage: 3, cultivation: cultivationNeeded(1, 3) };
+    expect(applyBreakthrough(peak).skills).toContain("thunder");
+    expect(newGame().skills).not.toContain("thunder");
+  });
+
   it("buys and consumes pills", () => {
     const g = { ...newGame(), stones: PILL_PRICE, hp: 10 };
     const bought = buyPill(g, "heal")!;
@@ -71,7 +76,7 @@ describe("game state", () => {
 });
 
 describe("battle", () => {
-  const strong = () => ({ ...newGame(), realm: 3, stage: 0, hp: statsFor(3, 0).maxHp, qi: statsFor(3, 0).maxQi });
+  const strong = () => ({ ...newGame(), realm: 3, stage: 0, hp: statsFor(3, 0).maxHp, qi: statsFor(3, 0).maxQi, skills: [...SKILL_IDS] });
 
   it("mitigates damage with diminishing returns", () => {
     expect(mitigate(100, 0)).toBe(100);
@@ -86,8 +91,13 @@ describe("battle", () => {
     expect(a).toEqual(b);
   });
 
+  it("rejects techniques that have not been learned", () => {
+    const r = resolveTurn(newGame(), startBattle("fox", 1), { type: "skill", skill: "swords" });
+    expect(r.events[0]).toMatchObject({ kind: "rejected", reason: expect.stringMatching(/not learned/) });
+  });
+
   it("rejects skills without enough qi", () => {
-    const g = { ...newGame(), qi: 0 };
+    const g = { ...newGame(), qi: 0, skills: [...SKILL_IDS] };
     const r = resolveTurn(g, startBattle("fox", 1), { type: "skill", skill: "swords" });
     expect(r.events[0].kind).toBe("rejected");
     expect(r.game).toBe(g);
@@ -135,39 +145,12 @@ describe("battle", () => {
     expect(r.events[0]).toEqual({ kind: "flee", success: false });
     expect(r.battle.phase).toBe("lost");
     const revived = reviveAtSect(r.game);
-    expect(revived.region).toBe("sect");
+    expect(revived.area).toBe("sect");
     expect(revived.hp).toBeGreaterThan(0);
   });
 
   it("refuses to act once the battle is over", () => {
     const b = { ...startBattle("fox", 1), phase: "won" as const };
     expect(resolveTurn(newGame(), b, { type: "flee" }).events[0].kind).toBe("rejected");
-  });
-});
-
-describe("world", () => {
-  it("links regions both ways and keeps spawns inside", () => {
-    for (const id of REGION_IDS) {
-      const r = REGIONS[id];
-      if (r.next) expect(REGIONS[r.next].prev).toBe(id);
-      for (const e of r.enemies) {
-        expect(e.x - e.range).toBeGreaterThan(80);
-        expect(e.x + e.range).toBeLessThan(r.width - 80);
-      }
-    }
-  });
-
-  it("gates regions behind cultivation", () => {
-    const g = newGame();
-    expect(entryBlocker(g, "bamboo")).toBeNull();
-    expect(entryBlocker(g, "demon")).toMatch(/Foundation Establishment/);
-    expect(entryBlocker({ ...g, realm: 1 }, "demon")).toBeNull();
-  });
-
-  it("changes the elder's words as the story progresses", () => {
-    const g = newGame();
-    expect(elderDialogue(g).length).toBeGreaterThan(1);
-    expect(elderDialogue({ ...g, flags: { metElder: true } })).toHaveLength(1);
-    expect(elderDialogue({ ...g, bossDefeated: true })[0].text).toMatch(/Jade Lotus Heart/);
   });
 });

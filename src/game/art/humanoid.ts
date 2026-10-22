@@ -1,0 +1,517 @@
+import { PixelBuffer } from "../pixel/PixelBuffer";
+import { alpha } from "../pixel/color";
+import { add, facingBasis, norm, Raster, scale3, spline, sub, type Mat, type Ramp, type Shader, type V3 } from "../iso/raster";
+import { OUTLINE, PAL } from "./palette";
+
+/**
+ * Procedural chibi cultivators. A humanoid is a rig of ~20 solids (bell
+ * skirt, torso, big head, sleeves, hair strands, shawl, weapon) posed per
+ * frame and ray cast at any facing angle. Styles change palettes and add
+ * hats, beards, capes, fox ears and tails; poses drive limbs and cloth.
+ */
+
+export type HairStyle = "bun" | "long" | "topknot" | "bald" | "twin" | "short" | "wild";
+export type Hat = "none" | "straw" | "scholar" | "crown" | "jiangshi" | "hood" | "veil";
+export type Weapon = "jian" | "saber" | "staff" | "fan" | "whisk" | "rod" | "none";
+
+export interface HumanStyle {
+  skin: Ramp;
+  hair: Ramp;
+  robe: Ramp;
+  inner: Ramp;
+  trim: Ramp;
+  sash: Ramp;
+  shoes: Ramp;
+  eye: string;
+  hairStyle: HairStyle;
+  female?: boolean;
+  hat?: Hat;
+  hatRamp?: Ramp;
+  beard?: Ramp;
+  cape?: Ramp;
+  shawl?: Ramp;
+  weapon?: Weapon;
+  weaponRamp?: Ramp;
+  /** Overall size: 1 adult, ~0.8 child, 1.3 boss. */
+  scale?: number;
+  /** Forward stoop for the elderly. */
+  hunch?: number;
+  /** Hem radius of the robe. */
+  flare?: number;
+  sleeve?: number;
+  foxEars?: Ramp;
+  tails?: Ramp;
+  talisman?: boolean;
+  mask?: Ramp;
+  glowEyes?: string;
+  /** Long robes hide the feet; short robes show trousers. */
+  hem?: number;
+}
+
+export type Eyes = "open" | "blink" | "closed" | "hurt" | "fierce" | "glow";
+export type Mouth = "smile" | "neutral" | "open" | "grin";
+
+export interface HumanPose {
+  /** Phase for secondary motion (radians). */
+  t: number;
+  bob?: number;
+  /** Whole-body z offset (hops, levitation). */
+  lift?: number;
+  lean?: number;
+  footL?: V3;
+  footR?: V3;
+  handL?: V3;
+  handR?: V3;
+  stance?: "stand" | "sit" | "kneel";
+  eyes?: Eyes;
+  mouth?: Mouth;
+  sword?: "sheath" | "hand" | "under" | "none";
+  swordDir?: V3;
+  /** Cloth/hair drift in model space (e.g. [0,-1,0] when moving forward). */
+  wind?: V3;
+  /** Extra light-blue tint (qi casting) or white (hit flash) applied after. */
+  flash?: number;
+}
+
+export const HUMAN_W = 56;
+export const HUMAN_H = 60;
+export const HUMAN_OX = 28;
+export const HUMAN_OY = 50;
+
+const WAIST = 12.5;
+const HEAD_Z = 24.3;
+const HEAD_R = 6.2;
+const SHOULDER_Z = 16.6;
+
+const DEFAULT_FOOT_L: V3 = [-1.7, 0, 0];
+const DEFAULT_FOOT_R: V3 = [1.7, 0, 0];
+export const REST_HAND_L: V3 = [-4.4, 0.6, 11.2];
+export const REST_HAND_R: V3 = [4.4, 0.6, 11.2];
+
+const mat = (ramp: Ramp, group: number, extra: Partial<Mat> = {}): Mat => ({ ramp, group, outline: OUTLINE, ...extra });
+
+export interface RenderOpts {
+  w?: number;
+  h?: number;
+  ox?: number;
+  oy?: number;
+  k?: number;
+  /** Only head and shoulders (dialogue portraits). */
+  bust?: boolean;
+}
+
+export function paintHuman(st: HumanStyle, p: HumanPose, facing: number, o: RenderOpts = {}): PixelBuffer {
+  const k = o.k ?? 1;
+  const r = new Raster(o.w ?? HUMAN_W, o.h ?? HUMAN_H, o.ox ?? HUMAN_OX, o.oy ?? HUMAN_OY, facingBasis(facing), k);
+  const S = st.scale ?? 1;
+  const t = p.t;
+  const wind = p.wind ?? [0, -0.25, 0];
+  const stance = p.stance ?? "stand";
+  const drop = stance === "sit" ? 7.5 : stance === "kneel" ? 4 : 0;
+  const lean = (p.lean ?? 0) + (st.hunch ?? 0);
+  const lift = p.lift ?? 0;
+  const bob = (p.bob ?? 0) - drop;
+
+  /** Scale + lift for points that stay grounded (feet, hem). */
+  const G = (v: V3): V3 => [v[0] * S, v[1] * S, v[2] * S + lift];
+  /** Upper body: bob and lean around the waist. */
+  const U = (v: V3): V3 => {
+    const z = v[2] + bob;
+    return G([v[0], v[1] + Math.max(0, v[2] - WAIST) * lean, z]);
+  };
+  const Rr = (x: number) => x * S;
+
+  const skin = mat(st.skin, 6);
+  const hairM = mat(st.hair, 7);
+
+  // ------------------------------------------------------------------ legs & robe
+  if (!o.bust) {
+    const fl = p.footL ?? DEFAULT_FOOT_L;
+    const fr = p.footR ?? DEFAULT_FOOT_R;
+    const hem = st.hem ?? 2.4;
+    if (stance === "sit") {
+      // lotus position: crossed knees and a wide pooled skirt
+      r.ellipsoid(G([0, 0.5, 2.4]), [Rr(7.4), Rr(5.2), Rr(2.6)], mat(st.robe, 2, { shader: hemShader(st, 0.55) }));
+      r.ellipsoid(G([-4.4, 2.2, 2.4]), [Rr(2.4), Rr(2.6), Rr(1.8)], mat(st.robe, 2));
+      r.ellipsoid(G([4.4, 2.2, 2.4]), [Rr(2.4), Rr(2.6), Rr(1.8)], mat(st.robe, 2));
+      r.ellipsoid(G([3.2, 3.8, 1.6]), [Rr(1.1), Rr(1.6), Rr(0.9)], mat(st.shoes, 1));
+    } else {
+      for (const [f, side] of [
+        [fl, -1],
+        [fr, 1],
+      ] as const) {
+        const hip: V3 = [side * 1.5, 0, 9 - drop * 0.6];
+        const ankle: V3 = [f[0], f[1], f[2] + 1.4];
+        const knee: V3 = stance === "kneel" ? [side * 1.8, 3.4, 1.4] : [(hip[0] + ankle[0]) / 2, (hip[1] + ankle[1]) / 2 + 0.6, (hip[2] + ankle[2]) / 2];
+        r.sweep([G(hip), G(knee), G(ankle)], Rr(1.25), mat(st.inner, 1));
+        r.ellipsoid(G([f[0], f[1] + 0.6, f[2] + 0.9]), [Rr(1.2), Rr(1.8), Rr(1.0)], mat(st.shoes, 1, { shader: (s, tone) => (s.p[2] - lift < 0.4 * S + f[2] ? tone(st.shoes, 1) : tone(st.shoes)) }));
+      }
+      const shift = ((fl[1] + fr[1]) / 2) * 0.4;
+      const flare = st.flare ?? 5.3;
+      const hemZ = stance === "kneel" ? 1.6 : hem + 1.2;
+      const hemC: V3 = [wind[0] * 1.2, shift + wind[1] * 1.2, hemZ];
+      const skirtMat = mat(st.robe, 2, { shader: hemShader(st, 0.93), dither: k > 1 });
+      r.sweep([U([0, 0, WAIST]), G([hemC[0] * 0.5, hemC[1] * 0.5, (WAIST - drop + hemZ) / 2 + 1]), G(hemC)], (u) => Rr(3.3 + (flare - 3.5) * Math.pow(u, 1.5)), skirtMat);
+      const hemShaderZ: Shader = (s, tone) => (s.n[2] < -0.05 ? tone(st.trim) : hemShader(st, 2)(s, tone));
+      r.ellipsoid(G(hemC), [Rr(flare + 0.1), Rr(flare + 0.1), Rr(1.1)], mat(st.robe, 2, { shader: hemShaderZ, dither: k > 1 }), 0.8);
+    }
+  }
+
+  // ------------------------------------------------------------------ torso
+  const torsoShader: Shader = (s, tone) => {
+    const z = (s.p[2] - lift) / S - bob;
+    if (Math.abs(z - WAIST) < 0.95) return tone(st.sash);
+    // crossed collar (jiaoling), right over left
+    const ly = s.n[1];
+    const lx = s.n[0];
+    if (ly > 0.2 && z > 13.5) {
+      const edge = (z - 13.5) * 0.42;
+      if (lx > -edge - 0.05 && lx < edge * 0.55) return tone(st.inner);
+      if (Math.abs(lx + edge) < 0.16 || Math.abs(lx - edge * 0.55) < 0.12) return tone(st.trim);
+    }
+    return tone(st.robe);
+  };
+  r.sweep([U([0, 0, WAIST - 0.6]), U([0, 0.1, 15]), U([0, 0, 17.2])], [Rr(3.1), Rr(3.4), Rr(3.6)], mat(st.robe, 3, { shader: torsoShader }));
+  r.sphere(U([0, 0.2, 18.6]), Rr(1.5), skin);
+
+  // ------------------------------------------------------------------ head
+  const head = U([0, 0.5, HEAD_Z]);
+  const HR = Rr(HEAD_R);
+  const style = st.hairStyle;
+  const headShader: Shader = (s, tone) => {
+    const [x, y, z] = s.n;
+    if (style !== "bald") {
+      const female = !!st.female;
+      const fringe = female ? 0.3 + 0.11 * Math.abs(Math.sin(x * 10)) : 0.42 + 0.08 * Math.abs(Math.sin(x * 8));
+      const back = y < (female ? 0.12 : -0.05);
+      const sides = female && Math.abs(x) > 0.74 && z > -0.45 && y < 0.62;
+      const capped = z > fringe || back || sides || (style === "wild" && z > 0.15 && y < 0.5);
+      if (capped) {
+        // glossy "angel ring" highlight band
+        if (z > 0.48 && z < 0.62 && s.lum > 0.55) return st.hair[0];
+        return tone(st.hair);
+      }
+    }
+    return tone(st.skin);
+  };
+  r.sphere(head, HR, mat(st.skin, 6, { shader: headShader }));
+
+  // hair volumes
+  const sway = Math.sin(t) * 0.7;
+  if (style === "long" || (style === "bun" && st.female)) {
+    const len = style === "long" ? 1 : 0.82;
+    const pts = spline(
+      [U([0, -4.6, 26]), U([sway * 0.3, -5.6, 21.5]), U([wind[0] * 2 + sway * 0.6, -6.2 + wind[1] * 2, 21 - 7 * len]), U([wind[0] * 3.2 + sway, -6.3 + wind[1] * 3.4, 21 - 12 * len])],
+      4,
+    );
+    r.sweep(pts, [Rr(4.4), Rr(4.0), Rr(3.0), Rr(1.4)], mat(st.hair, 7, { shader: strandShader(st.hair) }));
+  }
+  if (st.female && style !== "bald") {
+    for (const side of [-1, 1]) {
+      r.sweep(
+        [U([side * 5.3, 2.3, 25.5]), U([side * 5.7 + wind[0], 2.6 + wind[1] * 0.4, 21.5]), U([side * 5.4 + wind[0] * 1.5, 2.4 + wind[1] * 0.6, 18.8])],
+        [Rr(1.3), Rr(1.0), Rr(0.6)],
+        hairM,
+      );
+    }
+  }
+  if (style === "bun") {
+    r.sphere(U([0, -2.6, 30.3]), Rr(2.8), mat(st.hair, 7, { shader: strandShader(st.hair) }));
+    r.sweep([U([-4, -1.6, 30.6]), U([3.8, -3, 32])], Rr(0.45), mat(PAL.jade, 8));
+    r.sphere(U([3.9, -3.05, 32.1]), Rr(0.75), mat(PAL.gold, 8));
+    // dangling buyao ornament
+    const ds = Math.sin(t * 1.3) * 0.8 + wind[1] * 0.6;
+    r.sweep([U([3.6, -2.8, 31.4]), U([3.8, -2.6 + ds, 28.8])], Rr(0.25), mat(PAL.gold, 8));
+    r.sphere(U([3.8, -2.6 + ds, 28.4]), Rr(0.55), mat(PAL.red, 8));
+  } else if (style === "twin") {
+    for (const side of [-1, 1]) {
+      r.sphere(U([side * 4.3, -1.2, 29.2]), Rr(2.3), mat(st.hair, 7, { shader: strandShader(st.hair) }));
+      r.sweep([U([side * 5.6, -1.6, 28.6]), U([side * 6.4 + wind[0], -3 + wind[1] * 1.5, 25 + sway * 0.4])], Rr(0.5), mat(st.trim, 8));
+    }
+  } else if (style === "topknot") {
+    r.sphere(U([0, -0.8, 31]), Rr(2), mat(st.hair, 7, { shader: strandShader(st.hair) }));
+    r.sweep([U([-2.2, -0.8, 31.4]), U([2.2, -0.8, 31.4])], Rr(0.45), mat(PAL.gold, 8));
+  } else if (style === "wild") {
+    for (let i = 0; i < 7; i++) {
+      const a = -1.2 + (i / 6) * 2.4;
+      r.sweep([U([Math.sin(a) * 4.5, -1.5 - Math.cos(a) * 2, 28.5]), U([Math.sin(a) * 7.2 + wind[0], -4.5 - Math.cos(a) * 2.5 + wind[1], 31 + Math.cos(a * 2) * 1.5])], [Rr(2), Rr(0.4)], hairM);
+    }
+  } else if (style === "short") {
+    r.sphere(U([0, -1.6, 27.5]), Rr(4.6), mat(st.hair, 7));
+  }
+
+  // fox ears (Hu Li)
+  if (st.foxEars) {
+    for (const side of [-1, 1]) {
+      const base = U([side * 3.3, -0.6, 29]);
+      const tip = U([side * 5.2, -1.4 + Math.sin(t * 2 + side) * 0.3, 34.2]);
+      r.sweep([base, tip], [Rr(1.8), Rr(0.3)], mat(st.foxEars, 7, { shader: (s, tone) => (s.n[1] > 0.4 && s.u < 0.75 ? tone(PAL.rose) : tone(st.foxEars!)) }));
+    }
+  }
+
+  // ------------------------------------------------------------------ hats
+  const hat = st.hat ?? "none";
+  const hatR = st.hatRamp ?? PAL.straw;
+  const hc = U([0, 0.5, 29]);
+  const zAt = (z: number) => U([0, 0.5, z])[2];
+  if (hat === "straw") {
+    r.cone(hc[0], hc[1], Rr(10.5), zAt(28.6), Rr(0.6), zAt(34.5), 14, mat(hatR, 9, { shader: strawShader(hatR) }));
+  } else if (hat === "scholar") {
+    r.box(U([-3.2, -2.2, 29.5]), U([3.2, 2.4, 32.2]), mat(hatR, 9));
+    r.sweep([U([-6.5, -1.6, 30.8]), U([6.5, -1.6, 30.8])], Rr(0.55), mat(hatR, 9));
+  } else if (hat === "crown") {
+    r.prism(hc[0], hc[1] - 0.8 * S, Rr(2.3), zAt(29.6), zAt(32.4), 6, mat(hatR, 9));
+    r.sweep([U([0, -3.5, 31.4]), U([0, 3, 31.4])], Rr(0.4), mat(PAL.jade, 9));
+  } else if (hat === "jiangshi") {
+    r.prism(hc[0], hc[1], Rr(5.2), zAt(28.6), zAt(33), 10, mat(hatR, 9));
+    r.box(U([-6.6, -2.8, 28.2]), U([6.6, 3.2, 29.2]), mat(hatR, 9));
+    r.sphere(U([0, -0.5, 33.6]), Rr(1.2), mat(PAL.red, 9));
+  } else if (hat === "hood") {
+    const hood: Shader = (s, tone) => (s.n[1] > 0.35 && s.n[2] < 0.5 ? null : tone(hatR));
+    r.sphere(add(head, [0, -0.6 * S, 0.6 * S]), HR + Rr(1.1), mat(hatR, 9, { shader: hood }));
+  } else if (hat === "veil") {
+    r.cone(hc[0], hc[1], Rr(9), zAt(29), Rr(1), zAt(33.5), 12, mat(hatR, 9));
+  }
+
+  // ------------------------------------------------------------------ arms
+  const handL = p.handL ?? REST_HAND_L;
+  const handR = p.handR ?? REST_HAND_R;
+  const cuff = st.sleeve ?? 2.4;
+  for (const [hand, side, group] of [
+    [handL, -1, 4],
+    [handR, 1, 5],
+  ] as const) {
+    const sh = U([side * 3.9, 0, SHOULDER_Z]);
+    const hw = U(hand);
+    const mid: V3 = [(sh[0] + hw[0]) / 2 + side * 1.2 * S, (sh[1] + hw[1]) / 2 - 0.5 * S, (sh[2] + hw[2]) / 2 - 0.6 * S];
+    const dir = norm(sub(hw, mid));
+    const wrist = sub(hw, scale3(dir, 0.9 * S));
+    const sleeve = mat(st.robe, group, { shader: (s, tone) => (s.u > 0.84 ? tone(st.trim) : tone(st.robe)) });
+    r.sweep([sh, mid, wrist], [Rr(1.5), Rr(1.8), Rr(cuff)], sleeve);
+    // hanging bell sleeve
+    r.sweep([add(mid, [0, 0, -0.8 * S]), add(wrist, [wind[0] * 0.8 * S, wind[1] * 0.8 * S, -1.9 * S])], [Rr(1.1), Rr(cuff - 0.4)], mat(st.robe, group));
+    r.sphere(hw, Rr(1.15), mat(st.skin, group));
+  }
+
+  // ------------------------------------------------------------------ weapons
+  const sword = p.sword ?? (st.weapon === "jian" ? "sheath" : "none");
+  const wr = st.weaponRamp ?? PAL.steel;
+  const hR = U(handR);
+  const swordDir = norm(p.swordDir ?? [0.2, 0.5, -0.8]);
+  if (sword === "hand" && (st.weapon === "jian" || st.weapon === "saber")) {
+    const guard = add(hR, scale3(swordDir, 1.2 * S));
+    const len = st.weapon === "saber" ? 13 : 12.5;
+    const pts: V3[] = [];
+    for (let i = 0; i <= 6; i++) {
+      const f = i / 6;
+      const curve = st.weapon === "saber" ? Math.sin(f * Math.PI * 0.6) * 1.6 : 0;
+      pts.push(add(add(guard, scale3(swordDir, len * f * S)), [0, 0, curve * S]));
+    }
+    r.sweep(pts, (u) => Rr(u > 0.88 ? 0.2 + (1 - u) * 3 : st.weapon === "saber" ? 0.75 : 0.55), mat(wr, 9, { shader: (s, tone) => (s.lum > 0.6 ? "#ffffff" : tone(wr)) }));
+    r.ellipsoid(guard, [Rr(1.1), Rr(1.1), Rr(0.7)], mat(PAL.gold, 9));
+    r.sweep([sub(hR, scale3(swordDir, 0.4 * S)), sub(hR, scale3(swordDir, 2.8 * S))], Rr(0.5), mat(PAL.black, 9));
+    const pom = sub(hR, scale3(swordDir, 3 * S));
+    r.sweep([pom, add(pom, [wind[0] * 1.5 * S, wind[1] * 1.5 * S, -2.5 * S + Math.sin(t * 2) * 0.4])], Rr(0.4), mat(PAL.red, 9));
+  } else if (sword === "sheath" && st.weapon === "jian") {
+    r.sweep([U([-3.6, 1.8, 13.4]), U([-3.6, -0.4, 12.6]), U([-4.3, -6.6, 8.6])], [Rr(0.55), Rr(0.7), Rr(0.6)], mat(PAL.navy, 9, { shader: (s, tone) => (s.u < 0.12 || s.u > 0.9 ? tone(PAL.gold) : tone(PAL.navy)) }));
+  } else if (sword === "under") {
+    r.sweep(
+      [G([0, 10, -1.2]), G([0, 7, -1.2]), G([0, -6.5, -1.2])],
+      (u) => Rr(u < 0.15 ? 0.25 + u * 4 : 0.85),
+      mat(PAL.steel, 9, { shader: (s, tone) => (s.lum > 0.55 ? "#ffffff" : tone(PAL.steel)) }),
+    );
+    r.ellipsoid(G([0, -6.8, -1.2]), [Rr(1.8), Rr(0.8), Rr(0.7)], mat(PAL.gold, 9));
+    r.sweep([G([0, -7.2, -1.2]), G([0, -9.6, -1.2])], Rr(0.55), mat(PAL.black, 9));
+    r.sweep([G([0, -9.8, -1.2]), G([Math.sin(t * 2) * 0.8, -12.5, -0.6])], Rr(0.45), mat(PAL.red, 9));
+  }
+  if (st.weapon === "staff") {
+    r.sweep([add(hR, [0, 0.4 * S, 6 * S]), add(hR, [0, 0.8 * S, -11 * S])], Rr(0.6), mat(st.weaponRamp ?? PAL.wood, 9));
+    r.sphere(add(hR, [0, 0.4 * S, 6.6 * S]), Rr(1.3), mat(PAL.jade, 9));
+  } else if (st.weapon === "whisk") {
+    r.sweep([hR, add(hR, [0, 1.2 * S, 3.6 * S])], Rr(0.4), mat(PAL.wood, 9));
+    const top = add(hR, [0, 1.2 * S, 3.6 * S]);
+    r.sweep([top, add(top, [wind[0] * 2 * S + Math.sin(t) * 0.6, 2.2 * S + wind[1] * 2 * S, -5 * S])], [Rr(0.9), Rr(1.1), Rr(0.5)], mat(PAL.white, 9));
+  } else if (st.weapon === "fan") {
+    for (let i = 0; i < 7; i++) {
+      const a = -0.9 + (i / 6) * 1.8;
+      r.sweep([hR, add(hR, [Math.sin(a) * 4 * S, 1.5 * S, Math.cos(a) * 4 * S])], [Rr(0.3), Rr(0.9)], mat(st.weaponRamp ?? PAL.paper, 9));
+    }
+  } else if (st.weapon === "rod") {
+    const tip = add(hR, [1 * S, 14 * S, 9 * S]);
+    r.sweep([sub(hR, [0, 1.5 * S, 1 * S]), tip], [Rr(0.55), Rr(0.25)], mat(PAL.woodDark, 9));
+    r.sweep([tip, add(tip, [0, 1.5 * S, -12 * S + Math.sin(t) * 0.5])], Rr(0.15), mat(PAL.white, 9));
+  }
+  if (sword !== "hand" && st.weapon === "saber") {
+    r.sweep([U([-3.8, 2, 12.6]), U([-4.3, -6, 8.2])], [Rr(0.7), Rr(0.9)], mat(st.weaponRamp ?? PAL.crimson, 9));
+  }
+
+  // ------------------------------------------------------------------ shawl, cape, tails, beard
+  if (st.shawl) {
+    const pts = spline(
+      [
+        add(U(handL), [wind[0] * 0.5 * S, -0.6 * S + wind[1] * 0.6 * S, -2.2 * S]),
+        U([-4.6, -2.4, 15.5]),
+        U([0, -4.6, 18 + sway * 0.3]),
+        U([4.6, -2.4, 15.5]),
+        add(U(handR), [wind[0] * 0.5 * S, -0.6 * S + wind[1] * 0.6 * S, -2.2 * S]),
+        G([5.5 + wind[0] * 3 + sway, -4 + wind[1] * 4, 6 + Math.cos(t) * 0.8]),
+      ],
+      5,
+    );
+    r.sweep(pts, Rr(0.62), mat(st.shawl, 10));
+  }
+  if (st.cape) {
+    for (const xo of [-2.6, 0, 2.6]) {
+      r.sweep(
+        [U([xo, -3.2, 16.8]), G([xo * 1.6 + wind[0] * 2 + Math.sin(t + xo) * 0.4, -5 + wind[1] * 3, 9]), G([xo * 2 + wind[0] * 3, -6.5 + wind[1] * 4, 1.2])],
+        [Rr(1.8), Rr(2.4), Rr(2.2)],
+        mat(st.cape, 10),
+      );
+    }
+  }
+  if (st.tails) {
+    for (const side of [-1, 0, 1]) {
+      const ph = t + side * 0.9;
+      const pts = spline([G([0, -3.6, 8.5 - drop * 0.8]), G([side * 3 + Math.sin(ph) * 1.2, -7.5, 9 - drop * 0.6]), G([side * 5 + Math.sin(ph + 0.8) * 2, -9.5, 14 - drop * 0.4]), G([side * 5.5 + Math.sin(ph + 1.6) * 2.4, -9, 19 - drop * 0.4])], 3);
+      r.sweep(pts, [Rr(1.2), Rr(2.4), Rr(2.6), Rr(1.4)], mat(st.tails, 10, { shader: (s, tone) => (s.u > 0.8 ? tone(PAL.white) : tone(st.tails!)) }));
+    }
+  }
+  if (st.beard) {
+    const bs = Math.sin(t * 1.2) * 0.5 + wind[0] * 0.8;
+    r.sweep([U([0, 5.6, 21.2]), U([bs * 0.5, 5.4 + wind[1] * 0.5, 17.5]), U([bs, 4.8 + wind[1], 13.6])], [Rr(2.1), Rr(1.5), Rr(0.5)], mat(st.beard, 8));
+  }
+  if (st.mask) {
+    r.ellipsoid(U([0, 5, HEAD_Z - 0.6]), [Rr(4.4), Rr(1.8), Rr(3.6)], mat(st.mask, 8, { shader: (s, tone) => (Math.abs(s.n[0]) > 0.3 && Math.abs(s.n[0]) < 0.6 && s.n[2] > -0.1 && s.n[2] < 0.35 ? "#1a0a10" : tone(st.mask!)) }));
+  }
+  if (st.talisman) {
+    r.box(U([-1.6, 6, 20.5]), U([1.6, 6.6, 28.6]), mat(PAL.paper, 8, { shader: (s, tone) => (Math.abs(s.p[0] - U([0, 0, 0])[0]) < 0.35 * S ? tone(PAL.red) : tone(PAL.paper)) }));
+  }
+
+  // ------------------------------------------------------------------ face decals
+  drawFace(r, st, p, head, HR, k, S);
+
+  let out = r.finish({ inner: true });
+  if (p.flash) out = out.tinted("#ffffff", p.flash);
+  return out;
+}
+
+function hemShader(st: HumanStyle, at: number): Shader {
+  return (s, tone) => {
+    if (s.u >= at) return tone(st.trim);
+    const ang = Math.atan2(s.n[0], s.n[1]);
+    if (st.female && s.n[1] > 0.88 && Math.abs(s.n[0]) < 0.2 && s.u > 0.3) return tone(st.inner);
+    if (Math.sin(ang * 6 + 0.6) > 0.86 && s.u > 0.2) return tone(st.robe, 1);
+    return tone(st.robe);
+  };
+}
+
+const strandShader =
+  (hair: Ramp): Shader =>
+  (s, tone) =>
+    Math.sin(Math.atan2(s.n[0], s.n[1]) * 9) > 0.7 && s.lum < 0.7 ? tone(hair, 1) : tone(hair);
+
+const strawShader =
+  (hat: Ramp): Shader =>
+  (s, tone) =>
+    Math.sin(Math.hypot(s.p[0], s.p[1]) * 2.2) > 0.55 ? tone(hat, 1) : tone(hat);
+
+/** Eyes, mouth, blush — 1px decals at sprite scale, proper eyes on portraits. */
+function drawFace(r: Raster, st: HumanStyle, p: HumanPose, head: V3, HR: number, k: number, S: number): void {
+  if (st.mask) {
+    if (st.glowEyes) {
+      for (const side of [-1, 1]) {
+        const n = norm([side * 0.42, 0.86, -0.02]);
+        const fp = r.facePoint(add(head, scale3(n, HR + 1.6 * S)), n, 0.05);
+        if (fp.visible || fp.facing > 0.05) r.plot(fp.x, fp.y, st.glowEyes, true);
+      }
+    }
+    return;
+  }
+  const eyes = st.glowEyes && p.eyes !== "closed" && p.eyes !== "hurt" ? "glow" : (p.eyes ?? "open");
+  const lash = "#1a1226";
+  const big = k * S >= 2;
+  for (const side of [-1, 1]) {
+    const n = norm([side * 0.4, 0.86, -0.12]);
+    const fp = r.facePoint(add(head, scale3(n, HR)), n, 0.12);
+    if (!fp.visible) continue;
+    const { x, y } = fp;
+    const outer = side * (r.basis.xh >= 0 ? 1 : -1);
+    if (big) {
+      const e = k * S;
+      const ew = Math.max(2, Math.round(1.3 * e));
+      const eh = Math.max(3, Math.round(2 * e));
+      if (eyes === "closed" || eyes === "blink") {
+        for (let i = -ew; i <= ew; i++) r.plot(x + i, y + Math.round(Math.abs(i) * 0.25) - (eyes === "blink" ? 1 : 0), lash);
+      } else if (eyes === "hurt") {
+        for (let i = 0; i <= ew; i++) {
+          r.plot(x - ew / 2 + i, y - eh / 2 + i * 0.6, lash);
+          r.plot(x - ew / 2 + i, y + eh / 2 - i * 0.6, lash);
+        }
+      } else {
+        for (let yy = -eh; yy <= eh; yy++)
+          for (let xx = -ew; xx <= ew; xx++) {
+            const d = (xx * xx) / (ew * ew) + (yy * yy) / (eh * eh);
+            if (d > 1) continue;
+            const iris = (xx * xx) / (ew * ew * 0.5) + ((yy + 0.5) * (yy + 0.5)) / (eh * eh * 0.7) < 1;
+            const c = eyes === "glow" ? (iris ? st.glowEyes ?? "#ff3050" : "#ffd0d8") : iris ? (yy > eh * 0.25 ? alpha(st.eye, 1) : st.eye) : "#ffffff";
+            r.plot(x + xx, y + yy, c);
+          }
+        r.plot(x - Math.round(ew * 0.3), y - Math.round(eh * 0.35), "#ffffff");
+        r.plot(x - Math.round(ew * 0.3) + 1, y - Math.round(eh * 0.35), "#ffffff");
+        for (let xx = -ew - 1; xx <= ew; xx++) r.plot(x + xx, y - eh - (Math.abs(xx) < ew * 0.6 ? 0 : -1), lash);
+        if (eyes === "fierce") for (let xx = -ew; xx <= ew; xx++) r.plot(x + xx, y - eh - 2 - Math.round((xx * outer) / 2.5), lash);
+      }
+    } else if (eyes === "closed" || eyes === "blink") {
+      r.plot(x, y, lash);
+      r.plot(x + outer, y - (eyes === "blink" ? 0 : 1) * 0, lash);
+    } else if (eyes === "hurt") {
+      r.plot(x, y - 1, lash);
+      r.plot(x + outer, y, lash);
+      r.plot(x, y + 1, lash);
+    } else if (eyes === "glow") {
+      r.plot(x, y - 1, "#ffd0d8");
+      r.plot(x, y, st.glowEyes ?? "#ff3050");
+    } else {
+      r.plot(x, y - 1, lash);
+      r.plot(x, y, st.eye);
+      if (fp.facing > 0.75) r.plot(x + outer, y - 1, lash);
+      if (eyes === "fierce") r.plot(x - outer, y - 2, lash);
+    }
+  }
+  // mouth
+  const mn = norm([0, 0.93, -0.38]);
+  const m = r.facePoint(add(head, scale3(mn, HR)), mn, 0.2);
+  if (m.visible) {
+    const lip = st.female ? "#c0405a" : "#8a4a4a";
+    const mouth = p.mouth ?? "neutral";
+    if (big) {
+      const e = k * S;
+      const mw = Math.round(e * 0.9);
+      if (mouth === "open") {
+        for (let yy = 0; yy <= Math.round(e * 0.8); yy++) for (let xx = -mw + 1; xx < mw; xx++) r.plot(m.x + xx, m.y + yy, yy === 0 ? "#5a1a2a" : "#a0304a");
+      } else for (let xx = -mw; xx <= mw; xx++) r.plot(m.x + xx, m.y - (mouth === "smile" || mouth === "grin" ? (Math.abs(xx) >= mw - 1 ? 1 : 0) : 0), lip);
+      // nose
+      const nn = norm([0, 0.98, -0.05]);
+      const nose = r.facePoint(add(head, scale3(nn, HR)), nn, 0.2);
+      if (nose.visible) r.plot(nose.x + 1, nose.y, alpha("#b0607a", 0.6));
+    } else if (mouth === "open") {
+      r.plot(m.x, m.y, "#7a2a3a");
+      r.plot(m.x, m.y + 1, "#a0304a");
+    } else if (mouth === "grin") {
+      r.plot(m.x, m.y, lip);
+      r.plot(m.x + 1, m.y, lip);
+    } else {
+      r.plot(m.x, m.y, lip);
+    }
+  }
+  // blush
+  if (st.female) {
+    for (const side of [-1, 1]) {
+      const n = norm([side * 0.62, 0.72, -0.32]);
+      const b = r.facePoint(add(head, scale3(n, HR)), n, 0.3);
+      if (!b.visible) continue;
+      const e = big ? Math.round(k * S * 0.8) : 0;
+      for (let xx = -e; xx <= e; xx++) r.plot(b.x + xx, b.y, alpha("#f27a9a", 0.55));
+    }
+  }
+}

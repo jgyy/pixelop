@@ -49,4 +49,10 @@ export class CanvasSurface implements Surface {
     } else ctx.drawImage(c, Math.round(x), Math.round(y));
     ctx.globalAlpha = prev;
   }
+  spriteSlice(buf: PixelBuffer, x: number, y: number, sx: number, sw: number) {
+    const x0 = Math.max(0, Math.round(sx));
+    const x1 = Math.min(buf.width, Math.round(sx + sw));
+    if (x1 <= x0) return;
+    this.ctx.drawImage(toCanvas(buf), x0, 0, x1 - x0, buf.height, Math.round(x) + x0, Math.round(y), x1 - x0, buf.height);
+  }
 }
