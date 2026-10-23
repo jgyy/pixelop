@@ -84,6 +84,29 @@ test.describe("Jade Lotus Ascension", () => {
     await expect.poll(() => page.evaluate(() => window.__pixelop!.game.state.kills), { timeout: 15_000 }).toBe(1);
   });
 
+  test("the grown world: tea and pills at the crossroads teahouse", async ({ page }) => {
+    await startNewGame(page);
+    await patch(page, { hp: 10, flags: { metElder: true, villageArrived: true, villageSaved: true, metZhou: true, bambooArrived: true } });
+    // the crossroads lie far south of the sect, below the old highway (positions relative to the sect's corner)
+    await teleport(page, "sect", 148.5 - 177, 174.5 - 34);
+    await expect(page.getByText("Crossroads Teahouse").first()).toBeVisible();
+    await page.keyboard.press("KeyE");
+    await expect(page.getByTestId("dialog")).toContainText("Fang", { timeout: 5_000 });
+    // Enter mid-line shows the whole line at once, and it stays shown (it used to re-type over the skip)
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(300);
+    await expect(page.getByTestId("dialog").locator(".ghost")).toHaveText("");
+    await expect(page.getByTestId("dialog")).toContainText("Everyone who walks the highway stops at Fang's sooner or later.");
+    for (let i = 0; i < 20 && (await mode(page)) === "scene"; i++) {
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(120);
+    }
+    await expect(page.getByTestId("shop")).toBeVisible();
+    expect((await state(page)).flags.fangTea).toBe(true);
+    await page.getByTestId("shop-close").click();
+    await expect.poll(() => mode(page)).toBe("explore");
+  });
+
   test("progress is saved server-side and can be continued", async ({ page }) => {
     await startNewGame(page);
     await patch(page, { stones: 4242 });
@@ -102,9 +125,9 @@ test.describe("Jade Lotus Ascension", () => {
     test.setTimeout(120_000);
     await page.goto("/gallery");
     await expect(page.getByRole("heading", { name: "Pixel Art Gallery" })).toBeVisible();
-    await expect(page.locator("[data-testid^=sheet-]")).toHaveCount(22);
+    await expect(page.locator("[data-testid^=sheet-]")).toHaveCount(28);
     await expect(page.getByTestId("scene")).toHaveCount(7);
-    expect(await page.getByTestId("prop").count()).toBeGreaterThanOrEqual(35);
+    expect(await page.getByTestId("prop").count()).toBeGreaterThanOrEqual(50);
     expect(await page.getByTestId("anim").count()).toBeGreaterThanOrEqual(80);
     await page.waitForTimeout(1500);
     const painted = await page.evaluate(() => {

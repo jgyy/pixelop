@@ -8,7 +8,7 @@ import { getPropScaled } from "../art/props";
 import { drawSky } from "../art/sky";
 import { getArea } from "../world/areas";
 import { AREA_IDS, type AreaId } from "../world/ids";
-import { flightPath, MAP_H, MAP_SCALE, MAP_W, mapTerrain, NODES, type Biome } from "../world/overworld";
+import { flightPath, MAP_H, MAP_SCALE, MAP_W, mapLandmarks, mapTerrain, NODES, type Biome } from "../world/overworld";
 import { dirFrom } from "./world";
 
 /** Miniature isometric projection for the world map (16×8 tiles, 4 px per level). */
@@ -227,7 +227,13 @@ export class WorldMap {
         if (i < leg.k || i % 2) return;
         s.rect(cx + OX + mx(x, y) - 1, cy + OY + my(x, y, hAt(x, y) + 3) + 3, 2, 1, alpha("#fff0c0", 0.8));
       });
-    // landmarks
+    // the wayside landmarks of the wilds, small and unnamed until you walk there
+    for (const l of mapLandmarks()) {
+      const sheet = getPropScaled(l.icon, l.icon === "pagoda" || l.icon === "teahouse" ? 0.26 : 0.34);
+      const fr = sheet.frames[Math.floor(t * sheet.fps) % sheet.frames.length];
+      s.sprite(fr, cx + OX + mx(l.x, l.y) - sheet.ox, cy + OY + my(l.x, l.y, hAt(l.x, l.y)) + 4 - sheet.oy, false, 0.9);
+    }
+    // regions
     const nodes = Object.values(NODES).sort((p, q) => p.x + p.y - (q.x + q.y));
     for (const n of nodes) {
       const open = unlocked(n.id);

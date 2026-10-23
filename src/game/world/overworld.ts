@@ -6,10 +6,10 @@ import { LIQUID } from "./tilemap";
 
 /**
  * The world map: a miniature of the real continuous world (one map cell per
- * 2×2 tiles), with each region's landmark marked as a sword-flight destination.
+ * 3×3 tiles), with each region's landmark marked as a sword-flight destination.
  */
 
-export const MAP_SCALE = 2;
+export const MAP_SCALE = 3;
 export const MAP_W = Math.ceil(WORLD_W / MAP_SCALE);
 export const MAP_H = Math.ceil(WORLD_H / MAP_SCALE);
 
@@ -42,6 +42,11 @@ export const NODES: Record<AreaId, MapNode> = {
   valley: node("valley", "bloodaltar", [{ icon: "spikes", dx: 1.6, dy: 1 }, { icon: "deadtree", dx: -1.5, dy: 1.2 }]),
   peak: node("peak", "dais", [{ icon: "crystal", dx: 1.4, dy: -1 }, { icon: "crystal", dx: -1.2, dy: 1.2 }]),
 };
+
+/** Landmarks out in the wilds, in map cells (not flight destinations). */
+export function mapLandmarks(): { name: string; icon: PropId; x: number; y: number }[] {
+  return getWorld().landmarks.map((l) => ({ name: l.name, icon: l.icon, x: l.x / MAP_SCALE, y: l.y / MAP_SCALE }));
+}
 
 /** Sword-flight path between two map points: a gentle arc. */
 export function flightPath(from: [number, number], to: [number, number]): [number, number][] {
@@ -101,7 +106,7 @@ export function mapTerrain(): MapCell[] {
           const r = AREA_IDS[w.regionOf[j * m.w + i]];
           if (r === "sect" || r === "peak") sky = true;
         }
-      if (solid < 2) {
+      if (solid < 3) {
         cells.push({ biome: "void", h: 0, sky: false });
         continue;
       }
@@ -132,6 +137,10 @@ export function mapTerrain(): MapCell[] {
         case "snow":
           biome = "snow";
           break;
+        case "grass":
+        case "moss":
+          biome = bamboo.has(c) ? "bamboo" : h >= 4 ? "mountain" : trees.has(c) ? "forest" : kind === "moss" ? "forest" : "plain";
+          break;
         case "ash":
           biome = "ash";
           break;
@@ -139,7 +148,6 @@ export function mapTerrain(): MapCell[] {
           biome = "redrock";
           break;
         case "leaf":
-        case "moss":
           biome = bamboo.has(c) ? "bamboo" : "forest";
           break;
         case "meadow":
@@ -149,7 +157,7 @@ export function mapTerrain(): MapCell[] {
         default:
           biome = bamboo.has(c) ? "bamboo" : trees.has(c) ? "forest" : "plain";
       }
-      if (wet && biome !== "road" && counts.get("water")! >= 2) biome = "river";
+      if (wet && biome !== "road" && (counts.get("water") ?? 0) >= 3) biome = "river";
       cells.push({ biome, h: Math.round(h * 1.5) + (sky ? 7 : 0), sky });
     }
   terrain = cells;

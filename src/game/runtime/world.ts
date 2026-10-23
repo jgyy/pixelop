@@ -15,7 +15,7 @@ import { LIQUID, type TileMap } from "../world/tilemap";
 import { ENEMIES, type EnemyId } from "../engine/enemies";
 import { Effects } from "./particles";
 
-export type Emote = "!" | "?" | "..." | "heart" | "anger" | "note";
+export type Emote = "!" | "?" | "..." | "heart" | "anger" | "note" | "zzz";
 
 export interface Actor {
   key: string;
@@ -55,6 +55,8 @@ export interface Actor {
   alerted?: boolean;
   /** Critters: height above the ground while airborne. */
   alt?: number;
+  /** Clock time of this actor's next idle fidget (a nod, a sniff, a peck…). */
+  fidgetAt?: number;
 }
 
 interface PropInst {
@@ -85,6 +87,17 @@ export const DAY_LENGTH = 360;
 /** Actors further than this from the heroine are frozen until she comes back. */
 const ACTIVE_RANGE = 26;
 const RESPAWN_AFTER = 60;
+/** Idle fidgets an NPC may break into, when its character has the animation. */
+const NPC_FIDGETS: AnimId[] = ["nod", "look", "stretch", "drink", "point", "dance", "cheer", "gather"];
+/** …and the ones a roaming beast may (sleeping takes a while). */
+const BEAST_FIDGETS: AnimId[] = ["sniff", "howl", "sniff", "sleep"];
+
+/** Stable per-key hash, so actors don't all wander in lockstep. */
+const keyHash = (key: string) => {
+  let h = 2166136261;
+  for (let k = 0; k < key.length; k++) h = Math.imul(h ^ key.charCodeAt(k), 16777619);
+  return (h >>> 0) % 9973;
+};
 
 /** Painted terrain columns are shared between every World built on the same map. */
 const tileCache = new WeakMap<TileMap, { tiles: (TileBuffer | null | undefined)[]; foams: (PixelBuffer | null | undefined)[] }>();
@@ -107,6 +120,9 @@ export class World {
   readonly fx = new Effects();
   private readonly cache: { tiles: (TileBuffer | null | undefined)[]; foams: (PixelBuffer | null | undefined)[] };
   private props: PropInst[] = [];
+  /** Props that emit particles or cast light (looked at every frame). */
+  private emitters: PropInst[] = [];
+  private lights: PropInst[] = [];
   private bucketProps: PropInst[][] = [];
   private maxH = 0;
   /** Boundary tiles between regions, where a sealed region's mist wall stands. */
@@ -231,6 +247,8 @@ export class World {
     const z = this.def.map.height(i, j);
     const inst: PropInst = { id, i, j, ax: isoX(i + 0.5, j + 0.5), ay: isoY(i + 0.5, j + 0.5, z), key: i + j + 1 + (def.foot[2] + def.foot[3]) / 2, phase: hash2(i, j, 5) * 10 };
     this.props.push(inst);
+    if (def.emit) this.emitters.push(inst);
+    if (def.light) this.lights.push(inst);
   }
 
   /** Depth buckets for a prop's screen columns: each 16 px strip sorts with the footprint tile it covers. */
@@ -433,6 +451,11 @@ export class World {
           if (!a.alerted) {
             a.alerted = true;
             a.emote = { icon: "!", until: t + 0.9 };
+            // a dozing or sniffing beast leaps up at once
+            if (a.holdUntil !== undefined) {
+              a.holdUntil = undefined;
+              this.setAnim(a, "run", t);
+            }
           }
           a.running = true;
           a.animRate = 1.25;
@@ -446,7 +469,7 @@ export class World {
           }
           a.running = false;
           a.animRate = 1;
-          this.wanderStep(a, dt, t);
+          if (!this.fidget(a, t, BEAST_FIDGETS)) this.wanderStep(a, dt, t);
         }
         if (!heroSafe && d < 0.62) touched = a;
         continue;
@@ -466,11 +489,33 @@ export class World {
         a.greeted = false;
         if (a.baseDir !== undefined && !a.route && !a.wander) a.dir = a.baseDir;
       }
+      if (a.idleAnim === "sleep" && !a.emote && hash2(Math.floor(t * 0.5), keyHash(a.key), 6) < 0.25) a.emote = { icon: "zzz", until: t + 1.6 };
+      if (!busy && a.idleAnim !== "sleep" && a.idleAnim !== "sweep" && this.fidget(a, t, NPC_FIDGETS)) continue;
       if (a.route) this.patrolStep(a, dt, t);
       else if (a.wander > 0) this.wanderStep(a, dt, t);
     }
     this.fx.update(dt);
     return touched;
+  }
+
+  /**
+   * Now and then an actor standing about breaks into a short idle animation.
+   * Returns true while it is busy with one.
+   */
+  private fidget(a: Actor, t: number, pool: AnimId[]): boolean {
+    if (a.holdUntil !== undefined) return a.anim !== "walk" && a.anim !== "run" && !a.target;
+    if (a.target || a.anim !== a.idleAnim) return false;
+    const h = keyHash(a.key);
+    a.fidgetAt ??= t + 5 + (h % 70) / 10;
+    if (t < a.fidgetAt) return false;
+    const own = pool.filter((id) => charDef(a.char).anims.includes(id));
+    a.fidgetAt = t + 7 + hash2(Math.floor(t), h, 8) * 9;
+    if (!own.length) return false;
+    const pick = own[Math.floor(hash2(Math.floor(t * 3), h, 9) * own.length)];
+    a.dir = a.baseDir ?? a.dir;
+    this.setAnim(a, pick, t, true);
+    if (pick === "sleep") a.emote = { icon: "zzz", until: t + 2 };
+    return true;
   }
 
   private patrolStep(a: Actor, dt: number, t: number): void {
@@ -485,12 +530,13 @@ export class World {
     if (a.wander <= 0 || a.speed <= 0) return;
     a.rest -= dt;
     if (a.rest > 0) return;
-    const ang = hash2(Math.floor(t * 10), a.key.length * 13, 7) * Math.PI * 2;
-    const r = hash2(Math.floor(t * 10), 3, a.key.length) * a.wander;
+    const k = keyHash(a.key);
+    const ang = hash2(Math.floor(t * 10), k, 7) * Math.PI * 2;
+    const r = Math.sqrt(hash2(Math.floor(t * 10), 3, k)) * a.wander;
     const tx = a.home[0] + Math.cos(ang) * r;
     const ty = a.home[1] + Math.sin(ang) * r;
     if (this.canStand(tx, ty, this.def.map.height(Math.floor(a.x), Math.floor(a.y)), false)) a.target = [tx, ty];
-    a.rest = 1.5 + hash2(Math.floor(t), 9, a.key.length) * 3;
+    a.rest = 1.5 + hash2(Math.floor(t), 9, k) * 3;
   }
 
   /** Cranes strut about and take wing when the heroine comes near; bats flit in circles. */
@@ -537,11 +583,16 @@ export class World {
       }
       return;
     }
-    // on the ground: an occasional slow step
+    // on the ground: an occasional slow step, or a peck at the grass
     a.rest -= dt;
     if (a.rest > 0) return;
-    a.rest = 2 + hash2(Math.floor(t), a.key.length, 3) * 4;
-    const ang = hash2(Math.floor(t * 3), a.key.length, 9) * Math.PI * 2;
+    const kh = keyHash(a.key);
+    a.rest = 2 + hash2(Math.floor(t), kh, 3) * 4;
+    if (a.holdUntil === undefined && charDef(a.char).anims.includes("peck") && hash2(Math.floor(t), kh, 4) < 0.45) {
+      this.setAnim(a, "peck", t, true);
+      return;
+    }
+    const ang = hash2(Math.floor(t * 3), kh, 9) * Math.PI * 2;
     const tx = a.home[0] + Math.cos(ang) * a.wander;
     const ty = a.home[1] + Math.sin(ang) * a.wander;
     if (this.def.map.standable(Math.floor(tx), Math.floor(ty))) {
@@ -838,6 +889,18 @@ export class World {
       const tw = Math.sin(t * (1 + hash2(n, 3, 91) * 2) + n) > 0.3;
       s.px(x, y, alpha("#ffffff", (tw ? 0.9 : 0.4) * k));
     }
+    // now and then a shooting star streaks across the sky
+    const n = Math.floor(t / 6);
+    const age = (t % 6) / 0.9;
+    if (age < 1 && hash2(n, 7, 93) < 0.6) {
+      const x0 = hash2(n, 1, 93) * s.width;
+      const y0 = hash2(n, 2, 93) * s.height * 0.35;
+      for (let k2 = 0; k2 < 10; k2++) {
+        const u = age - k2 * 0.025;
+        if (u < 0) break;
+        s.px(x0 + u * 90, y0 + u * 34, alpha(k2 === 0 ? "#ffffff" : "#c8d8ff", k * (1 - age) * (1 - k2 / 10)));
+      }
+    }
   }
 
   /**
@@ -870,6 +933,41 @@ export class World {
             s.px(x - 1, y, alpha(c, daylight * 0.7));
             s.px(x + 1, y, alpha(c, daylight * 0.7));
           }
+        } else if (k === "water" && r > 0.97 && daylight > 0.4) {
+          // dragonflies dart over the shallows and hover
+          const ph = t * 0.8 + r * 77;
+          const dart = Math.floor(ph) + (ph % 1 > 0.8 ? ((ph % 1) - 0.8) * 5 : 0);
+          const x = isoX(i + 0.5 + Math.sin(dart * 2.3) * 0.7, j + 0.5 + Math.cos(dart * 1.7) * 0.7) + cx;
+          const y = isoY(i + 0.5, j + 0.5, m.surface(i, j)) + cy - 7 + Math.sin(t * 3 + r * 9);
+          const c = r > 0.985 ? "#3ad0e8" : "#e85a3a";
+          s.rect(x - 1, y, 3, 1, alpha(c, daylight));
+          s.px(x, y - (Math.sin(t * 40 + r * 9) > 0 ? 1 : 0), alpha("#e8f6ff", daylight * 0.8));
+        } else if (k === "lava" && r < 0.08) {
+          // lava bubbles swell and pop, spitting a spark
+          const period = 2 + r * 30;
+          const age = ((t + r * 97) % period) / 1.2;
+          if (age < 1) {
+            const x = isoX(i + 0.3 + r * 5, j + 0.6) + cx;
+            const y = isoY(i + 0.5, j + 0.5, m.surface(i, j)) + cy + 2;
+            if (age < 0.7) s.rect(x - 1, y - Math.round(age * 2), 1 + Math.round(age * 3), 1 + Math.round(age * 2), alpha("#ffd060", 0.85));
+            else s.px(x, y - (age - 0.7) * 30, alpha("#ffb040", 1 - age));
+          }
+        } else if ((k === "grass" || k === "meadow" || k === "moss") && r > 0.985 && env.night > 0.3) {
+          // fireflies rise from the grass after dusk
+          const ph = t * 0.7 + r * 60;
+          const x = isoX(i + 0.5 + Math.sin(ph) * 0.8, j + 0.5 + Math.cos(ph * 0.8) * 0.8) + cx;
+          const y = isoY(i + 0.5, j + 0.5, m.height(i, j)) + cy - 5 - Math.sin(ph * 1.3) * 4;
+          const glow = Math.sin(t * 2.2 + r * 40);
+          if (glow > 0) {
+            s.px(x, y, alpha("#e8ff90", 0.5 + glow * 0.5));
+            if (glow > 0.7) s.sprite(glowSprite("#d8ff80", 4), x - 4, y - 2);
+          }
+        } else if (k === "grass" && r > 0.993 && daylight > 0.5) {
+          // dandelion seeds drift on the wind
+          const age = (t * 0.12 + r * 31) % 1;
+          const x = isoX(i + 0.5, j + 0.5) + cx + age * 60 + Math.sin(age * 12 + r) * 4;
+          const y = isoY(i + 0.5, j + 0.5, m.height(i, j)) + cy - 4 - age * 26 + Math.sin(age * 20) * 2;
+          s.px(x, y, alpha("#ffffff", daylight * 0.9 * Math.sin(age * Math.PI)));
         } else if ((k === "water" || k === "deep") && r < 0.025) {
           const period = 5 + r * 120;
           const age = (t + r * 300) % period;
@@ -925,7 +1023,7 @@ export class World {
   }
 
   private drawEmitters(s: Surface, t: number, cx: number, cy: number): void {
-    for (const p of this.props) {
+    for (const p of this.emitters) {
       const def = propDef(p.id);
       if (!def.emit) continue;
       const x0 = p.ax + cx;
@@ -951,6 +1049,14 @@ export class World {
             const a = r * Math.PI * 2 + t;
             const rr = 6 + r * 8;
             if (Math.sin(t * 5 + n * 2) > 0.2) s.px(x0 + Math.cos(a) * rr, top + 6 + age * 20 + Math.sin(a) * 4, alpha("#e8fff4", 1 - age));
+            break;
+          }
+          case "mist": {
+            // steam curling up off a hot spring
+            const sx = x0 + (r - 0.5) * 24 + Math.sin(age * 5 + n) * 4 + age * 8;
+            const sy = y0 - 2 - age * 36;
+            const sz = 2 + Math.floor(age * 5);
+            s.rect(sx - sz / 2, sy, sz, Math.ceil(sz * 0.6), alpha("#f4f6ff", 0.32 * (1 - age) * (age < 0.15 ? age / 0.15 : 1)));
             break;
           }
           case "petals":
@@ -1015,7 +1121,7 @@ export class World {
     if (night <= 0.01) return;
     s.rect(0, 0, s.width, s.height, alpha(env.tint, night * 0.35));
     s.rect(0, 0, s.width, s.height, alpha("#0a0618", night * 0.32));
-    for (const p of this.props) {
+    for (const p of this.lights) {
       const L = propDef(p.id).light;
       if (!L) continue;
       const x = p.ax + cx;
@@ -1071,6 +1177,10 @@ export function drawEmote(s: Surface, icon: Emote, x: number, y: number, t: numb
         [1, 1], [5, 1], [2, 2], [4, 2], [2, 4], [4, 4], [1, 5], [5, 5],
       ])
         s.px(x0 + 2 + dx, y0 + dy, "#e83a3a");
+      break;
+    case "zzz":
+      drawText(s, "Z", x0 + 2 + (Math.floor(t * 2) % 2), y0 + 2, "#6a7ad8");
+      if (Math.floor(t * 2) % 2) s.px(x0 + 8, y0 + 1, "#6a7ad8");
       break;
     case "note":
       s.rect(x0 + 6, y0 + 1, 1, 5, "#7a3ac8");

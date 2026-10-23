@@ -16,7 +16,8 @@ const GROUPS: { label: string; ids: CharId[] }[] = [
   { label: "Heroine", ids: ["heroine"] },
   { label: "Azure Cloud Sect", ids: ["elder", "qing", "abao", "discipleM", "discipleF"] },
   { label: "Willow Creek & the Wilds", ids: ["zhou", "hua", "farmer", "child", "peddler", "huli", "wen"] },
-  { label: "Blood Moon Sect & Demonic Beasts", ids: ["patriarch", "cultist", "jiangshi", "fox", "wolf", "serpent", "serpentKing", "crane", "bat"] },
+  { label: "Wayside Folk", ids: ["teawoman", "miller", "monk", "hermit", "swordsman"] },
+  { label: "Blood Moon Sect, Bandits & Demonic Beasts", ids: ["patriarch", "cultist", "jiangshi", "bandit", "fox", "wolf", "serpent", "serpentKing", "crane", "bat"] },
 ];
 
 function AnimCanvas({ id, anim, dir }: { id: CharId; anim: AnimId; dir: number }) {
