@@ -88,7 +88,9 @@ export const DAY_LENGTH = 360;
 const ACTIVE_RANGE = 26;
 const RESPAWN_AFTER = 60;
 /** Idle fidgets an NPC may break into, when its character has the animation. */
-const NPC_FIDGETS: AnimId[] = ["nod", "look", "stretch", "drink", "point", "dance", "cheer", "gather"];
+const NPC_FIDGETS: AnimId[] = ["nod", "look", "stretch", "drink", "point", "dance", "cheer", "gather", "pour", "clap", "laugh"];
+/** Idles that absorb an NPC (fishing, reading, weaving…): they neither turn to greet nor fidget. */
+const ABSORBED = new Set<AnimId>(["fish", "practice", "meditate", "read", "weave", "tell", "pray", "sit"]);
 /** …and the ones a roaming beast may (sleeping takes a while). */
 const BEAST_FIDGETS: AnimId[] = ["sniff", "howl", "sniff", "sleep"];
 
@@ -137,6 +139,10 @@ export class World {
   bumped: AreaId | null = null;
   /** Ambient day/night cycle (only in the open world). */
   dayNight: boolean;
+  /** A building's cutaway room rather than open sky. */
+  readonly interior: boolean;
+  /** Interior wall tiles with lattice windows, which let the daylight in. */
+  private windows: { i: number; j: number }[] = [];
   private flags: Record<string, boolean>;
   private footprints: { x: number; y: number; z: number; at: number; dark: string }[] = [];
   private stepDist = 0;
@@ -151,13 +157,16 @@ export class World {
     this.def = def;
     this.world = isWorldDef(def) ? def : null;
     this.id = this.world ? regionAt(this.world, hero.x, hero.y) : def.id;
-    this.dayNight = !!this.world;
+    this.interior = def.sky === "interior";
+    // rooms follow the day outside their windows too
+    this.dayNight = !!this.world || this.interior;
     this.flags = flags;
     const m = def.map;
     let c = tileCache.get(m);
     if (!c) tileCache.set(m, (c = { tiles: new Array(m.w * m.h), foams: new Array(m.w * m.h) }));
     this.cache = c;
     for (let k = 0; k < m.heights.length; k++) this.maxH = Math.max(this.maxH, m.heights[k]);
+    if (this.interior) m.each((i, j) => m.kind(i, j) === "window" && this.windows.push({ i, j }));
     this.bucketProps = Array.from({ length: m.w + m.h }, () => []);
     for (const p of def.props) this.addProp(p.id, p.i, p.j);
     for (const t of taken) this.taken.add(t);
@@ -245,7 +254,8 @@ export class World {
   private addProp(id: PropId, i: number, j: number): void {
     const def = propDef(id);
     const z = this.def.map.height(i, j);
-    const inst: PropInst = { id, i, j, ax: isoX(i + 0.5, j + 0.5), ay: isoY(i + 0.5, j + 0.5, z), key: i + j + 1 + (def.foot[2] + def.foot[3]) / 2, phase: hash2(i, j, 5) * 10 };
+    // flat props (mats, cushions) sort beneath anyone standing on them
+    const inst: PropInst = { id, i, j, ax: isoX(i + 0.5, j + 0.5), ay: isoY(i + 0.5, j + 0.5, z), key: i + j + (def.flat ? 0.05 : 1 + (def.foot[2] + def.foot[3]) / 2), phase: hash2(i, j, 5) * 10 };
     this.props.push(inst);
     if (def.emit) this.emitters.push(inst);
     if (def.light) this.lights.push(inst);
@@ -376,7 +386,7 @@ export class World {
       if (Math.abs(it.i - h.x) > 3 || Math.abs(it.j - h.y) > 3) continue;
       if ((it.kind === "chest" || it.kind === "herb") && this.taken.has(it.key)) continue;
       const d = Math.hypot(it.i + 0.5 - h.x, it.j + 0.5 - h.y);
-      const reach = it.kind === "exit" ? 1.6 : it.kind === "altar" ? 2.4 : 1.45;
+      const reach = it.kind === "exit" || it.kind === "door" ? 1.6 : it.kind === "altar" ? 2.4 : 1.45;
       if (d < reach && (!best || d < best.d - 0.2)) best = { it, d };
     }
     return best;
@@ -461,7 +471,13 @@ export class World {
           a.animRate = 1.25;
           const from = [a.x, a.y];
           this.stepToward(a, h.x, h.y, dt * 1.25, t);
-          if (Math.hypot(a.x - a.home[0], a.y - a.home[1]) > a.wander + 4) [a.x, a.y] = from;
+          if (Math.hypot(a.x - a.home[0], a.y - a.home[1]) > a.wander + 4) {
+            // at the end of its territory: stand its ground and glare rather than run on the spot
+            [a.x, a.y] = from;
+            a.running = false;
+            a.animRate = 1;
+            if (!a.holdUntil) this.setAnim(a, a.idleAnim, t);
+          }
         } else {
           if (a.alerted && d > def.aggro + 2) {
             a.alerted = false;
@@ -475,7 +491,7 @@ export class World {
         continue;
       }
       // NPCs turn to greet the heroine as she passes, then go back to what they were doing
-      const busy = a.idleAnim === "fish" || a.idleAnim === "practice" || a.idleAnim === "meditate";
+      const busy = ABSORBED.has(a.idleAnim);
       if (social && !busy && d < 2.4) {
         if (a.holdUntil === undefined || a.anim === "wave") a.dir = dirFrom(h.x - a.x, h.y - a.y);
         if (!a.greeted && d < 2.2) {
@@ -622,7 +638,10 @@ export class World {
   }
 
   updateCamera(viewW: number, viewH: number, dt: number, focus?: [number, number, number]): void {
-    const [fx, fy, fz] = focus ?? [this.hero.x, this.hero.y, this.hero.z];
+    const m = this.def.map;
+    // indoors the camera settles between the heroine and the middle of the room
+    const room: [number, number, number] | undefined = this.interior ? [(this.hero.x + m.w / 2) / 2, (this.hero.y + m.h / 2) / 2, 1] : undefined;
+    const [fx, fy, fz] = focus ?? room ?? [this.hero.x, this.hero.y, this.hero.z];
     const tx = Math.round(viewW / 2 - isoX(fx, fy));
     const ty = Math.round(viewH / 2 - isoY(fx, fy, fz) + 12);
     if (!this.camInit || dt <= 0) {
@@ -642,7 +661,7 @@ export class World {
     const dusk = this.dayNight ? duskAt(t) : 0;
     const w = this.world;
     const base = (d: AreaDef) => d.night + (1 - d.night) * 0.48 * dusk;
-    if (!w) return { sky: this.def.sky, sky2: null, k: 0, weather: [[this.def.weather, 1]], night: this.def.night, tint: this.def.tint ?? "#1a1440", dusk: 0 };
+    if (!w) return { sky: this.def.sky, sky2: null, k: 0, weather: [[this.def.weather, 1]], night: base(this.def), tint: this.def.tint ?? "#1a1440", dusk };
     const near = AREA_IDS.map((id) => ({ id, d: rectDistance(id, x, y) })).sort((p, q) => p.d - q.d);
     const A = w.regions[near[0].id];
     const B = w.regions[near[1].id];
@@ -683,7 +702,7 @@ export class World {
     const env = this.viewEnv(s, t);
     drawSky(s, env.sky, t, cx, cy);
     if (env.sky2) drawSky(fadedSurface(s, env.k), env.sky2, t, cx, cy);
-    if (env.dusk > 0.35) this.drawNightSky(s, t, env.dusk);
+    if (env.dusk > 0.35 && !this.interior) this.drawNightSky(s, t, env.dusk);
     const W = s.width;
     const H = s.height;
     const visible = (x: number, y: number, w: number, h: number) => x + w >= 0 && y + h >= 0 && x < W && y < H;
@@ -785,6 +804,7 @@ export class World {
     this.fx.draw(s, cx, cy);
     for (const [w, k] of env.weather) this.drawWeather(s, w, k, t, cx, cy);
     this.drawLighting(s, t, cx, cy, env);
+    if (this.interior) this.drawRoomLight(s, t, cx, cy, env);
     for (const a of this.actors) if (!a.hidden && a.kind !== "critter") this.drawOverhead(s, a, t, cx, cy);
   }
 
@@ -820,7 +840,8 @@ export class World {
   private drawOverhead(s: Surface, a: Actor, t: number, cx: number, cy: number): void {
     const def = charDef(a.char);
     const x = isoX(a.x, a.y) + cx;
-    const top = isoY(a.x, a.y, a.z) + cy - (def.oy - 6) * (def.h > 70 ? 1 : 0.62) - 22;
+    const seated = a.anim === "sit" || a.anim === "tell" || a.anim === "weave" || a.anim === "pray" || a.anim === "meditate" || a.anim === "fish" || a.anim === "sleep";
+    const top = isoY(a.x, a.y, a.z) + cy - (def.oy - 6) * (def.h > 70 ? 1 : 0.62) - 22 + (seated ? 7 : 0);
     if (x < -20 || x > s.width + 20 || top < -30 || top > s.height + 30) return;
     if (a.emote) drawEmote(s, a.emote.icon, x, top - 6 + Math.round(Math.sin(t * 6)), t);
     else if (a.marker) {
@@ -908,6 +929,7 @@ export class World {
    * flowers, koi leaping in the water, and cloud shadows drifting over the land.
    */
   private drawLife(s: Surface, t: number, cx: number, cy: number, env: Env, bMin: number, bMax: number, dMin: number, dMax: number): void {
+    if (this.interior) return;
     const m = this.def.map;
     const daylight = 1 - Math.min(1, env.night * 1.4);
     // butterflies and koi on the visible tiles
@@ -968,6 +990,18 @@ export class World {
           const x = isoX(i + 0.5, j + 0.5) + cx + age * 60 + Math.sin(age * 12 + r) * 4;
           const y = isoY(i + 0.5, j + 0.5, m.height(i, j)) + cy - 4 - age * 26 + Math.sin(age * 20) * 2;
           s.px(x, y, alpha("#ffffff", daylight * 0.9 * Math.sin(age * Math.PI)));
+        } else if ((k === "water" || k === "deep") && r > 0.03 && r < 0.055 && daylight > 0.3) {
+          // fish shadows glide in slow circles under the surface
+          const ph = t * (0.3 + r * 4) + r * 200;
+          const u = i + 0.5 + Math.cos(ph) * 0.7;
+          const v = j + 0.5 + Math.sin(ph) * 0.7;
+          const x = isoX(u, v) + cx;
+          const y = isoY(u, v, m.surface(i, j)) + cy + 3;
+          const hx = Math.round(isoX(-Math.sin(ph), Math.cos(ph)) / 16);
+          const c = alpha("#0a1838", 0.32 * daylight);
+          s.rect(x - 2, y, 4, 1, c);
+          s.px(x - 1 + hx, y - 1, c);
+          s.px(x - 3 * hx, y + (Math.sin(t * 6 + r * 50) > 0 ? 1 : -1), c);
         } else if ((k === "water" || k === "deep") && r < 0.025) {
           const period = 5 + r * 120;
           const age = (t + r * 300) % period;
@@ -1022,6 +1056,46 @@ export class World {
       }
   }
 
+  /**
+   * Indoors: shafts of daylight slant in through the lattice windows and
+   * fade at dusk, with dust motes turning slowly in them.
+   */
+  private drawRoomLight(s: Surface, t: number, cx: number, cy: number, env: Env): void {
+    const day = Math.max(0, 1 - env.dusk * 1.6);
+    if (day <= 0.02) return;
+    for (const { i, j } of this.windows) {
+      // the window's centre on the wall face, and the patch of floor its light reaches
+      const alongI = j === 0;
+      const [wx, wy] = alongI ? [i + 0.5, 1] : [1, j + 0.5];
+      const [fx, fy] = alongI ? [wx + 1.1, wy + 1.9] : [wx + 1.9, wy + 1.1];
+      const x0 = isoX(wx, wy) + cx;
+      const y0 = isoY(wx, wy, 5.4) + cy;
+      const x1 = isoX(fx, fy) + cx;
+      const y1 = isoY(fx, fy, 1) + cy;
+      if (Math.max(x0, x1) < -40 || Math.min(x0, x1) > s.width + 40 || y1 < -20 || y0 > s.height + 20) continue;
+      const steps = Math.max(1, Math.round(y1 - y0));
+      for (let k = 0; k <= steps; k++) {
+        const u = k / steps;
+        const half = 5 + u * 7;
+        const x = x0 + (x1 - x0) * u;
+        s.rect(Math.round(x - half), Math.round(y0 + k), Math.round(half * 2), 1, alpha("#fff0c0", (0.1 + 0.06 * u) * day));
+      }
+      for (let yy = -4; yy <= 4; yy++) {
+        const half = Math.round(16 * Math.sqrt(1 - (yy * yy) / 20));
+        s.rect(Math.round(x1 - half), Math.round(y1 + yy), half * 2, 1, alpha("#fff0c0", 0.16 * day));
+      }
+      const g = glowSprite("#fff0c0", 14);
+      s.sprite(g, x0 - g.width / 2, y0 - g.height / 2, false, 0.8 * day);
+      for (let n = 0; n < 9; n++) {
+        const r = hash2(i * 7 + n, j, 61);
+        const u = (r + t * 0.03 * (0.5 + hash2(n, i + j, 62))) % 1;
+        const x = x0 + (x1 - x0) * u + Math.sin(t * 0.7 + n * 2.3) * (4 + u * 5);
+        const y = y0 + (y1 - y0) * u + Math.cos(t * 0.5 + n) * 2;
+        s.px(x, y, alpha("#ffffff", (0.45 + 0.4 * Math.sin(t * 2 + n)) * day));
+      }
+    }
+  }
+
   private drawEmitters(s: Surface, t: number, cx: number, cy: number): void {
     for (const p of this.emitters) {
       const def = propDef(p.id);
@@ -1036,8 +1110,10 @@ export class World {
         const r = hash2(n, p.i * 7 + p.j, 3);
         switch (def.emit) {
           case "smoke": {
+            // out of the chimney (houses, the stove), or straight up off the fire
+            const chimney = p.id === "house" || p.id === "hearth";
             const sx = x0 + (p.id === "house" ? 10 : 0) + Math.sin(age * 4 + n) * 3 + age * 6;
-            const sy = (p.id === "house" ? top + 4 : y0 - 12) - age * 30;
+            const sy = (chimney ? top + 4 : y0 - 12) - age * 30;
             const sz = 1 + Math.floor(age * 3);
             s.rect(sx, sy, sz, sz, alpha("#d8d4e4", 0.55 * (1 - age)));
             break;
@@ -1057,6 +1133,30 @@ export class World {
             const sy = y0 - 2 - age * 36;
             const sz = 2 + Math.floor(age * 5);
             s.rect(sx - sz / 2, sy, sz, Math.ceil(sz * 0.6), alpha("#f4f6ff", 0.32 * (1 - age) * (age < 0.15 ? age / 0.15 : 1)));
+            break;
+          }
+          case "incense": {
+            // one thin thread of smoke from the burner, curling as it rises
+            if (n > 2) break;
+            const sy = top + 8 - age * 26;
+            const sx = x0 + Math.sin(age * 9 + n * 2 + t) * (1 + age * 4);
+            s.px(sx, sy, alpha("#e8e4f0", 0.6 * (1 - age)));
+            break;
+          }
+          case "steam": {
+            // wisps off a teapot and its cups
+            if (n > 3) break;
+            const sx = x0 - 2 + (r - 0.5) * 10 + Math.sin(age * 6 + n) * 2;
+            const sy = y0 - 16 - age * 14;
+            s.px(sx, sy, alpha("#ffffff", 0.5 * (1 - age)));
+            break;
+          }
+          case "dust": {
+            // flour dust drifting off the turning millstone
+            const a = r * Math.PI * 2 + t * 0.8;
+            const sx = x0 + Math.cos(a) * (8 + age * 10);
+            const sy = y0 - 10 - age * 12 + Math.sin(a) * 3;
+            s.px(sx, sy, alpha("#fff8e8", 0.55 * (1 - age)));
             break;
           }
           case "petals":
