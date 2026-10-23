@@ -26,7 +26,7 @@ export interface Light {
   dy: number;
 }
 
-export type Emitter = "petals" | "smoke" | "embers" | "sparkle" | "mist" | "leaves";
+export type Emitter = "petals" | "smoke" | "embers" | "sparkle" | "mist" | "leaves" | "incense" | "steam" | "dust";
 
 export interface PropDef {
   /** Footprint in tiles relative to the anchor tile (inclusive). */
@@ -36,6 +36,8 @@ export interface PropDef {
   fps: number;
   light?: Light;
   emit?: Emitter;
+  /** Lies flat on the floor (mats, cushions): always drawn beneath whoever stands on it. */
+  flat?: boolean;
   paint: (r: Raster, f: number, n: number) => void;
 }
 
@@ -979,7 +981,372 @@ const PROPS = {
       r.sweep([[0, 0, 17], [0, 0, 21]], 0.6, m(PAL.woodDark, 2));
     },
   },
+
+  // ------------------------------------------------------------------ building interiors
+  shelf: { foot: [0, 0, 0, 0], blocks: true, frames: 1, fps: 1, paint: (r) => paintShelf(r, false) },
+  shelfX: { foot: [0, 0, 0, 0], blocks: true, frames: 1, fps: 1, paint: (r) => paintShelf(r, true) },
+  scroll: { foot: [0, 0, 0, 0], blocks: true, frames: 6, fps: 3, paint: (r, f, n) => paintScroll(r, false, f, n) },
+  scrollX: { foot: [0, 0, 0, 0], blocks: true, frames: 6, fps: 3, paint: (r, f, n) => paintScroll(r, true, f, n) },
+  table: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    emit: "steam",
+    paint: (r) => {
+      r.box([-8, -8, 7], [8, 8, 9], m(PAL.woodDark, 1));
+      for (const sx of [-1, 1]) for (const sy of [-1, 1]) r.box([sx * 6.5 - 1, sy * 6.5 - 1, 0], [sx * 6.5 + 1, sy * 6.5 + 1, 7], m(PAL.woodDark, 2));
+      const clay = ramp("#e8e0d0", { lo: "#6a6a8a" });
+      r.ellipsoid([-1, 1, 11.5], [2.6, 2.6, 2.4], m(clay, 3, { shader: (s, tone) => (Math.abs(s.p[2] - 11.5) < 0.6 ? tone(PAL.azure) : tone(clay)) }));
+      r.sweep([[1.6, -0.6, 12], [4, -2.4, 13.4]], [0.7, 0.4], m(clay, 3));
+      r.sphere([-1, 1, 14], 0.8, m(clay, 3));
+      for (const [x, y] of [[4, 4], [-4.5, -3.5], [4.5, -4.5]] as const) r.prism(x, y, 1.3, 9, 11, 8, m(clay, 4, { shader: (s, tone) => (s.n[2] > 0.5 ? "#7a5a2a" : tone(clay)) }));
+    },
+  },
+  cushion: {
+    foot: [0, 0, 0, 0],
+    blocks: false,
+    flat: true,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      r.ellipsoid([0, 0, 1.2], [6, 6, 1.6], m(PAL.crimson, 1, { shader: (s, tone) => (Math.hypot(s.p[0], s.p[1]) < 1.6 ? tone(PAL.gold) : tone(PAL.crimson)) }));
+    },
+  },
+  mat: {
+    foot: [0, 0, 0, 0],
+    blocks: false,
+    flat: true,
+    frames: 1,
+    fps: 1,
+    light: { color: "#fff0c8", radius: 30, dy: 2 },
+    paint: (r) => {
+      r.box([-9, -9, 0], [9, 9, 0.8], m(PAL.straw, 1, { shader: strawShaderProp }));
+    },
+  },
+  hearth: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 6,
+    fps: 9,
+    light: { color: "#ff9040", radius: 46, dy: 8 },
+    emit: "smoke",
+    paint: (r, f, n) => {
+      const brick = md(ramp("#a86a52", { lo: "#3a1a1a" }), 1, { shader: (s, tone) => (Math.floor(s.p[2] / 3) % 2 === 0 ? (Math.abs((s.p[0] + s.p[1] + 40) % 6) < 0.6 ? "#3a1a1a" : tone(ramp("#a86a52", { lo: "#3a1a1a" }))) : Math.abs((s.p[0] + s.p[1] + 43) % 6) < 0.6 ? "#3a1a1a" : tone(ramp("#a86a52", { lo: "#3a1a1a" }))) });
+      r.box([-9, -9, 0], [9, 9, 12], brick);
+      // the fire mouth, glowing
+      const glow = (f / n) * TAU;
+      r.box([-4, 8.6, 1.5], [4, 9.4, 8], m(FIRE, 2, { shader: (s, tone) => tone(FIRE, Math.sin(s.p[0] * 1.3 + glow * 2) > 0.3 ? -1 : s.p[2] > 6 ? 1 : 0) }));
+      r.box([8.6, -4, 1.5], [9.4, 4, 8], m(FIRE, 2, { shader: (s, tone) => tone(FIRE, Math.sin(s.p[1] * 1.3 + glow * 2) > 0.3 ? -1 : s.p[2] > 6 ? 1 : 0) }));
+      for (let k = 0; k < 3; k++) {
+        const ph = glow + k * 2.1;
+        r.sweep([[4 + k * 1.6, 9.6, 2], [4.4 + k * 1.6 + Math.sin(ph) * 0.8, 10.4, 5 + Math.sin(ph) * 1.5 + k]], [1.2, 0.2], m(FIRE, 3));
+      }
+      // the wok and its lid
+      r.ellipsoid([0, 0, 13], [6, 6, 2.6], m(PAL.black, 4));
+      r.ellipsoid([0, 0, 15 + Math.sin(glow) * 0.3], [4.4, 4.4, 1.4], m(PAL.woodDark, 5));
+      r.sphere([0, 0, 16.6 + Math.sin(glow) * 0.3], 0.9, m(PAL.woodDark, 5));
+      r.prism(-6, -6, 1.8, 12, 34, 6, m(ramp("#8a5a4a", { lo: "#2a1414" }), 6));
+    },
+  },
+  loom: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 8,
+    fps: 6,
+    paint: (r, f, n) => {
+      const ph = (f / n) * TAU;
+      for (const x of [-9, 9]) {
+        r.box([x - 1, -7, 0], [x + 1, -5, 24], m(PAL.wood, 1));
+        r.box([x - 1, 5, 0], [x + 1, 7, 12], m(PAL.wood, 1));
+        r.box([x - 1, -6, 10], [x + 1, 6, 12], m(PAL.wood, 1));
+      }
+      r.sweep([[-9, -6, 23], [9, -6, 23]], 1.4, m(PAL.woodDark, 2));
+      r.sweep([[-9, 6, 11.5], [9, 6, 11.5]], 1.8, m(ramp("#4aa0a0", { lo: "#1a3a4a" }), 3, { shader: (s, tone) => (Math.sin(s.p[0] * 2) > 0.6 ? tone(PAL.gold) : tone(ramp("#4aa0a0", { lo: "#1a3a4a" }))) }));
+      // the warp threads, with a tapestry growing up them
+      r.convex(
+        [
+          { n: [0, -1, 0], d: 6.3 },
+          { n: [0, 1, 0], d: -5.7 },
+          { n: [-1, 0, 0], d: 8 },
+          { n: [1, 0, 0], d: 8 },
+          { n: [0, 0, -1], d: -12 },
+          { n: [0, 0, 1], d: 22.5 },
+        ],
+        [-8, -6.3, 12],
+        [8, -5.7, 22.5],
+        m(PAL.paper, 4, { shader: (s, tone) => (s.p[2] < 17 ? (fbm(s.p[0] * 0.4, s.p[2] * 0.4, 3) > 0.55 ? tone(PAL.crimson) : tone(ramp("#4aa0a0", { lo: "#1a3a4a" }))) : Math.floor(s.p[0] * 1.5) % 2 ? tone(PAL.paper, 1) : tone(PAL.paper)) }),
+      );
+      // the beater swings and the shuttle flies across
+      const beat = Math.max(0, Math.sin(ph)) * 3;
+      r.sweep([[-8.5, -2 + beat, 13], [8.5, -2 + beat, 13]], 0.9, m(PAL.woodDark, 5));
+      r.ellipsoid([Math.cos(ph) * 7, -3.6 + beat * 0.6, 14.6], [2.2, 0.9, 0.8], m(PAL.wood, 6));
+    },
+  },
+  millstone: {
+    foot: [-1, -1, 1, 1],
+    blocks: true,
+    frames: 8,
+    fps: 6,
+    emit: "dust",
+    paint: (r, f, n) => {
+      const a = (f / n) * TAU;
+      const granite = ramp("#a8a4b4", { lo: "#3a3048" });
+      // a wooden curb round the bed stone, catching the flour
+      r.prism(0, 0, 21, 0, 4, 12, m(PAL.wood, 1));
+      r.prism(0, 0, 19, 3.6, 4.4, 12, m(ramp("#f4f0e8", { lo: "#8a8070" }), 1));
+      r.prism(0, 0, 14, 4, 11, 14, md(granite, 2));
+      r.prism(0, 0, 13, 11, 19, 14, md(granite, 3, { shader: (s, tone) => (s.n[2] > 0.5 ? (Math.sin(Math.atan2(s.p[1], s.p[0]) * 6 - a) > 0.7 ? tone(granite, 1) : tone(granite)) : Math.sin(Math.atan2(s.p[1], s.p[0]) * 10 - a * 2) > 0.8 ? tone(granite, 1) : tone(granite)) }), a / 7);
+      r.prism(0, 0, 3, 18, 22, 8, m(PAL.woodDark, 4));
+      r.prism(0, 0, 2, 19, 64, 6, m(PAL.woodDark, 4), a);
+      // the crown wheel turns with the shaft, driven from the waterwheel outside
+      for (let k = 0; k < 10; k++) {
+        const b = a + (k / 10) * TAU;
+        r.sweep([[0, 0, 50], [Math.cos(b) * 10, Math.sin(b) * 10, 50]], 0.9, m(PAL.wood, 5));
+        r.box([Math.cos(b) * 10 - 1, Math.sin(b) * 10 - 1, 50], [Math.cos(b) * 10 + 1, Math.sin(b) * 10 + 1, 53], m(PAL.wood, 5));
+      }
+      r.prism(0, 0, 10.5, 49, 50.5, 16, m(PAL.wood, 6));
+      // a hopper of grain above the eye of the stone
+      r.cone(0, 0, 2, 26, 7, 36, 8, m(PAL.wood, 7, { shader: (s, tone) => (s.n[2] > 0.6 ? tone(PAL.straw) : tone(PAL.wood)) }));
+      r.cone(14, 9, 4, 4, 0.6, 7, 8, md(ramp("#f4f0e8", { lo: "#8a8070" }), 8));
+    },
+  },
+  sacks: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      const burlap = md(ramp("#c8a878", { lo: "#5a3a2a" }), 1, { shader: (s, tone) => ((Math.floor(s.p[0] * 2) + Math.floor(s.p[2] * 2)) % 2 ? tone(ramp("#c8a878", { lo: "#5a3a2a" }), 1) : tone(ramp("#c8a878", { lo: "#5a3a2a" }))) });
+      r.ellipsoid([-3, -3, 5], [5, 4.4, 5.4], burlap);
+      r.ellipsoid([4, 1, 5], [4.6, 5, 5.2], burlap);
+      r.ellipsoid([0, 0, 12], [4.4, 4, 4.4], burlap);
+      for (const [x, y, z] of [[-3, -3, 10.6], [4, 1, 10.4], [0, 0, 16.2]] as const) r.sweep([[x, y, z - 0.6], [x, y, z + 1]], 0.9, m(ramp("#8a6a4a"), 2));
+    },
+  },
+  altar: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 4,
+    fps: 6,
+    light: { color: "#ffc070", radius: 38, dy: 18 },
+    emit: "incense",
+    paint: (r, f) => {
+      r.box([-10, -9, 0], [10, -1, 12], m(PAL.woodDark, 1, { shader: (s, tone) => (s.n[1] > 0.5 && Math.abs(s.p[0]) < 7 && s.p[2] > 3 && s.p[2] < 10 ? tone(PAL.crimson) : tone(PAL.woodDark)) }));
+      r.box([-10.6, -9.6, 12], [10.6, -0.4, 13.2], m(PAL.crimson, 2, { shader: (s, tone) => (Math.abs(s.p[2] - 12.6) < 0.4 ? tone(PAL.gold) : tone(PAL.crimson)) }));
+      // three ancestor tablets
+      for (const [x, h] of [[-5, 9], [0, 12], [5, 9]] as const) {
+        r.box([x - 1.8, -7.6, 13], [x + 1.8, -6.4, 13 + h], m(PAL.black, 3, { shader: (s, tone) => (s.n[1] > 0.5 && Math.abs(s.p[0] - x) < 0.6 && s.p[2] > 15 && s.p[2] < 11 + h ? tone(PAL.gold) : tone(PAL.black)) }));
+        r.box([x - 2.2, -8, 13 + h], [x + 2.2, -6, 14 + h], m(PAL.gold, 3));
+      }
+      r.cone(0, -3, 2.6, 13, 2, 16, 8, m(BRONZE, 4));
+      for (const dx of [-0.8, 0, 0.8]) r.sweep([[dx, -3, 15.5], [dx * 1.5, -3, 21]], 0.3, m(PAL.red, 5));
+      // candles at either end
+      for (const sx of [-1, 1]) {
+        r.prism(sx * 8, -4, 1, 13, 18, 6, m(PAL.red, 6));
+        const fl = [1, 0.8, 1.15, 0.9][f];
+        r.sweep([[sx * 8, -4, 18.4], [sx * 8, -4, 18.4 + 2.4 * fl]], [0.9, 0.1], m(FIRE, 7));
+      }
+    },
+  },
+  candle: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 4,
+    fps: 7,
+    light: { color: "#ffd080", radius: 34, dy: 28 },
+    paint: (r, f) => {
+      for (let k = 0; k < 3; k++) {
+        const a = (k / 3) * TAU;
+        r.sweep([[Math.cos(a) * 4, Math.sin(a) * 4, 0], [0, 0, 4]], 0.7, m(BRONZE, 1));
+      }
+      r.sweep([[0, 0, 3], [0, 0, 22]], 0.9, m(BRONZE, 1));
+      r.cone(0, 0, 3.6, 22, 2, 24, 8, m(BRONZE, 2));
+      r.prism(0, 0, 1.3, 24, 28.5, 6, m(PAL.white, 3));
+      const fl = [1, 0.75, 1.2, 0.9][f];
+      r.sweep([[0, 0, 29], [Math.sin(f * 2) * 0.3, 0, 29 + 3 * fl]], [1.1, 0.1], m(FIRE, 4));
+    },
+  },
+  screen: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      const silk = ramp("#f4ecd8", { lo: "#8a7a6a" });
+      for (let k = 0; k < 3; k++) {
+        const x0 = -10 + k * 7;
+        const y = k % 2 ? 2 : -1;
+        r.box([x0, y - 0.6, 1], [x0 + 6.6, y + 0.6, 26], m(silk, 1 + k, { shader: (s, tone) => {
+          if (s.p[2] < 3 || s.p[2] > 24.5 || s.p[0] < x0 + 0.6 || s.p[0] > x0 + 6) return tone(PAL.woodDark);
+          const ridge = 9 + Math.sin((s.p[0] + 12) * 0.5) * 3 + Math.sin((s.p[0] + 12) * 1.3) * 1.2;
+          if (s.p[2] < ridge) return tone(ramp("#5a7aa0", { lo: "#1a2a4a" }), s.p[2] < ridge - 3 ? 1 : 0);
+          if (Math.hypot(s.p[0] - 5, s.p[2] - 20) < 1.6) return tone(PAL.red);
+          return tone(silk);
+        } }));
+      }
+    },
+  },
+  bed: {
+    foot: [0, 0, 1, 0],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      r.box([-10, -10, 0], [T + 10, 10, 8], md(ramp("#a86a52", { lo: "#3a1a1a" }), 1));
+      r.box([-9, -9, 8], [T + 6, 9, 10.5], m(ramp("#4a7aa8"), 2, { shader: (s, tone) => (Math.sin(s.p[0] * 0.8) * Math.sin(s.p[1] * 0.8) > 0.4 ? tone(PAL.white) : tone(ramp("#4a7aa8"))) }));
+      r.ellipsoid([-5, 0, 11], [3.4, 6, 2], m(PAL.paper, 3));
+      r.ellipsoid([T * 0.5 + 2, 0, 10.6], [9, 8, 2.2], m(ramp("#4a7aa8"), 4));
+    },
+  },
+  herbrack: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 6,
+    fps: 4,
+    paint: (r, f, n) => {
+      for (const x of [-8, 8]) r.sweep([[x, 0, 0], [x, 0, 26]], 0.9, m(PAL.wood, 1));
+      r.sweep([[-9, 0, 25], [9, 0, 25]], 0.8, m(PAL.wood, 1));
+      const herbs = [ramp("#6a9a4a"), ramp("#a8884a"), ramp("#7a5aa0"), ramp("#c86a4a"), ramp("#5a8a6a")];
+      for (let k = 0; k < 5; k++) {
+        const x = -6 + k * 3;
+        const sw = Math.sin((f / n) * TAU + k * 1.3) * 0.9;
+        r.sweep([[x, 0, 25], [x + sw * 0.5, -sw * 0.5, 21]], 0.2, m(PAL.straw, 2));
+        r.cone(x + sw, -sw, 2, 14, 0.6, 20.5, 6, md(herbs[k], 3 + k));
+      }
+    },
+  },
+  vase: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      const porcelain = ramp("#f4f6ff", { lo: "#6a7aa0" });
+      r.ellipsoid([0, 0, 8], [5, 5, 7.5], m(porcelain, 1, { shader: (s, tone) => (Math.abs(s.p[2] - 8) < 1 || Math.sin(Math.atan2(s.p[1], s.p[0]) * 5 + s.p[2] * 0.6) > 0.75 ? tone(ramp("#3a5aa8")) : tone(porcelain)) }));
+      r.cone(0, 0, 2.2, 14, 3.2, 20, 10, m(porcelain, 2, { shader: (s, tone) => (s.p[2] > 19 ? tone(ramp("#3a5aa8")) : tone(porcelain)) }));
+    },
+  },
+  lampstand: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 6,
+    fps: 6,
+    light: { color: "#ffd070", radius: 50, dy: 22 },
+    paint: (r, f, n) => {
+      r.prism(0, 0, 6, 0, 3, 8, md(PAL.stone, 1), Math.PI / 8);
+      r.sweep([[0, 0, 3], [0, 0, 26]], 1.1, m(BRONZE, 2));
+      // seven oil lamps on three tiers, each flame on its own rhythm
+      const lamps: [number, number, number][] = [[0, 0, 27]];
+      for (let k = 0; k < 6; k++) {
+        const a = (k / 6) * TAU;
+        lamps.push([Math.cos(a) * (k % 2 ? 5 : 7), Math.sin(a) * (k % 2 ? 5 : 7), k % 2 ? 21 : 14]);
+      }
+      lamps.forEach(([x, y, z], k) => {
+        if (k) r.sweep([[0, 0, z - 1], [x, y, z - 1]], 0.4, m(BRONZE, 2));
+        r.cone(x, y, 1.6, z - 1.5, 2.2, z, 8, m(BRONZE, 3));
+        const fl = 1 + Math.sin((f / n) * TAU + k * 1.9) * 0.3;
+        r.sweep([[x, y, z], [x, y, z + 2.4 * fl]], [0.8, 0.1], m(FIRE, 4));
+      });
+    },
+  },
+  statue: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      const jadeStone = md(ramp("#9ad0b8", { lo: "#1a4a4a" }), 1);
+      r.prism(0, 0, 9, 0, 4, 8, md(PAL.stone, 1), Math.PI / 8);
+      r.cone(0, 0, 8, 4, 6, 7, 8, m(PAL.gold, 2, { shader: (s, tone) => (Math.sin(Math.atan2(s.p[1], s.p[0]) * 8) > 0.3 ? tone(PAL.gold) : tone(PAL.rose)) }), Math.PI / 8);
+      r.ellipsoid([0, 0, 11], [7, 6, 4.6], jadeStone);
+      r.ellipsoid([0, 0, 17], [4.6, 3.8, 6], jadeStone);
+      r.sphere([0, 1, 26], 3.6, jadeStone);
+      r.sphere([0, 0.5, 30], 1.6, jadeStone);
+      for (const sx of [-1, 1]) r.sweep([[sx * 4.4, 0, 21], [sx * 4, 3, 15], [sx * 1, 4, 13]], 1.4, jadeStone);
+      r.sphere([0, 4.4, 13.4], 1.4, jadeStone);
+    },
+  },
+  swordrack: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      for (const x of [-6, 6]) r.box([x - 0.8, -11, 18], [x + 0.8, -8.6, 21], m(PAL.woodDark, 1));
+      r.box([-9, -9.6, 20.6], [9, -8.2, 22.4], m(ramp("#3a6ab0"), 2, { shader: (s, tone) => (Math.abs(s.p[0]) < 1 ? tone(PAL.gold) : tone(ramp("#3a6ab0"))) }));
+      r.sweep([[-9, -8.8, 21.5], [-12, -8.8, 21.5]], 0.6, m(PAL.gold, 3));
+      r.sweep([[9, -8.8, 21.5], [11, -8.8, 18]], [0.5, 0.3], m(ramp("#6aa0d0"), 4));
+      r.box([-8, -11, 0], [8, -6, 9], m(PAL.wood, 5));
+      r.ellipsoid([-3, -8.4, 10.6], [2.4, 2.4, 1.6], m(ramp("#e8e0d0"), 6));
+    },
+  },
+  laundry: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 6,
+    fps: 6,
+    paint: (r, f, n) => {
+      const a: V3 = [-13, 13, 0];
+      const b: V3 = [13, -13, 0];
+      for (const p of [a, b]) r.sweep([p, add(p, [0, 0, 26])], 0.9, m(PAL.woodDark, 1));
+      const cloth = [PAL.azure, PAL.white, PAL.red, ramp("#e8d8a0")];
+      for (let k = 0; k < 4; k++) {
+        const u = 0.18 + k * 0.21;
+        const top: V3 = [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, 25 - Math.sin(u * Math.PI) * 3];
+        const w = Math.sin((f / n) * TAU + k * 1.4) * 1.8;
+        r.sweep([top, add(top, [w * 0.7 + 1.2, -w * 0.7 + 1.2, -8])], [2.6, 2.2], m(cloth[k], 2 + k));
+      }
+      for (let k = 0; k < 8; k++) {
+        const u0 = k / 8;
+        const u1 = (k + 1) / 8;
+        const p0: V3 = [a[0] + (b[0] - a[0]) * u0, a[1] + (b[1] - a[1]) * u0, 25 - Math.sin(u0 * Math.PI) * 3];
+        const p1: V3 = [a[0] + (b[0] - a[0]) * u1, a[1] + (b[1] - a[1]) * u1, 25 - Math.sin(u1 * Math.PI) * 3];
+        r.sweep([p0, p1], 0.25, m(PAL.black, 6));
+      }
+    },
+  },
 } satisfies Record<string, PropDef>;
+
+/** A bookcase backed against an interior wall: `sw` puts it on the wall along the other axis. */
+function paintShelf(r: Raster, sw: boolean): void {
+  const Q = (v: V3): V3 => (sw ? [v[1], v[0], v[2]] : v);
+  const B = (a: V3, b: V3, mat: Mat) => r.box(Q(a), Q(b), mat);
+  const wood = m(PAL.woodDark, 1);
+  B([-9.5, -11, 0], [9.5, -10, 34], wood);
+  B([-9.5, -11, 0], [-8.3, -4.6, 34], wood);
+  B([8.3, -11, 0], [9.5, -4.6, 34], wood);
+  for (const z of [0, 9, 18, 27, 33]) B([-9.5, -11, z], [9.5, -4.6, z + 1.2], m(PAL.wood, 2));
+  const spines = [PAL.crimson, PAL.navy, PAL.jade, PAL.paper, PAL.brown, PAL.teal, PAL.gold];
+  for (const z of [1.2, 10.2, 19.2, 28.2]) {
+    let x = -8;
+    let k = Math.floor(z);
+    while (x < 7.6) {
+      const w = 1.1 + hash2(k, 1, 3) * 0.9;
+      const h = (z > 28 ? 3.6 : 5.2) + hash2(k, 2, 3) * 2.4;
+      if (hash2(k, 4, 3) > 0.12) B([x, -10, z], [Math.min(8.2, x + w), -5.2 - hash2(k, 5, 3) * 1.2, z + h], m(spines[k % spines.length], 3 + (k % 4), { shader: (s, tone) => (Math.abs(s.p[2] - z - h * 0.7) < 0.5 ? tone(PAL.gold) : tone(spines[k % spines.length])) }));
+      x += w + 0.25;
+      k++;
+    }
+  }
+}
+
+/** A hanging scroll painting on an interior wall; the silk stirs in the draught. */
+function paintScroll(r: Raster, sw: boolean, f: number, n: number): void {
+  const Q = (v: V3): V3 => (sw ? [v[1], v[0], v[2]] : v);
+  const st = Math.sin((f / n) * TAU) * 0.35;
+  const silk = ramp("#f4ecd8", { lo: "#8a7a6a" });
+  r.box(Q([-5, -11.2, 12]), Q([5, -10.6 + st, 36]), m(silk, 1, { shader: (s, tone) => {
+    const u = sw ? s.p[1] : s.p[0];
+    if (s.p[2] > 34.5 || s.p[2] < 13.5 || Math.abs(u) > 4.2) return tone(ramp("#4a7a6a", { lo: "#1a2a2a" }));
+    const ridge = 20 + Math.sin(u * 0.9 + 1) * 4 + Math.sin(u * 2.3) * 1.4;
+    if (s.p[2] < ridge) return tone(ramp("#6a6a7a", { lo: "#1a1a2a" }), s.p[2] < ridge - 4 ? 1 : 0);
+    if (Math.abs(u + 2.6) < 0.5 && s.p[2] > 26 && s.p[2] < 32) return "#2a2030";
+    if (Math.hypot(u - 2, s.p[2] - 30) < 1.2) return tone(PAL.red);
+    return tone(silk);
+  } }));
+  for (const z of [12, 36]) r.sweep([Q([-6, -10.6, z]), Q([6, -10.6, z])], 0.7, m(PAL.woodDark, 2));
+}
 
 /** Woven straw (hats, haystacks). */
 function strawShaderProp(...[s, tone]: Parameters<Shader>): string {

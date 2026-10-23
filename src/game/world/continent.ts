@@ -1,6 +1,7 @@
 import { fbm, hash2 } from "../pixel/noise";
 import { propDef, type PropId } from "../art/props";
 import { AREA_IDS, getArea, type AreaDef, type AreaId, type Critter, type EnemySpawn, type Interactable, type NpcPlacement, type PropPlacement } from "./areas";
+import { interiorDoors } from "./interiors";
 import { REGION_ORIGIN, rectDistance, regionRect, toWorld, WORLD_H, WORLD_W } from "./layout";
 import { LIQUID, TileMap, type TileKind } from "./tilemap";
 
@@ -543,6 +544,9 @@ function buildWorld(): WorldDef {
     critters.push({ key: "bat-w2", char: "bat", i: x + 2, j: y - 6 }, { key: "bat-w3", char: "bat", i: 58, j: 205 });
     mark("camp", "Blood Moon Camp", "血月营", "brazier", x, y);
   }
+
+  // the doors of the buildings she can walk into
+  interacts.push(...interiorDoors());
 
   // 9. wayside landmarks, rewards and wanderers along the highway
   const [nx] = toWorld("village", 16, 0);

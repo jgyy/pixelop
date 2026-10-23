@@ -19,6 +19,10 @@ export const TILE_KINDS = [
   "deep",
   "paddy",
   "lava",
+  // building interiors: plastered walls (some with lattice windows) and woven rugs
+  "wall",
+  "window",
+  "rug",
 ] as const;
 export type TileKind = (typeof TILE_KINDS)[number];
 
@@ -70,7 +74,7 @@ export class TileMap {
   /** Can a walker stand on this tile? (Flyers may also cross liquids.) */
   standable(i: number, j: number, flying = false): boolean {
     const k = this.kind(i, j);
-    if (k === "void") return false;
+    if (k === "void" || k === "wall" || k === "window") return false;
     if (this.isBlocked(i, j)) return false;
     if (LIQUID[k] && !flying) return false;
     return true;

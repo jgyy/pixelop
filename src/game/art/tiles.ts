@@ -118,14 +118,42 @@ const TEX: Record<Exclude<TileKind, "void" | "water" | "deep" | "paddy" | "lava"
     if (h > 0.985) return "#ffffff";
     return pick(SNOW, fbm(x * 1.8, y * 1.8, seed) * 0.9 + 0.1);
   },
+  // the top of an interior wall: dark roof beams seen from above
+  wall: (seed) => (x, y) => beam(x, y, seed),
+  window: (seed) => (x, y) => beam(x, y, seed),
+  rug: (seed) => (x, y) => {
+    const fx = x - Math.floor(x);
+    const fy = y - Math.floor(y);
+    const edge = Math.min(fx, fy, 1 - fx, 1 - fy);
+    if (edge < 0.06) return "#5a1420";
+    if (edge < 0.11) return "#e0b050";
+    const d = Math.hypot(fx - 0.5, fy - 0.5);
+    if (Math.abs(d - 0.24) < 0.04) return "#e0b050";
+    if (d < 0.1) return hash2(Math.floor(x), Math.floor(y), seed) > 0.5 ? "#3a9a8a" : "#f0d080";
+    const weave = vnoise(x * 24, y * 24, seed) > 0.62;
+    return weave ? "#a83040" : "#922838";
+  },
 };
+
+function beam(x: number, y: number, seed: number): string {
+  const along = (x + y) * 3;
+  const f = along - Math.floor(along);
+  if (f < 0.12) return "#1e120c";
+  return pick(["#3a2418", "#462c1e", "#523422"], vnoise(x * 4, y * 4, seed) * 0.9 + 0.05);
+}
 
 interface WallStyle {
   lip?: string;
   body: readonly string[];
   bricks?: boolean;
   posts?: boolean;
+  /** Interior walls: timber frame, plaster, a wainscot and (some) lattice windows. */
+  plaster?: boolean;
+  window?: boolean;
 }
+
+const PLASTER = ["#e2d4ba", "#eadec8", "#d8c8ac"];
+
 
 const WALLS: Record<TileKind, WallStyle> = {
   void: { body: STONE },
@@ -146,7 +174,30 @@ const WALLS: Record<TileKind, WallStyle> = {
   deep: { body: ["#10284a", "#18345a", "#1e406a"] },
   paddy: { body: ["#3a4a3a", "#4a5a40", "#5a6a48"] },
   lava: { body: ["#5a1010", "#8a1a10", "#c03010"] },
+  wall: { body: PLASTER, plaster: true },
+  window: { body: PLASTER, plaster: true, window: true },
+  rug: { body: ["#5a1420", "#6a1a28", "#7a2030"] },
 };
+
+/** One pixel of a plastered interior wall face (`u` across the tile, `dy` down from the top, `len` the face height). */
+function plasterPx(u: number, dy: number, len: number, col: number, seed: number, window: boolean): string {
+  if (dy < 3) return dy === 2 ? "#1e120c" : "#3a2418";
+  if (u < 0.07 || u > 0.94) return u < 0.03 ? "#24160e" : "#5a3420";
+  const rail = Math.round(len * 0.62);
+  if (dy >= len - 11) {
+    if (dy === len - 11 || (col % 8 === 0 && dy < len - 2)) return "#2e1c12";
+    return dy > len - 4 ? "#3a2418" : "#5a3a26";
+  }
+  if (dy === rail || dy === rail + 1) return "#4a2c1c";
+  if (window && u > 0.2 && u < 0.8 && dy > 8 && dy < rail - 3) {
+    if (u < 0.25 || u > 0.75 || dy < 10 || dy > rail - 6) return "#3a2418";
+    const gx = Math.floor((u - 0.25) * 16 * 1.6);
+    const gy = dy - 10;
+    if (gx % 3 === 2 || gy % 4 === 3) return "#6a4028";
+    return gy < 5 ? "#fff2c8" : "#ffe0a0";
+  }
+  return PLASTER[hash2(col, dy >> 1, seed) > 0.85 ? 2 : vnoise(col * 0.4, dy * 0.3, seed) > 0.7 ? 1 : 0];
+}
 
 export interface TileBuffer {
   buf: PixelBuffer;
@@ -216,6 +267,8 @@ export function paintTile(map: TileMap, i: number, j: number, base: number, seed
       let c: string;
       if (liquid) {
         c = pick(wall.body, 1 - dy / Math.max(1, wallPx));
+      } else if (wall.plaster) {
+        c = plasterPx(along - Math.floor(along), dy, wallPx - 2, col, seed, !!wall.window);
       } else if (dy < lipLen) {
         c = wall.lip!;
       } else if (wall.bricks) {

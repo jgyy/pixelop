@@ -23,7 +23,7 @@ describe("characters", () => {
           }
         }
     }
-  });
+  }, 60_000);
 
   it("renders all 16 facings of the heroine differently", () => {
     const frames = Array.from({ length: DIRS }, (_, d) => getAnim("heroine", "idle", d).frames[0]);
@@ -62,7 +62,9 @@ describe("props", () => {
       const def = propDef(id);
       expect(sheet.frames).toHaveLength(def.frames);
       expect(sheet.frames[0].opaqueCount()).toBeGreaterThan(30);
-      expect(sheet.ox).toBeGreaterThan(0);
+      // the anchor sits within a tile's width of the art (wall-hung props hang off to one side of it)
+      expect(sheet.ox).toBeGreaterThan(-16);
+      expect(sheet.ox).toBeLessThan(sheet.frames[0].width + 16);
       if (def.frames > 1 && id !== "chest") expect(Buffer.from(sheet.frames[0].data).equals(Buffer.from(sheet.frames[1].data))).toBe(false);
     }
     expect(getPropScaled("hall", 0.3).frames[0].opaqueCount()).toBeGreaterThan(100);
@@ -87,7 +89,7 @@ describe("terrain", () => {
   });
 
   it("paints every sky fully opaque", () => {
-    for (const sky of ["day", "dusk", "forest", "night", "blood", "storm"] as const) {
+    for (const sky of ["day", "dusk", "forest", "night", "blood", "storm", "interior"] as const) {
       const b = new PixelBuffer(160, 90);
       drawSky(new BufferSurface(b), sky, 1.5, 0, 0);
       expect(b.opaqueCount()).toBe(160 * 90);

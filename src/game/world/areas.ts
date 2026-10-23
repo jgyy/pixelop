@@ -14,7 +14,7 @@ import type { AreaId } from "./ids";
 
 export { AREA_IDS, type AreaId } from "./ids";
 
-export type SkyId = "day" | "dusk" | "forest" | "night" | "blood" | "storm";
+export type SkyId = "day" | "dusk" | "forest" | "night" | "blood" | "storm" | "interior";
 export type Weather = "petals" | "leaves" | "fireflies" | "embers" | "snow" | "none";
 
 export interface PropPlacement {
@@ -55,7 +55,7 @@ export interface EnemySpawn {
   when?: (flags: Record<string, boolean>) => boolean;
 }
 
-export type InteractKind = "shrine" | "exit" | "chest" | "herb" | "sign" | "altar";
+export type InteractKind = "shrine" | "exit" | "chest" | "herb" | "sign" | "altar" | "door";
 
 export interface Interactable {
   key: string;
@@ -63,6 +63,10 @@ export interface Interactable {
   i: number;
   j: number;
   text?: string;
+  /** Doors: the interior they lead into, or "out" back to the open world. */
+  to?: string;
+  /** Signs: how the heroine looks at it (she reads by default). */
+  anim?: AnimId;
 }
 
 export interface AreaDef {
@@ -260,6 +264,7 @@ function buildVillage(): AreaDef {
     P("house", 9, 20),
     P("house", 22, 26),
     P("well", 14, 9),
+    P("laundry", 9, 5),
     P("stall", 18, 9),
     P("stall", 18, 11),
     P("redlantern", 13, 12),

@@ -178,3 +178,59 @@ test("capture screenshots", async ({ page }) => {
   await page.waitForTimeout(4000);
   await shot(page, "15-gallery");
 });
+
+test("capture building interiors", async ({ page }) => {
+  test.setTimeout(120_000);
+  await startNewGame(page);
+  await patch(page, { flags: { metElder: true, villageArrived: true, villageSaved: true, metZhou: true, bambooArrived: true }, realm: 0, stage: 2 });
+  const enter = (id: string) => page.evaluate((id) => window.__pixelop!.game.debugEnter(id as never), id);
+  const standBy = (key: string, dx: number, dy: number) =>
+    page.evaluate(
+      ([key, dx, dy]) => {
+        const g = window.__pixelop!.game;
+        const a = g.world.actor(key as string)!;
+        Object.assign(g.world.hero, { x: a.x + (dx as number), y: a.y + (dy as number) });
+      },
+      [key, dx, dy] as const,
+    );
+
+  // the door of the Hall of Clouds, then inside
+  await teleport(page, "sect", 17.5, 6.5);
+  await page.waitForTimeout(1200);
+  await shot(page, "32-hall-door");
+  await page.keyboard.press("KeyE");
+  await page.waitForTimeout(1400);
+  await shot(page, "33-hall-of-clouds");
+  await standBy("shen", 1, 0);
+  await page.waitForTimeout(300);
+  await page.keyboard.press("KeyE");
+  await sayUntil(page, "one of ours");
+  await shot(page, "34-archivist-shen");
+  await skipScene(page);
+  await page.waitForTimeout(4800); // let the toasts fade
+
+  await enter("cottage");
+  await page.waitForTimeout(1500);
+  await shot(page, "35-granny-hua-cottage");
+
+  await enter("teahouse");
+  await standBy("qiao", -1, 0);
+  await page.waitForTimeout(300);
+  await page.keyboard.press("KeyE");
+  await sayUntil(page, "farm girl");
+  await shot(page, "36-teahouse-storyteller");
+  await skipScene(page);
+  await page.waitForTimeout(4800);
+
+  await enter("mill");
+  await page.waitForTimeout(1500);
+  await shot(page, "37-watermill-inside");
+
+  await enter("pagoda");
+  await standBy("ming", 1, 0);
+  await page.waitForTimeout(300);
+  await page.keyboard.press("KeyE");
+  await sayUntil(page, "Little Qiu");
+  await shot(page, "38-pagoda-of-seven-lamps");
+  await skipScene(page);
+});

@@ -16,6 +16,8 @@ export interface EnemyDef {
   special: { name: string; power: number; every: number; drain?: number; colour: string };
   basic: string;
   boss?: boolean;
+  /** A sparring partner: losing to them costs nothing. */
+  friendly?: boolean;
   /** Opening line of the battle log (defaults to "A … bars your way!"). */
   intro?: string;
   /** Roaming speed on the map (tiles/s) and chase radius. */
@@ -140,6 +142,7 @@ export const ENEMIES: Record<EnemyId, EnemyDef> = {
     def: 10,
     exp: 160,
     stones: 0,
+    friendly: true,
     basic: "Drifting Cloud Cut",
     intro: "Xiao Han draws his blade with a grin. “Don't hold back!”",
     special: { name: "Lone Star Thrust", power: 1.9, every: 3, colour: "#ff6a8a" },

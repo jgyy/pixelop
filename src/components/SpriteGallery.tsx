@@ -7,6 +7,7 @@ import { World } from "@/game/runtime/world";
 import { WorldMap } from "@/game/runtime/worldmap";
 import { AREA_IDS, getArea, type AreaId } from "@/game/world/areas";
 import { getWorld } from "@/game/world/continent";
+import { getInterior, INTERIOR_IDS, type InteriorId } from "@/game/world/interiors";
 import { toWorld } from "@/game/world/layout";
 import { useCanvasLoop } from "./useCanvasLoop";
 
@@ -17,6 +18,7 @@ const GROUPS: { label: string; ids: CharId[] }[] = [
   { label: "Azure Cloud Sect", ids: ["elder", "qing", "abao", "discipleM", "discipleF"] },
   { label: "Willow Creek & the Wilds", ids: ["zhou", "hua", "farmer", "child", "peddler", "huli", "wen"] },
   { label: "Wayside Folk", ids: ["teawoman", "miller", "monk", "hermit", "swordsman"] },
+  { label: "Folk Indoors", ids: ["archivist", "weaver", "storyteller", "scholar", "millhand", "lampkeeper"] },
   { label: "Blood Moon Sect, Bandits & Demonic Beasts", ids: ["patriarch", "cultist", "jiangshi", "bandit", "fox", "wolf", "serpent", "serpentKing", "crane", "bat"] },
 ];
 
@@ -116,6 +118,30 @@ function AreaCanvas({ id }: { id: AreaId }) {
   );
 }
 
+function InteriorCanvas({ id }: { id: InteriorId }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const world = useRef<World | null>(null);
+  const def = getInterior(id);
+  useCanvasLoop(ref, (s, t) => {
+    if (!world.current) world.current = new World(def, { x: def.arrive[0], y: def.arrive[1], dir: 10 }, { metElder: true }, []);
+    const w = world.current;
+    w.update(1 / 60, t, true);
+    w.updateCamera(s.width, s.height, 0, [def.map.w / 2 + Math.sin(t * 0.2), def.map.h / 2, 1]);
+    w.render(s, t + 30);
+  });
+  return (
+    <figure className="scene-card panel" style={{ margin: 0 }} data-testid="scene">
+      <canvas ref={ref} width={480} height={270} />
+      <figcaption>
+        <strong>
+          {def.hanzi} · {def.name}
+        </strong>
+        <small>{def.subtitle}</small>
+      </figcaption>
+    </figure>
+  );
+}
+
 function WorldMapCanvas() {
   const ref = useRef<HTMLCanvasElement>(null);
   const wm = useRef<WorldMap | null>(null);
@@ -173,6 +199,12 @@ export function SpriteGallery() {
           <AreaCanvas key={id} id={id} />
         ))}
         <WorldMapCanvas />
+      </div>
+      <h2>Indoors</h2>
+      <div className="scenes">
+        {INTERIOR_IDS.map((id) => (
+          <InteriorCanvas key={id} id={id} />
+        ))}
       </div>
     </>
   );
