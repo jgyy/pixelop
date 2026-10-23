@@ -2,6 +2,7 @@ import { levelIndex, realmLabel, FINAL_REALM, atBottleneck } from "../engine/rea
 import { bump, learn, setFlag, stats, type GameState } from "../engine/state";
 import type { EnemyId } from "../engine/enemies";
 import type { AreaId } from "../world/ids";
+import { toWorld } from "../world/layout";
 import { say, type Step } from "./script";
 
 /**
@@ -22,20 +23,20 @@ export interface Quest {
 export function questLog(g: GameState): Quest {
   const f = g.flags;
   if (!f.metElder) return { chapter: "Prologue", title: "The Stolen Heart", objective: "Speak with Elder Mo before the Hall of Clouds." };
-  if (!f.villageSaved) return { chapter: "Chapter I", title: "Trouble Below the Clouds", objective: "Leave through the sect gate and fly to Willow Creek Village. Drive off the beast that haunts it." };
+  if (!f.villageSaved) return { chapter: "Chapter I", title: "Trouble Below the Clouds", objective: "Go out through the sect gate and down the sky bridge to Willow Creek Village. Drive off the beast that haunts it." };
   if (!f.metZhou) return { chapter: "Chapter I", title: "Trouble Below the Clouds", objective: "Speak with Village Head Zhou in the village square." };
-  if (!f.foxesCleared) return { chapter: "Chapter II", title: "Whispers in the Bamboo", objective: `Calm the maddened fox spirits of the Whispering Bamboo Forest (${Math.min(FOXES_NEEDED, g.counters.foxes ?? 0)}/${FOXES_NEEDED}).` };
+  if (!f.foxesCleared) return { chapter: "Chapter II", title: "Whispers in the Bamboo", objective: `Take the old highway west to the Whispering Bamboo Forest and calm its maddened fox spirits (${Math.min(FOXES_NEEDED, g.counters.foxes ?? 0)}/${FOXES_NEEDED}).` };
   if (!f.metHuli) return { chapter: "Chapter II", title: "Whispers in the Bamboo", objective: "Someone waits beneath the spirit tree at the heart of the grove." };
   if (!f.metWen)
     return levelIndex(g.realm, g.stage) < LAKE_LEVEL
-      ? { chapter: "Chapter III", title: "The Moonlit Lake", objective: `Cultivate to ${realmLabel(0, LAKE_LEVEL)} (battles, herbs, shrine meditation), then seek the hermit of the Lotus Lake.` }
-      : { chapter: "Chapter III", title: "The Moonlit Lake", objective: "Seek the hermit who fishes on the Moonlit Lotus Lake." };
+      ? { chapter: "Chapter III", title: "The Moonlit Lake", objective: `Cultivate to ${realmLabel(0, LAKE_LEVEL)} (battles, herbs, shrine meditation), then seek the hermit of the Lotus Lake, east along the highway.` }
+      : { chapter: "Chapter III", title: "The Moonlit Lake", objective: "Follow the highway east to the Moonlit Lotus Lake and seek the hermit who fishes there." };
   if (!f.serpentKingDefeated) return { chapter: "Chapter III", title: "The Moonlit Lake", objective: "Cross the stepping stones and subdue the Serpent King on the eastern isle." };
   if (!g.skills.includes("swords")) return { chapter: "Chapter III", title: "The Moonlit Lake", objective: "Return to Old Fisher Wen at the lake pavilion." };
   if (g.realm < 1) return { chapter: "Chapter IV", title: "Heaven's Gate", objective: "Break through to Foundation Establishment: fill your cultivation, meditate at a shrine and face the Heavenly Tribulation (B)." };
-  if (!f.patriarchDefeated) return { chapter: "Chapter V", title: "The Blood Moon", objective: "Storm the Crimson Demon Valley and defeat Patriarch Xue at his blood altar." };
+  if (!f.patriarchDefeated) return { chapter: "Chapter V", title: "The Blood Moon", objective: "Go west past the bamboo, through the red mist, and defeat Patriarch Xue at his blood altar in the Crimson Demon Valley." };
   if (!f.heartReturned) return { chapter: "Chapter V", title: "The Blood Moon", objective: "Bring the Jade Lotus Heart home to Elder Mo." };
-  if (!f.ascended) return { chapter: "Epilogue", title: "Ascension", objective: `Reach the peak of Spirit Severing, then face the final tribulation at the dais of Heavenly Tribulation Peak. (${realmLabel(g.realm, g.stage)})` };
+  if (!f.ascended) return { chapter: "Epilogue", title: "Ascension", objective: `Reach the peak of Spirit Severing, cross the sky bridge behind the Hall of Clouds, and face the final tribulation at the dais of Heavenly Tribulation Peak. (${realmLabel(g.realm, g.stage)})` };
   return { chapter: "Fin", title: "Immortal", objective: "Lin Yue has ascended. Wander the jianghu as you please." };
 }
 
@@ -74,17 +75,17 @@ export function introScript(): Step[] {
       ],
     },
     { fade: "in" },
-    { spawn: "runner", char: "abao", at: [13.5, 15.5], dir: 1 },
-    { walk: "runner", to: [15.5, 19.2] },
+    { spawn: "runner", char: "abao", at: toWorld("sect", 13.5, 15.5), dir: 1 },
+    { walk: "runner", to: toWorld("sect", 15.5, 19.2) },
     { emote: "runner", icon: "!" },
     { face: "hero", to: "runner" },
     say("abao", "Senior Sister Lin! The Jade Lotus Heart — it's gone! Elder Mo is calling for you at the Hall of Clouds!"),
     { emote: "hero", icon: "..." },
     say("heroine", "Gone? No one has ever breached the shrine… Thank you, Ah Bao. I'll go at once."),
     say("abao", "Up the stairs to the north-east! And — be careful, Senior Sister. The elders look frightened."),
-    { walk: "runner", to: [13.5, 15.5] },
+    { walk: "runner", to: toWorld("sect", 13.5, 15.5) },
     { despawn: "runner" },
-    { toast: "Move with WASD / arrows · E or Space to talk · M for the map" },
+    { toast: "Move with WASD / arrows · hold Shift to run · E or Space to talk · M for the map" },
   ];
 }
 
@@ -118,6 +119,16 @@ export function npcScript(key: string, g: GameState): Step[] {
   switch (key) {
     case "elder":
       return elderScript(g);
+    case "peddler":
+      return [
+        say("peddler", pick(g, [
+          "Ho, cultivator! Bai's the name, the highway's my shop. Pills for the road?",
+          "I've walked this road from the red valley to the lotus lake. Never seen the foxes this wild.",
+          "Cranes take off whenever someone hurries past. Walk softly and you can get close!",
+          "They say the water from the Lotus Lake falls right off the edge of the world. I'd believe it.",
+        ])),
+        { shop: true },
+      ];
     case "elderPeak":
       return [
         say("elder", "So. The Heart chose to bloom for you. Even my old master never saw that."),
@@ -137,9 +148,10 @@ export function npcScript(key: string, g: GameState): Step[] {
       return [say("qing", "The Alchemy Hall's finest! What can I brew for you today?"), { shop: true }];
     case "abao":
       return [say("abao", pick(g, [
-        f.metElder ? "Senior Sister, the sect gate is at the south-west end of the path. Step through it to open the world map!" : "Elder Mo is waiting before the Hall of Clouds, up the stairs!",
+        f.metElder ? "Senior Sister, the sky bridge below the sect gate goes all the way down to the mortal lands! You can walk the whole jianghu from there." : "Elder Mo is waiting before the Hall of Clouds, up the stairs!",
         "If your qi runs dry, swallow a Qi Gathering Pill with Q. Healing pills are H!",
         "Feng says you can ride your sword with F. Lucky… I still fall off mine.",
+        "Hold Shift and you can run! Elder Mo says a cultivator should never run in the plaza, though.",
         "When your cultivation bar is full at a realm's peak, meditate at a lotus shrine and press B. Then pray to heaven!",
       ]))];
     case "feng":
@@ -153,12 +165,12 @@ export function npcScript(key: string, g: GameState): Step[] {
           say("zhou", "You drove off the beast! Heaven has heard us at last. I am Zhou, head of Willow Creek."),
           say("zhou", "For seven nights fox spirits have come down from the Whispering Bamboo Forest. Their eyes burn red — like the moon on the night the sky turned to blood."),
           say("child", "I saw a man in red robes walking with them! He laughed, and the foxes howled…"),
-          say("zhou", "Hush, Mei. …The forest path lies west of here. I closed it, but you — you could find out what drives them mad."),
+          say("zhou", "Hush, Mei. …The forest lies west along the highway. I had it sealed with talismans, but you — you could find out what drives them mad."),
           say("heroine", "Red robes beneath a blood moon. The Blood Moon Sect… I'll go to the forest."),
           { mutate: (s) => setFlag({ ...s, stones: s.stones + 30 }, "metZhou") },
-          { toast: "Received 30 spirit stones · The Whispering Bamboo Forest is open" },
+          { toast: "Received 30 spirit stones · The talisman seal on the bamboo forest lifts" },
         ];
-      return [say("zhou", f.foxesCleared ? "The foxes are quiet again. The children play by the creek. Willow Creek owes you everything." : "The forest lies beyond the world map's western road. Be careful in there.")];
+      return [say("zhou", f.foxesCleared ? "The foxes are quiet again. The children play by the creek. Willow Creek owes you everything." : "Take the south road down to the old highway and follow it west. The bamboo starts where the creek bends. Be careful in there.")];
     case "hua":
       if (!f.huaTea)
         return [
@@ -184,7 +196,7 @@ export function npcScript(key: string, g: GameState): Step[] {
           { anim: "huli", name: "cast", wait: true },
           { flash: "#ffb070" },
           { mutate: (s) => setFlag(s, "metHuli") },
-          { toast: "Received the Foxfire Charm · The Moonlit Lotus Lake is revealed" },
+          { toast: "Received the Foxfire Charm · The mist over the Moonlit Lotus Lake parts" },
           say("huli", `But grow stronger first, little sister. Below ${realmLabel(0, LAKE_LEVEL)}, the lake serpents will swallow you whole.`),
           { emote: "huli", icon: "heart" },
         ];
@@ -235,7 +247,7 @@ function elderScript(g: GameState): Step[] {
       { flash: "#9ff5de" },
       { mutate: (s) => setFlag(s, "metElder") },
       { toast: "Learned: Sword Riding (F) · Willow Creek Village is open" },
-      say("elder", "The art of Sword Riding. Press F to ride your blade. Through the sect gate, it will carry you across the world map."),
+      say("elder", "The art of Sword Riding. Press F to ride your blade. Below the sect gate a sky bridge leads down to the mortal lands, and with M your sword can carry you to any land you have opened."),
       say("elder", "Your cultivation is still shallow. Gather herbs, defeat corrupted beasts and meditate at lotus shrines. When your qi overflows at a realm's peak, face the Heavenly Tribulation."),
       { anim: "hero", name: "bow", wait: true },
       say("heroine", "I will bring the Heart home, Master."),
@@ -251,12 +263,12 @@ function elderScript(g: GameState): Step[] {
       say("heroine", "Old Fisher Wen asked me to tell you: his old teacher still fishes."),
       { emote: "elder", icon: "..." },
       say("elder", "Master Wen… alive. Hah. Heaven has a sense of humour after all."),
-      say("elder", "The Heart will restore the spirit veins. But it chose you, Lin Yue. Go to Heavenly Tribulation Peak, north of the sect. There, at the peak of Spirit Severing, you may ascend."),
+      say("elder", "The Heart will restore the spirit veins. But it chose you, Lin Yue. Cross the sky bridge behind this hall to Heavenly Tribulation Peak. There, at the peak of Spirit Severing, you may ascend."),
       { mutate: (s) => setFlag({ ...s, stones: s.stones + 200, pills: { heal: Math.min(99, s.pills.heal + 3), qi: Math.min(99, s.pills.qi + 3) } }, "heartReturned") },
-      { toast: "Received 200 spirit stones and 6 pills · Heavenly Tribulation Peak is open" },
+      { toast: "Received 200 spirit stones and 6 pills · The sky bridge behind the Hall of Clouds opens" },
     ];
   if (f.ascended) return [say("elder", "The sect's founder was the last to ascend, a thousand years ago. Now there are two names on the stele. I am proud of you.")];
-  if (!f.villageSaved) return [say("elder", "Willow Creek lies below the clouds. Leave through the sect gate and ride your sword there.")];
+  if (!f.villageSaved) return [say("elder", "Willow Creek lies below the clouds. Go out through the sect gate and down the sky bridge.")];
   if (f.patriarchDefeated) return [say("elder", "Heavenly Tribulation Peak awaits.")];
   if (g.realm >= 1 && f.serpentKingDefeated) return [say("elder", "Foundation Establishment already… Then go. Xue waits in his valley. Do not hesitate when the moment comes.")];
   return [say("elder", "Follow the corrupted qi. And do not neglect your cultivation — Xue's power is deep.")];
@@ -323,7 +335,7 @@ export function victoryScript(enemy: EnemyId, key: string, area: AreaId, g: Game
         { shake: 0.3 },
         { flash: "#ffb070" },
         say("narrator", "A ring of foxfire flares at the heart of the grove, far to the north. Someone is calling."),
-        { spawn: "huli", char: "huli", at: [16.5, 6.5], dir: 0 },
+        { spawn: "huli", char: "huli", at: toWorld("bamboo", 16.5, 6.5), dir: 0 },
         { toast: "Go to the spirit tree at the heart of the grove" },
       );
     else steps.push({ toast: `Fox spirits calmed: ${n}/${FOXES_NEEDED}` });

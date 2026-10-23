@@ -8,7 +8,9 @@ import { reviveAtSect, type BattleAction } from "../engine/battle";
 import { atBottleneck, cultivationNeeded, FINAL_REALM, levelIndex, realmLabel, REALMS, type Stats } from "../engine/realms";
 import { applyBreakthrough, buyPill, consumePill, gainCultivation, heal, stats, type GameState, type SkillId } from "../engine/state";
 import { getArea, type AreaId } from "../world/areas";
+import { getWorld } from "../world/continent";
 import { AREA_IDS } from "../world/ids";
+import { toWorld } from "../world/layout";
 import { NODES } from "../world/overworld";
 import type { Step } from "../story/script";
 import { altarScript, areaUnlocked, arrivalScript, endingScript, hasNews, introScript, lockReason, npcScript, preBattleScript, questLog, victoryScript, type Quest } from "../story/story";
@@ -52,6 +54,10 @@ const MOVE_KEYS: Record<string, [number, number]> = {
 };
 
 const CONFIRM = new Set(["KeyE", "Enter", "Space", "NumpadEnter"]);
+const RUN_KEYS = ["ShiftLeft", "ShiftRight"];
+const WALK_SPEED = 3.3;
+const RUN_SPEED = 5.2;
+const FLY_SPEED = 5.6;
 
 interface Runner {
   steps: Step[];
@@ -92,8 +98,10 @@ export class Game {
   private banner: UiSnapshot["banner"] = null;
   private bannerUntil = 0;
   private prompt: string | null = null;
-  private defeated = new Set<string>();
   private invulnerableUntil = 0;
+  private idleTime = 0;
+  private sealToastAt = -99;
+  private syncAt = 0;
   private fade = 0;
   private fadeTarget = 0;
   private shake = 0;
@@ -109,7 +117,8 @@ export class Game {
   constructor(state: GameState, opts: { intro?: boolean; seed?: number } = {}) {
     this.state = state;
     this.seed = opts.seed ?? Date.now();
-    this.world = this.makeWorld(state.area, [state.x, state.y], state.dir);
+    this.world = this.makeWorld([state.x, state.y], state.dir);
+    this.state = { ...this.state, area: this.world.regionAt(state.x, state.y) };
     this.showBanner();
     if (opts.intro) {
       this.fade = 1;
@@ -274,7 +283,7 @@ export class Game {
   openMap(): void {
     if (this.mode !== "explore") return;
     if (!this.state.flags.metElder) return this.toast("Elder Mo is waiting for you. Speak with him before leaving the sect.");
-    this.worldMap = new WorldMap(this.state.area);
+    this.worldMap = new WorldMap(this.state.area, [this.world.hero.x, this.world.hero.y]);
     this.mode = "worldmap";
     this.world.hero.flying = false;
     this.markDirty();
@@ -300,12 +309,12 @@ export class Game {
     this.markDirty();
   }
 
+  /** Fast travel: land at a region's waypoint (or a given world position) in the one continuous world. */
   enterArea(id: AreaId, pos?: [number, number]): void {
-    const def = getArea(id);
-    const [x, y] = pos ?? def.arrive;
-    if (id !== this.state.area) this.defeated.clear();
+    const [x, y] = pos ?? getWorld().waypoints[id];
     this.state = { ...this.state, area: id, x, y };
-    this.world = this.makeWorld(id, [x, y], 8);
+    this.world.placeHero(x, y, 8);
+    this.world.syncPopulation(this.state.flags);
     this.worldMap = null;
     this.mode = "explore";
     this.invulnerableUntil = this.clock + 1.5;
@@ -323,14 +332,17 @@ export class Game {
     this.markDirty();
   }
 
-  debugTeleport(area: AreaId, x: number, y: number): void {
+  /** Jump to region-local coordinates (as the hand-built region layouts are authored). */
+  debugTeleport(area: AreaId, lx: number, ly: number): void {
     this.runner = null;
     this.queue = [];
     this.dialog = null;
     this.narration = null;
     this.battle = null;
-    this.state = { ...this.state, area, x, y };
-    this.world = this.makeWorld(area, [x, y], 8);
+    const [x, y] = toWorld(area, lx, ly);
+    this.state = { ...this.state, area: this.world.regionAt(x, y), x, y };
+    this.world.placeHero(x, y, 8);
+    this.world.syncPopulation(this.state.flags);
     this.worldMap = null;
     this.mode = "explore";
     this.fade = 0;
@@ -349,10 +361,23 @@ export class Game {
   }
 
   // ------------------------------------------------------------------ internals
-  private makeWorld(area: AreaId, [x, y]: [number, number], dir: number): World {
-    const w = new World(area, { x, y, dir }, this.state.flags, this.state.taken, this.defeated);
+  private makeWorld([x, y]: [number, number], dir: number): World {
+    const w = new World(getWorld(), { x, y, dir }, this.state.flags, this.state.taken);
+    w.sealed = (id) => !areaUnlocked(id, this.state);
     w.updateCamera(480, 270, 0);
     return w;
+  }
+
+  /** Crossing into another region: new banner, and its first-arrival scene. */
+  private trackRegion(): void {
+    const h = this.world.hero;
+    const r = this.world.regionAt(h.x, h.y);
+    if (r === this.state.area) return;
+    this.state = { ...this.state, area: r };
+    this.showBanner();
+    const arrival = arrivalScript(r, this.state);
+    if (arrival) this.play(arrival);
+    this.markDirty();
   }
 
   private showBanner(): void {
@@ -597,16 +622,14 @@ export class Game {
     this.world.hero.flying = false;
     this.world.setAnim(this.world.hero, "idle", this.clock);
     if (b.result === "won") {
-      this.defeated.add(b.enemyKey);
-      this.world.removeActor(b.enemyKey);
+      this.world.defeat(b.enemyKey);
       if (b.levelUp) this.toast(`Your cultivation rises: ${b.levelUp}!`);
       if (atBottleneck(this.state)) this.toast("Your qi has reached its peak! Meditate at a shrine and press B to face the tribulation.");
       this.play(victoryScript(b.enemy, b.enemyKey, this.state.area, this.state));
     } else if (b.result === "lost") {
       this.queue = [];
       this.state = reviveAtSect(this.state);
-      this.defeated.clear();
-      this.world = this.makeWorld("sect", [this.state.x, this.state.y], 0);
+      this.world.placeHero(this.state.x, this.state.y, 0);
       this.fade = 1;
       this.showBanner();
       this.toast("You awaken beside the lotus shrine of the Azure Cloud Sect.");
@@ -747,11 +770,14 @@ export class Game {
     const [sx, sy] = this.moveInput();
     let dx = 0;
     let dy = 0;
+    let run = RUN_KEYS.some((k) => this.keys.has(k));
     if (sx || sy) {
       [dx, dy] = screenDirToWorld(sx, sy);
       const mag = Math.min(1, Math.hypot(sx, sy));
       dx *= mag;
       dy *= mag;
+      // a joystick pushed all the way breaks into a run
+      if (this.stick[0] || this.stick[1]) run ||= Math.hypot(...this.stick) > 0.95;
     } else if (this.tapTarget) {
       const tx = this.tapTarget[0] - h.x;
       const ty = this.tapTarget[1] - h.y;
@@ -760,22 +786,51 @@ export class Game {
       else {
         dx = tx / d;
         dy = ty / d;
+        run ||= d > 4;
       }
     }
-    const speed = h.flying ? 5.6 : 3.3;
+    run &&= !h.flying;
+    const speed = h.flying ? FLY_SPEED : run ? RUN_SPEED : WALK_SPEED;
     if (dx || dy) {
+      this.idleTime = 0;
       h.dir = dirFrom(dx, dy);
+      const [x0, y0] = [h.x, h.y];
       const moved = w.move(h, dx * speed * dt, dy * speed * dt);
       if (!moved) this.tapTarget = null;
-      w.setAnim(h, h.flying ? "fly" : "walk", this.clock);
-      if (!h.flying && Math.random() < dt * 6) w.fx.emit({ x: isoX(h.x, h.y) - dx * 4, y: isoY(h.x, h.y, h.z), vx: -dx * 8, vy: -8, life: 0.4, color: "#e8dcc8", gravity: 20 });
-      if (h.flying && Math.random() < dt * 25) w.fx.emit({ x: isoX(h.x, h.y), y: isoY(h.x, h.y, h.z) + 2, vx: -dx * 30 + (dy - dx) * 0, vy: -4, life: 0.5, color: Math.random() < 0.5 ? "#9ff5de" : "#ffffff" });
-    } else if (h.holdUntil === undefined) w.setAnim(h, h.flying ? "fly" : h.idleAnim, this.clock);
+      w.trail(Math.hypot(h.x - x0, h.y - y0), this.clock);
+      h.running = run;
+      if (h.holdUntil === undefined || h.anim === "stretch" || h.anim === "look" || h.anim === "gather") w.setAnim(h, h.flying ? "fly" : run ? "run" : "walk", this.clock);
+      if (!h.flying && Math.random() < dt * (run ? 16 : 6)) w.fx.emit({ x: isoX(h.x, h.y) - dx * 4, y: isoY(h.x, h.y, h.z), vx: -dx * (run ? 18 : 8), vy: run ? -14 : -8, life: run ? 0.5 : 0.4, color: "#e8dcc8", gravity: 20, size: run && Math.random() < 0.4 ? 2 : 1 });
+      if (h.flying && Math.random() < dt * 25) w.fx.emit({ x: isoX(h.x, h.y), y: isoY(h.x, h.y, h.z) + 2, vx: -dx * 30, vy: -4, life: 0.5, color: Math.random() < 0.5 ? "#9ff5de" : "#ffffff" });
+    } else if (h.holdUntil === undefined) {
+      w.setAnim(h, h.flying ? "fly" : h.idleAnim, this.clock);
+      // left alone for a while, Lin Yue stretches or glances around
+      this.idleTime += dt;
+      if (!h.flying && this.idleTime > 8) {
+        this.idleTime = -4;
+        w.setAnim(h, Math.floor(this.clock) % 2 ? "stretch" : "look", this.clock, true);
+      }
+    }
     this.state.x = h.x;
     this.state.y = h.y;
     this.state.dir = h.dir;
+    if (w.bumped) {
+      const r = w.bumped;
+      w.bumped = null;
+      this.tapTarget = null;
+      if (this.clock - this.sealToastAt > 3) {
+        this.sealToastAt = this.clock;
+        this.toast(`${getArea(r).name}: ${lockReason(r, this.state) ?? "The way is sealed."}`);
+      }
+    }
+    this.trackRegion();
+    if (this.mode !== "explore") return;
 
-    const touched = w.update(dt, this.clock, h.flying === true || this.clock < this.invulnerableUntil);
+    if (this.clock > this.syncAt) {
+      this.syncAt = this.clock + 0.5;
+      w.syncPopulation(this.state.flags);
+    }
+    const touched = w.update(dt, this.clock, h.flying === true || this.clock < this.invulnerableUntil, true);
     if (touched && touched.enemy) {
       this.tapTarget = null;
       const pre = preBattleScript(touched.enemy, touched.key);
@@ -838,6 +893,8 @@ export class Game {
         this.play([{ say: "narrator", text: it.text ?? "" }]);
         break;
       case "herb": {
+        h.dir = dirFrom(it.i + 0.5 - h.x, it.j + 0.5 - h.y);
+        if (!h.flying) this.world.setAnim(h, "gather", this.clock, true);
         this.state = { ...this.state, taken: [...this.state.taken, it.key] };
         this.world.taken.add(it.key);
         const s = stats(this.state);
@@ -850,6 +907,8 @@ export class Game {
         break;
       }
       case "chest": {
+        h.dir = dirFrom(it.i + 0.5 - h.x, it.j + 0.5 - h.y);
+        if (!h.flying) this.world.setAnim(h, "gather", this.clock, true);
         const L = levelIndex(this.state.realm, this.state.stage);
         const stones = 25 + L * 10;
         this.state = { ...this.state, taken: [...this.state.taken, it.key], stones: this.state.stones + stones, pills: { heal: Math.min(99, this.state.pills.heal + 1), qi: Math.min(99, this.state.pills.qi + 1) } };
@@ -941,7 +1000,7 @@ export class Game {
         this.updateExplore(dt);
         break;
       case "scene":
-        this.world.update(dt, this.clock, true);
+        this.world.update(dt, this.clock, true, false);
         this.runSteps(dt);
         break;
       case "meditate":
