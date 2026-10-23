@@ -1,23 +1,24 @@
-import type { SpriteId } from "../sprites";
+import type { CharId } from "../art/characters";
 
-export type EnemyId = "fox" | "wolf" | "serpent" | "jiangshi" | "patriarch";
+export type EnemyId = "fox" | "wolf" | "serpent" | "serpentKing" | "cultist" | "jiangshi" | "patriarch";
 
 export interface EnemyDef {
   id: EnemyId;
   name: string;
-  sprite: SpriteId;
+  sprite: CharId;
   level: number;
   hp: number;
   atk: number;
   def: number;
   exp: number;
   stones: number;
-  /** Signature move used every `specialEvery` turns. */
+  /** Signature move used every `every` turns. */
   special: { name: string; power: number; every: number; drain?: number; colour: string };
   basic: string;
   boss?: boolean;
-  /** Ground offset when drawn (sprites have different padding). */
-  footY: number;
+  /** Roaming speed on the map (tiles/s) and chase radius. */
+  speed: number;
+  aggro: number;
 }
 
 export const ENEMIES: Record<EnemyId, EnemyDef> = {
@@ -33,11 +34,12 @@ export const ENEMIES: Record<EnemyId, EnemyDef> = {
     stones: 5,
     basic: "Fox Claw",
     special: { name: "Azure Foxfire", power: 1.6, every: 3, colour: "#7fd8ff" },
-    footY: 36,
+    speed: 1.6,
+    aggro: 3,
   },
   wolf: {
     id: "wolf",
-    name: "Demon Wolf",
+    name: "Shadowflame Wolf",
     sprite: "wolf",
     level: 3,
     hp: 110,
@@ -47,49 +49,84 @@ export const ENEMIES: Record<EnemyId, EnemyDef> = {
     stones: 9,
     basic: "Rending Bite",
     special: { name: "Shadowflame Fang", power: 1.7, every: 3, colour: "#a46cff" },
-    footY: 38,
+    speed: 2,
+    aggro: 3.5,
   },
   serpent: {
     id: "serpent",
-    name: "Lake Serpent",
+    name: "Jade Serpent",
     sprite: "serpent",
-    level: 6,
-    hp: 200,
-    atk: 30,
-    def: 10,
-    exp: 70,
-    stones: 16,
+    level: 5,
+    hp: 180,
+    atk: 28,
+    def: 9,
+    exp: 60,
+    stones: 14,
     basic: "Tail Lash",
     special: { name: "Jade Venom Coil", power: 1.6, every: 3, drain: 0.3, colour: "#3fd0a0" },
-    footY: 44,
+    speed: 1.2,
+    aggro: 2.5,
+  },
+  serpentKing: {
+    id: "serpentKing",
+    name: "Serpent King",
+    sprite: "serpentKing",
+    level: 7,
+    hp: 260,
+    atk: 22,
+    def: 8,
+    exp: 220,
+    stones: 60,
+    basic: "Crushing Coil",
+    special: { name: "Moon Tide Breath", power: 1.8, every: 3, drain: 0.25, colour: "#7af0ff" },
+    boss: true,
+    speed: 0,
+    aggro: 1.2,
+  },
+  cultist: {
+    id: "cultist",
+    name: "Blood Moon Cultist",
+    sprite: "cultist",
+    level: 8,
+    hp: 240,
+    atk: 40,
+    def: 14,
+    exp: 95,
+    stones: 24,
+    basic: "Blood Saber",
+    special: { name: "Crimson Hex", power: 1.7, every: 3, drain: 0.2, colour: "#ff3050" },
+    speed: 1.4,
+    aggro: 3,
   },
   jiangshi: {
     id: "jiangshi",
     name: "Jiangshi",
     sprite: "jiangshi",
     level: 8,
-    hp: 260,
+    hp: 270,
     atk: 38,
-    def: 15,
+    def: 16,
     exp: 100,
     stones: 22,
     basic: "Corpse Claw",
     special: { name: "Yin Corpse Qi", power: 1.7, every: 3, colour: "#8aff9a" },
-    footY: 49,
+    speed: 1.1,
+    aggro: 2.5,
   },
   patriarch: {
     id: "patriarch",
     name: "Patriarch Xue",
     sprite: "patriarch",
     level: 14,
-    hp: 1200,
-    atk: 70,
-    def: 30,
+    hp: 900,
+    atk: 48,
+    def: 20,
     exp: 1500,
     stones: 300,
     basic: "Blood Saber",
     special: { name: "Blood Moon Slash", power: 1.8, every: 3, drain: 0.5, colour: "#ff2040" },
     boss: true,
-    footY: 47,
+    speed: 0,
+    aggro: 1.5,
   },
 };

@@ -4,7 +4,7 @@ import { SpriteGallery } from "@/components/SpriteGallery";
 
 export const metadata: Metadata = {
   title: "Pixel Art Gallery — Jade Lotus Ascension",
-  description: "Every character, beast and background in the game, animated live from procedural pixel art.",
+  description: "Every character, prop and region in the game, animated live from procedural pixel art.",
 };
 
 export default function GalleryPage() {
@@ -16,7 +16,7 @@ export default function GalleryPage() {
         </Link>
       </nav>
       <h1>Pixel Art Gallery</h1>
-      <p className="lead">Every sprite and backdrop below is painted procedurally in TypeScript at load time — no image files — and animated live.</p>
+      <p className="lead">Every character, prop and region below is ray cast procedurally in TypeScript at load time (no image files), animated live, in up to 16 facing directions.</p>
       <SpriteGallery />
     </main>
   );

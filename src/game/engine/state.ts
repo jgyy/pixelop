@@ -1,12 +1,13 @@
 import { z } from "zod";
+import { AREA_IDS } from "../world/ids";
 import { addCultivation, breakthrough, statsFor, type Stats } from "./realms";
 
-export const REGION_IDS = ["sect", "bamboo", "lake", "demon"] as const;
-export type RegionId = (typeof REGION_IDS)[number];
+export const SKILL_IDS = ["strike", "palm", "lotus", "swords", "thunder"] as const;
+export type SkillId = (typeof SKILL_IDS)[number];
 
 /** Serializable game state — this is exactly what gets saved server-side. */
 export const GameStateSchema = z.object({
-  version: z.literal(1),
+  version: z.literal(2),
   name: z.string().min(1).max(24),
   realm: z.number().int().min(0).max(5),
   stage: z.number().int().min(0).max(3),
@@ -15,12 +16,18 @@ export const GameStateSchema = z.object({
   qi: z.number().int().min(0),
   stones: z.number().int().min(0),
   pills: z.object({ heal: z.number().int().min(0).max(99), qi: z.number().int().min(0).max(99) }),
-  region: z.enum(REGION_IDS),
-  x: z.number().min(0).max(10_000),
+  area: z.enum(AREA_IDS),
+  x: z.number().min(0).max(64),
+  y: z.number().min(0).max(64),
+  dir: z.number().int().min(0).max(15),
+  skills: z.array(z.enum(SKILL_IDS)).max(SKILL_IDS.length),
   bossDefeated: z.boolean(),
   kills: z.number().int().min(0),
   playTime: z.number().min(0),
   flags: z.record(z.string(), z.boolean()),
+  counters: z.record(z.string(), z.number().int()),
+  /** One-shot pickups already taken (chests, herbs). */
+  taken: z.array(z.string()).max(200),
 });
 
 export type GameState = z.infer<typeof GameStateSchema>;
@@ -28,7 +35,7 @@ export type GameState = z.infer<typeof GameStateSchema>;
 export function newGame(name = "Lin Yue"): GameState {
   const s = statsFor(0, 0);
   return {
-    version: 1,
+    version: 2,
     name,
     realm: 0,
     stage: 0,
@@ -37,12 +44,17 @@ export function newGame(name = "Lin Yue"): GameState {
     qi: s.maxQi,
     stones: 20,
     pills: { heal: 2, qi: 1 },
-    region: "sect",
-    x: 120,
+    area: "sect",
+    x: 15.5,
+    y: 20.5,
+    dir: 8,
+    skills: ["strike", "palm", "lotus"],
     bossDefeated: false,
     kills: 0,
     playTime: 0,
     flags: {},
+    counters: {},
+    taken: [],
   };
 }
 
@@ -64,11 +76,13 @@ export function gainCultivation(g: GameState, amount: number): { state: GameStat
   return { state: clampVitals(next), stagesGained: r.stagesGained };
 }
 
+/** Survive the tribulation: next realm, full vitals, and Core Formation unlocks the thunder technique. */
 export function applyBreakthrough(g: GameState): GameState {
   const p = breakthrough(g);
   if (p.realm === g.realm) return g;
   const s = statsFor(p.realm, p.stage);
-  return { ...g, ...p, hp: s.maxHp, qi: s.maxQi };
+  const skills = p.realm >= 2 && !g.skills.includes("thunder") ? [...g.skills, "thunder" as const] : g.skills;
+  return { ...g, ...p, hp: s.maxHp, qi: s.maxQi, skills };
 }
 
 export function heal(g: GameState, hp: number, qi: number): GameState {
@@ -90,3 +104,7 @@ export function consumePill(g: GameState, kind: "heal" | "qi"): GameState | null
   const next = { ...g, pills: { ...g.pills, [kind]: g.pills[kind] - 1 } };
   return kind === "heal" ? heal(next, s.maxHp * PILL_EFFECT.heal, 0) : heal(next, 0, s.maxQi * PILL_EFFECT.qi);
 }
+
+export const learn = (g: GameState, skill: SkillId): GameState => (g.skills.includes(skill) ? g : { ...g, skills: [...g.skills, skill] });
+export const setFlag = (g: GameState, flag: string, on = true): GameState => ({ ...g, flags: { ...g.flags, [flag]: on } });
+export const bump = (g: GameState, counter: string, by = 1): GameState => ({ ...g, counters: { ...g.counters, [counter]: (g.counters[counter] ?? 0) + by } });

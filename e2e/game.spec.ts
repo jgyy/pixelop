@@ -1,36 +1,64 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { battle, mode, patch, startNewGame, state, teleport } from "./helpers";
 
+async function finishDialogue(page: Page, timeout = 20_000): Promise<void> {
+  const end = Date.now() + timeout;
+  while (Date.now() < end && (await mode(page)) === "scene") {
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(80);
+  }
+}
+
 test.describe("Jade Lotus Ascension", () => {
-  test("title screen renders and the API is healthy", async ({ page, request }) => {
+  test("title screen fills the viewport and the API is healthy", async ({ page, request }) => {
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(String(e)));
     await page.goto("/");
     await expect(page.getByRole("heading", { name: /Jade Lotus Ascension/ })).toBeVisible();
     await expect(page.getByTestId("new-game")).toBeEnabled();
+    const box = await page.locator("canvas").first().boundingBox();
+    expect(box!.width).toBeGreaterThanOrEqual(1280);
+    expect(box!.height).toBeGreaterThanOrEqual(800);
     const health = await request.get("/api/health");
     expect(health.ok()).toBe(true);
     expect(await health.json()).toMatchObject({ ok: true });
+    await page.waitForTimeout(500);
     expect(errors).toEqual([]);
   });
 
-  test("the heroine walks, jumps and talks to the elder", async ({ page }) => {
-    await startNewGame(page);
+  test("the opening narration plays and the heroine walks the isometric sect", async ({ page }) => {
+    await startNewGame(page, false);
+    await expect(page.getByTestId("narration")).toContainText("Azure Cloud Sect");
+    await page.getByTestId("skip").click();
+    await expect.poll(() => mode(page)).toBe("explore");
     await expect(page.getByTestId("realm")).toHaveText(/Qi Condensation · Early/);
-    const x0 = (await state(page)).x;
-    await page.keyboard.down("ArrowRight");
-    await page.waitForTimeout(800);
-    await page.keyboard.up("ArrowRight");
-    expect((await state(page)).x).toBeGreaterThan(x0 + 20);
-    await page.keyboard.press("Space");
+    await expect(page.getByTestId("quest")).toContainText("Elder Mo");
+    const s0 = await state(page);
+    await page.keyboard.down("KeyD");
+    await page.waitForTimeout(700);
+    await page.keyboard.up("KeyD");
+    const s1 = await state(page);
+    expect(Math.hypot(s1.x - s0.x, s1.y - s0.y)).toBeGreaterThan(0.8);
+  });
 
-    await teleport(page, "sect", 330);
+  test("Elder Mo's briefing advances the story and unlocks the world map", async ({ page }) => {
+    await startNewGame(page);
+    await teleport(page, "sect", 15.5, 10.5);
     await expect(page.getByTestId("prompt")).toContainText("Elder Mo");
     await page.keyboard.press("KeyE");
-    await expect(page.getByTestId("dialog")).toContainText("Blood Moon Sect");
-    for (let i = 0; i < 6 && (await page.getByTestId("dialog").count()); i++) await page.keyboard.press("Enter");
-    await expect(page.getByTestId("dialog")).toHaveCount(0);
+    await expect(page.getByTestId("dialog")).toContainText("You heard the bells");
+    await expect(page.getByTestId("portrait")).toBeVisible();
+    await finishDialogue(page);
     expect((await state(page)).flags.metElder).toBe(true);
+    await expect(page.getByTestId("quest")).toContainText("Willow Creek");
+
+    await page.keyboard.press("KeyM");
+    await expect(page.getByTestId("worldmap")).toBeVisible();
+    await expect(page.getByTestId("map-bamboo")).toBeDisabled();
+    await page.getByTestId("map-village").click();
+    await expect.poll(() => page.evaluate(() => window.__pixelop!.game.worldMap?.travelling ?? false)).toBe(false);
+    await page.keyboard.press("Enter");
+    await expect.poll(async () => (await state(page)).area).toBe("village");
   });
 
   test("a battle can be fought and won", async ({ page }) => {
@@ -39,12 +67,11 @@ test.describe("Jade Lotus Ascension", () => {
     await battle(page, "fox");
     await expect(page.getByTestId("battle")).toContainText("Fox Spirit");
     const skill = page.getByTestId("skill-palm");
-    for (let i = 0; i < 20 && (await mode(page)) === "battle"; i++) {
-      if (await skill.isEnabled().catch(() => false)) await skill.click();
-      await page.waitForTimeout(500);
+    for (let i = 0; i < 30 && (await mode(page)) === "battle"; i++) {
+      if (await skill.isEnabled().catch(() => false)) await skill.click().catch(() => undefined);
+      await page.waitForTimeout(400);
     }
-    await expect.poll(() => mode(page), { timeout: 15_000 }).toBe("explore");
-    expect((await state(page)).kills).toBe(1);
+    await expect.poll(() => page.evaluate(() => window.__pixelop!.game.state.kills), { timeout: 15_000 }).toBe(1);
   });
 
   test("progress is saved server-side and can be continued", async ({ page }) => {
@@ -61,13 +88,15 @@ test.describe("Jade Lotus Ascension", () => {
     await expect(page.getByTestId("leaderboard")).toContainText("Lin Yue");
   });
 
-  test("the gallery animates every sprite and backdrop", async ({ page }) => {
+  test("the gallery animates every character, prop and region", async ({ page }) => {
+    test.setTimeout(120_000);
     await page.goto("/gallery");
     await expect(page.getByRole("heading", { name: "Pixel Art Gallery" })).toBeVisible();
-    await expect(page.locator("[data-testid^=sheet-]")).toHaveCount(16);
-    await expect(page.getByTestId("scene")).toHaveCount(5);
-    expect(await page.getByTestId("anim").count()).toBeGreaterThanOrEqual(40);
-    await page.waitForTimeout(500);
+    await expect(page.locator("[data-testid^=sheet-]")).toHaveCount(21);
+    await expect(page.getByTestId("scene")).toHaveCount(7);
+    expect(await page.getByTestId("prop").count()).toBeGreaterThanOrEqual(35);
+    expect(await page.getByTestId("anim").count()).toBeGreaterThanOrEqual(80);
+    await page.waitForTimeout(1500);
     const painted = await page.evaluate(() => {
       const c = document.querySelector<HTMLCanvasElement>("[data-testid=scene] canvas")!;
       const d = c.getContext("2d")!.getImageData(0, 0, c.width, c.height).data;

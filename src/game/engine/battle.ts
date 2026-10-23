@@ -1,8 +1,8 @@
 import { createRng } from "../pixel/rng";
 import { ENEMIES, type EnemyId } from "./enemies";
-import { gainCultivation, PILL_EFFECT, stats, type GameState } from "./state";
+import { gainCultivation, PILL_EFFECT, stats, type GameState, type SkillId } from "./state";
 
-export type SkillId = "strike" | "palm" | "swords" | "lotus";
+export type { SkillId } from "./state";
 
 export interface Skill {
   id: SkillId;
@@ -25,6 +25,7 @@ export const SKILLS: Record<SkillId, Skill> = {
   palm: { id: "palm", name: "Jade Lotus Palm", hanzi: "玉莲掌", qi: 10, power: 1.8, hits: 1, pierce: 0.5, description: "Palm strike of condensed qi; pierces half of DEF.", key: "2" },
   swords: { id: "swords", name: "Myriad Swords Return", hanzi: "万剑归宗", qi: 25, power: 0.85, hits: 3, description: "Summon three flying swords to strike in succession.", key: "3" },
   lotus: { id: "lotus", name: "Lotus Heart Sutra", hanzi: "莲心诀", qi: 15, power: 0, hits: 0, heal: 0.35, description: "Recite the sutra to restore 35% HP.", key: "4" },
+  thunder: { id: "thunder", name: "Nine Heavens Thunder", hanzi: "九霄雷", qi: 40, power: 1.35, hits: 2, pierce: 0.3, description: "Call down twin bolts of tribulation lightning.", key: "5" },
 };
 
 export type BattleAction = { type: "skill"; skill: SkillId } | { type: "item"; item: "heal" | "qi" } | { type: "flee" };
@@ -82,6 +83,7 @@ export function resolveTurn(game: GameState, battle: BattleState, action: Battle
   // --- heroine's action -----------------------------------------------------
   if (action.type === "skill") {
     const sk = SKILLS[action.skill];
+    if (!g.skills.includes(sk.id)) return { game, battle, events: [{ kind: "rejected", reason: `You have not learned ${sk.name}.` }] };
     if (g.qi < sk.qi) return { game, battle, events: [{ kind: "rejected", reason: `Not enough qi for ${sk.name}.` }] };
     g.qi -= sk.qi;
     const hits: { damage: number; crit: boolean }[] = [];
@@ -129,7 +131,7 @@ export function resolveTurn(game: GameState, battle: BattleState, action: Battle
     if (drop) g.pills[drop] = Math.min(99, g.pills[drop] + 1);
     g.stones += enemy.stones;
     g.kills += 1;
-    if (enemy.boss) g.bossDefeated = true;
+    if (enemy.id === "patriarch") g.bossDefeated = true;
     const gained = gainCultivation(g, enemy.exp);
     g = gained.state;
     events.push({ kind: "victory", exp: enemy.exp, stones: enemy.stones, stagesGained: gained.stagesGained, drop });
@@ -160,8 +162,8 @@ export function resolveTurn(game: GameState, battle: BattleState, action: Battle
   return { game: g, battle: b, events };
 }
 
-/** After a defeat the heroine wakes at the sect shrine. */
+/** After a defeat the heroine wakes beside the sect shrine. */
 export function reviveAtSect(g: GameState): GameState {
   const s = stats(g);
-  return { ...g, hp: Math.ceil(s.maxHp * 0.5), qi: Math.ceil(s.maxQi * 0.5), region: "sect", x: 760 };
+  return { ...g, hp: Math.ceil(s.maxHp * 0.5), qi: Math.ceil(s.maxQi * 0.5), area: "sect", x: 7.5, y: 15.5, dir: 0 };
 }
