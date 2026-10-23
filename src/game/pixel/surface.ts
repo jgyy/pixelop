@@ -10,6 +10,8 @@ export interface Surface {
   rect(x: number, y: number, w: number, h: number, color: string): void;
   px(x: number, y: number, color: string): void;
   sprite(buf: PixelBuffer, x: number, y: number, flipX?: boolean, opacity?: number): void;
+  /** Draw columns [sx, sx + sw) of a buffer, placed as if the whole buffer were drawn at (x, y). */
+  spriteSlice(buf: PixelBuffer, x: number, y: number, sx: number, sw: number): void;
 }
 
 export class BufferSurface implements Surface {
@@ -28,6 +30,14 @@ export class BufferSurface implements Surface {
   }
   sprite(buf: PixelBuffer, x: number, y: number, flipX = false, opacity = 1) {
     this.buffer.blit(buf, x, y, flipX, opacity);
+  }
+  spriteSlice(buf: PixelBuffer, x: number, y: number, sx: number, sw: number) {
+    const x0 = Math.max(0, Math.round(sx));
+    const x1 = Math.min(buf.width, Math.round(sx + sw));
+    if (x1 <= x0) return;
+    const part = new PixelBuffer(x1 - x0, buf.height);
+    for (let yy = 0; yy < buf.height; yy++) part.data.set(buf.data.subarray((yy * buf.width + x0) * 4, (yy * buf.width + x1) * 4), yy * part.width * 4);
+    this.buffer.blit(part, Math.round(x) + x0, y);
   }
 }
 
