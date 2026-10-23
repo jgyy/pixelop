@@ -51,7 +51,15 @@ export type AnimId =
   | "nod"
   | "howl"
   | "sniff"
-  | "peck";
+  | "peck"
+  | "read"
+  | "sit"
+  | "pray"
+  | "weave"
+  | "pour"
+  | "clap"
+  | "laugh"
+  | "tell";
 
 export interface Anim {
   fps: number;
@@ -345,6 +353,81 @@ const human: Partial<Record<AnimId, AnimSpec<HumanPose>>> = {
     loop: false,
     pose: (i) => ({ t: i, lean: [0, 0.1, 0.16, 0.04, 0.14, 0][i], bob: [0, -0.3, -0.5, 0, -0.4, 0][i], eyes: i === 2 || i === 4 ? "closed" : "open", mouth: "smile" }),
   },
+  // reading a book held at the chest, eyes down, turning a page now and then
+  read: {
+    n: 8,
+    fps: 4,
+    loop: true,
+    pose: (i) => {
+      const turn = i === 5 ? 1 : i === 6 ? 0.5 : 0;
+      return { t: i * 0.5, lean: 0.12, handL: [-1.8, 5, 14.4], handR: [1.8 - turn * 3, 5 + turn * 0.6, 14.4 + turn * 1.4], eyes: i === 3 ? "blink" : "closed", mouth: i === 6 ? "smile" : "neutral", bob: i % 4 === 2 ? 0.3 : 0, wind: [0, -0.2, 0] };
+    },
+  },
+  // sitting on a stool or cushion, hands on the knees, breathing
+  sit: {
+    n: 4,
+    fps: 3,
+    loop: true,
+    pose: (i, n) => ({ t: ph(i, n), stance: "sit", handL: [-2.8, 3.8, 11.2], handR: [2.8, 3.8, 11.2], bob: i >= 2 ? 0.4 : 0, eyes: i === 3 ? "blink" : "open", mouth: "smile", wind: [0, -0.2, 0] }),
+  },
+  // kneeling with palms pressed together, bowing low and rising again
+  pray: {
+    n: 8,
+    fps: 4,
+    loop: true,
+    pose: (i) => {
+      const low = [0, 0.1, 0.25, 0.34, 0.34, 0.25, 0.1, 0][i];
+      return { t: i * 0.4, stance: "kneel", lean: 0.04 + low, handL: [-0.6, 4.2, 16 - low * 3], handR: [0.6, 4.2, 16 - low * 3], eyes: "closed", mouth: "neutral", wind: [0, -0.2, 0] };
+    },
+  },
+  // seated at the loom: the shuttle passes from hand to hand and the beater comes down
+  weave: {
+    n: 8,
+    fps: 7,
+    loop: true,
+    pose: (i, n) => {
+      const s = Math.sin(ph(i, n));
+      const beat = i === 2 || i === 6 ? 1 : 0;
+      return { t: ph(i, n), stance: "sit", lean: 0.1 + beat * 0.06, handL: [-2.4 + s * 2.6, 5.4 + beat, 12.6], handR: [2.4 + s * 2.6, 5.4 + beat, 12.6], eyes: i === 4 ? "blink" : "open", mouth: "neutral", wind: [s * 0.2, -0.2, 0] };
+    },
+  },
+  // lifting a teapot and pouring a long stream into a cup
+  pour: {
+    n: 8,
+    fps: 6,
+    loop: false,
+    pose: (i) => {
+      const up = [0, 0.5, 1, 1, 1, 1, 0.5, 0][i];
+      return { t: i, lean: 0.06 * up, handR: [3.6 - up * 0.8, 1 + up * 4.6, 11.4 + up * 7], handL: [-3.4 + up * 2.4, 1 + up * 4, 11.4 + up * 2], eyes: i === 4 ? "blink" : "open", mouth: "smile", wind: [0, -0.3, 0] };
+    },
+  },
+  clap: {
+    n: 6,
+    fps: 9,
+    loop: false,
+    pose: (i) => {
+      const shut = i % 2 === 1;
+      return { t: i, bob: shut ? 0.3 : 0, handL: shut ? [-0.7, 4, 15.6] : [-3.6, 3.2, 15], handR: shut ? [0.7, 4, 15.6] : [3.6, 3.2, 15], eyes: i > 2 ? "closed" : "open", mouth: "grin", wind: [0, -0.3, 0] };
+    },
+  },
+  laugh: {
+    n: 6,
+    fps: 7,
+    loop: false,
+    pose: (i) => ({ t: i, lean: -0.08, bob: i % 2 ? 0.7 : 0, handL: [-1.8, 3.6, 10.6], handR: [3.8, 2.2, 13 + (i % 2) * 1.2], eyes: "closed", mouth: i % 2 ? "open" : "grin", wind: [0, -0.2, 0] }),
+  },
+  // a seated storyteller's sweeping gestures
+  tell: {
+    n: 8,
+    fps: 5,
+    loop: true,
+    pose: (i, n) => {
+      const a = ph(i, n);
+      const s = Math.sin(a);
+      const c = Math.cos(a);
+      return { t: a, stance: "sit", lean: 0.04 + c * 0.04, handR: [3.6 + s * 1.6, 3 + c * 2.2, 15 + Math.max(0, s) * 4], handL: [-3.2 + Math.max(0, -s) * -1.4, 2.6, 13 + Math.max(0, -s) * 3], eyes: i === 6 ? "closed" : "open", mouth: i % 2 ? "open" : "smile", wind: [s * 0.3, -0.2, 0] };
+    },
+  },
 };
 
 // ----------------------------------------------------------------------------- beast poses
@@ -395,6 +478,12 @@ export const STYLES = {
   swordsman: s({ robe: PAL.black, inner: PAL.crimson, trim: PAL.crimson, sash: PAL.crimson, hairStyle: "wild", hair: PAL.hairBlack, weapon: "jian", shawl: ramp("#8a2a3a"), flare: 4.6, eye: "#3a1a2a" }),
   bandit: s({ robe: ramp("#6a5a4a"), inner: PAL.black, trim: PAL.black, sash: PAL.red, skin: PAL.skinTan, hairStyle: "wild", hair: PAL.hairBrown, beard: PAL.hairBrown, hat: "hood", hatRamp: ramp("#4a3a2a"), weapon: "saber", flare: 4.4, hem: 4.6, shoes: PAL.brown }),
   peddler: s({ robe: ramp("#b07a3a"), inner: PAL.paper, trim: PAL.brown, sash: PAL.green, hair: PAL.hairBrown, beard: PAL.hairBrown, hairStyle: "short", hat: "straw", hatRamp: PAL.straw, skin: PAL.skinTan, weapon: "staff", flare: 4.6, hem: 4.2, shoes: PAL.brown }),
+  archivist: s({ robe: ramp("#4a5a7a"), inner: PAL.paper, trim: PAL.paper, sash: PAL.jade, hair: PAL.hairGrey, hairStyle: "bun", female: true, hat: "scholar", hatRamp: PAL.black, eye: "#2a2a3a", hunch: 0.06, flare: 5.6 }),
+  storyteller: s({ robe: ramp("#8a3a3a"), inner: PAL.paper, trim: PAL.gold, sash: PAL.gold, hair: PAL.hairWhite, beard: PAL.hairWhite, hairStyle: "topknot", weapon: "fan", hunch: 0.1, flare: 5.4 }),
+  weaver: s({ robe: ramp("#a86a8a"), inner: PAL.white, trim: PAL.paper, sash: PAL.teal, hair: PAL.hairBrown, hairStyle: "bun", female: true, eye: "#3a2a1a", flare: 5, hem: 3.6, shoes: PAL.brown }),
+  millhand: s({ robe: ramp("#a89a7a"), inner: PAL.white, trim: PAL.brown, sash: PAL.brown, hair: PAL.hairBrown, hairStyle: "short", skin: PAL.skinTan, scale: 0.82, flare: 4, hem: 4.6, shoes: PAL.brown }),
+  lampkeeper: s({ robe: ramp("#9a9aa8", { lo: "#3a3a5a" }), inner: PAL.white, trim: PAL.gold, sash: PAL.gold, hairStyle: "bald", female: true, shawl: ramp("#e0b050"), eye: "#3a2a3a", hunch: 0.08, flare: 5.4 }),
+  scholar: s({ robe: ramp("#8ab0d0"), inner: PAL.white, trim: PAL.navy, sash: PAL.navy, hairStyle: "topknot", hat: "scholar", hatRamp: PAL.black, weapon: "fan", flare: 5 }),
   patriarch: s({ robe: PAL.crimson, inner: PAL.black, trim: PAL.gold, sash: PAL.black, hair: PAL.hairSilver, hairStyle: "long", hat: "crown", hatRamp: PAL.black, cape: PAL.black, weapon: "saber", scale: 1.3, glowEyes: "#ff2040", flare: 6.2 }),
 } satisfies Record<string, HumanStyle>;
 
@@ -403,25 +492,31 @@ export type BeastId = "fox" | "wolf" | "serpent" | "serpentKing" | "crane" | "ba
 export type CharId = HumanId | BeastId;
 
 const HUMAN_ANIMS: Record<HumanId, AnimId[]> = {
-  heroine: ["idle", "walk", "run", "talk", "attack", "cast", "hurt", "meditate", "fly", "victory", "defeat", "bow", "gather", "stretch", "look", "wave", "drink", "cheer", "point", "nod"],
-  elder: ["idle", "walk", "talk", "cast", "bow", "wave", "nod"],
-  qing: ["idle", "walk", "talk", "bow", "wave", "nod", "cheer"],
-  abao: ["idle", "walk", "run", "talk", "practice", "wave", "cheer"],
-  discipleM: ["idle", "walk", "practice", "bow", "nod"],
-  discipleF: ["idle", "walk", "practice", "bow", "wave"],
-  zhou: ["idle", "walk", "talk", "wave", "nod", "point"],
-  hua: ["idle", "walk", "talk", "wave", "drink", "nod"],
-  farmer: ["idle", "walk", "talk", "gather", "wave", "nod", "stretch"],
-  child: ["idle", "walk", "run", "talk", "wave", "dance", "cheer"],
+  heroine: ["idle", "walk", "run", "talk", "attack", "cast", "hurt", "meditate", "fly", "victory", "defeat", "bow", "gather", "stretch", "look", "wave", "drink", "cheer", "point", "nod", "read", "sit", "pray", "clap", "laugh"],
+  elder: ["idle", "walk", "talk", "cast", "bow", "wave", "nod", "read"],
+  qing: ["idle", "walk", "talk", "bow", "wave", "nod", "cheer", "clap", "pour"],
+  abao: ["idle", "walk", "run", "talk", "practice", "wave", "cheer", "laugh", "clap"],
+  discipleM: ["idle", "walk", "practice", "bow", "nod", "clap"],
+  discipleF: ["idle", "walk", "practice", "bow", "wave", "clap"],
+  zhou: ["idle", "walk", "talk", "wave", "nod", "point", "laugh"],
+  hua: ["idle", "walk", "talk", "wave", "drink", "nod", "pour", "laugh"],
+  farmer: ["idle", "walk", "talk", "gather", "wave", "nod", "stretch", "laugh"],
+  child: ["idle", "walk", "run", "talk", "wave", "dance", "cheer", "clap", "laugh"],
   huli: ["idle", "walk", "talk", "cast", "bow", "wave", "dance"],
   wen: ["idle", "talk", "fish", "cast", "wave", "sleep"],
-  monk: ["idle", "walk", "talk", "sweep", "bow", "nod", "wave", "meditate"],
-  teawoman: ["idle", "walk", "talk", "wave", "drink", "nod", "bow"],
-  miller: ["idle", "walk", "talk", "gather", "wave", "nod", "point", "stretch"],
+  monk: ["idle", "walk", "talk", "sweep", "bow", "nod", "wave", "meditate", "pray"],
+  teawoman: ["idle", "walk", "talk", "wave", "drink", "nod", "bow", "pour", "laugh"],
+  miller: ["idle", "walk", "talk", "gather", "wave", "nod", "point", "stretch", "laugh"],
   hermit: ["idle", "talk", "meditate", "cast", "nod", "bow"],
-  swordsman: ["idle", "walk", "talk", "practice", "sleep", "attack", "cast", "hurt", "defeat", "drink", "nod", "wave"],
+  swordsman: ["idle", "walk", "talk", "practice", "sleep", "attack", "cast", "hurt", "defeat", "drink", "nod", "wave", "laugh"],
   bandit: ["idle", "walk", "run", "attack", "hurt", "point", "cheer"],
-  peddler: ["idle", "walk", "talk", "wave", "look", "nod", "point"],
+  peddler: ["idle", "walk", "talk", "wave", "look", "nod", "point", "laugh", "clap"],
+  archivist: ["idle", "walk", "talk", "read", "nod", "bow", "point"],
+  storyteller: ["idle", "talk", "tell", "sit", "laugh", "clap", "nod", "drink"],
+  weaver: ["idle", "walk", "talk", "weave", "nod", "wave", "laugh"],
+  millhand: ["idle", "walk", "talk", "sweep", "wave", "cheer", "laugh"],
+  lampkeeper: ["idle", "talk", "pray", "bow", "nod", "meditate"],
+  scholar: ["idle", "talk", "read", "sit", "drink", "nod", "laugh", "clap"],
   cultist: ["idle", "walk", "attack", "hurt"],
   jiangshi: ["idle", "hop", "attack", "hurt"],
   patriarch: ["idle", "walk", "attack", "cast", "hurt", "defeat", "talk"],
@@ -445,6 +540,12 @@ const NAMES: Record<CharId, [string, string]> = {
   teawoman: ["Auntie Fang", "Crossroads Teahouse"],
   miller: ["Miller Tang", "Watermill on the Creek"],
   hermit: ["Master Yun", "Hermit of the Cloudstep Isles"],
+  archivist: ["Archivist Shen", "Keeper of the Hall of Scrolls"],
+  storyteller: ["Storyteller Qiao", "Teller of Old Tales"],
+  weaver: ["Weaver Lü", "Granny Hua's Daughter-in-law"],
+  millhand: ["Little Dou", "Miller Tang's Apprentice"],
+  lampkeeper: ["Sister Ming", "Keeper of the Seven Lamps"],
+  scholar: ["Scholar Gu", "Examination Candidate"],
   swordsman: ["Xiao Han", "Wandering Swordsman"],
   bandit: ["Mountain Bandit", "Highland Outlaw"],
   cultist: ["Blood Moon Cultist", "Demonic Sect Acolyte"],

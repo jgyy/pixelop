@@ -107,6 +107,32 @@ test.describe("Jade Lotus Ascension", () => {
     await expect.poll(() => mode(page)).toBe("explore");
   });
 
+  test("step inside the crossroads teahouse, hear the storyteller, and walk back out", async ({ page }) => {
+    await startNewGame(page);
+    await patch(page, { flags: { metElder: true } });
+    // the teahouse door, in world tiles, given relative to the sect's corner of the map
+    await teleport(page, "sect", 145.5 - 177, 172.5 - 34);
+    await expect(page.getByTestId("prompt")).toContainText("Enter the Crossroads Teahouse");
+    await page.keyboard.press("KeyE");
+    await expect(page.getByTestId("place")).toContainText("Crossroads Teahouse");
+    await expect.poll(() => page.evaluate(() => window.__pixelop!.game.inside)).toBe("teahouse");
+    await page.evaluate(() => {
+      const g = window.__pixelop!.game;
+      const qiao = g.world.actor("qiao")!;
+      Object.assign(g.world.hero, { x: qiao.x - 1, y: qiao.y });
+    });
+    await expect(page.getByTestId("prompt")).toContainText("Storyteller Qiao");
+    await page.keyboard.press("KeyE");
+    await expect(page.getByTestId("dialog")).toContainText("Qiao");
+    await finishDialogue(page);
+    expect((await state(page)).flags.qiaoTale).toBe(true);
+    await page.evaluate(() => Object.assign(window.__pixelop!.game.world.hero, { x: 5.5, y: 8.5 }));
+    await expect(page.getByTestId("prompt")).toContainText("Step outside");
+    await page.keyboard.press("KeyE");
+    await expect.poll(() => page.evaluate(() => window.__pixelop!.game.inside)).toBeNull();
+    await expect(page.getByTestId("place")).not.toContainText("Teahouse");
+  });
+
   test("progress is saved server-side and can be continued", async ({ page }) => {
     await startNewGame(page);
     await patch(page, { stones: 4242 });
@@ -125,8 +151,8 @@ test.describe("Jade Lotus Ascension", () => {
     test.setTimeout(120_000);
     await page.goto("/gallery");
     await expect(page.getByRole("heading", { name: "Pixel Art Gallery" })).toBeVisible();
-    await expect(page.locator("[data-testid^=sheet-]")).toHaveCount(28);
-    await expect(page.getByTestId("scene")).toHaveCount(7);
+    await expect(page.locator("[data-testid^=sheet-]")).toHaveCount(34);
+    await expect(page.getByTestId("scene")).toHaveCount(12);
     expect(await page.getByTestId("prop").count()).toBeGreaterThanOrEqual(50);
     expect(await page.getByTestId("anim").count()).toBeGreaterThanOrEqual(80);
     await page.waitForTimeout(1500);

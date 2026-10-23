@@ -46,9 +46,28 @@ Each landmark has its own keeper, beasts and treasure, and its name appears in a
 | ![Heavenly tribulation](docs/screenshots/11-heavenly-tribulation.png) | ![Crimson Demon Valley](docs/screenshots/12-demon-valley.png) |
 | ![Boss battle with Patriarch Xue](docs/screenshots/13-boss-battle.png) | ![Heavenly Tribulation Peak](docs/screenshots/14-tribulation-peak.png) |
 
+### Step inside
+
+Five buildings open their doors: the **Hall of Clouds** (the sect's ancestral hall and archive), **Granny Hua's cottage** in Willow Creek, the **crossroads teahouse**, the **watermill** and the **Pagoda of Seven Lamps**. Walk into a door (or press `E` on the step) and the world fades into a cutaway room with plastered walls, lattice windows that let shafts of daylight in (with dust turning in them, fading at dusk), lamplight, and furniture that moves: a crackling stove, a loom whose shuttle flies, a millstone turning on its shaft, incense curling off the altars, candles and seven oil lamps flickering on their own rhythms. Each room has its own folk and its own piece of the story.
+
+| | |
+|---|---|
+| ![The door of the Hall of Clouds](docs/screenshots/32-hall-door.png) | ![Inside the Hall of Clouds](docs/screenshots/33-hall-of-clouds.png) |
+| ![Archivist Shen remembers Xue Ming](docs/screenshots/34-archivist-shen.png) | ![Granny Hua's cottage](docs/screenshots/35-granny-hua-cottage.png) |
+| ![Storyteller Qiao's tale of the founder](docs/screenshots/36-teahouse-storyteller.png) | ![Inside the watermill](docs/screenshots/37-watermill-inside.png) |
+| ![Sister Ming keeps the seven lamps](docs/screenshots/38-pagoda-of-seven-lamps.png) | ![The folk at home and at work](docs/art/folk-at-work.gif) |
+
+| Hall of Clouds | Granny Hua's cottage | Crossroads teahouse |
+|---|---|---|
+| ![](docs/art/room-hall.gif) | ![](docs/art/room-cottage.gif) | ![](docs/art/room-teahouse.gif) |
+
+| Watermill | Pagoda of Seven Lamps |
+|---|---|
+| ![](docs/art/room-mill.gif) | ![](docs/art/room-pagoda.gif) |
+
 ### Animated art
 
-| Lin Yue's 20 animations | All 16 facing directions |
+| Lin Yue's 25 animations | All 16 facing directions |
 |---|---|
 | ![Heroine move set](docs/art/heroine-moves.gif) | ![Heroine 16 directions](docs/art/heroine-16dir.gif) |
 
@@ -75,9 +94,10 @@ Each landmark has its own keeper, beasts and treasure, and its name appears in a
 - **Continuous open world:** the six regions are stamped into one map, with generated wilds between them (biomes blend at their borders), an old highway with wayside shrines, milestones, lanterns, herbs, chests and roaming beasts, rivers joining the creek, the bamboo stream and the lake, a waterfall and a lavafall off the world's edge, and two sky bridges up to the floating islands. Terrain columns are painted lazily as they come into view, and only the visible diagonals are drawn. Sky, weather, light and tint cross-fade as you walk from one region into the next, and the region banner and first-arrival scene trigger at the border.
 - **A living world:** a day/night cycle (stars come out, shooting stars streak past, lanterns glow), dragonflies over the shallows, fireflies rising from the grass after dusk, dandelion seeds on the wind, lava bubbles that swell and pop, birds and bats wheeling overhead, butterflies over meadow flowers, koi leaping in the water, cloud shadows drifting over the land, footprints in sand, snow and ash, cranes that take flight when you come close, NPCs who turn and wave as you pass, a peddler walking the highway with his shop, beasts that shout "!" and gallop after you (and give up with a "?"), and beaten beasts that come back once you've been away for a while.
 - **2.5D isometric world:** height-mapped tile maps with cliffs, stairs, raised platforms, floating islands with rocky undersides, animated water and lava with shore foam, depth-sorted props (sliced into screen columns so they occlude correctly), contact shadows, an x-ray silhouette when the heroine walks behind something, and parallax skies.
-- **Procedural 3D pixel sprites:** 22 humanoid characters and 6 beasts, each built from roughly 20 ray-cast solids (bell skirts, sleeves, hair strands, shawls, tails, hats, weapons) with hue-shifted 4-tone shading, face decals and selective outlines. They render in 16 directions with up to 20 animations: idle, walk, run, talk, attack, cast, hurt, meditate, sword-flight, victory, defeat, bow, wave, gather (kneel and pick), drink, cheer, point and nod, stretch and look-around idle fidgets, plus hop, practice, fishing, sweeping, dancing and dozing. Foxes and wolves gallop with a run cycle, sniff the ground and curl up asleep with their tails wrapped round them; wolves sit back and howl; cranes peck at the grass. Dialogue portraits are rendered from the same models at 3× scale, with blink and talk frames.
-- **Idle life:** villagers and wayfarers break into nods, stretches, sips of tea, little dances and cheers when nobody needs them; sleepers breathe with drifting "Z"s; roaming beasts stop to sniff, howl or nap (and leap up the moment they spot you); Lin Yue drinks her pills and, left alone, nods, points and cheers as well as stretching.
-- **50 props, most of them animated:** swaying pines, cherry and maple trees, bamboo groves, willows, a glowing spirit tree, the multi-tier Hall of Clouds, village houses with chimney smoke, a lake pavilion, flickering lanterns and braziers that cast soft glows at night, waving banners, a bubbling alchemy cauldron, bobbing lotuses and boats, a rotating taiji dais, a pulsing blood altar, a turning waterwheel that sheds water, crackling campfires, scarecrows flapping in the wind, a five-tier pagoda with swinging wind chimes, a teahouse with a fluttering tea flag, tents, fluttering prayer flags, steaming hot-spring rocks, karst spires, temple ruins, haystacks and benches.
+- **Building interiors:** five cutaway rooms behind real doors in the world, each its own small map run by the same World runtime: back walls with timber frames, wainscots and lattice windows, raised floors with rugs, daylight shafts that follow the day/night cycle, and lamplit furniture. Walking into a door goes through it; walking out over the threshold mat steps back onto the street. Saves made indoors remember the step outside, so a reload lands in the open world. You can't ride your sword or open the world map under a roof.
+- **Procedural 3D pixel sprites:** 28 humanoid characters and 6 beasts, each built from roughly 20 ray-cast solids (bell skirts, sleeves, hair strands, shawls, tails, hats, weapons) with hue-shifted 4-tone shading, face decals and selective outlines. They render in 16 directions with up to 25 animations: idle, walk, run, talk, attack, cast, hurt, meditate, sword-flight, victory, defeat, bow, wave, gather (kneel and pick), drink, cheer, point and nod, stretch and look-around idle fidgets, plus hop, practice, fishing, sweeping, dancing and dozing, and the everyday ones: reading (with a page turn), sitting, kneeling in prayer, weaving at a loom, pouring tea, clapping, laughing and a seated storyteller's sweeping gestures. Foxes and wolves gallop with a run cycle, sniff the ground and curl up asleep with their tails wrapped round them; wolves sit back and howl; cranes peck at the grass. Dialogue portraits are rendered from the same models at 3× scale, with blink and talk frames.
+- **Idle life:** villagers and wayfarers break into nods, stretches, sips of tea, pours from the teapot, claps, laughs, little dances and cheers when nobody needs them; sleepers breathe with drifting "Z"s; roaming beasts stop to sniff, howl or nap (and leap up the moment they spot you); Lin Yue drinks her pills, reads the steles she stops at, bows in prayer at altars and, left alone, nods, points, claps and laughs as well as stretching, and in the end sits down where she stands until you move her again. Fish shadows glide in slow circles under the water, and washing flaps on a line in Willow Creek.
+- **71 props, 40 of them animated:** swaying pines, cherry and maple trees, bamboo groves, willows, a glowing spirit tree, the multi-tier Hall of Clouds, village houses with chimney smoke, a lake pavilion, flickering lanterns and braziers that cast soft glows at night, waving banners, a bubbling alchemy cauldron, bobbing lotuses and boats, a rotating taiji dais, a pulsing blood altar, a turning waterwheel that sheds water, crackling campfires, scarecrows flapping in the wind, a five-tier pagoda with swinging wind chimes, a teahouse with a fluttering tea flag, tents, fluttering prayer flags, steaming hot-spring rocks, karst spires, temple ruins, haystacks and benches; and indoors, bookcases, hanging scrolls that stir in the draught, a brick stove with a fire and a steaming wok, a loom, a millstone with its crown wheel, grain sacks, ancestral altars with incense and candles, a bronze tree of seven oil lamps, a jade founder's statue, folding screens, a bed, an herb-drying rack, porcelain vases, a sword rack, tea tables with steaming cups, cushions and a washing line.
 - **Six regions plus a world map:** the floating Azure Cloud Sect (day, falling petals), Willow Creek Village (dusk, autumn leaves), the Whispering Bamboo Forest (fireflies), the Moonlit Lotus Lake (night, stars and moon), the Crimson Demon Valley (blood moon, embers, lava) and Heavenly Tribulation Peak (snow, storm lightning). The miniature isometric continent has roads, rivers, sea, drifting clouds and their shadows, and animated landmarks. Regions unlock as the story advances.
 - **Narrative:** a prologue, five chapters and an epilogue, with a quest tracker, scripted cutscenes (walk, emote, camera, flash, shake, spawn), typed-out dialogue with animated portraits, full-screen narration, first-arrival scenes, pre-boss speeches and an ending.
 - **Cultivation:** 6 realms × 4 stages. Battles, spirit herbs, chests and shrine meditation grow your cultivation. At a realm's peak you must survive a Heavenly Tribulation (3 bolts, or 9 for the final ascension).
@@ -110,7 +130,7 @@ Saves live in `$DATA_DIR/saves.json` (default `.data/`). Set `SAVE_STORE=memory`
 | `W A S D` / arrows (or click / tap a tile) | Walk (screen-relative) |
 | `Shift` (or push the joystick all the way) | Run |
 | `F` | Ride the flying sword (faster, crosses water, enemies can't reach you) |
-| `E` / `Space` / `Enter` | Talk · meditate at shrines · open chests · gather herbs · read steles · open the world map at a region's gate |
+| `E` / `Space` / `Enter` | Talk · meditate at shrines · open chests · gather herbs · read steles · enter and leave buildings · open the world map at a region's gate |
 | `M` | World map of the real world (arrows or clicks pick a region, the sword flies there, `E` lands at its waypoint) |
 | `B` | Face the Heavenly Tribulation (while meditating at a bottleneck) |
 | `H` / `Q` | Swallow a healing / qi pill |
@@ -198,6 +218,43 @@ flowchart LR
   bandits["3 bandit leaders"] -- "routed: 40 spirit stones" --> you
 ```
 
+### Doors, rooms and the lore inside
+
+Each building's door is an interactable on the open-world tile in front of it, and each room is a tiny `AreaDef` of its own. Behind the doors the jianghu's history comes out: who the founder was, why the sect floats, what the Heart really is, the war of the Blood Moon two hundred years ago, and the boy from Willow Creek who became Patriarch Xue.
+
+```mermaid
+flowchart LR
+  subgraph world["The open world"]
+    hd(["Hall of Clouds door<br/>(sect plaza)"])
+    cd(["Cottage door<br/>(Willow Creek)"])
+    td(["Teahouse door<br/>(crossroads)"])
+    md(["Mill door<br/>(east creek)"])
+    pd(["Pagoda door<br/>(scarecrow fields)"])
+  end
+  hd --> hall["云殿 Hall of Clouds<br/>Archivist Shen · ancestral altar · annals,<br/>war record, disciple register, bridge ledger"]
+  cd --> cot["华婆小屋 Granny Hua's cottage<br/>Weaver Lü at the loom · her husband's sword ·<br/>jars 'for when he comes home'"]
+  td --> tea["茶馆 Crossroads Teahouse<br/>Storyteller Qiao's tales · Scholar Gu ·<br/>the carved post"]
+  md --> mill["水磨坊 Watermill<br/>Little Dou sweeping · the millstone's<br/>forty tally marks"]
+  pd --> pag["七灯塔 Pagoda of Seven Lamps<br/>Sister Ming · seven names ·<br/>the painting of the seven farmers"]
+  hall -- "threshold mat / E" --> step(("the step<br/>outside"))
+  cot --> step
+  tea --> step
+  mill --> step
+  pag --> step
+  classDef r fill:#241a40,stroke:#3fb59a,color:#fff6dc;
+  class hall,cot,tea,mill,pag r;
+```
+
+```mermaid
+flowchart LR
+  shen["Archivist Shen"] -- "the founder's breathing method: +40% of a stage" --> you((Lin Yue))
+  qiao["Storyteller Qiao"] -- "the founder's tale: +25% of a stage,<br/>then rotating legends" --> you
+  lu["Weaver Lü"] -- "2 Healing Pills" --> you
+  ming["Sister Ming"] -- "the seven lamps' blessing:<br/>full HP/QI, +30% of a stage" --> you
+  gu["Scholar Gu"] -. "small talk" .-> you
+  dou["Little Dou"] -. "small talk" .-> you
+```
+
 ### How the world is built
 
 ```mermaid
@@ -232,7 +289,7 @@ flowchart LR
     ST["Story<br/>quests · dialogue · cutscene scripts"]
     ENG["Engine<br/>realms · battle · enemies · state (zod)"]
     ART["Pixel art<br/>ray caster · characters · props ·<br/>tiles · skies"]
-    WD["World data<br/>areas · tile maps · overworld"]
+    WD["World data<br/>areas · interiors · tile maps · overworld"]
   end
 
   subgraph Server["Next.js Route Handlers"]
@@ -275,6 +332,9 @@ stateDiagram-v2
   Explore --> Battle: touch a demonic beast
   Battle --> Scene: victory (story consequences)
   Battle --> Explore: flee / defeat (wake at sect shrine, same world)
+  Explore --> Indoors: walk into a door / E on its step (still explore mode, in a room)
+  Indoors --> Explore: threshold mat (back on the step)
+  Indoors --> Scene: talk · read a shelf · pray at an altar
   Explore --> Meditate: E at a shrine
   Meditate --> Tribulation: B at a bottleneck
   Tribulation --> Explore: breakthrough
@@ -341,8 +401,8 @@ flowchart LR
   E2 -- on failure --> R["upload playwright-report"]
 ```
 
-- **Unit tests (Vitest):** the iso projection and ray caster (shading, depth, decal visibility, convex solids), every character × animation × direction, all portraits and props, terrain and skies. Every region layout, and then the whole continuous world, is checked by BFS: every waypoint, NPC, encounter and interactable is reachable on foot, the sky bridges connect, rivers reach the edge, and no prop stands in water or on the road. Also covered: the world map's terrain (built from the real world), save migration from per-region coordinates and from the smaller world, the grown world's size, landmarks and new folk, a complete story walkthrough from prologue to ascension, realms and battle rules, a headless run of the `Game` runtime (cutscenes, walking and collision, tap-to-walk, the elder's briefing, world-map travel, battles won and lost, boss speeches, the fox quest, meditation and tribulation, pickups, rendering every region, walking down the sky bridge into the village, seals turning the heroine back, running, startled cranes, greeting NPCs, respawning beasts, idle fidgets and the day cycle, the wayside folk's gifts, Xiao Han's duel won and lost, landmark banners, beasts sniffing, howling and dozing, opening the map while flying over water, and loading a save onto open ground), and the API route handlers.
-- **E2E (Playwright):** fullscreen title and health check, opening narration and walking, walking from the sect into the village in one world, Elder Mo's briefing through to world-map travel, a battle won through the UI, tea and the shop at the crossroads teahouse (with Enter skipping the typewriter text), a save/reload/continue round trip with the leaderboard, and the gallery canvases painting.
+- **Unit tests (Vitest):** the iso projection and ray caster (shading, depth, decal visibility, convex solids), every character × animation × direction, all portraits and props, terrain and skies. Every region layout, and then the whole continuous world, is checked by BFS: every waypoint, NPC, encounter and interactable is reachable on foot, the sky bridges connect, rivers reach the edge, and no prop stands in water or on the road. Also covered: the world map's terrain (built from the real world), save migration from per-region coordinates and from the smaller world, the grown world's size, landmarks and new folk, a complete story walkthrough from prologue to ascension, realms and battle rules, a headless run of the `Game` runtime (cutscenes, walking and collision, tap-to-walk, the elder's briefing, world-map travel, battles won and lost, boss speeches, the fox quest, meditation and tribulation, pickups, rendering every region, walking down the sky bridge into the village, seals turning the heroine back, running, startled cranes, greeting NPCs, respawning beasts, idle fidgets and the day cycle, the wayside folk's gifts, Xiao Han's duel won and lost, landmark banners, beasts sniffing, howling and dozing, opening the map while flying over water, loading a save onto open ground, walking into the Hall of Clouds through its door and back out over the threshold, learning from the archivist, reading the shelves and praying at the altar, every room rendering with its folk at work, losing a fight indoors, a beast standing its ground at the edge of its territory, a lost friendly duel costing nothing, and scripted walks staying at a walk), every room's walls, windows and reachability, every building's door on open ground in front of it, the indoor folk's one-time gifts, and the API route handlers.
+- **E2E (Playwright):** fullscreen title and health check, opening narration and walking, walking from the sect into the village in one world, Elder Mo's briefing through to world-map travel, a battle won through the UI, tea and the shop at the crossroads teahouse (with Enter skipping the typewriter text), stepping inside the crossroads teahouse to hear the storyteller and walking back out, a save/reload/continue round trip with the leaderboard, and the gallery canvases painting (now with the indoor folk and every room).
 
 ## Project layout
 
@@ -356,7 +416,8 @@ src/
     art/               palettes, humanoid & beast rigs, character registry & portraits,
                        props, terrain tiles, skies
     world/             tile maps, the six region layouts, the world layout,
-                       the continuous world builder (continent.ts), the world map
+                       the continuous world builder (continent.ts), the building
+                       interiors (interiors.ts), the world map
     story/             cutscene step types, quests, dialogue, scripted scenes
     engine/            realms, enemies, battle, zod save schema (pure)
     runtime/           Game loop, World (open world + battle arenas), WorldMap, BattleScene, particles, title

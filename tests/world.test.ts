@@ -5,10 +5,12 @@ import { flightPath, mapTerrain, MAP_H, MAP_W, NODES } from "@/game/world/overwo
 import { FLOATS, getWorld, regionAt } from "@/game/world/continent";
 import { REGION_ORIGIN, toWorld, WORLD_H, WORLD_W } from "@/game/world/layout";
 import { ENEMIES } from "@/game/engine/enemies";
+import { getInterior, INTERIOR_IDS } from "@/game/world/interiors";
+import type { TileMap } from "@/game/world/tilemap";
 
 /** Tiles reachable on foot from a start tile (steps of at most one level). */
-function reachable(id: (typeof AREA_IDS)[number], from: [number, number], flying = false): Set<string> {
-  const { map } = getArea(id);
+function reachable(id: (typeof AREA_IDS)[number] | TileMap, from: [number, number], flying = false): Set<string> {
+  const map = typeof id === "string" ? getArea(id).map : id;
   const seen = new Set<string>();
   const q: [number, number][] = [[Math.floor(from[0]), Math.floor(from[1])]];
   seen.add(q[0].join(","));
@@ -211,5 +213,40 @@ describe("world map", () => {
     expect(p[0]).toEqual([NODES.village.x, NODES.village.y]);
     expect(p[p.length - 1][0]).toBeCloseTo(NODES.valley.x);
     expect(p[p.length - 1][1]).toBeCloseTo(NODES.valley.y);
+  });
+});
+
+describe("building interiors", () => {
+  it("every room is walled behind, open in front, and everything in it is reachable from the door", () => {
+    for (const id of INTERIOR_IDS) {
+      const d = getInterior(id);
+      const m = d.map;
+      // the two back edges are walls nobody can stand on, even on a sword
+      for (let i = 0; i < m.w; i++) expect(m.standable(i, 0, true), `${id} wall ${i},0`).toBe(false);
+      for (let j = 0; j < m.h; j++) expect(m.standable(0, j, true), `${id} wall 0,${j}`).toBe(false);
+      expect(m.kinds.some((k, n) => m.kind(n % m.w, Math.floor(n / m.w)) === "window" && k > 0), `${id} has a window`).toBe(true);
+      const r = reachable(m, d.arrive);
+      expect(r.has(`${d.exit[0]},${d.exit[1]}`), `${id} exit`).toBe(true);
+      // the exit sits on the open front edge
+      expect(m.kind(d.exit[0] - d.inward[0], d.exit[1] - d.inward[1]), `${id} exit faces out`).toBe("void");
+      for (const n of d.npcs) expect(r.has(`${n.i},${n.j}`), `${id}/${n.key}`).toBe(true);
+      for (const it of d.interacts) expect(adjacentReachable(r, it.i, it.j), `${id}/${it.key}`).toBe(true);
+      expect(d.npcs.length + d.interacts.length).toBeGreaterThan(2);
+    }
+  });
+
+  it("each building's door stands on open ground in the world, right in front of the building", () => {
+    const w = getWorld();
+    const r = reachable(w.map, w.waypoints.sect);
+    for (const id of INTERIOR_IDS) {
+      const d = getInterior(id);
+      const [i, j] = d.door;
+      expect(w.interacts.some((it) => it.kind === "door" && it.to === id && it.i === i && it.j === j), id).toBe(true);
+      expect(w.map.standable(i, j), id).toBe(true);
+      expect(r.has(`${i},${j}`), `${id} door reachable`).toBe(true);
+      // walking inward from the door bumps into the building itself
+      expect(w.map.isBlocked(i + d.inward[0], j + d.inward[1]), id).toBe(true);
+      expect(w.map.standable(Math.floor(d.outside[0]), Math.floor(d.outside[1])), `${id} step`).toBe(true);
+    }
   });
 });

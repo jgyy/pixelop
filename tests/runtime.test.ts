@@ -8,6 +8,7 @@ import { renderTitle } from "@/game/runtime/title";
 import { duskAt, DAY_LENGTH } from "@/game/runtime/world";
 import { REGION_ORIGIN, toWorld } from "@/game/world/layout";
 import { getWorld } from "@/game/world/continent";
+import { getInterior } from "@/game/world/interiors";
 
 const surface = () => new BufferSurface(new PixelBuffer(320, 180));
 
@@ -358,6 +359,7 @@ describe("Game runtime", () => {
   it("Xiao Han's friendly duel never sends her home, and a win pays out", () => {
     const game = fresh();
     game.debugPatch({ hp: 5, flags: { metElder: true, villageArrived: true, villageSaved: true, metZhou: true, bambooArrived: true, lakeArrived: true, metHuli: true } });
+    const purse = game.state.stones;
     talkTo(game, "han");
     talkThrough(game);
     expect(game.mode).toBe("battle");
@@ -367,6 +369,8 @@ describe("Game runtime", () => {
     }
     talkThrough(game);
     expect(game.state.flags.hanDuel).toBeFalsy();
+    // a friendly duel lost costs no spirit stones
+    expect(game.state.stones).toBe(purse);
     expect(game.state.area).not.toBe("sect");
     expect(game.state.hp).toBeGreaterThan(0);
     // a rematch, now at Core Formation
@@ -397,6 +401,34 @@ describe("Game runtime", () => {
       for (const a of game.world.actors) if (a.kind !== "hero") seen.add(`${a.char}:${a.anim}`);
     }
     expect([...seen].some((x) => /wolf:(sniff|howl|sleep)/.test(x)), [...seen].join(" ")).toBe(true);
+  });
+
+  it("a beast that reaches the edge of its territory stands its ground instead of running on the spot", () => {
+    const game = fresh();
+    game.debugPatch({ flags: { metElder: true } });
+    const spawn = getWorld().enemies.find((e) => e.key === "wild-wolf-1")!;
+    const [ox, oy] = REGION_ORIGIN.sect;
+    const m = getWorld().map;
+    // find a line out from its den along which both the beast and the heroine can stand
+    const dir = ([[1, 0], [-1, 0], [0, 1], [0, -1]] as const).find(([dx, dy]) => [5, 6, 7, 8].every((k) => m.standable(spawn.i + dx * k, spawn.j + dy * k)))!;
+    game.debugTeleport("sect", spawn.i + 0.5 + dir[0] * 8 - ox, spawn.j + 0.5 + dir[1] * 8 - oy);
+    game.debugSkipTime(1.2);
+    const wolf = game.world.actor("wild-wolf-1")!;
+    Object.assign(wolf, { x: spawn.i + 0.5 + dir[0] * 5.9, y: spawn.j + 0.5 + dir[1] * 5.9, target: null, holdUntil: undefined });
+    game.debugSkipTime(1);
+    expect(game.mode).toBe("explore");
+    expect(wolf.alerted).toBe(true);
+    expect(wolf.anim).toBe("idle");
+    expect(Math.hypot(wolf.x - wolf.home[0], wolf.y - wolf.home[1])).toBeLessThanOrEqual(spawn.range + 4 + 0.01);
+  });
+
+  it("scripted walks are at a walking pace even straight after a run", () => {
+    const game = fresh();
+    const h = game.world.hero;
+    h.running = true;
+    game.play([{ walk: "hero", to: [h.x + 2, h.y] }]);
+    game.debugSkipTime(0.2);
+    expect(h.anim).toBe("walk");
   });
 
   it("opening the world map while flying over water does not drop her into the lake", () => {
@@ -434,6 +466,112 @@ describe("Game runtime", () => {
       game.debugSkipTime(0.5);
       expect(Math.hypot(game.state.x - x0, game.state.y - y0)).toBeGreaterThan(0.3);
     }
+  });
+
+  it("walks in through the Hall of Clouds' door, learns from the archivist, reads the annals and walks back out", () => {
+    const game = fresh();
+    game.debugPatch({ flags: { metElder: true } });
+    const hall = getInterior("hall");
+    const [ox, oy] = REGION_ORIGIN.sect;
+    game.debugTeleport("sect", hall.door[0] + 0.5 - ox, hall.door[1] + 0.5 - oy);
+    game.debugSkipTime(0.1);
+    expect(game.snapshot().prompt).toBe("E · Enter the Hall of Clouds");
+    // walking into the building from its door step goes through the door (the hall's door faces +x, so walk up-left)
+    game.keyDown("KeyW");
+    game.keyDown("KeyA");
+    game.debugSkipTime(0.4);
+    game.keyUp("KeyW");
+    game.keyUp("KeyA");
+    expect(game.inside).toBe("hall");
+    expect(game.snapshot().interior?.name).toBe("Hall of Clouds");
+    expect(game.snapshot().banner?.title).toBe("Hall of Clouds");
+    // indoors the save keeps her on the step outside, so a reload lands in the open world
+    expect(game.state.x).toBeCloseTo(hall.outside[0]);
+    expect(game.state.y).toBeCloseTo(hall.outside[1]);
+    // no sword riding or world map under a roof
+    game.keyDown("KeyF");
+    game.keyUp("KeyF");
+    expect(game.flying).toBe(false);
+    game.keyDown("KeyM");
+    game.keyUp("KeyM");
+    expect(game.mode).toBe("explore");
+    expect(game.snapshot().toasts.at(-1)?.text).toMatch(/Step outside/);
+
+    // the archivist shares the founder's breathing method
+    const shen = game.world.actor("shen")!;
+    Object.assign(game.world.hero, { x: shen.x + 1, y: shen.y });
+    game.debugSkipTime(0.1);
+    expect(game.snapshot().prompt).toBe("E · Talk to Archivist Shen");
+    const before = game.state.cultivation + game.state.stage * 1000;
+    game.keyDown("KeyE");
+    game.keyUp("KeyE");
+    talkThrough(game);
+    expect(game.state.flags.shenLore).toBe(true);
+    expect(game.state.cultivation + game.state.stage * 1000).toBeGreaterThan(before);
+
+    // she reads the shelves (and bows in prayer at the ancestral altar)
+    Object.assign(game.world.hero, { x: 2.5, y: 2.5 });
+    game.debugSkipTime(0.1);
+    expect(game.snapshot().prompt).toBe("E · Read");
+    game.keyDown("KeyE");
+    game.keyUp("KeyE");
+    expect(game.world.hero.anim).toBe("read");
+    expect(game.snapshot().dialog?.text).toMatch(/Jade Lotus Heart/);
+    talkThrough(game);
+    Object.assign(game.world.hero, { x: 5.5, y: 2.5 });
+    game.debugSkipTime(0.1);
+    game.keyDown("KeyE");
+    game.keyUp("KeyE");
+    expect(game.world.hero.anim).toBe("pray");
+    talkThrough(game);
+
+    // and the threshold leads back out onto the step
+    Object.assign(game.world.hero, { x: hall.exit[0] + 0.5, y: hall.exit[1] + 0.5 });
+    game.debugSkipTime(0.1);
+    expect(game.snapshot().prompt).toBe("E · Step outside");
+    game.keyDown("KeyS");
+    game.keyDown("KeyD");
+    game.debugSkipTime(0.3);
+    game.keyUp("KeyS");
+    game.keyUp("KeyD");
+    expect(game.inside).toBeNull();
+    expect(Math.hypot(game.world.hero.x - hall.outside[0], game.world.hero.y - hall.outside[1])).toBeLessThan(1.5);
+    expect(game.state.area).toBe("sect");
+  });
+
+  it("every building renders, and its folk live, sit and work inside", () => {
+    const game = fresh();
+    game.debugPatch({ flags: { metElder: true } });
+    for (const id of ["hall", "cottage", "teahouse", "mill", "pagoda"] as const) {
+      game.debugEnter(id);
+      game.debugSkipTime(1);
+      const s = surface();
+      game.render(s);
+      expect((s as BufferSurface).buffer.opaqueCount(), id).toBe(320 * 180);
+      for (const n of getInterior(id).npcs) expect(game.world.actor(n.key)?.anim, `${id}/${n.key}`).toBe(n.anim);
+      // E at the mat steps back out
+      const d = getInterior(id);
+      Object.assign(game.world.hero, { x: d.exit[0] + 0.5, y: d.exit[1] + 0.5 });
+      game.debugSkipTime(0.1);
+      game.keyDown("KeyE");
+      game.keyUp("KeyE");
+      expect(game.inside, id).toBeNull();
+    }
+  });
+
+  it("losing a fight indoors wakes her at the sect shrine, outside", () => {
+    const game = fresh();
+    game.debugPatch({ flags: { metElder: true } });
+    game.debugEnter("teahouse");
+    game.debugPatch({ hp: 1 });
+    game.debugBattle("wolf");
+    for (let i = 0; i < 40 && game.mode === "battle"; i++) {
+      game.battleAction({ type: "skill", skill: "strike" });
+      game.debugSkipTime(1.5);
+    }
+    expect(game.mode).toBe("explore");
+    expect(game.inside).toBeNull();
+    expect(game.state.area).toBe("sect");
   });
 
   it("renders every region and the title backdrop", () => {

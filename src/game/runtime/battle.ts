@@ -383,7 +383,7 @@ export class BattleScene {
             this.world.setAnim(this.hero, "victory", this.clock);
             const [hx, hy] = this.center("hero");
             this.world.fx.float(`+${ev.exp} EXP`, hx, hy - 34, "#9ff5de", 1, 1.6);
-            this.world.fx.float(`+${ev.stones} STONES`, hx, hy - 44, "#f2c55c", 1, 1.6);
+            if (ev.stones) this.world.fx.float(`+${ev.stones} STONES`, hx, hy - 44, "#f2c55c", 1, 1.6);
             if (ev.stagesGained) this.levelUp = realmLabel(after.realm, after.stage);
           });
           for (let i = 1; i <= 10; i++) at(start + i * 0.06, () => (this.foeAlpha = 1 - i / 10));
@@ -393,7 +393,7 @@ export class BattleScene {
         }
         case "defeat": {
           at(start, () => {
-            this.pushLog(`Lin Yue collapses… (lost ${ev.stonesLost} spirit stones)`);
+            this.pushLog(ev.stonesLost ? `Lin Yue collapses… (lost ${ev.stonesLost} spirit stones)` : "Lin Yue yields the duel.");
             this.world.setAnim(this.hero, "defeat", this.clock, true);
             this.hero.holdUntil = Infinity;
           });
