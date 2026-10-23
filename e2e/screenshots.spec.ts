@@ -118,7 +118,7 @@ test("capture screenshots", async ({ page }) => {
   await teleport(page, "sect", 15.2, 29.5);
   await page.waitForTimeout(1500);
   await shot(page, "16-sky-bridge");
-  await teleport(page, "village", -12, 37.2);
+  await teleport(page, "sect", 3.5, 132.5); // the old highway below Willow Creek
   await page.keyboard.down("ShiftLeft");
   await page.keyboard.down("KeyD");
   await page.keyboard.down("KeyS");
@@ -127,13 +127,52 @@ test("capture screenshots", async ({ page }) => {
   await page.keyboard.up("KeyS");
   await page.keyboard.up("KeyD");
   await page.keyboard.up("ShiftLeft");
-  await teleport(page, "bamboo", -1.5, 37.3);
+  await teleport(page, "sect", -99.5, 132.5); // where the red mist seals the valley
   await page.waitForTimeout(1500);
   await shot(page, "18-demonic-seal");
-  await teleport(page, "lake", 29.5, 22.5);
+  await teleport(page, "sect", 136.5, 91.5);
   await page.waitForTimeout(1500);
   await shot(page, "19-waterfall");
   if ((await mode(page)) === "scene") await skipScene(page);
+
+  // the new landmarks of the grown world (positions are relative to the sect's corner)
+  const visit = async (name: string, x: number, y: number, wait = 1600) => {
+    await teleport(page, "sect", x, y);
+    await page.waitForTimeout(wait);
+    if ((await mode(page)) === "scene") await skipScene(page);
+    await shot(page, name);
+  };
+  await patch(page, { realm: 2, stage: 0, hp: 600, qi: 300, flags: { metElder: true, villageArrived: true, villageSaved: true, metZhou: true, bambooArrived: true, lakeArrived: true, metHuli: true, foxesCleared: true, metWen: true, serpentKingDefeated: true, valleyArrived: true } });
+  await visit("20-cloudrest-isle", 15.5, 45.5);
+  await visit("21-cloudstep-isles", 39.5, 17.5);
+  await visit("22-crossroads-teahouse", -28.5, 140.5);
+  await page.keyboard.press("KeyE");
+  await sayUntil(page, "Cloud-mist tea");
+  await shot(page, "23-auntie-fang");
+  await skipScene(page);
+  if ((await mode(page)) === "shop") await page.keyboard.press("Escape");
+  await visit("24-watermill", 55.5, 80.5);
+  await visit("25-ruined-temple", -72.5, 175.5);
+  await visit("26-pagoda-fields", 10.5, 172.5);
+  await visit("27-hot-spring", 73.5, 155.5);
+  // the bandit camp after dark: the campfire glows
+  await page.evaluate(() => (window.__pixelop!.game.clock = 175));
+  await page.keyboard.press("KeyF");
+  await visit("28-bandit-camp-night", 112.5, 176.5, 1200);
+  await page.keyboard.press("KeyF");
+  await visit("29-blood-moon-camp", -145.5, 169.5, 1200);
+  await page.evaluate(() => (window.__pixelop!.game.clock = 20));
+  await battle(page, "bandit");
+  await page.waitForTimeout(1100);
+  await page.getByTestId("skill-palm").click();
+  await page.waitForTimeout(800);
+  await shot(page, "30-bandit-battle");
+  await page.waitForFunction(() => !window.__pixelop!.game.battle?.busy, null, { timeout: 15_000 });
+  await teleport(page, "sect", 15.5, 45.5);
+  await page.keyboard.press("KeyM");
+  await page.waitForTimeout(1500);
+  await shot(page, "31-world-map-grown");
+  await page.keyboard.press("Escape");
 
   await page.goto("/gallery");
   await page.waitForTimeout(4000);

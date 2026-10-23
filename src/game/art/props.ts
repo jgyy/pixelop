@@ -731,7 +731,260 @@ const PROPS = {
       r.box([-1, -7, 13], [1, 7, 20], m(PAL.wood, 2, { shader: (s, tone) => (Math.abs(s.n[0]) > 0.5 && Math.abs(s.p[1]) < 5 && Math.abs(s.p[2] - 16.5) < 0.6 ? tone(PAL.black) : tone(PAL.wood)) }));
     },
   },
+  waterwheel: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 8,
+    fps: 8,
+    paint: (r, f, n) => {
+      // a wheel turning in the plane of world y (it stands beside a creek running along x)
+      const rot = (f / n) * (TAU / 8);
+      const R = 15;
+      const hub: V3 = [0, 0, 16];
+      const at = (a: number, rr: number): V3 => [0, hub[1] + Math.cos(a) * rr, hub[2] + Math.sin(a) * rr];
+      for (const x of [-3, 3]) {
+        const rim: V3[] = [];
+        for (let k = 0; k <= 16; k++) rim.push(add(at((k / 16) * TAU, R), [x, 0, 0]));
+        r.sweep(rim, 0.9, m(PAL.woodDark, 1));
+      }
+      for (let k = 0; k < 8; k++) {
+        const a = (k / 8) * TAU + rot;
+        r.sweep([add(hub, [0, 0, 0]), at(a, R)], 0.6, m(PAL.wood, 2));
+        const p = at(a, R + 1.5);
+        r.box([p[0] - 3.5, p[1] - 1.2, p[2] - 1.2], [p[0] + 3.5, p[1] + 1.2, p[2] + 1.2], m(PAL.wood, 3));
+      }
+      r.sweep([[-6, 0, 16], [6, 0, 16]], 1.6, m(PAL.black, 4));
+      // trestle
+      for (const y of [-6, 6]) r.sweep([[-7, y, 0], [-7, 0, 17]], 1, m(PAL.woodDark, 5));
+      // spilling water from the paddles
+      for (let k = 0; k < 3; k++) {
+        const a = -Math.PI / 2 + 0.5 + k * 0.35 + (f % 2) * 0.12;
+        const p = at(a, R + 2);
+        r.sphere(p, 1.1, m(tones("#ffffff", "#c8ecff", "#7ab8e8", "#3a78b8"), 6));
+      }
+    },
+  },
+  campfire: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 6,
+    fps: 10,
+    light: { color: "#ff8a40", radius: 44, dy: 8 },
+    emit: "embers",
+    paint: (r, f, n) => {
+      for (let k = 0; k < 7; k++) {
+        const a = (k / 7) * TAU;
+        r.sphere([Math.cos(a) * 7, Math.sin(a) * 7, 1.2], 2, md(PAL.stone, 1));
+      }
+      r.sweep([[-5, -2, 1.5], [5, 2, 2.5]], 1.2, m(PAL.woodDark, 2));
+      r.sweep([[-2, 5, 1.5], [2, -5, 2.5]], 1.2, m(PAL.woodDark, 2));
+      for (let k = 0; k < 6; k++) {
+        const ph = (f / n) * TAU + k * 1.9;
+        const hgt = 9 + Math.sin(ph) * 3.5 + (k % 3) * 2.4;
+        const x = Math.cos(k * 2.2) * 2.6;
+        const y = Math.sin(k * 2.2) * 2;
+        r.sweep([[x, y, 2.5], [x * 0.3 + Math.sin(ph) * 0.9, y * 0.3, 2.5 + hgt]], [2.8, 0.2], m(FIRE, 3, { shader: (s, tone) => tone(FIRE, s.u > 0.55 ? 1 : s.u < 0.3 ? -1 : 0) }));
+      }
+    },
+  },
+  scarecrow: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 6,
+    fps: 4,
+    paint: (r, f, n) => {
+      const sw = Math.sin((f / n) * TAU);
+      const tilt = swayAt(f, n, 28, 1.2);
+      r.sweep([[0, 0, 0], add([0, 0, 30], tilt)], 1, m(PAL.woodDark, 1));
+      const sh = add([0, 0, 22], tilt);
+      r.sweep([add(sh, [-9, 9, 0]), add(sh, [9, -9, 0])], 0.8, m(PAL.woodDark, 1));
+      r.ellipsoid(add([0, 0, 18], tilt), [3.4, 3, 5.5], m(ramp("#5a7a9a"), 2, { shader: (s, tone) => (Math.abs(s.p[2] - 16) < 0.8 ? tone(PAL.red) : tone(ramp("#5a7a9a"))) }));
+      for (const side of [-1, 1]) {
+        const hand = add(sh, [side * 8, -side * 8, -0.5]);
+        r.sweep([add(sh, [side * 2, -side * 2, 0]), add(hand, [0, 0, -1.5 - sw * side * 1.4])], [1.8, 2.4], m(ramp("#5a7a9a"), 3));
+        r.sweep([hand, add(hand, [side * 1.6, -side * 1.6, -2 + sw])], [0.6, 0.3], m(PAL.straw, 3));
+      }
+      const head = add([0, 0, 28], tilt);
+      r.sphere(head, 3, m(PAL.straw, 4, { shader: (s, tone) => (s.n[1] > 0.6 && Math.abs(Math.abs(s.n[0]) - 0.3) < 0.14 && s.n[2] > 0 ? "#1a1226" : tone(PAL.straw)) }));
+      r.cone(head[0], head[1], 7.5, head[2] + 1.5, 0.5, head[2] + 6, 12, m(PAL.straw, 5, { shader: strawShaderProp }));
+    },
+  },
+  pagoda: {
+    foot: [-1, -1, 1, 1],
+    blocks: true,
+    frames: 6,
+    fps: 4,
+    light: { color: "#ffd070", radius: 52, dy: 64 },
+    paint: (r, f, n) => {
+      const W = T * 0.78;
+      r.prism(0, 0, W + 6, 0, 4, 8, md(PAL.stone, 1), Math.PI / 8);
+      let z = 4;
+      for (let k = 0; k < 5; k++) {
+        const w = W * (1 - k * 0.13);
+        const hgt = 15 - k * 1.4;
+        r.prism(0, 0, w * 0.72, z, z + hgt, 8, md(WALL, 2 + k, { shader: (s, tone) => (Math.abs(s.p[2] - (z + hgt * 0.55)) < 2.4 && Math.abs(Math.sin(Math.atan2(s.p[1], s.p[0]) * 4)) < 0.35 ? (k === 1 ? "#ffd890" : tone(PAL.woodDark)) : tone(PILLAR)) }), Math.PI / 8);
+        z += hgt;
+        r.cone(0, 0, w + 4, z, w * 0.55, z + 4.5, 8, md(ROOF_TEAL, 2 + k, { shader: roofTiles(ROOF_TEAL) }), Math.PI / 8);
+        // a wind chime swinging under each eave
+        for (let c = 0; c < 4; c++) {
+          const a = (c / 4) * TAU + Math.PI / 4;
+          const ex = Math.cos(a) * (w + 3);
+          const ey = Math.sin(a) * (w + 3);
+          const swing = Math.sin((f / n) * TAU + c + k) * 1.2;
+          r.sweep([[ex, ey, z], [ex + swing * 0.7, ey - swing * 0.7, z - 3]], 0.25, m(PAL.gold, 10));
+          r.sphere([ex + swing * 0.7, ey - swing * 0.7, z - 3.4], 0.8, m(PAL.gold, 10));
+        }
+        z += 4.5;
+      }
+      r.sweep([[0, 0, z], [0, 0, z + 14]], 0.9, m(PAL.gold, 11));
+      for (let k = 0; k < 4; k++) r.sphere([0, 0, z + 3 + k * 3], 1.6 - k * 0.25, m(PAL.gold, 11));
+    },
+  },
+  teahouse: {
+    foot: [0, 0, 1, 1],
+    blocks: true,
+    frames: 6,
+    fps: 5,
+    emit: "smoke",
+    light: { color: "#ffb060", radius: 40, dy: 18 },
+    paint: (r, f, n) => {
+      const cx = T / 2;
+      const cy = T / 2;
+      const W = T * 0.85;
+      r.box([cx - W - 2, cy - W - 2, 0], [cx + W + 2, cy + W + 2, 3], m(PAL.wood, 1));
+      // three closed walls; the front (facing +y) stands open on its pillars
+      r.box([cx - W, cy - W, 3], [cx + W, cy - W + 2, 22], md(WALL, 2));
+      r.box([cx - W, cy - W, 3], [cx - W + 2, cy + W, 22], md(WALL, 2));
+      r.box([cx + W - 2, cy - W, 3], [cx + W, cy + W, 22], md(WALL, 2, { shader: (s, tone) => (Math.abs(s.p[1] - cy) < 4 && Math.abs(s.p[2] - 13) < 3 ? "#ffd890" : tone(WALL)) }));
+      for (const x of [cx - W + 1, cx, cx + W - 1]) r.prism(x, cy + W - 1, 1.3, 3, 22, 6, m(PILLAR, 3));
+      // a table with a teapot inside
+      r.box([cx - 5, cy - 2, 3], [cx + 5, cy + 4, 9], m(PAL.woodDark, 4));
+      r.sphere([cx, cy + 1, 11], 2, m(ramp("#e8e0d0"), 5));
+      r.hipRoof(cx, cy, W + 8, W + 8, 22, W * 0.55, 1, 36, md(ROOF_RED, 6, { shader: roofTiles(ROOF_RED) }));
+      r.box([cx + 6, cy - 9, 27], [cx + 10, cy - 5, 40], m(PAL.stone, 7));
+      // the hanging 茶 flag sways in the wind
+      const pole: V3 = [cx - W - 3, cy + W + 3, 0];
+      r.sweep([pole, add(pole, [0, 0, 40])], 0.8, m(PAL.woodDark, 8));
+      const pts: V3[] = [];
+      for (let s = 0; s <= 5; s++) {
+        const w = Math.sin((f / n) * TAU - s * 0.8) * (s / 5) * 1.8;
+        pts.push(add(pole, [s * 1.6 + w * 0.4, -s * 1.6 + w * 0.4, 36 - s * 0.2]));
+      }
+      r.sweep(pts, 3, m(PAL.paper, 9, { shader: (s, tone) => (s.u > 0.35 && s.u < 0.7 && Math.abs(s.p[2] - 36) < 1.2 ? tone(PAL.red) : tone(PAL.paper)) }));
+    },
+  },
+  tent: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 6,
+    fps: 5,
+    paint: (r, f, n) => {
+      const canvas = ramp("#b89a6a", { lo: "#4a3020" });
+      const W = 10;
+      r.hipRoof(0, 0, W, W, 0, 0.6, W * 0.9, 20, md(canvas, 1, { shader: (s, tone) => (Math.abs(s.p[0]) < 3 && s.n[1] > 0.3 && s.p[2] < 12 ? "#2a1a14" : tone(canvas)) }));
+      const flap = Math.sin((f / n) * TAU) * 1.5;
+      r.sweep([[3, W - 1, 12], [4 + flap, W + 1.5, 2]], [1.6, 2.4], m(canvas, 2));
+      r.sweep([[0, -W - 1, 0], [0, -W - 1, 23]], 0.6, m(PAL.woodDark, 3));
+      r.sweep([[0, -W - 1, 23], [flap * 0.6 + 3, -W - 4, 22]], 1.2, m(PAL.red, 4));
+    },
+  },
+  ruin: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      const st = md(ramp("#9a96a8", { lo: "#3a3048" }), 1, { shader: (s, tone) => (fbm(s.p[0] * 0.3, s.p[2] * 0.3 + s.p[1] * 0.3, 8) > 0.62 ? tone(ramp("#5a8a4a"), 0) : tone(ramp("#9a96a8", { lo: "#3a3048" }))) });
+      r.prism(-4, -4, 4, 0, 3, 8, st);
+      r.prism(-4, -4, 2.8, 3, 26, 8, st);
+      r.cone(-4, -4, 2.8, 26, 1.2, 30, 8, st, 0.7);
+      r.prism(6, 5, 4, 0, 3, 8, st);
+      r.prism(6, 5, 2.8, 3, 11, 8, st);
+      r.box([0, -2, 0], [10, 4, 3.5], st);
+      r.sphere([-8, 6, 1.5], 2.4, st);
+    },
+  },
+  karst: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      const lime = ramp("#b8b0c0", { lo: "#3a3048" });
+      const st = md(lime, 1, { shader: (s, tone) => (Math.sin(s.p[2] * 0.8 + fbm(s.p[0] * 0.3, s.p[1] * 0.3, 2) * 6) > 0.7 ? tone(lime, 1) : s.n[2] > 0.6 ? tone(ramp("#5a9a4a")) : tone(lime)) });
+      r.cone(0, 0, 8, 0, 4.5, 40, 7, st, 0.3);
+      r.cone(0, 0, 4.5, 40, 1.5, 56, 7, st, 0.9);
+      r.cone(6, -3, 4.5, 0, 1.2, 24, 6, st, 0.2);
+      r.sphere([0.5, 0.5, 50], 3.5, md(PINE, 2, { shader: leafShader(PINE, 4) }));
+      r.sphere([-5, 4, 2], 3.4, st);
+    },
+  },
+  steam: {
+    foot: [0, 0, 0, 0],
+    blocks: false,
+    frames: 1,
+    fps: 1,
+    emit: "mist",
+    paint: (r) => {
+      for (let k = 0; k < 5; k++) {
+        const a = (k / 5) * TAU + 0.3;
+        r.sphere([Math.cos(a) * 6, Math.sin(a) * 6, 1], 2.4 - (k % 2) * 0.6, md(PAL.stone, 1));
+      }
+    },
+  },
+  bench: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      r.box([-9, -3, 6], [9, 3, 8], m(PAL.wood, 1));
+      for (const x of [-7, 7]) r.box([x - 1, -2, 0], [x + 1, 2, 6], m(PAL.woodDark, 2));
+    },
+  },
+  prayerflags: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 6,
+    fps: 6,
+    paint: (r, f, n) => {
+      const a: V3 = [-14, 14, 0];
+      const b: V3 = [14, -14, 0];
+      r.sweep([a, add(a, [0, 0, 30])], 0.8, m(PAL.woodDark, 1));
+      r.sweep([b, add(b, [0, 0, 30])], 0.8, m(PAL.woodDark, 1));
+      const cols = [PAL.azure, PAL.white, PAL.red, PAL.green, PAL.gold];
+      for (let k = 0; k <= 8; k++) {
+        const u = k / 8;
+        const sag = Math.sin(u * Math.PI) * 6;
+        const p: V3 = [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, 30 - sag];
+        if (k > 0 && k < 8) {
+          const w = Math.sin((f / n) * TAU + k * 0.9) * 1.6;
+          r.sweep([p, add(p, [w * 0.6, -w * 0.6 + 1.5, -5])], [1.6, 1.2], m(cols[k % cols.length], 2 + (k % 3)));
+        }
+        if (k < 8) {
+          const u2 = (k + 1) / 8;
+          r.sweep([p, [a[0] + (b[0] - a[0]) * u2, a[1] + (b[1] - a[1]) * u2, 30 - Math.sin(u2 * Math.PI) * 6]], 0.25, m(PAL.black, 6));
+        }
+      }
+    },
+  },
+  haystack: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      r.cone(0, 0, 8, 0, 3, 14, 10, md(PAL.straw, 1, { shader: strawShaderProp }));
+      r.cone(0, 0, 3, 14, 0.5, 18, 10, md(PAL.straw, 1, { shader: strawShaderProp }));
+      r.sweep([[0, 0, 17], [0, 0, 21]], 0.6, m(PAL.woodDark, 2));
+    },
+  },
 } satisfies Record<string, PropDef>;
+
+/** Woven straw (hats, haystacks). */
+function strawShaderProp(...[s, tone]: Parameters<Shader>): string {
+  return Math.sin(Math.atan2(s.p[1], s.p[0]) * 14 + s.p[2] * 0.4) > 0.6 ? tone(PAL.straw, 1) : tone(PAL.straw);
+}
 
 /** A flat horizontal slab rotated 45° to run along the screen (gate beams, awnings). */
 function beamPlanes(half: number, depth: number, z0: number, z1: number) {

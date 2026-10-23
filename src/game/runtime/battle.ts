@@ -106,7 +106,7 @@ export class BattleScene {
     this.world.actors.push(this.foe);
     this.battle = startBattle(enemy, seed >>> 0);
     this.view = { heroHp: state.hp, heroQi: state.qi, enemyHp: this.battle.enemyHp };
-    this.log = [def.boss ? `${def.name} descends in a storm of killing intent!` : `A ${def.name} bars your way!`];
+    this.log = [def.intro ?? (def.boss ? `${def.name} descends in a storm of killing intent!` : `A ${def.name} bars your way!`)];
     this.flash = 0.8;
     this.world.setAnim(this.hero, "walk", 0);
     this.world.setAnim(this.foe, def.sprite === "jiangshi" ? "hop" : "walk", 0);

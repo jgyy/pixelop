@@ -6,7 +6,8 @@ import { newGame, SKILL_IDS } from "@/game/engine/state";
 import { Game, type UiSnapshot } from "@/game/runtime/Game";
 import { renderTitle } from "@/game/runtime/title";
 import { duskAt, DAY_LENGTH } from "@/game/runtime/world";
-import { toWorld } from "@/game/world/layout";
+import { REGION_ORIGIN, toWorld } from "@/game/world/layout";
+import { getWorld } from "@/game/world/continent";
 
 const surface = () => new BufferSurface(new PixelBuffer(320, 180));
 
@@ -23,6 +24,28 @@ const dirTo = (a: { x: number; y: number }, b: { x: number; y: number }) => {
   const ang = Math.atan2(b.x - a.x - (b.y - a.y), b.x - a.x + (b.y - a.y));
   return ((Math.round(ang / (Math.PI / 8)) % 16) + 16) % 16;
 };
+
+/** Stand the heroine on open ground beside an NPC of the open world, and talk to them. */
+function talkTo(game: Game, key: string): void {
+  const w = getWorld();
+  const n = w.npcs.find((x) => x.key === key)!;
+  const [ox, oy] = REGION_ORIGIN.sect;
+  for (const [di, dj] of [
+    [1, 0],
+    [0, 1],
+    [-1, 0],
+    [0, -1],
+    [1, 1],
+    [-1, 1],
+  ])
+    if (w.map.standable(n.i + di, n.j + dj)) {
+      game.debugTeleport("sect", n.i + di + 0.5 - ox, n.j + dj + 0.5 - oy);
+      break;
+    }
+  game.debugSkipTime(0.1);
+  game.keyDown("KeyE");
+  game.keyUp("KeyE");
+}
 
 const fresh = () => {
   const g = new Game(newGame(), { seed: 1 });
@@ -200,8 +223,8 @@ describe("Game runtime", () => {
     game.debugPatch({ flags: { metElder: true, villageArrived: true } });
     game.debugTeleport("sect", 15.5, 25.5);
     const world = game.world;
-    game.setStick(-0.8, 0.4); // straight down the bridge (+y in world tiles)
-    game.debugSkipTime(4.5);
+    game.setStick(-0.8, 0.4); // straight down the bridge (+y in world tiles), across Cloudrest Isle
+    game.debugSkipTime(15);
     game.setStick(0, 0);
     expect(game.world).toBe(world);
     expect(game.state.area).toBe("village");
@@ -213,10 +236,10 @@ describe("Game runtime", () => {
     const game = fresh();
     game.debugTeleport("sect", 15.5, 25.5);
     game.setStick(-0.8, 0.4);
-    game.debugSkipTime(4.5);
+    game.debugSkipTime(10);
     game.setStick(0, 0);
     expect(game.state.area).toBe("sect");
-    expect(game.state.y).toBeLessThan(65);
+    expect(game.state.y).toBeLessThan(toWorld("village", 0, 0)[1] - 12);
     expect(game.snapshot().toasts.map((t) => t.text).join(" ")).toMatch(/Willow Creek Village: Speak with Elder Mo/);
   });
 
@@ -279,6 +302,138 @@ describe("Game runtime", () => {
     expect(["stretch", "look"]).toContain(game.world.hero.anim);
     expect(duskAt(0)).toBe(0);
     expect(duskAt(DAY_LENGTH / 2)).toBeCloseTo(1);
+  });
+
+  it("the folk of the wilds: tea at the crossroads, the miller's pills, the monk's sutra and the hermit's teaching", () => {
+    const game = fresh();
+    game.debugPatch({ hp: 1, qi: 0, flags: { metElder: true, villageArrived: true, villageSaved: true, metZhou: true, bambooArrived: true, lakeArrived: true, metHuli: true } });
+    talkTo(game, "fang");
+    expect(game.mode).toBe("scene");
+    for (let i = 0; i < 5 && game.mode !== "explore"; i++) {
+      talkThrough(game);
+      if (game.mode === "shop") game.closeShop();
+    }
+    expect(game.state.flags.fangTea).toBe(true);
+    expect(game.state.hp).toBe(game.snapshot().stats.maxHp);
+
+    const qi = game.state.pills.qi;
+    talkTo(game, "tang");
+    talkThrough(game);
+    expect(game.state.flags.tangGift).toBe(true);
+    expect(game.state.pills.qi).toBe(qi + 2);
+
+    for (const [key, flag] of [
+      ["kong", "kongSutra"],
+      ["yun", "yunTeaching"],
+    ] as const) {
+      const before = game.state.cultivation + game.state.stage * 1000;
+      talkTo(game, key);
+      talkThrough(game);
+      expect(game.state.flags[flag], key).toBe(true);
+      expect(game.state.cultivation + game.state.stage * 1000, key).toBeGreaterThan(before);
+    }
+    const stones = game.state.stones;
+    talkTo(game, "wu");
+    talkThrough(game);
+    expect(game.state.stones).toBe(stones + 20);
+    expect(game.snapshot().dialog).toBeNull();
+  });
+
+  it("walking up to a landmark of the wilds names it", () => {
+    const game = fresh();
+    game.debugPatch({ flags: { metElder: true, villageArrived: true, villageSaved: true, metZhou: true, bambooArrived: true } });
+    const [ox, oy] = REGION_ORIGIN.sect;
+    game.debugTeleport("sect", 150.5 - ox, 164.5 - oy);
+    game.debugSkipTime(4);
+    game.keyDown("KeyS");
+    game.keyDown("KeyD"); // screen down-right: south along the road to the crossroads
+    game.debugSkipTime(0.2);
+    game.keyUp("KeyS");
+    game.keyUp("KeyD");
+    game.debugSkipTime(0.1);
+    expect(game.snapshot().banner?.title).toBe("Crossroads Teahouse");
+    expect(game.snapshot().banner?.hanzi).toBe("茶馆");
+  });
+
+  it("Xiao Han's friendly duel never sends her home, and a win pays out", () => {
+    const game = fresh();
+    game.debugPatch({ hp: 5, flags: { metElder: true, villageArrived: true, villageSaved: true, metZhou: true, bambooArrived: true, lakeArrived: true, metHuli: true } });
+    talkTo(game, "han");
+    talkThrough(game);
+    expect(game.mode).toBe("battle");
+    for (let i = 0; i < 40 && game.mode === "battle"; i++) {
+      game.battleAction({ type: "skill", skill: "strike" });
+      game.debugSkipTime(0.5);
+    }
+    talkThrough(game);
+    expect(game.state.flags.hanDuel).toBeFalsy();
+    expect(game.state.area).not.toBe("sect");
+    expect(game.state.hp).toBeGreaterThan(0);
+    // a rematch, now at Core Formation
+    game.debugPatch({ realm: 2, hp: 600, qi: 400, skills: [...SKILL_IDS] });
+    const stones = game.state.stones;
+    talkTo(game, "han");
+    talkThrough(game);
+    expect(game.mode).toBe("battle");
+    for (let i = 0; i < 40 && game.mode === "battle"; i++) {
+      game.battleAction({ type: "skill", skill: "thunder" });
+      game.debugSkipTime(0.5);
+    }
+    talkThrough(game);
+    expect(game.state.flags.hanDuel).toBe(true);
+    expect(game.state.stones).toBe(stones + 80);
+  });
+
+  it("beasts sniff, howl and doze, and cranes peck, when left alone", () => {
+    const game = fresh();
+    game.debugPatch({ flags: { metElder: true } });
+    const [ox, oy] = REGION_ORIGIN.sect;
+    // hover on the sword above the highway (safe from the beasts) near the bandit camp's wolves
+    game.debugTeleport("sect", 300 - ox, 172.5 - oy);
+    game.toggleFly();
+    const seen = new Set<string>();
+    for (let k = 0; k < 120; k++) {
+      game.debugSkipTime(0.25, 1 / 20);
+      for (const a of game.world.actors) if (a.kind !== "hero") seen.add(`${a.char}:${a.anim}`);
+    }
+    expect([...seen].some((x) => /wolf:(sniff|howl|sleep)/.test(x)), [...seen].join(" ")).toBe(true);
+  });
+
+  it("opening the world map while flying over water does not drop her into the lake", () => {
+    const game = fresh();
+    game.debugPatch({ flags: { metElder: true, villageArrived: true, villageSaved: true, metZhou: true, metHuli: true, lakeArrived: true }, realm: 1 });
+    game.debugTeleport("lake", 16.5, 20.5); // on the jetty
+    game.toggleFly();
+    game.keyDown("KeyD"); // out over the open water
+    game.debugSkipTime(0.4);
+    game.keyUp("KeyD");
+    const m = game.world.def.map;
+    expect(m.standable(Math.floor(game.state.x), Math.floor(game.state.y))).toBe(false);
+    game.openMap();
+    game.closeMap();
+    expect(game.mode).toBe("explore");
+    const { x, y } = game.state;
+    game.keyDown("KeyA");
+    game.debugSkipTime(0.6);
+    game.keyUp("KeyA");
+    expect(Math.hypot(game.state.x - x, game.state.y - y)).toBeGreaterThan(0.5);
+  });
+
+  it("a save made while flying over water (or off the land) loads onto open ground", () => {
+    const m = getWorld().map;
+    const [lx, ly] = toWorld("lake", 16.5, 6.5); // the middle of the Lotus Lake
+    expect(m.standable(Math.floor(lx), Math.floor(ly))).toBe(false);
+    for (const [x, y, area] of [
+      [lx, ly, "lake"],
+      [3.5, 3.5, "village"],
+    ] as const) {
+      const game = new Game({ ...newGame(), x, y, area }, { seed: 1 });
+      expect(m.standable(Math.floor(game.state.x), Math.floor(game.state.y))).toBe(true);
+      const { x: x0, y: y0 } = game.state;
+      game.keyDown("KeyS");
+      game.debugSkipTime(0.5);
+      expect(Math.hypot(game.state.x - x0, game.state.y - y0)).toBeGreaterThan(0.3);
+    }
   });
 
   it("renders every region and the title backdrop", () => {
