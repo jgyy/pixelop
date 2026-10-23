@@ -1,4 +1,5 @@
 import { PixelBuffer } from "./PixelBuffer";
+import { parseColor, toHex } from "./color";
 
 /**
  * Minimal drawing target shared by the browser canvas and the software
@@ -83,4 +84,24 @@ export function sRing(s: Surface, cx: number, cy: number, r: number, color: stri
     const a = (i / steps) * Math.PI * 2;
     s.px(Math.round(cx + Math.cos(a) * r), Math.round(cy + Math.sin(a) * r), color);
   }
+}
+
+/** A view of a surface that draws everything at reduced opacity (for cross-fades). */
+export function fadedSurface(s: Surface, k: number): Surface {
+  const fade = (c: string) => {
+    const [r, g, b, a] = parseColor(c);
+    return toHex([r, g, b, a * k]);
+  };
+  return {
+    get width() {
+      return s.width;
+    },
+    get height() {
+      return s.height;
+    },
+    rect: (x, y, w, h, c) => s.rect(x, y, w, h, fade(c)),
+    px: (x, y, c) => s.px(x, y, fade(c)),
+    sprite: (buf, x, y, flipX, opacity = 1) => s.sprite(buf, x, y, flipX, opacity * k),
+    spriteSlice: (buf, x, y, sx, sw) => s.spriteSlice(buf, x, y, sx, sw),
+  };
 }

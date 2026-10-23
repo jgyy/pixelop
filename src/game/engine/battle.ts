@@ -1,6 +1,7 @@
 import { createRng } from "../pixel/rng";
 import { ENEMIES, type EnemyId } from "./enemies";
 import { gainCultivation, PILL_EFFECT, stats, type GameState, type SkillId } from "./state";
+import { toWorld } from "../world/layout";
 
 export type { SkillId } from "./state";
 
@@ -165,5 +166,6 @@ export function resolveTurn(game: GameState, battle: BattleState, action: Battle
 /** After a defeat the heroine wakes beside the sect shrine. */
 export function reviveAtSect(g: GameState): GameState {
   const s = stats(g);
-  return { ...g, hp: Math.ceil(s.maxHp * 0.5), qi: Math.ceil(s.maxQi * 0.5), area: "sect", x: 7.5, y: 15.5, dir: 0 };
+  const [x, y] = toWorld("sect", 7.5, 15.5);
+  return { ...g, hp: Math.ceil(s.maxHp * 0.5), qi: Math.ceil(s.maxQi * 0.5), area: "sect", x, y, dir: 0 };
 }

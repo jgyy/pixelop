@@ -113,6 +113,28 @@ test("capture screenshots", async ({ page }) => {
   await shot(page, "14-tribulation-peak");
   if ((await mode(page)) === "scene") await skipScene(page);
 
+  // the continuous world: sky bridge, the highway, a sealed border and the waterfall
+  await patch(page, { flags: { metElder: true, villageArrived: true, villageSaved: true, metZhou: true, bambooArrived: true, lakeArrived: true, metHuli: true }, realm: 0, stage: 1 });
+  await teleport(page, "sect", 15.2, 29.5);
+  await page.waitForTimeout(1500);
+  await shot(page, "16-sky-bridge");
+  await teleport(page, "village", -12, 37.2);
+  await page.keyboard.down("ShiftLeft");
+  await page.keyboard.down("KeyD");
+  await page.keyboard.down("KeyS");
+  await page.waitForTimeout(900);
+  await shot(page, "17-highway-run");
+  await page.keyboard.up("KeyS");
+  await page.keyboard.up("KeyD");
+  await page.keyboard.up("ShiftLeft");
+  await teleport(page, "bamboo", -1.5, 37.3);
+  await page.waitForTimeout(1500);
+  await shot(page, "18-demonic-seal");
+  await teleport(page, "lake", 29.5, 22.5);
+  await page.waitForTimeout(1500);
+  await shot(page, "19-waterfall");
+  if ((await mode(page)) === "scene") await skipScene(page);
+
   await page.goto("/gallery");
   await page.waitForTimeout(4000);
   await shot(page, "15-gallery");

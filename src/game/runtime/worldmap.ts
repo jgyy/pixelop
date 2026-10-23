@@ -5,19 +5,22 @@ import { drawText, textWidth } from "../pixel/font";
 import type { Surface } from "../pixel/surface";
 import { charDef, frameAt, getAnim } from "../art/characters";
 import { getPropScaled } from "../art/props";
+import { drawSky } from "../art/sky";
 import { getArea } from "../world/areas";
-import type { AreaId } from "../world/ids";
-import { MAP_H, MAP_W, mapTerrain, neighbours, NODES, route, type Biome } from "../world/overworld";
+import { AREA_IDS, type AreaId } from "../world/ids";
+import { flightPath, MAP_H, MAP_SCALE, MAP_W, mapTerrain, NODES, type Biome } from "../world/overworld";
 import { dirFrom } from "./world";
 
 /** Miniature isometric projection for the world map (16×8 tiles, 4 px per level). */
 const mx = (x: number, y: number) => (x - y) * 8;
 const my = (x: number, y: number, h = 0) => (x + y) * 4 - h * 4;
-const MAX_H = 12;
+const MAX_H = 16;
 const OX = MAP_H * 8 + 8;
 const OY = MAX_H * 4 + 12;
 
 const TOP: Record<Biome, string[]> = {
+  void: ["#000000", "#000000", "#000000"],
+  redrock: ["#6e2e24", "#84382a", "#5a2420"],
   sea: ["#1e4a8a", "#24549a", "#2a5ea6"],
   shore: ["#d8bc7c", "#e6cc8e", "#c8a86a"],
   plain: ["#6aa848", "#78b852", "#62a044"],
@@ -33,7 +36,7 @@ const TOP: Record<Biome, string[]> = {
   road: ["#c8a070", "#d4ae80", "#b89060"],
 };
 
-const SIDE: Partial<Record<Biome, string>> = { sea: "#183a6a", lake: "#1e4a80", river: "#1e4a80", snow: "#9a9ab6", mountain: "#5a5068", ash: "#241a26", lava: "#8a2a10", shore: "#a8885a" };
+const SIDE: Partial<Record<Biome, string>> = { sea: "#183a6a", lake: "#1e4a80", river: "#1e4a80", snow: "#9a9ab6", mountain: "#5a5068", ash: "#241a26", redrock: "#4a1c1a", lava: "#8a2a10", shore: "#a8885a" };
 
 let staticMap: PixelBuffer | null = null;
 
@@ -48,18 +51,24 @@ function paintStatic(): PixelBuffer {
       const y = k - x;
       if (y < 0 || y >= MAP_H) continue;
       const c = cells[y * MAP_W + x];
+      if (c.biome === "void") continue;
       const tx = OX + mx(x, y);
       const ty = OY + my(x, y, c.h);
       const side = SIDE[c.biome] ?? "#6a4a32";
-      // walls
-      const wall = c.h * 4 + 4;
+      // walls (a long rocky underside where the land ends above the clouds)
+      const edge = (x + 1 < MAP_W ? cells[y * MAP_W + x + 1].biome === "void" : true) || (y + 1 < MAP_H ? cells[(y + 1) * MAP_W + x].biome === "void" : true);
+      const under = edge ? (c.sky ? 26 : 14) : 0;
+      const front = Math.min(x + 1 < MAP_W ? cells[y * MAP_W + x + 1].h : 0, y + 1 < MAP_H ? cells[(y + 1) * MAP_W + x].h : 0);
+      const wall = (edge ? Math.min(c.h, 3) : Math.max(0, c.h - front)) * 4 + 4 + under;
+      const edgeY = (px: number) => (px < 8 ? 4 + px * 0.5 : 8 - (px - 7) * 0.5);
       for (let px = 0; px < 16; px++) {
         const left = px < 8;
-        const edge = left ? 4 + px * 0.5 : 8 - (px - 7) * 0.5;
-        for (let dy = 0; dy < wall; dy++) {
+        const taper = under ? Math.floor(wall - under + under * (0.3 + 0.7 * hash2(x * 16 + px, y, 5))) : wall;
+        for (let dy = 0; dy < taper; dy++) {
           let col = side;
           if (dy < 1 && c.biome !== "sea" && c.biome !== "lake" && c.biome !== "river") col = TOP[c.biome][2];
-          b.px(tx - 8 + px, ty + Math.ceil(edge) + dy, shade(col, left ? 0.95 : 0.72));
+          if (dy > wall - under) col = shade("#6a5a6a", 0.9 - ((dy - (wall - under)) / Math.max(1, under)) * 0.4);
+          b.px(tx - 8 + px, ty + Math.ceil(edgeY(px)) + dy, shade(col, left ? 0.95 : 0.72));
         }
       }
       // top
@@ -94,7 +103,7 @@ function paintStatic(): PixelBuffer {
   return b;
 }
 
-/** Overworld runtime: a flying-sword token travelling the road graph. */
+/** Overworld runtime: the heroine's flying-sword token over a miniature of the real world. */
 export class WorldMap {
   at: AreaId;
   pos: [number, number];
@@ -104,9 +113,10 @@ export class WorldMap {
   camY = 0;
   private camInit = false;
 
-  constructor(at: AreaId) {
+  /** `hero` is the heroine's position in world tiles (defaults to the region's landmark). */
+  constructor(at: AreaId, hero?: [number, number]) {
     this.at = at;
-    this.pos = [NODES[at].x, NODES[at].y];
+    this.pos = hero ? [hero[0] / MAP_SCALE, hero[1] / MAP_SCALE] : [NODES[at].x, NODES[at].y];
   }
 
   get travelling(): boolean {
@@ -118,48 +128,30 @@ export class WorldMap {
     return this.legs.length ? this.legs[this.legs.length - 1].to : this.at;
   }
 
-  /** Begin travelling (multi-hop through unlocked nodes). Returns false if unreachable. */
+  /** Begin a sword flight to an unlocked region. Returns false if it is sealed (or we're already there). */
   travelTo(target: AreaId, unlocked: (id: AreaId) => boolean): boolean {
     if (this.travelling || target === this.at || !unlocked(target)) return false;
-    const prev = new Map<AreaId, AreaId>();
-    const q: AreaId[] = [this.at];
-    const seen = new Set<AreaId>([this.at]);
-    while (q.length) {
-      const cur = q.shift()!;
-      if (cur === target) break;
-      for (const n of neighbours(cur))
-        if (!seen.has(n) && unlocked(n)) {
-          seen.add(n);
-          prev.set(n, cur);
-          q.push(n);
-        }
-    }
-    if (!seen.has(target)) return false;
-    const chain: AreaId[] = [];
-    for (let c: AreaId | undefined = target; c && c !== this.at; c = prev.get(c)) chain.unshift(c);
-    let from = this.at;
-    for (const to of chain) {
-      this.legs.push({ to, path: route(from, to), k: 0 });
-      from = to;
-    }
+    this.legs.push({ to: target, path: flightPath(this.pos, [NODES[target].x, NODES[target].y]), k: 0 });
     return true;
   }
 
-  /** Arrow-key navigation: fly to the unlocked neighbour lying closest to the pressed screen direction. */
+  /** Arrow-key navigation: fly to the unlocked region lying closest to the pressed screen direction. */
   nudge(sx: number, sy: number, unlocked: (id: AreaId) => boolean): AreaId | null {
     if (this.travelling) return null;
-    const here = NODES[this.at];
+    const [hx, hy] = this.pos;
     let best: AreaId | null = null;
-    let bestDot = 0.35;
-    for (const n of neighbours(this.at)) {
-      if (!unlocked(n)) continue;
+    let bestScore = 0;
+    for (const n of AREA_IDS) {
+      if (n === this.at || !unlocked(n)) continue;
       const o = NODES[n];
-      const dx = mx(o.x, o.y) - mx(here.x, here.y);
-      const dy = my(o.x, o.y) - my(here.x, here.y);
+      const dx = mx(o.x, o.y) - mx(hx, hy);
+      const dy = my(o.x, o.y) - my(hx, hy);
       const l = Math.hypot(dx, dy) || 1;
-      const d = (dx / l) * sx + (dy / l) * sy;
-      if (d > bestDot) {
-        bestDot = d;
+      const dot = (dx / l) * sx + (dy / l) * sy;
+      // prefer what lies in that direction, then what is nearest
+      const score = dot > 0.35 ? dot / Math.sqrt(l) : 0;
+      if (score > bestScore) {
+        bestScore = score;
         best = n;
       }
     }
@@ -171,7 +163,7 @@ export class WorldMap {
   update(dt: number): AreaId | null {
     const leg = this.legs[0];
     if (!leg) return null;
-    let move = dt * 10;
+    let move = dt * 14;
     while (move > 0 && leg.k < leg.path.length - 1) {
       const [tx, ty] = leg.path[leg.k + 1];
       const dx = tx - this.pos[0];
@@ -217,13 +209,8 @@ export class WorldMap {
     }
     const cx = Math.round(this.camX);
     const cy = Math.round(this.camY);
-    // open sea all around
-    s.rect(0, 0, s.width, s.height, "#163c74");
-    for (let k = 0; k < (s.width * s.height) / 500; k++) {
-      const x = Math.floor(hash2(k, 1, 3) * s.width);
-      const y = Math.floor(hash2(k, 2, 3) * s.height);
-      if (Math.sin(t * 2 + k) > 0.7) s.rect(x, y, 3, 1, alpha("#5a90d0", 0.6));
-    }
+    // the whole world floats on a sea of clouds
+    drawSky(s, "day", t, cx * 0.5, cy * 0.5 - s.height * 0.6);
     s.sprite(map, cx, cy);
     // water shimmer
     for (let k = 0; k < 220; k++) {
@@ -234,16 +221,12 @@ export class WorldMap {
       if (Math.sin(t * 3 + k * 1.7) < 0.6) continue;
       s.rect(cx + OX + mx(x, y) - 2 + (k % 4), cy + OY + my(x, y, c.h) + 3, 2, 1, "#d8f0ff");
     }
-    // roads
-    for (const [a, b] of [...new Set(Object.keys(NODES))].flatMap((id) => neighbours(id as AreaId).filter((n) => n > id).map((n) => [id as AreaId, n] as const))) {
-      const open = unlocked(a) && unlocked(b);
-      const pts = route(a, b);
-      pts.forEach(([x, y], i) => {
-        if (i % 2) return;
-        const c = open ? "#fff0c0" : alpha("#2a1a20", 0.5);
-        s.rect(cx + OX + mx(x, y) - 1, cy + OY + my(x, y, hAt(x, y)) + 3, 2, 1, c);
+    // the flight path ahead
+    for (const leg of this.legs)
+      leg.path.forEach(([x, y], i) => {
+        if (i < leg.k || i % 2) return;
+        s.rect(cx + OX + mx(x, y) - 1, cy + OY + my(x, y, hAt(x, y) + 3) + 3, 2, 1, alpha("#fff0c0", 0.8));
       });
-    }
     // landmarks
     const nodes = Object.values(NODES).sort((p, q) => p.x + p.y - (q.x + q.y));
     for (const n of nodes) {
@@ -294,7 +277,7 @@ export class WorldMap {
     const gy = cy + OY + my(px, py, hAt(px, py));
     ellipse(s, sx, gy + 4, 6, 2, alpha("#0a0a20", 0.35));
     const def = charDef("heroine");
-    const fr = frameAt(getAnim("heroine", this.travelling ? "fly" : "fly", this.dir), t);
+    const fr = frameAt(getAnim("heroine", "fly", this.dir), t);
     const sy = cy + OY + my(px, py, tokenH);
     for (let k = 1; k < 7; k++) s.px(sx - k * 2 * Math.sin((this.dir / 16) * Math.PI * 2), sy + 2 - k * Math.cos((this.dir / 16) * Math.PI * 2) * 0.5, alpha(k % 2 ? "#9ff5de" : "#ffffff", 0.8 - k * 0.1));
     s.sprite(fr, sx - def.ox, sy - def.oy);

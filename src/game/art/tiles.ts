@@ -165,8 +165,12 @@ export function paintTile(map: TileMap, i: number, j: number, base: number, seed
   const liquid = LIQUID[kind];
   const sink = liquid ? 2 : 0;
   const voidFront = map.kind(i, j + 1) === "void" || map.kind(i + 1, j) === "void";
-  const underside = floating && voidFront ? 40 : 0;
-  const wallPx = Math.max(0, (h - base) * LEVEL_H) + underside + 2;
+  const underside = floating && voidFront ? (kind === "wood" ? 5 : 40) : 0;
+  // walls only need to reach down to the lower of the two tiles in front:
+  // anything deeper is hidden behind those tiles' own columns
+  const front = (di: number, dj: number) => (map.kind(i + di, j + dj) === "void" ? base : map.height(i + di, j + dj));
+  const bottom = voidFront ? base : Math.max(base, Math.min(h, front(1, 0), front(0, 1)));
+  const wallPx = Math.max(0, (h - bottom) * LEVEL_H) + underside + 2;
   const buf = new PixelBuffer(TILE_W, TILE_H + wallPx + 1);
   const tex = liquid ? null : TEX[kind as keyof typeof TEX](seed);
   const wall = WALLS[kind];

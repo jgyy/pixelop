@@ -61,6 +61,16 @@ test.describe("Jade Lotus Ascension", () => {
     await expect.poll(async () => (await state(page)).area).toBe("village");
   });
 
+  test("one continuous world: walk down the sky bridge from the sect into the village", async ({ page }) => {
+    await startNewGame(page);
+    await patch(page, { flags: { metElder: true, villageArrived: true } });
+    await teleport(page, "sect", 15.5, 25.5);
+    await page.evaluate(() => window.__pixelop!.game.setStick(-0.8, 0.4));
+    await expect.poll(async () => (await state(page)).area, { timeout: 15_000 }).toBe("village");
+    await page.evaluate(() => window.__pixelop!.game.setStick(0, 0));
+    await expect(page.getByText("Willow Creek Village").first()).toBeVisible();
+  });
+
   test("a battle can be fought and won", async ({ page }) => {
     await startNewGame(page);
     await patch(page, { realm: 2, stage: 0, hp: 400, qi: 200 });
@@ -92,7 +102,7 @@ test.describe("Jade Lotus Ascension", () => {
     test.setTimeout(120_000);
     await page.goto("/gallery");
     await expect(page.getByRole("heading", { name: "Pixel Art Gallery" })).toBeVisible();
-    await expect(page.locator("[data-testid^=sheet-]")).toHaveCount(21);
+    await expect(page.locator("[data-testid^=sheet-]")).toHaveCount(22);
     await expect(page.getByTestId("scene")).toHaveCount(7);
     expect(await page.getByTestId("prop").count()).toBeGreaterThanOrEqual(35);
     expect(await page.getByTestId("anim").count()).toBeGreaterThanOrEqual(80);

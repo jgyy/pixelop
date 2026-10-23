@@ -5,6 +5,8 @@ import { cultivationNeeded } from "@/game/engine/realms";
 import { newGame, SKILL_IDS } from "@/game/engine/state";
 import { Game, type UiSnapshot } from "@/game/runtime/Game";
 import { renderTitle } from "@/game/runtime/title";
+import { duskAt, DAY_LENGTH } from "@/game/runtime/world";
+import { toWorld } from "@/game/world/layout";
 
 const surface = () => new BufferSurface(new PixelBuffer(320, 180));
 
@@ -16,6 +18,11 @@ function talkThrough(game: Game, max = 200): void {
     game.debugSkipTime(0.3);
   }
 }
+
+const dirTo = (a: { x: number; y: number }, b: { x: number; y: number }) => {
+  const ang = Math.atan2(b.x - a.x - (b.y - a.y), b.x - a.x + (b.y - a.y));
+  return ((Math.round(ang / (Math.PI / 8)) % 16) + 16) % 16;
+};
 
 const fresh = () => {
   const g = new Game(newGame(), { seed: 1 });
@@ -186,6 +193,92 @@ describe("Game runtime", () => {
     expect(game.state.flags.foxesCleared).toBe(true);
     expect(game.world.actor("huli")).toBeDefined();
     expect(game.snapshot().quest.objective).toMatch(/spirit tree/);
+  });
+
+  it("walks from the sect down the sky bridge into the village — one world, no loading", () => {
+    const game = fresh();
+    game.debugPatch({ flags: { metElder: true, villageArrived: true } });
+    game.debugTeleport("sect", 15.5, 25.5);
+    const world = game.world;
+    game.setStick(-0.8, 0.4); // straight down the bridge (+y in world tiles)
+    game.debugSkipTime(4.5);
+    game.setStick(0, 0);
+    expect(game.world).toBe(world);
+    expect(game.state.area).toBe("village");
+    expect(game.state.y).toBeGreaterThan(toWorld("village", 0, 0)[1]);
+    expect(game.snapshot().area.name).toBe("Willow Creek Village");
+  });
+
+  it("a sealed region's mist turns the heroine back and says why", () => {
+    const game = fresh();
+    game.debugTeleport("sect", 15.5, 25.5);
+    game.setStick(-0.8, 0.4);
+    game.debugSkipTime(4.5);
+    game.setStick(0, 0);
+    expect(game.state.area).toBe("sect");
+    expect(game.state.y).toBeLessThan(65);
+    expect(game.snapshot().toasts.map((t) => t.text).join(" ")).toMatch(/Willow Creek Village: Speak with Elder Mo/);
+  });
+
+  it("holding Shift breaks into a run", () => {
+    const walkFrom = (run: boolean) => {
+      const game = fresh();
+      game.debugTeleport("sect", 13.5, 15.5);
+      const { x, y } = game.state;
+      if (run) game.keyDown("ShiftLeft");
+      game.keyDown("KeyW");
+      game.debugSkipTime(0.8);
+      const anim = game.world.hero.anim;
+      return { d: Math.hypot(game.state.x - x, game.state.y - y), anim };
+    };
+    const walk = walkFrom(false);
+    const run = walkFrom(true);
+    expect(walk.anim).toBe("walk");
+    expect(run.anim).toBe("run");
+    expect(run.d).toBeGreaterThan(walk.d * 1.3);
+  });
+
+  it("cranes take flight when the heroine comes close", () => {
+    const game = fresh();
+    game.debugTeleport("sect", 20.5, 22.4);
+    game.debugSkipTime(0.6);
+    const crane = game.world.actor("crane-s1")!;
+    expect(crane.flying).toBe(true);
+    expect(crane.z).toBeGreaterThan(game.world.groundZ(crane.x, crane.y) + 0.5);
+  });
+
+  it("villagers turn to greet and wave at the heroine", () => {
+    const game = fresh();
+    game.debugPatch({ flags: { metElder: true, villageArrived: true, villageSaved: true } });
+    game.debugTeleport("village", 12.4, 6.5);
+    game.debugSkipTime(0.2);
+    const hua = game.world.actor("hua")!;
+    expect(hua.anim).toBe("wave");
+    expect(hua.dir).toBe(dirTo(hua, game.world.hero));
+  });
+
+  it("beaten beasts roam again after the heroine has been away", () => {
+    const game = fresh();
+    game.debugPatch({ realm: 2, hp: 400, qi: 300, skills: [...SKILL_IDS], flags: { metElder: true, metZhou: true, villageSaved: true, bambooArrived: true } });
+    game.debugTeleport("bamboo", 14.5, 12.5);
+    game.debugBattle("wolf", "wolf-a");
+    for (let i = 0; i < 40 && game.mode === "battle"; i++) {
+      game.battleAction({ type: "skill", skill: "thunder" });
+      game.debugSkipTime(0.5);
+    }
+    talkThrough(game);
+    expect(game.world.actor("wolf-a")).toBeUndefined();
+    game.debugTeleport("sect", 15.5, 20.5);
+    game.debugSkipTime(62, 1 / 10);
+    expect(game.world.actor("wolf-a")).toBeDefined();
+  });
+
+  it("Lin Yue stretches or looks around when left idle, and night falls with the day cycle", () => {
+    const game = fresh();
+    game.debugSkipTime(8.5);
+    expect(["stretch", "look"]).toContain(game.world.hero.anim);
+    expect(duskAt(0)).toBe(0);
+    expect(duskAt(DAY_LENGTH / 2)).toBeCloseTo(1);
   });
 
   it("renders every region and the title backdrop", () => {

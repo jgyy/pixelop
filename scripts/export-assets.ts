@@ -14,6 +14,9 @@ import { World } from "../src/game/runtime/world";
 import { WorldMap } from "../src/game/runtime/worldmap";
 import { renderTitle } from "../src/game/runtime/title";
 import { AREA_IDS, getArea } from "../src/game/world/areas";
+import { getWorld } from "../src/game/world/continent";
+import { toWorld, WORLD_H, WORLD_W } from "../src/game/world/layout";
+import { isoX, isoY } from "../src/game/iso/projection";
 import { writePng } from "./lib";
 
 const OUT = path.resolve(process.argv[2] ?? "docs/art");
@@ -128,22 +131,54 @@ function half(b: PixelBuffer): PixelBuffer {
   return out;
 }
 
-// 4. Regions (stills + panning loops)
+// 4. Regions of the one continuous world (stills + panning loops)
 const W = 480;
 const H = 270;
+const FLAGS = { metElder: true, foxesCleared: true, metWen: true };
 for (const id of AREA_IDS) {
   const area = getArea(id);
-  const world = new World(id, { x: area.arrive[0], y: area.arrive[1] - 6, dir: 8 }, { metElder: true, foxesCleared: true, metWen: true }, [], new Set());
+  const world = new World(getWorld(), { x: toWorld(id, ...area.arrive)[0], y: toWorld(id, ...area.arrive)[1] - 6, dir: 8 }, FLAGS, []);
   const frame = (t: number) => {
     const b = new PixelBuffer(W, H);
     world.update(1 / 12, t, true);
     const k = Math.sin(t * 0.25);
-    world.updateCamera(W, H, 0, [area.map.w / 2 + k * 3, area.map.h / 2 - k * 2, 2]);
+    const [fx, fy] = toWorld(id, area.map.w / 2 + k * 3, area.map.h / 2 - k * 2);
+    world.updateCamera(W, H, 0, [fx, fy, 2]);
     world.render(new BufferSurface(b), t);
     return b;
   };
   writePng(frame(1.2).scaled(2), path.join(OUT, `area-${id}.png`));
   if (!QUICK) writeGif(`area-${id}.gif`, Array.from({ length: 36 }, (_, i) => frame(1 + i / 12)), 12);
+}
+
+// 4b. The whole jianghu in one picture, and a walk along the highway
+if (!QUICK) {
+  const world = new World(getWorld(), { x: 100.5, y: 103.5, dir: 4 }, FLAGS, []);
+  world.dayNight = false;
+  const left = isoX(0, WORLD_H) - 40;
+  const right = isoX(WORLD_W, 0) + 40;
+  const top = isoY(0, 0, 12) - 40;
+  const bottom = isoY(WORLD_W, WORLD_H) + 120;
+  const big = new PixelBuffer(right - left, bottom - top);
+  world.camX = -left;
+  world.camY = -top;
+  world.render(new BufferSurface(big), 2);
+  writePng(half(big), path.join(OUT, "world-overview.png"));
+
+  const walk: PixelBuffer[] = [];
+  for (let i = 0; i < 72; i++) {
+    const t = 3 + i / 12;
+    world.hero.x = 72 + i * 0.4;
+    world.hero.y = 103.4;
+    world.hero.dir = 4;
+    world.setAnim(world.hero, "run", 3);
+    world.update(1 / 12, t, true);
+    world.updateCamera(W, H, 0);
+    const b = new PixelBuffer(W, H);
+    world.render(new BufferSurface(b), t);
+    walk.push(b);
+  }
+  writeGif("highway.gif", walk, 12);
 }
 
 // 5. World map

@@ -60,7 +60,7 @@ function buildArena(area: AreaId): AreaDef {
     { id: th.props[0], i: 9, j: 5 },
     { id: th.props[2], i: 3, j: 1 },
   ];
-  return { ...base, id: area, map: m, base: -1, floating: false, props, npcs: [], enemies: [], interacts: [] };
+  return { ...base, id: area, map: m, base: -1, floating: false, props, npcs: [], enemies: [], interacts: [], critters: [] };
 }
 
 const HERO_POS: [number, number] = [3.6, 5.4];
@@ -98,7 +98,7 @@ export class BattleScene {
     state: GameState,
     seed: number,
   ) {
-    this.world = new World(buildArena(area), { x: HERO_POS[0] - 2.5, y: HERO_POS[1] + 1.5, dir: 3 }, {}, [], new Set());
+    this.world = new World(buildArena(area), { x: HERO_POS[0] - 2.5, y: HERO_POS[1] + 1.5, dir: 3 }, {}, []);
     this.hero = this.world.hero;
     this.hero.speed = 5;
     const def = ENEMIES[enemy];
