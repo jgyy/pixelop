@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { AREA_IDS, getArea } from "@/game/world/areas";
 import { LIQUID } from "@/game/world/tilemap";
 import { flightPath, mapTerrain, MAP_H, MAP_W, NODES } from "@/game/world/overworld";
-import { getWorld, regionAt } from "@/game/world/continent";
+import { FLOATS, getWorld, regionAt } from "@/game/world/continent";
 import { REGION_ORIGIN, toWorld, WORLD_H, WORLD_W } from "@/game/world/layout";
 import { ENEMIES } from "@/game/engine/enemies";
 
@@ -144,8 +144,13 @@ describe("the continuous world", () => {
     const bridge = (i: number, j0: number, j1: number) => {
       for (let j = j0; j <= j1; j++) expect(walkable.has(j * m.w + i), `bridge tile ${i},${j}`).toBe(true);
     };
-    bridge(100, 57, 66); // sect gate → village
-    bridge(102, 25, 33); // behind the Hall of Clouds → peak
+    const [gx, gy] = toWorld("sect", 15, 27);
+    bridge(gx, gy, toWorld("village", 16, 4)[1]); // sect gate → Cloudrest Isle → village
+    bridge(gx + 2, toWorld("sect", 0, -5)[1], toWorld("sect", 0, 3)[1]); // behind the Hall of Clouds → peak
+    // the plank walkways out to the Cloudstep Isles
+    const yun = w.npcs.find((n) => n.key === "yun")!;
+    expect(near(yun.i, yun.j)).toBe(true);
+    expect(regionAt(w, yun.i, yun.j)).toBe("sect");
     let falls = 0;
     m.each((i, j) => {
       if (LIQUID[m.kind(i, j)] && (m.kind(i + 1, j) === "void" || m.kind(i, j + 1) === "void")) falls++;
@@ -153,11 +158,30 @@ describe("the continuous world", () => {
     expect(falls).toBeGreaterThan(0);
   });
 
+  it("is twice the size of the old world, with its landmarks on open land", () => {
+    expect(WORLD_W).toBe(162 * 2);
+    expect(WORLD_H).toBe(116 * 2);
+    expect(walkable.size).toBeGreaterThan(30000);
+    expect(w.landmarks.length).toBeGreaterThanOrEqual(8);
+    for (const l of w.landmarks) {
+      expect(m.kind(Math.floor(l.x), Math.floor(l.y)), l.name).not.toBe("void");
+      let open = false;
+      for (let dj = -6; dj <= 6 && !open; dj++) for (let di = -6; di <= 6 && !open; di++) open = walkable.has((Math.floor(l.y) + dj) * m.w + Math.floor(l.x) + di);
+      expect(open, `${l.name} can be walked to`).toBe(true);
+    }
+    // the new people, beasts and treasures of the wilds
+    for (const key of ["fang", "tang", "kong", "yun", "han", "wu"]) expect(w.npcs.some((n) => n.key === key), key).toBe(true);
+    expect(w.enemies.filter((e) => e.enemy === "bandit").length).toBeGreaterThanOrEqual(3);
+    expect(w.interacts.filter((i) => i.kind === "chest").length).toBeGreaterThanOrEqual(14);
+    expect(w.interacts.filter((i) => i.kind === "shrine").length).toBeGreaterThanOrEqual(8);
+    for (const id of ["waterwheel", "pagoda", "teahouse", "campfire", "tent", "karst", "scarecrow", "ruin", "steam"]) expect(w.props.some((p) => p.id === id), id).toBe(true);
+  });
+
   it("never stands props in rivers, on the highway or over the void", () => {
     for (const p of w.props) {
       const k = m.kind(p.i, p.j);
       expect(k, `${p.id} at ${p.i},${p.j}`).not.toBe("void");
-      if (!["lotus", "boat", "reeds"].includes(p.id)) expect(LIQUID[k], `${p.id} at ${p.i},${p.j}`).toBeUndefined();
+      if (!FLOATS.has(p.id)) expect(LIQUID[k], `${p.id} at ${p.i},${p.j}`).toBeUndefined();
     }
   });
 });
@@ -179,7 +203,7 @@ describe("world map", () => {
 
   it("is drawn from the real world's terrain", () => {
     const biomes = new Set(mapTerrain().map((c) => c.biome));
-    for (const b of ["void", "road", "river", "lake", "snow", "bamboo", "ash", "lava", "forest", "plain"]) expect(biomes.has(b as never), b).toBe(true);
+    for (const b of ["void", "road", "river", "lake", "snow", "bamboo", "ash", "lava", "forest", "plain", "mountain", "meadow"]) expect(biomes.has(b as never), b).toBe(true);
   });
 
   it("flies in an arc that starts and ends on the given points", () => {

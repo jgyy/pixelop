@@ -22,7 +22,36 @@ export function dirFromWorld(dx: number, dy: number): number {
   return ((Math.round(a / (TAU / DIRS)) % DIRS) + DIRS) % DIRS;
 }
 
-export type AnimId = "idle" | "walk" | "run" | "talk" | "attack" | "cast" | "hurt" | "meditate" | "fly" | "victory" | "defeat" | "hop" | "practice" | "fish" | "bow" | "wave" | "gather" | "stretch" | "look";
+export type AnimId =
+  | "idle"
+  | "walk"
+  | "run"
+  | "talk"
+  | "attack"
+  | "cast"
+  | "hurt"
+  | "meditate"
+  | "fly"
+  | "victory"
+  | "defeat"
+  | "hop"
+  | "practice"
+  | "fish"
+  | "bow"
+  | "wave"
+  | "gather"
+  | "stretch"
+  | "look"
+  | "sweep"
+  | "sleep"
+  | "drink"
+  | "dance"
+  | "cheer"
+  | "point"
+  | "nod"
+  | "howl"
+  | "sniff"
+  | "peck";
 
 export interface Anim {
   fps: number;
@@ -246,6 +275,76 @@ const human: Partial<Record<AnimId, AnimSpec<HumanPose>>> = {
     loop: false,
     pose: (i) => ({ t: i, lean: [0, 0.18, 0.26, 0.26][i], handL: [-1.2, 4.6, 15], handR: [1.2, 4.6, 15], eyes: i > 0 ? "closed" : "open", mouth: "smile" }),
   },
+  sweep: {
+    n: 8,
+    fps: 6,
+    loop: true,
+    pose: (i, n) => {
+      const s = Math.sin(ph(i, n));
+      return { t: ph(i, n), lean: 0.16, handR: [2.4 + s * 3, 5.6, 9.5 + Math.abs(s)], handL: [-0.6 + s * 2.4, 4.6, 13.5], footR: [1.7, 1.2, 0], eyes: i % 4 === 3 ? "blink" : "open", mouth: "neutral", wind: [s * 0.4, -0.3, 0] };
+    },
+  },
+  sleep: {
+    n: 8,
+    fps: 2,
+    loop: true,
+    pose: (i) => ({ t: i * 0.4, stance: "sit", lean: 0.2 + (i % 2) * 0.05, bob: (i % 2) * -0.5, handL: [-2.4, 3.6, 11.6], handR: [2.4, 3.6, 11.6], eyes: "closed", mouth: i % 4 === 2 ? "open" : "neutral", wind: [0, -0.2, 0] }),
+  },
+  drink: {
+    n: 7,
+    fps: 6,
+    loop: false,
+    pose: (i) => {
+      const up = [0, 0.5, 1, 1, 1, 0.5, 0][i];
+      return { t: i, lean: -0.06 * up, handR: [3.6 - up * 2.4, 1 + up * 3.6, 11.4 + up * 10], handL: [-3.4 + up * 1.4, 2 + up * 2, 12 + up * 3], eyes: up > 0.9 ? "closed" : "open", mouth: up > 0.9 ? "open" : "smile", wind: [0, -0.3, 0] };
+    },
+  },
+  dance: {
+    n: 8,
+    fps: 8,
+    loop: true,
+    pose: (i, n) => {
+      const a = ph(i, n);
+      const s = Math.sin(a);
+      const c = Math.cos(a);
+      return {
+        t: a * 2,
+        lift: Math.abs(Math.sin(a)) * 1.6,
+        lean: c * 0.06,
+        handL: [-4.4 - c * 1.6, 1.4 + s * 2.4, 16 + s * 6],
+        handR: [4.4 - c * 1.6, 1.4 - s * 2.4, 16 - s * 6],
+        footL: [-1.7 - Math.max(0, s) * 1.2, s * 1.4, Math.max(0, s) * 1.4],
+        footR: [1.7 + Math.max(0, -s) * 1.2, -s * 1.4, Math.max(0, -s) * 1.4],
+        eyes: i === 5 ? "closed" : "open",
+        mouth: i % 2 ? "grin" : "smile",
+        wind: [s * 0.8, -0.6, c * 0.4],
+      };
+    },
+  },
+  cheer: {
+    n: 6,
+    fps: 9,
+    loop: false,
+    pose: (i) => {
+      const up = [0.2, 0.8, 1, 0.6, 1, 0.7][i];
+      return { t: i, lift: [0, 2.6, 3.6, 0, 2.4, 0][i], handL: [-3.2 - up, 1, 14 + up * 13], handR: [3.2 + up, 1, 14 + up * 13], eyes: i > 1 ? "closed" : "open", mouth: "grin", wind: [0, -0.2, -0.8 * up] };
+    },
+  },
+  point: {
+    n: 5,
+    fps: 6,
+    loop: false,
+    pose: (i) => {
+      const k = [0, 0.6, 1, 1, 1][i];
+      return { t: i, lean: 0.06 * k, handR: [3.8 - k * 1.2, 1 + k * 8.4, 12 + k * 5.6], footR: [1.7, k * 1.4, 0], eyes: "open", mouth: i >= 3 ? "open" : "smile", wind: [0, -0.4, 0] };
+    },
+  },
+  nod: {
+    n: 6,
+    fps: 7,
+    loop: false,
+    pose: (i) => ({ t: i, lean: [0, 0.1, 0.16, 0.04, 0.14, 0][i], bob: [0, -0.3, -0.5, 0, -0.4, 0][i], eyes: i === 2 || i === 4 ? "closed" : "open", mouth: "smile" }),
+  },
 };
 
 // ----------------------------------------------------------------------------- beast poses
@@ -256,6 +355,10 @@ const beast: Partial<Record<AnimId, AnimSpec<BeastPose>>> = {
   attack: { n: 6, fps: 12, loop: false, pose: (i) => ({ t: i, lunge: [0, -0.3, 0.6, 1, 0.8, 0.2][i], mouth: i >= 2 && i <= 4 }) },
   hurt: { n: 3, fps: 8, loop: false, pose: (i) => ({ t: i, recoil: [1, 0.8, 0.3][i], flash: i === 0 ? 0.75 : 0, mouth: true }) },
   fly: { n: 6, fps: 10, loop: true, pose: (i, n) => ({ t: ph(i, n), wing: Math.sin(ph(i, n)) * 0.9, lift: 6 + Math.cos(ph(i, n)) }) },
+  sleep: { n: 8, fps: 2, loop: true, pose: (i) => ({ t: i * 0.35, crouch: 1, head: -0.7, closed: true, breath: i % 2 }) },
+  howl: { n: 8, fps: 6, loop: false, pose: (i) => ({ t: i, crouch: [0, 0.4, 0.6, 0.6, 0.6, 0.6, 0.4, 0][i], head: [0, 0.6, 1, 1, 1, 1, 0.6, 0][i], mouth: i >= 2 && i <= 5 }) },
+  sniff: { n: 8, fps: 6, loop: false, pose: (i) => ({ t: i, head: [-0.3, -0.8, -1, -0.9, -1, -0.8, -0.4, 0][i], stride: i % 2 ? 0.3 : 0 }) },
+  peck: { n: 6, fps: 7, loop: false, pose: (i) => ({ t: i, head: [0, -0.6, -1, -0.5, -1, 0][i] }) },
 };
 
 // ----------------------------------------------------------------------------- styles
@@ -285,6 +388,12 @@ export const STYLES = {
   wen: s({ robe: ramp("#7a8a8a"), inner: PAL.white, trim: PAL.teal, sash: PAL.teal, hair: PAL.hairGrey, beard: PAL.hairGrey, hairStyle: "topknot", hat: "straw", hatRamp: PAL.straw, weapon: "rod", flare: 5.6 }),
   cultist: s({ robe: PAL.crimson, inner: PAL.black, trim: PAL.black, sash: PAL.gold, hairStyle: "short", hat: "hood", hatRamp: PAL.black, mask: ramp("#e8e0d0"), glowEyes: "#ff3050", weapon: "saber", flare: 5 }),
   jiangshi: s({ robe: ramp("#3a5a8a"), inner: PAL.black, trim: PAL.red, sash: PAL.red, skin: PAL.skinPale, hairStyle: "short", hat: "jiangshi", hatRamp: PAL.black, talisman: true, hem: 3, flare: 4.6 }),
+  monk: s({ robe: ramp("#d88a3a", { lo: "#7a2a20" }), inner: PAL.paper, trim: PAL.red, sash: PAL.red, skin: PAL.skinTan, hairStyle: "bald", weapon: "staff", weaponRamp: PAL.wood, flare: 5.2, shawl: ramp("#c04a2a") }),
+  teawoman: s({ robe: ramp("#4a7aa8"), inner: PAL.white, trim: PAL.white, sash: PAL.paper, hair: PAL.hairBrown, hairStyle: "bun", female: true, eye: "#3a2a1a", flare: 5, hem: 3.4, shoes: PAL.brown }),
+  miller: s({ robe: ramp("#8a8a6a"), inner: PAL.white, trim: PAL.brown, sash: PAL.brown, hair: PAL.hairGrey, beard: PAL.hairGrey, hairStyle: "short", hat: "straw", hatRamp: PAL.straw, skin: PAL.skinTan, flare: 4.4, hem: 4.4, shoes: PAL.brown }),
+  hermit: s({ robe: ramp("#e8ecf8", { lo: "#5a6a9a" }), inner: PAL.azure, trim: PAL.azure, sash: PAL.navy, hair: PAL.hairSilver, beard: PAL.hairSilver, hairStyle: "long", hat: "crown", hatRamp: PAL.jade, weapon: "whisk", hunch: 0.08, flare: 6 }),
+  swordsman: s({ robe: PAL.black, inner: PAL.crimson, trim: PAL.crimson, sash: PAL.crimson, hairStyle: "wild", hair: PAL.hairBlack, weapon: "jian", shawl: ramp("#8a2a3a"), flare: 4.6, eye: "#3a1a2a" }),
+  bandit: s({ robe: ramp("#6a5a4a"), inner: PAL.black, trim: PAL.black, sash: PAL.red, skin: PAL.skinTan, hairStyle: "wild", hair: PAL.hairBrown, beard: PAL.hairBrown, hat: "hood", hatRamp: ramp("#4a3a2a"), weapon: "saber", flare: 4.4, hem: 4.6, shoes: PAL.brown }),
   peddler: s({ robe: ramp("#b07a3a"), inner: PAL.paper, trim: PAL.brown, sash: PAL.green, hair: PAL.hairBrown, beard: PAL.hairBrown, hairStyle: "short", hat: "straw", hatRamp: PAL.straw, skin: PAL.skinTan, weapon: "staff", flare: 4.6, hem: 4.2, shoes: PAL.brown }),
   patriarch: s({ robe: PAL.crimson, inner: PAL.black, trim: PAL.gold, sash: PAL.black, hair: PAL.hairSilver, hairStyle: "long", hat: "crown", hatRamp: PAL.black, cape: PAL.black, weapon: "saber", scale: 1.3, glowEyes: "#ff2040", flare: 6.2 }),
 } satisfies Record<string, HumanStyle>;
@@ -294,19 +403,25 @@ export type BeastId = "fox" | "wolf" | "serpent" | "serpentKing" | "crane" | "ba
 export type CharId = HumanId | BeastId;
 
 const HUMAN_ANIMS: Record<HumanId, AnimId[]> = {
-  heroine: ["idle", "walk", "run", "talk", "attack", "cast", "hurt", "meditate", "fly", "victory", "defeat", "bow", "gather", "stretch", "look", "wave"],
-  elder: ["idle", "walk", "talk", "cast", "bow", "wave"],
-  qing: ["idle", "walk", "talk", "bow", "wave"],
-  abao: ["idle", "walk", "run", "talk", "practice", "wave"],
-  discipleM: ["idle", "walk", "practice", "bow"],
+  heroine: ["idle", "walk", "run", "talk", "attack", "cast", "hurt", "meditate", "fly", "victory", "defeat", "bow", "gather", "stretch", "look", "wave", "drink", "cheer", "point", "nod"],
+  elder: ["idle", "walk", "talk", "cast", "bow", "wave", "nod"],
+  qing: ["idle", "walk", "talk", "bow", "wave", "nod", "cheer"],
+  abao: ["idle", "walk", "run", "talk", "practice", "wave", "cheer"],
+  discipleM: ["idle", "walk", "practice", "bow", "nod"],
   discipleF: ["idle", "walk", "practice", "bow", "wave"],
-  zhou: ["idle", "walk", "talk", "wave"],
-  hua: ["idle", "walk", "talk", "wave"],
-  farmer: ["idle", "walk", "talk", "gather", "wave"],
-  child: ["idle", "walk", "run", "talk", "wave"],
-  huli: ["idle", "walk", "talk", "cast", "bow", "wave"],
-  wen: ["idle", "talk", "fish", "cast", "wave"],
-  peddler: ["idle", "walk", "talk", "wave", "look"],
+  zhou: ["idle", "walk", "talk", "wave", "nod", "point"],
+  hua: ["idle", "walk", "talk", "wave", "drink", "nod"],
+  farmer: ["idle", "walk", "talk", "gather", "wave", "nod", "stretch"],
+  child: ["idle", "walk", "run", "talk", "wave", "dance", "cheer"],
+  huli: ["idle", "walk", "talk", "cast", "bow", "wave", "dance"],
+  wen: ["idle", "talk", "fish", "cast", "wave", "sleep"],
+  monk: ["idle", "walk", "talk", "sweep", "bow", "nod", "wave", "meditate"],
+  teawoman: ["idle", "walk", "talk", "wave", "drink", "nod", "bow"],
+  miller: ["idle", "walk", "talk", "gather", "wave", "nod", "point", "stretch"],
+  hermit: ["idle", "talk", "meditate", "cast", "nod", "bow"],
+  swordsman: ["idle", "walk", "talk", "practice", "sleep", "attack", "cast", "hurt", "defeat", "drink", "nod", "wave"],
+  bandit: ["idle", "walk", "run", "attack", "hurt", "point", "cheer"],
+  peddler: ["idle", "walk", "talk", "wave", "look", "nod", "point"],
   cultist: ["idle", "walk", "attack", "hurt"],
   jiangshi: ["idle", "hop", "attack", "hurt"],
   patriarch: ["idle", "walk", "attack", "cast", "hurt", "defeat", "talk"],
@@ -326,6 +441,12 @@ const NAMES: Record<CharId, [string, string]> = {
   huli: ["Hu Li", "Three-tailed Fox Maiden"],
   wen: ["Old Fisher Wen", "Hermit of the Lotus Lake"],
   peddler: ["Peddler Bai", "Wandering Merchant of the Highway"],
+  monk: ["Monk Kong", "Keeper of the Ruined Temple"],
+  teawoman: ["Auntie Fang", "Crossroads Teahouse"],
+  miller: ["Miller Tang", "Watermill on the Creek"],
+  hermit: ["Master Yun", "Hermit of the Cloudstep Isles"],
+  swordsman: ["Xiao Han", "Wandering Swordsman"],
+  bandit: ["Mountain Bandit", "Highland Outlaw"],
   cultist: ["Blood Moon Cultist", "Demonic Sect Acolyte"],
   jiangshi: ["Jiangshi", "Hopping Corpse"],
   patriarch: ["Patriarch Xue", "Lord of the Blood Moon Sect"],
@@ -338,11 +459,11 @@ const NAMES: Record<CharId, [string, string]> = {
 };
 
 const BEAST_ANIMS: Record<BeastId, AnimId[]> = {
-  fox: ["idle", "walk", "run", "attack", "hurt"],
-  wolf: ["idle", "walk", "run", "attack", "hurt"],
+  fox: ["idle", "walk", "run", "attack", "hurt", "sniff", "sleep"],
+  wolf: ["idle", "walk", "run", "attack", "hurt", "howl", "sniff", "sleep"],
   serpent: ["idle", "walk", "attack", "hurt"],
   serpentKing: ["idle", "walk", "attack", "hurt"],
-  crane: ["idle", "fly"],
+  crane: ["idle", "fly", "peck"],
   bat: ["fly"],
 };
 
@@ -366,7 +487,7 @@ export function charDef(id: CharId): CharacterDef {
       ox: big ? Math.round(HUMAN_OX * S) : HUMAN_OX,
       oy: big ? Math.round(HUMAN_OY * S) : HUMAN_OY,
       anims: HUMAN_ANIMS[id],
-      portrait: id !== "jiangshi" && id !== "cultist",
+      portrait: id !== "jiangshi" && id !== "cultist" && id !== "bandit",
     };
   }
   if (id === "bat") return { id, name, title, w: 40, h: 32, ox: 20, oy: 26, anims: BEAST_ANIMS[id], portrait: false };
@@ -402,7 +523,7 @@ function paintFrame(id: CharId, anim: AnimId, i: number, dir: number): PixelBuff
     case "serpentKing":
       return paintSerpent({ ...pose, lunge: pose.lunge, stride: undefined }, a, id === "serpentKing");
     case "crane":
-      return paintCrane(anim === "fly" ? pose : { t: pose.t }, a);
+      return paintCrane(anim === "fly" ? pose : { t: pose.t, head: pose.head }, a);
     case "bat":
       return paintBat(beast.fly!.pose(i, 6), a);
   }

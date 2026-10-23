@@ -1,5 +1,6 @@
 import { levelIndex, realmLabel, FINAL_REALM, atBottleneck } from "../engine/realms";
-import { bump, learn, setFlag, stats, type GameState } from "../engine/state";
+import { bump, gainCultivation, learn, setFlag, stats, type GameState } from "../engine/state";
+import { cultivationNeeded } from "../engine/realms";
 import type { EnemyId } from "../engine/enemies";
 import type { AreaId } from "../world/ids";
 import { toWorld } from "../world/layout";
@@ -109,6 +110,18 @@ export function hasNews(key: string, g: GameState): boolean {
       return !f.huaTea;
     case "elderPeak":
       return true;
+    case "fang":
+      return !f.fangTea;
+    case "tang":
+      return !f.tangGift;
+    case "kong":
+      return !f.kongSutra;
+    case "yun":
+      return !f.yunTeaching;
+    case "han":
+      return !!f.metElder && !f.hanDuel;
+    case "wu":
+      return !f.wuGift;
     default:
       return false;
   }
@@ -228,6 +241,83 @@ export function npcScript(key: string, g: GameState): Step[] {
           { anim: "wen", name: "fish" },
         ];
       return [say("wen", pick(g, ["The fish bite best when the mind is empty.", "Foundation first. Then the valley.", "Mo was my finest student. Don't tell him I said so."]))];
+    case "fang":
+      if (!f.fangTea)
+        return [
+          { anim: "fang", name: "bow" },
+          say("teawoman", "Welcome, welcome! Sit, rest your feet. Everyone who walks the highway stops at Fang's sooner or later."),
+          say("teawoman", "Cloud-mist tea, picked on the slopes below the sect. First cup is free — you look like you've walked a long way."),
+          { anim: "hero", name: "drink", wait: true },
+          { mutate: (s) => setFlag({ ...s, hp: stats(s).maxHp, qi: stats(s).maxQi }, "fangTea") },
+          { toast: "HP and QI fully restored" },
+          say("teawoman", "South of here the road splits for the stone forest. There's an old temple in there — a monk still sweeps it, they say, all alone."),
+          { shop: true },
+        ];
+      return [say("teawoman", pick(g, ["Another cup? Spirit stones for pills, tea for friends.", "Peddler Bai owes me for three weeks of tea. Tell him I said so!", "The bandits up in the highland pines have been bolder lately. Mind the east road.", "Every cultivator who passes says they'll come back when they're immortal. You'll actually do it, won't you?"])), { shop: true }];
+    case "tang":
+      if (!f.tangGift)
+        return [
+          say("miller", "Hear that creak? That's the sweetest sound in the world. Forty years that wheel has turned and never once stopped."),
+          say("miller", "…Well, it stopped the night the sky went red. The creek ran backwards for an hour. I've never been so frightened."),
+          say("miller", "Here, take these. Granny Hua grinds them from the herbs I dry — they're no use to an old miller."),
+          { mutate: (s) => setFlag({ ...s, pills: { ...s.pills, qi: Math.min(99, s.pills.qi + 2) } }, "tangGift") },
+          { toast: "Received 2 Qi Gathering Pills" },
+          { anim: "tang", name: "nod" },
+        ];
+      return [say("miller", pick(g, ["Flour for the village, water for the lake. The creek carries both.", "Cranes come to fish below the wheel at dawn. Lovely creatures.", "If you ever see the creek run backwards again — run the other way."]))];
+    case "kong":
+      if (!f.kongSutra)
+        return [
+          { anim: "kong", name: "idle" },
+          { emote: "kong", icon: "..." },
+          say("monk", "Amituofo. A visitor. The leaves fall faster than one old monk can sweep, but I keep sweeping."),
+          say("heroine", "Why sweep a temple no one visits?"),
+          say("monk", "The sweeping is not for the temple. Sit with me a moment, young cultivator, and breathe as the stone forest breathes."),
+          { anim: "hero", name: "meditate" },
+          { wait: 1.2 },
+          { flash: "#9ff5de" },
+          { mutate: (s) => setFlag(gainCultivation(s, Math.round(cultivationNeeded(s.realm, s.stage) * 0.5)).state, "kongSutra") },
+          { anim: "hero", name: "idle" },
+          { toast: "The Still Water Sutra settles your qi · Cultivation rises" },
+          say("monk", "Good. At night the dead walk these ruins — those who burned here never found their rest. Be gentle with them."),
+          { anim: "kong", name: "sweep" },
+        ];
+      return [say("monk", pick(g, ["A swept floor, a still heart. Both get dusty again.", "The stone pillars here were once a mountain. Patience is a very long thing.", "If you meet the hopping dead, remember they were people once."]))];
+    case "yun":
+      if (!f.yunTeaching)
+        return [
+          { anim: "yun", name: "idle" },
+          say("hermit", "Mm? Few walk the planks out here. Fewer still look down while they do it."),
+          say("hermit", "I am Yun. Wen and I shared a teacher, long before Mo was born. He chose the lake; I chose the sky."),
+          say("hermit", "Your qi is clear, but shallow, like a cloud's shadow on water. Let me show you how the clouds gather."),
+          { anim: "yun", name: "cast", wait: true },
+          { flash: "#c8f0ff" },
+          { mutate: (s) => setFlag(gainCultivation(s, Math.round(cultivationNeeded(s.realm, s.stage) * 0.6)).state, "yunTeaching") },
+          { toast: "Master Yun's teaching deepens your cultivation" },
+          say("hermit", "Now go. And if you see Wen, tell him the sky is still bigger than his lake."),
+          { anim: "yun", name: "meditate" },
+        ];
+      return [say("hermit", pick(g, ["The clouds pass. So do worries.", "Even the Hall of Clouds looks small from here.", "Xue once sat where you stand. He asked how to own the sky. I had no answer for him."]))];
+    case "han":
+      if (!f.metElder) return [{ emote: "han", icon: "zzz" }, say("narrator", "A swordsman dozes by the spring, his blade across his knees.")];
+      if (!f.hanDuel)
+        return [
+          { anim: "han", name: "idle" },
+          { emote: "han", icon: "!" },
+          say("swordsman", "An Azure Cloud disciple, this far south? Ha! I'm Xiao Han. I've crossed swords with every sect between here and the sea."),
+          say("swordsman", "Except yours. Show me what the sect in the sky teaches — I promise not to hurt you. Much."),
+          { battle: "swordsman", key: "han-duel" },
+        ];
+      return [say("swordsman", pick(g, ["The hot spring is the best place in the jianghu to lose a duel. Or win one.", "Next time I'll beat you. Probably.", "If you see bandits on the east road, give them my regards — with the flat of your blade."])), { anim: "han", name: "drink" }];
+    case "wu":
+      if (!f.wuGift)
+        return [
+          { say: "farmer", name: "Farmer Wu", text: "Careful of the paddies! …Oh, a cultivator. Pardon me, I thought you were a crow. The scarecrows do nothing these days." },
+          { say: "farmer", name: "Farmer Wu", text: "My cousin Liu farms up in Willow Creek. Tell him the southern rice is taller. Here, for your trouble." },
+          { mutate: (s) => setFlag({ ...s, stones: s.stones + 20 }, "wuGift") },
+          { toast: "Received 20 spirit stones" },
+        ];
+      return [{ say: "farmer", name: "Farmer Wu", text: pick(g, ["The pagoda's lamps keep the night spirits off the fields. Or so Granny says.", "Rain from the highlands, sun from the sky. Good year, this one.", "Cranes in the paddy mean a fat harvest."]) }];
     default:
       return [say("narrator", "…")];
   }
@@ -321,8 +411,23 @@ export function preBattleScript(enemy: EnemyId, key: string): Step[] | null {
 }
 
 /** Story consequences of winning a fight. */
-export function victoryScript(enemy: EnemyId, key: string, area: AreaId, g: GameState): Step[] {
+export function victoryScript(enemy: EnemyId, key: string, area: AreaId, g: GameState, won = true): Step[] {
   const steps: Step[] = [];
+  if (enemy === "swordsman")
+    return won
+      ? [
+          { mutate: (s) => setFlag({ ...s, stones: s.stones + 80 }, "hanDuel") },
+          { anim: "han", name: "bow" },
+          say("swordsman", "Hah… haha! Beaten fair and square. The sky sect still has teeth."),
+          say("swordsman", "Take this — my winnings from the last three duels. I won't be needing them for a while."),
+          { toast: "Received 80 spirit stones" },
+        ]
+      : [{ anim: "han", name: "nod" }, say("swordsman", "Not bad, not bad. Rest your feet in the spring and come back when you're stronger. I'll be here."), { toast: "Xiao Han lowers his blade. Talk to him again for a rematch." }];
+  if (enemy === "bandit") {
+    const n = (g.counters.bandits ?? 0) + 1;
+    steps.push({ mutate: (s) => bump(s, "bandits") });
+    if (n === 3) steps.push({ mutate: (s) => setFlag({ ...s, stones: s.stones + 40 }, "banditsRouted") }, say("heroine", "That's the last of their leaders. The east road should be safe for travellers now."), { toast: "The highland bandits scatter · Found 40 spirit stones in their camp" });
+  }
   if (key === "village-fox") {
     steps.push({ mutate: (s) => setFlag(s, "villageSaved") }, { emote: "hero", icon: "..." }, say("heroine", "It fled into the west, toward the forest. Its eyes cleared just before it ran…"), { toast: "Speak with Village Head Zhou" });
   }
