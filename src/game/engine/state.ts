@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { AREA_IDS } from "../world/ids";
-import { REGION_SIZE, toWorld, WORLD_H, WORLD_W } from "../world/layout";
+import { AREA_IDS as AREAS, type AreaId } from "../world/ids";
+import { LEGACY_REGION_ORIGIN, REGION_SIZE, toWorld, WORLD_H, WORLD_W } from "../world/layout";
 import { addCultivation, breakthrough, statsFor, type Stats } from "./realms";
 
 export const SKILL_IDS = ["strike", "palm", "lotus", "swords", "thunder"] as const;
@@ -8,11 +8,13 @@ export type SkillId = (typeof SKILL_IDS)[number];
 
 /**
  * Serializable game state — this is exactly what gets saved server-side.
- * Version 3 stores the heroine's position in world tiles of the continuous
- * jianghu; version 2 saves (one map per region) are migrated on load.
+ * Version 4 stores the heroine's position in world tiles of the continuous
+ * jianghu. Older saves are migrated on load: version 3 positions are in the
+ * smaller world the jianghu grew out of, and version 2 positions are local
+ * to one map per region.
  */
 const SaveFields = z.object({
-  version: z.union([z.literal(2), z.literal(3)]),
+  version: z.union([z.literal(2), z.literal(3), z.literal(4)]),
   name: z.string().min(1).max(24),
   realm: z.number().int().min(0).max(5),
   stage: z.number().int().min(0).max(3),
@@ -21,7 +23,7 @@ const SaveFields = z.object({
   qi: z.number().int().min(0),
   stones: z.number().int().min(0),
   pills: z.object({ heal: z.number().int().min(0).max(99), qi: z.number().int().min(0).max(99) }),
-  area: z.enum(AREA_IDS),
+  area: z.enum(AREAS),
   x: z.number().min(0).max(WORLD_W),
   y: z.number().min(0).max(WORLD_H),
   dir: z.number().int().min(0).max(15),
@@ -35,10 +37,39 @@ const SaveFields = z.object({
   taken: z.array(z.string()).max(200),
 });
 
+/** Region-local coordinates, clamped inside the region's layout. */
+const local = (area: AreaId, x: number, y: number): [number, number] => {
+  const n = REGION_SIZE[area];
+  return toWorld(area, Math.max(0.5, Math.min(x, n - 0.5)), Math.max(0.5, Math.min(y, n - 0.5)));
+};
+
+/**
+ * Move a version 3 position into the grown world: keep it relative to the
+ * region it was in (or nearest to). The game snaps it to open ground if the
+ * spot is no longer walkable.
+ */
+function fromLegacyWorld(x: number, y: number): { area: AreaId; x: number; y: number } {
+  let best: AreaId = "sect";
+  let bd = Infinity;
+  for (const id of AREAS) {
+    const [ox, oy] = LEGACY_REGION_ORIGIN[id];
+    const n = REGION_SIZE[id];
+    const d = Math.hypot(Math.max(ox - x, 0, x - ox - n), Math.max(oy - y, 0, y - oy - n));
+    if (d < bd) {
+      bd = d;
+      best = id;
+    }
+  }
+  const [ox, oy] = LEGACY_REGION_ORIGIN[best];
+  const [nx, ny] = local(best, x - ox, y - oy);
+  return { area: best, x: nx, y: ny };
+}
+
 export const GameStateSchema = SaveFields.transform((s) => {
-  if (s.version === 3) return { ...s, version: 3 as const };
-  const [x, y] = toWorld(s.area, Math.min(s.x, REGION_SIZE[s.area] - 0.5), Math.min(s.y, REGION_SIZE[s.area] - 0.5));
-  return { ...s, version: 3 as const, x, y };
+  if (s.version === 4) return { ...s, version: 4 as const };
+  if (s.version === 3) return { ...s, version: 4 as const, ...fromLegacyWorld(s.x, s.y) };
+  const [x, y] = local(s.area, s.x, s.y);
+  return { ...s, version: 4 as const, x, y };
 });
 
 export type GameState = z.output<typeof GameStateSchema>;
@@ -49,7 +80,7 @@ const START = toWorld("sect", 15.5, 20.5);
 export function newGame(name = "Lin Yue"): GameState {
   const s = statsFor(0, 0);
   return {
-    version: 3,
+    version: 4,
     name,
     realm: 0,
     stage: 0,

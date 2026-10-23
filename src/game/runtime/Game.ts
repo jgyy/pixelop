@@ -2,7 +2,7 @@ import { alpha } from "../pixel/color";
 import type { Surface } from "../pixel/surface";
 import { sRing } from "../pixel/surface";
 import { isoX, isoY, screenDirToWorld } from "../iso/projection";
-import { charDef, type HumanId } from "../art/characters";
+import { charDef, type AnimId, type HumanId } from "../art/characters";
 import { ENEMIES, type EnemyId } from "../engine/enemies";
 import { reviveAtSect, type BattleAction } from "../engine/battle";
 import { atBottleneck, cultivationNeeded, FINAL_REALM, levelIndex, realmLabel, REALMS, type Stats } from "../engine/realms";
@@ -54,6 +54,8 @@ const MOVE_KEYS: Record<string, [number, number]> = {
 };
 
 const CONFIRM = new Set(["KeyE", "Enter", "Space", "NumpadEnter"]);
+/** One-shot animations that walking away interrupts. */
+const IDLE_FIDGETS = new Set<AnimId>(["stretch", "look", "gather", "nod", "point", "cheer", "drink"]);
 const RUN_KEYS = ["ShiftLeft", "ShiftRight"];
 const WALK_SPEED = 3.3;
 const RUN_SPEED = 5.2;
@@ -100,6 +102,9 @@ export class Game {
   private prompt: string | null = null;
   private invulnerableUntil = 0;
   private idleTime = 0;
+  private fidgets = 0;
+  /** The landmark whose banner was shown last (until she walks away from it). */
+  private landmark: string | null = null;
   private sealToastAt = -99;
   private syncAt = 0;
   private fade = 0;
@@ -117,8 +122,8 @@ export class Game {
   constructor(state: GameState, opts: { intro?: boolean; seed?: number } = {}) {
     this.state = state;
     this.seed = opts.seed ?? Date.now();
-    this.world = this.makeWorld([state.x, state.y], state.dir);
-    this.state = { ...this.state, area: this.world.regionAt(state.x, state.y) };
+    this.world = this.makeWorld(Game.openGround([state.x, state.y], state.area), state.dir);
+    this.state = { ...this.state, x: this.world.hero.x, y: this.world.hero.y, area: this.world.regionAt(this.world.hero.x, this.world.hero.y) };
     this.showBanner();
     if (opts.intro) {
       this.fade = 1;
@@ -127,6 +132,25 @@ export class Game {
   }
 
   private readonly seed: number;
+
+  /**
+   * A loaded position that is no longer open ground (an old save, a world
+   * that grew around it) would leave the heroine stuck: land her at the
+   * nearest open tile instead, or failing that at her region's waypoint.
+   */
+  private static openGround([x, y]: [number, number], area: AreaId): [number, number] {
+    const m = getWorld().map;
+    const ok = (i: number, j: number) => m.standable(i, j) && [-1, 0, 1].every((d) => m.standable(i + d, j) && m.standable(i, j + d));
+    if (ok(Math.floor(x), Math.floor(y))) return [x, y];
+    for (let r = 1; r <= 4; r++)
+      for (let dj = -r; dj <= r; dj++)
+        for (let di = -r; di <= r; di++) {
+          const i = Math.floor(x) + di;
+          const j = Math.floor(y) + dj;
+          if (ok(i, j)) return [i + 0.5, j + 0.5];
+        }
+    return getWorld().waypoints[area];
+  }
 
   // ------------------------------------------------------------------ public API
   subscribe(fn: (s: UiSnapshot) => void): () => void {
@@ -206,6 +230,7 @@ export class Game {
     if (!next) return this.toast("No pills of that kind.");
     this.state = next;
     const h = this.world.hero;
+    if (!h.flying && this.mode === "explore") this.world.setAnim(h, "drink", this.clock, true);
     this.world.fx.burst(isoX(h.x, h.y), isoY(h.x, h.y, h.z) - 14, 14, kind === "heal" ? ["#ff8aa8", "#ffffff"] : ["#9ff5de", "#ffffff"], 40);
     this.toast(kind === "heal" ? "A Healing Pill restores your vitality." : "A Qi Gathering Pill refills your dantian.");
   }
@@ -285,7 +310,6 @@ export class Game {
     if (!this.state.flags.metElder) return this.toast("Elder Mo is waiting for you. Speak with him before leaving the sect.");
     this.worldMap = new WorldMap(this.state.area, [this.world.hero.x, this.world.hero.y]);
     this.mode = "worldmap";
-    this.world.hero.flying = false;
     this.markDirty();
   }
 
@@ -380,6 +404,21 @@ export class Game {
     this.markDirty();
   }
 
+  /** Walking up to a landmark of the wilds names it, like crossing into a region. */
+  private trackLandmark(): void {
+    const h = this.world.hero;
+    const near = getWorld().landmarks.find((l) => Math.hypot(l.x + 0.5 - h.x, l.y + 0.5 - h.y) < 7);
+    if (!near) {
+      if (this.landmark && !getWorld().landmarks.some((l) => l.key === this.landmark && Math.hypot(l.x + 0.5 - h.x, l.y + 0.5 - h.y) < 11)) this.landmark = null;
+      return;
+    }
+    if (near.key === this.landmark) return;
+    this.landmark = near.key;
+    this.banner = { title: near.name, hanzi: near.hanzi, subtitle: getArea(this.state.area).name, seq: ++this.seq };
+    this.bannerUntil = this.clock + 3;
+    this.markDirty();
+  }
+
   private showBanner(): void {
     const d = getArea(this.state.area);
     this.banner = { title: d.name, hanzi: d.hanzi, subtitle: d.subtitle, seq: ++this.seq };
@@ -463,7 +502,12 @@ export class Game {
         const speaker = step.name ?? (step.say === "narrator" ? "" : charDef(step.say).name);
         this.dialog = { speaker, portrait, text: step.text, seq: ++this.seq };
         r.waitInput = true;
-        const actor = step.say === "heroine" ? this.world.hero : this.world.actors.find((a) => a.char === step.say && a.kind === "npc");
+        // the nearest NPC of that character speaks (two villagers may share a look)
+        const h = this.world.hero;
+        const actor =
+          step.say === "heroine"
+            ? h
+            : this.world.actors.filter((a) => a.char === step.say && a.kind === "npc").sort((a, b) => Math.hypot(a.x - h.x, a.y - h.y) - Math.hypot(b.x - h.x, b.y - h.y))[0];
         if (actor && actor.kind === "npc" && actor.idleAnim !== "fish" && charDef(actor.char).anims.includes("talk") && !actor.holdUntil) {
           this.world.setAnim(actor, "talk", this.clock);
           const back = actor;
@@ -560,7 +604,7 @@ export class Game {
       }
       if ("spawn" in step) {
         if (!this.actorByKey(step.spawn)) {
-          const a: Actor = { ...this.world.hero, key: step.spawn, kind: "npc", char: step.char, x: step.at[0], y: step.at[1], z: this.world.groundZ(step.at[0], step.at[1]), dir: step.dir ?? 0, anim: "idle", idleAnim: "idle", target: null, speed: 2.4, wander: 0, home: [...step.at], flying: false, holdUntil: undefined, emote: undefined, marker: false };
+          const a: Actor = { key: step.spawn, kind: "npc", char: step.char, x: step.at[0], y: step.at[1], z: this.world.groundZ(step.at[0], step.at[1]), dir: step.dir ?? 0, anim: "idle", animStart: this.clock, idleAnim: "idle", target: null, speed: 2.4, wander: 0, home: [...step.at], rest: 0 };
           this.world.actors.push(a);
           this.world.fx.burst(isoX(a.x, a.y), isoY(a.x, a.y, a.z) - 12, 16, ["#ffffff", "#ffb070"], 40);
         }
@@ -606,8 +650,14 @@ export class Game {
   }
 
   // ------------------------------------------------------------------ battle
+  /** Step off the flying sword — unless she is hovering over water, where she would sink. */
+  private land(): void {
+    const h = this.world.hero;
+    if (h.flying && this.world.def.map.standable(Math.floor(h.x), Math.floor(h.y))) h.flying = false;
+  }
+
   private startBattle(enemy: EnemyId, key: string): void {
-    this.world.hero.flying = false;
+    this.land();
     this.battle = new BattleScene(this.state.area, enemy, key, this.state, (this.seed + Math.floor(this.clock * 1000)) >>> 0);
     this.mode = "battle";
     this.dialog = null;
@@ -619,13 +669,19 @@ export class Game {
     this.battle = null;
     this.mode = "explore";
     this.invulnerableUntil = this.clock + 2.2;
-    this.world.hero.flying = false;
-    this.world.setAnim(this.world.hero, "idle", this.clock);
+    this.land();
+    this.world.setAnim(this.world.hero, this.world.hero.flying ? "fly" : "idle", this.clock);
     if (b.result === "won") {
       this.world.defeat(b.enemyKey);
       if (b.levelUp) this.toast(`Your cultivation rises: ${b.levelUp}!`);
       if (atBottleneck(this.state)) this.toast("Your qi has reached its peak! Meditate at a shrine and press B to face the tribulation.");
       this.play(victoryScript(b.enemy, b.enemyKey, this.state.area, this.state));
+    } else if (b.result === "lost" && b.enemy === "swordsman") {
+      // a friendly duel: Xiao Han lowers his blade instead of letting her fall
+      const s = stats(this.state);
+      this.state = { ...this.state, hp: Math.max(this.state.hp, Math.ceil(s.maxHp * 0.3)) };
+      this.world.setAnim(this.world.hero, "bow", this.clock, true);
+      this.play(victoryScript(b.enemy, b.enemyKey, this.state.area, this.state, false));
     } else if (b.result === "lost") {
       this.queue = [];
       this.state = reviveAtSect(this.state);
@@ -643,7 +699,7 @@ export class Game {
   // ------------------------------------------------------------------ meditation & tribulation
   private beginMeditation(): void {
     const h = this.world.hero;
-    h.flying = false;
+    this.land();
     this.mode = "meditate";
     this.world.setAnim(h, "meditate", this.clock);
     h.idleAnim = "meditate";
@@ -799,7 +855,7 @@ export class Game {
       if (!moved) this.tapTarget = null;
       w.trail(Math.hypot(h.x - x0, h.y - y0), this.clock);
       h.running = run;
-      if (h.holdUntil === undefined || h.anim === "stretch" || h.anim === "look" || h.anim === "gather") w.setAnim(h, h.flying ? "fly" : run ? "run" : "walk", this.clock);
+      if (h.holdUntil === undefined || IDLE_FIDGETS.has(h.anim)) w.setAnim(h, h.flying ? "fly" : run ? "run" : "walk", this.clock);
       if (!h.flying && Math.random() < dt * (run ? 16 : 6)) w.fx.emit({ x: isoX(h.x, h.y) - dx * 4, y: isoY(h.x, h.y, h.z), vx: -dx * (run ? 18 : 8), vy: run ? -14 : -8, life: run ? 0.5 : 0.4, color: "#e8dcc8", gravity: 20, size: run && Math.random() < 0.4 ? 2 : 1 });
       if (h.flying && Math.random() < dt * 25) w.fx.emit({ x: isoX(h.x, h.y), y: isoY(h.x, h.y, h.z) + 2, vx: -dx * 30, vy: -4, life: 0.5, color: Math.random() < 0.5 ? "#9ff5de" : "#ffffff" });
     } else if (h.holdUntil === undefined) {
@@ -808,7 +864,9 @@ export class Game {
       this.idleTime += dt;
       if (!h.flying && this.idleTime > 8) {
         this.idleTime = -4;
-        w.setAnim(h, Math.floor(this.clock) % 2 ? "stretch" : "look", this.clock, true);
+        // first a stretch or a glance around; left alone longer, she hums, nods off or practises a pointing form
+        const pool: AnimId[] = this.fidgets++ < 1 ? ["look", "stretch"] : ["stretch", "look", "nod", "point", "cheer"];
+        w.setAnim(h, pool[Math.floor(this.clock) % pool.length], this.clock, true);
       }
     }
     this.state.x = h.x;
@@ -824,6 +882,7 @@ export class Game {
       }
     }
     this.trackRegion();
+    this.trackLandmark();
     if (this.mode !== "explore") return;
 
     if (this.clock > this.syncAt) {
@@ -879,7 +938,6 @@ export class Game {
     const it = near.it!;
     switch (it.kind) {
       case "shrine":
-        h.flying = false;
         h.dir = dirFrom(it.i + 0.5 - h.x, it.j + 0.5 - h.y);
         this.beginMeditation();
         break;

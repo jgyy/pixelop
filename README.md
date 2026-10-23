@@ -8,7 +8,7 @@ A **2.5D isometric pixel-art xianxia RPG** built as a full-stack **Next.js 16** 
 
 ### One world, no loading screens
 
-The whole jianghu is a single 162 × 116 tile map. You can walk from the sect gate down the sky bridge, along the old highway past the bamboo, and on to the waterfall where the Lotus Lake spills off the edge of the world. Sealed regions sit behind walls of mist, talismans, demonic qi or heaven's light until the story opens them.
+The whole jianghu is a single **324 × 232 tile map** (twice as wide and twice as deep as it used to be). You can walk from the sect gate down a long sky bridge that rests on Cloudrest Isle half way, along the old highway past the bamboo, and on to the waterfall where the Lotus Lake spills off the edge of the world. South of the highway lie the ashen wastes, a stone forest with a ruined temple, scarecrow fields under a seven-tier pagoda and the snowy highlands with a hot spring and a bandit camp. East of the sect, plank walkways lead out to the floating Cloudstep Isles. Sealed regions sit behind walls of mist, talismans, demonic qi or heaven's light until the story opens them.
 
 ![The whole continuous world](docs/art/world-overview.png)
 
@@ -16,6 +16,23 @@ The whole jianghu is a single 162 × 116 tile map. You can walk from the sect ga
 |---|---|
 | ![Sky bridge from the sect](docs/screenshots/16-sky-bridge.png) | ![Running the old highway](docs/screenshots/17-highway-run.png) |
 | ![Demonic qi seals the valley](docs/screenshots/18-demonic-seal.png) | ![The Lotus Lake's waterfall](docs/screenshots/19-waterfall.png) |
+
+### Landmarks of the wilds
+
+Each landmark has its own keeper, beasts and treasure, and its name appears in a banner as you walk up to it.
+
+| | |
+|---|---|
+| ![Cloudrest Isle on the sky bridge](docs/screenshots/20-cloudrest-isle.png) | ![Master Yun on the Cloudstep Isles](docs/screenshots/21-cloudstep-isles.png) |
+| ![The crossroads teahouse](docs/screenshots/22-crossroads-teahouse.png) | ![Auntie Fang pours the first cup free](docs/screenshots/23-auntie-fang.png) |
+| ![Miller Tang's watermill](docs/screenshots/24-watermill.png) | ![Monk Kong sweeps the Temple of Still Water](docs/screenshots/25-ruined-temple.png) |
+| ![The Pagoda of Seven Lamps above the scarecrow fields](docs/screenshots/26-pagoda-fields.png) | ![Xiao Han dozes by the highland hot spring](docs/screenshots/27-hot-spring.png) |
+| ![The bandit camp after dark](docs/screenshots/28-bandit-camp-night.png) | ![The Blood Moon camp in the ashen wastes](docs/screenshots/29-blood-moon-camp.png) |
+| ![Fighting a mountain bandit](docs/screenshots/30-bandit-battle.png) | ![The grown world map](docs/screenshots/31-world-map-grown.png) |
+
+| Watermill | Bandit camp | Hot spring |
+|---|---|---|
+| ![](docs/art/site-mill.gif) | ![](docs/art/site-bandits.gif) | ![](docs/art/site-spring.gif) |
 
 ![Running the highway](docs/art/highway.gif)
 
@@ -31,7 +48,7 @@ The whole jianghu is a single 162 × 116 tile map. You can walk from the sect ga
 
 ### Animated art
 
-| Lin Yue's 16 animations | All 16 facing directions |
+| Lin Yue's 20 animations | All 16 facing directions |
 |---|---|
 | ![Heroine move set](docs/art/heroine-moves.gif) | ![Heroine 16 directions](docs/art/heroine-16dir.gif) |
 
@@ -56,10 +73,11 @@ The whole jianghu is a single 162 × 116 tile map. You can walk from the sect ga
 ## Features
 
 - **Continuous open world:** the six regions are stamped into one map, with generated wilds between them (biomes blend at their borders), an old highway with wayside shrines, milestones, lanterns, herbs, chests and roaming beasts, rivers joining the creek, the bamboo stream and the lake, a waterfall and a lavafall off the world's edge, and two sky bridges up to the floating islands. Terrain columns are painted lazily as they come into view, and only the visible diagonals are drawn. Sky, weather, light and tint cross-fade as you walk from one region into the next, and the region banner and first-arrival scene trigger at the border.
-- **A living world:** a day/night cycle (stars come out, lanterns glow), birds and bats wheeling overhead, butterflies over meadow flowers, koi leaping in the water, cloud shadows drifting over the land, footprints in sand, snow and ash, cranes that take flight when you come close, NPCs who turn and wave as you pass, a peddler walking the highway with his shop, beasts that shout "!" and gallop after you (and give up with a "?"), and beaten beasts that come back once you've been away for a while.
+- **A living world:** a day/night cycle (stars come out, shooting stars streak past, lanterns glow), dragonflies over the shallows, fireflies rising from the grass after dusk, dandelion seeds on the wind, lava bubbles that swell and pop, birds and bats wheeling overhead, butterflies over meadow flowers, koi leaping in the water, cloud shadows drifting over the land, footprints in sand, snow and ash, cranes that take flight when you come close, NPCs who turn and wave as you pass, a peddler walking the highway with his shop, beasts that shout "!" and gallop after you (and give up with a "?"), and beaten beasts that come back once you've been away for a while.
 - **2.5D isometric world:** height-mapped tile maps with cliffs, stairs, raised platforms, floating islands with rocky undersides, animated water and lava with shore foam, depth-sorted props (sliced into screen columns so they occlude correctly), contact shadows, an x-ray silhouette when the heroine walks behind something, and parallax skies.
-- **Procedural 3D pixel sprites:** 15 humanoid characters and 6 beasts, each built from roughly 20 ray-cast solids (bell skirts, sleeves, hair strands, shawls, tails, hats, weapons) with hue-shifted 4-tone shading, face decals and selective outlines. They render in 16 directions with up to 16 animations: idle, walk, run, talk, attack, cast, hurt, meditate, sword-flight, victory, defeat, bow, wave, gather (kneel and pick), stretch and look-around idle fidgets, plus hop, practice and fishing. Foxes and wolves gallop with a run cycle. Dialogue portraits are rendered from the same models at 3× scale, with blink and talk frames.
-- **38 props, most of them animated:** swaying pines, cherry and maple trees, bamboo groves, willows, a glowing spirit tree, the multi-tier Hall of Clouds, village houses with chimney smoke, a lake pavilion, flickering lanterns and braziers that cast soft glows at night, waving banners, a bubbling alchemy cauldron, bobbing lotuses and boats, a rotating taiji dais, a pulsing blood altar, and more.
+- **Procedural 3D pixel sprites:** 22 humanoid characters and 6 beasts, each built from roughly 20 ray-cast solids (bell skirts, sleeves, hair strands, shawls, tails, hats, weapons) with hue-shifted 4-tone shading, face decals and selective outlines. They render in 16 directions with up to 20 animations: idle, walk, run, talk, attack, cast, hurt, meditate, sword-flight, victory, defeat, bow, wave, gather (kneel and pick), drink, cheer, point and nod, stretch and look-around idle fidgets, plus hop, practice, fishing, sweeping, dancing and dozing. Foxes and wolves gallop with a run cycle, sniff the ground and curl up asleep with their tails wrapped round them; wolves sit back and howl; cranes peck at the grass. Dialogue portraits are rendered from the same models at 3× scale, with blink and talk frames.
+- **Idle life:** villagers and wayfarers break into nods, stretches, sips of tea, little dances and cheers when nobody needs them; sleepers breathe with drifting "Z"s; roaming beasts stop to sniff, howl or nap (and leap up the moment they spot you); Lin Yue drinks her pills and, left alone, nods, points and cheers as well as stretching.
+- **50 props, most of them animated:** swaying pines, cherry and maple trees, bamboo groves, willows, a glowing spirit tree, the multi-tier Hall of Clouds, village houses with chimney smoke, a lake pavilion, flickering lanterns and braziers that cast soft glows at night, waving banners, a bubbling alchemy cauldron, bobbing lotuses and boats, a rotating taiji dais, a pulsing blood altar, a turning waterwheel that sheds water, crackling campfires, scarecrows flapping in the wind, a five-tier pagoda with swinging wind chimes, a teahouse with a fluttering tea flag, tents, fluttering prayer flags, steaming hot-spring rocks, karst spires, temple ruins, haystacks and benches.
 - **Six regions plus a world map:** the floating Azure Cloud Sect (day, falling petals), Willow Creek Village (dusk, autumn leaves), the Whispering Bamboo Forest (fireflies), the Moonlit Lotus Lake (night, stars and moon), the Crimson Demon Valley (blood moon, embers, lava) and Heavenly Tribulation Peak (snow, storm lightning). The miniature isometric continent has roads, rivers, sea, drifting clouds and their shadows, and animated landmarks. Regions unlock as the story advances.
 - **Narrative:** a prologue, five chapters and an epilogue, with a quest tracker, scripted cutscenes (walk, emote, camera, flash, shake, spawn), typed-out dialogue with animated portraits, full-screen narration, first-arrival scenes, pre-boss speeches and an ending.
 - **Cultivation:** 6 realms × 4 stages. Battles, spirit herbs, chests and shrine meditation grow your cultivation. At a realm's peak you must survive a Heavenly Tribulation (3 bolts, or 9 for the final ascension).
@@ -83,7 +101,7 @@ npm run dev            # http://localhost:3000
 | `npm run screenshots` | Re-captures `docs/screenshots/*` through Playwright |
 | `npm run assets` | Exports the animated GIF showcases and PNGs to `docs/art/` |
 
-Saves live in `$DATA_DIR/saves.json` (default `.data/`). Set `SAVE_STORE=memory` for an ephemeral in-memory store.
+Saves live in `$DATA_DIR/saves.json` (default `.data/`). Set `SAVE_STORE=memory` for an ephemeral in-memory store. Saves are version 4. Older saves are migrated on load: version 3 positions from the smaller 162 × 116 world keep their place relative to their region, and a position that is no longer open ground (or a save made while flying over water) lands on the nearest open tile.
 
 ## Controls
 
@@ -123,16 +141,35 @@ flowchart TB
   subgraph sky["Above the sea of clouds"]
     peak["天劫峰 Tribulation Peak"]
     sect["青云宗 Azure Cloud Sect"]
+    isles["云阶岛 Cloudstep Isles"]
+    rest["云憩岛 Cloudrest Isle"]
   end
   subgraph mainland["The mainland"]
     valley["血魔谷 Demon Valley"]
     bamboo["竹林 Bamboo Forest"]
     village["柳溪村 Willow Creek"]
+    mill["水磨坊 Watermill"]
     lake["月莲湖 Lotus Lake"]
     hw(["the old highway"])
   end
+  subgraph south["The southern lands"]
+    camp["血月营 Blood Moon Camp<br/>(ashen wastes)"]
+    temple["静水寺 Temple of Still Water<br/>(stone forest)"]
+    tea["茶馆 Crossroads Teahouse"]
+    pagoda["七灯塔 Pagoda of Seven Lamps<br/>(scarecrow fields)"]
+    spring["温泉 Hot Spring"]
+    bandits["山寨 Bandit Camp<br/>(highlands)"]
+  end
   sect -- "sky bridge behind the Hall of Clouds · seal: Heart returned" --> peak
-  sect -- "sky bridge below the gate · seal: met Elder Mo" --> village
+  sect -- "plank walkways" --> isles
+  sect -- "sky bridge below the gate" --> rest
+  rest -- "seal: met Elder Mo" --> village
+  village -- "creek road" --> mill
+  hw --> tea
+  tea --> temple
+  hw --> pagoda
+  hw --> spring --> bandits
+  hw --> camp
   village -- "south road" --> hw
   hw -- "talisman seal: Head Zhou's request" --> bamboo
   hw -- "spirit mist: Hu Li's charm + Qi Late" --> lake
@@ -140,6 +177,25 @@ flowchart TB
   village -. "creek" .-> bamboo
   village -. "creek" .-> lake
   lake -. "waterfall off the world's edge" .-> clouds((clouds))
+  temple -. "the bamboo stream falls off the southern cliffs" .-> clouds
+  camp -. "lavafall" .-> clouds
+```
+
+### The folk of the wilds
+
+Every keeper has a first meeting with a gift, then rotating small talk. Their beasts and bandits respawn like the rest of the jianghu's.
+
+```mermaid
+flowchart LR
+  fang["Auntie Fang · teahouse"] -- "first cup free: full HP/QI" --> shop[("pills for sale")]
+  tang["Miller Tang · watermill"] -- "2 Qi Gathering Pills" --> you((Lin Yue))
+  kong["Monk Kong · ruined temple"] -- "Still Water Sutra: +50% of a stage" --> you
+  yun["Master Yun · Cloudstep Isles"] -- "cloud teaching: +60% of a stage" --> you
+  wu["Farmer Wu · scarecrow fields"] -- "20 spirit stones" --> you
+  han["Xiao Han · hot spring"] -- "friendly duel (a loss never sends you home)" --> duel{won?}
+  duel -- yes --> stones["80 spirit stones"]
+  duel -- no --> han
+  bandits["3 bandit leaders"] -- "routed: 40 spirit stones" --> you
 ```
 
 ### How the world is built
@@ -147,14 +203,15 @@ flowchart TB
 ```mermaid
 flowchart LR
   A["Six hand-built region layouts<br/>world/areas.ts"] --> S["Stamp at REGION_ORIGIN<br/>world/layout.ts"]
-  N["Wilds: noise biomes blended<br/>by nearest region"] --> S
-  S --> C["Carve rivers, ponds, highway,<br/>branches & sky bridges"]
+  N["Wilds: noise biomes blended by nearest<br/>region or southern zone (wastes, stone forest,<br/>fields, highlands)"] --> S
+  S --> I["Floating isles &<br/>levelled landmark sites"]
+  I --> C["Carve rivers, hot spring, lava pools,<br/>highway, branches, sky bridges & walkways"]
   C --> L["Smooth wild heights<br/>(≤ 1 level per tile from roads,<br/>regions and rivers)"]
-  L --> P["Scatter trees & landmarks,<br/>drop props off roads/water,<br/>block footprints"]
+  L --> P["Furnish landmarks (keepers, beasts,<br/>treasure), scatter trees,<br/>drop props off roads/water,<br/>block footprints"]
   P --> R["Region of every tile → seals,<br/>sky / weather / light blend"]
   R --> W["WorldDef (one TileMap)<br/>world/continent.ts"]
   W --> RT["World runtime: lazy tile painting,<br/>visible-diagonal renderer"]
-  W --> M["World map: 2×2 downsample<br/>world/overworld.ts"]
+  W --> M["World map: 3×3 downsample<br/>+ landmark icons<br/>world/overworld.ts"]
 ```
 
 ## Architecture
@@ -284,8 +341,8 @@ flowchart LR
   E2 -- on failure --> R["upload playwright-report"]
 ```
 
-- **Unit tests (Vitest):** the iso projection and ray caster (shading, depth, decal visibility, convex solids), every character × animation × direction, all portraits and props, terrain and skies. Every region layout, and then the whole continuous world, is checked by BFS: every waypoint, NPC, encounter and interactable is reachable on foot, the sky bridges connect, rivers reach the edge, and no prop stands in water or on the road. Also covered: the world map's terrain (built from the real world), save migration from per-region coordinates, a complete story walkthrough from prologue to ascension, realms and battle rules, a headless run of the `Game` runtime (cutscenes, walking and collision, tap-to-walk, the elder's briefing, world-map travel, battles won and lost, boss speeches, the fox quest, meditation and tribulation, pickups, rendering every region, walking down the sky bridge into the village, seals turning the heroine back, running, startled cranes, greeting NPCs, respawning beasts, idle fidgets and the day cycle), and the API route handlers.
-- **E2E (Playwright):** fullscreen title and health check, opening narration and walking, walking from the sect into the village in one world, Elder Mo's briefing through to world-map travel, a battle won through the UI, a save/reload/continue round trip with the leaderboard, and the gallery canvases painting.
+- **Unit tests (Vitest):** the iso projection and ray caster (shading, depth, decal visibility, convex solids), every character × animation × direction, all portraits and props, terrain and skies. Every region layout, and then the whole continuous world, is checked by BFS: every waypoint, NPC, encounter and interactable is reachable on foot, the sky bridges connect, rivers reach the edge, and no prop stands in water or on the road. Also covered: the world map's terrain (built from the real world), save migration from per-region coordinates and from the smaller world, the grown world's size, landmarks and new folk, a complete story walkthrough from prologue to ascension, realms and battle rules, a headless run of the `Game` runtime (cutscenes, walking and collision, tap-to-walk, the elder's briefing, world-map travel, battles won and lost, boss speeches, the fox quest, meditation and tribulation, pickups, rendering every region, walking down the sky bridge into the village, seals turning the heroine back, running, startled cranes, greeting NPCs, respawning beasts, idle fidgets and the day cycle, the wayside folk's gifts, Xiao Han's duel won and lost, landmark banners, beasts sniffing, howling and dozing, opening the map while flying over water, and loading a save onto open ground), and the API route handlers.
+- **E2E (Playwright):** fullscreen title and health check, opening narration and walking, walking from the sect into the village in one world, Elder Mo's briefing through to world-map travel, a battle won through the UI, tea and the shop at the crossroads teahouse (with Enter skipping the typewriter text), a save/reload/continue round trip with the leaderboard, and the gallery canvases painting.
 
 ## Project layout
 

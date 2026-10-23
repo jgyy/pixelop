@@ -252,7 +252,8 @@ function Dialog({ dialog, onAdvance, typingRef }: { dialog: NonNullable<UiSnapsh
     const start = performance.now();
     const id = window.setInterval(() => {
       const n = Math.min(total, Math.floor(((performance.now() - start) / 1000) * TYPE_CPS));
-      setShown(n);
+      // never type backwards over a line the player already skipped to the end of
+      setShown((s) => Math.max(s, n));
       if (n >= total) window.clearInterval(id);
     }, 16);
     return () => window.clearInterval(id);

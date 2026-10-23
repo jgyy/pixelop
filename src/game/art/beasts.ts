@@ -17,6 +17,13 @@ export interface BeastPose {
   /** Wing angle for birds (radians, 0 = level). */
   wing?: number;
   flash?: number;
+  /** Head pitch: +1 raised (howling), -1 lowered (sniffing, pecking, sleeping). */
+  head?: number;
+  /** 0..1 body lowered to the ground (sitting, curled up asleep). */
+  crouch?: number;
+  closed?: boolean;
+  /** Sleeping breath (0/1). */
+  breath?: number;
 }
 
 export const BEAST_W = 72;
@@ -59,11 +66,15 @@ export function paintQuad(st: QuadStyle, p: BeastPose, facing: number): PixelBuf
   const recoil = p.recoil ?? 0;
   const lift = (p.lift ?? 0) + (p.lunge ?? 0) * 3;
   const P = (v: V3): V3 => [v[0] * S, (v[1] + lunge - recoil * 2) * S, (v[2] + lift) * S];
-  const breathe = Math.sin(t) * 0.25;
+  const breathe = p.breath !== undefined ? p.breath * 0.5 : Math.sin(t) * 0.25;
+  const crouch = (p.crouch ?? 0) * 3.6;
+  const pitch = p.head ?? 0;
+  /** Body parts sink as the beast sits or curls up; the hindquarters sink furthest. */
+  const B = (v: V3): V3 => P([v[0], v[1], v[2] - crouch * (v[1] < 0 ? 1.15 : 0.75)]);
   const fur = m(st.fur, 1, { shader: (s, tone) => (s.n[2] < -0.35 ? tone(st.belly) : tone(st.fur)) });
 
-  r.ellipsoid(P([0, 0, 7.5 + breathe]), [3 * S, 6.2 * S, 3.2 * S], fur);
-  r.sphere(P([0, 4.2, 8.6 + breathe]), 3.3 * S, m(st.belly, 2));
+  r.ellipsoid(B([0, 0, 7.5 + breathe]), [3 * S, 6.2 * S, 3.2 * S], fur);
+  r.sphere(B([0, 4.2, 8.6 + breathe]), 3.3 * S, m(st.belly, 2));
   // legs
   const s = p.stride ?? 0;
   const legs: [number, number, number][] = [
@@ -73,27 +84,35 @@ export function paintQuad(st: QuadStyle, p: BeastPose, facing: number): PixelBuf
     [1.9, -4, Math.sin(s)],
   ];
   for (const [x, y, ph] of legs) {
-    const foot: V3 = [x, y + ph * 2.2 + (p.lunge ?? 0) * (y > 0 ? 3 : -1), Math.max(0.9, 0.9 + Math.max(0, Math.cos(s + (ph > 0 ? 0 : Math.PI))) * 1.2 - lift)];
-    r.sweep([P([x, y, 6.5]), P([x, y + ph, 3.4]), P(foot)], [1.2 * S, 1.0 * S, 0.9 * S], m(st.fur, 3));
+    const tuck = crouch > 2 ? (y > 0 ? 2.2 : -1.4) : 0;
+    const foot: V3 = [x, y + ph * 2.2 + (p.lunge ?? 0) * (y > 0 ? 3 : -1) + tuck, Math.max(0.9, 0.9 + Math.max(0, Math.cos(s + (ph > 0 ? 0 : Math.PI))) * 1.2 - lift)];
+    r.sweep([B([x, y, 6.5]), P([x, y + ph * (1 - crouch / 4), Math.max(1.2, 3.4 - crouch * 0.5)]), P(foot)], [1.2 * S, 1.0 * S, 0.9 * S], m(st.fur, 3));
     r.sphere(P(foot), 0.95 * S, m(st.paws, 3));
   }
   // head
-  const hy = 7.8 + (p.lunge ?? 0) * 1.5 - recoil;
-  const hz = 12 + breathe - (p.lunge ?? 0) * 1.5 + recoil;
+  const hy = 7.8 + (p.lunge ?? 0) * 1.5 - recoil + (pitch < 0 ? -pitch * 1.6 : -pitch * 1.4);
+  const hz = 12 + breathe - (p.lunge ?? 0) * 1.5 + recoil + (pitch < 0 ? pitch * 5.5 : pitch * 4) - crouch * 0.6;
   const head = P([0, hy, hz]);
+  // the neck follows the head
+  if (pitch || crouch) r.sweep([B([0, 4.6, 9.4]), head], [2.2 * S, 2.4 * S], m(st.fur, 4));
   r.sphere(head, 3.6 * S, m(st.fur, 4, { shader: (sf, tone) => (sf.n[1] > 0.55 && sf.n[2] < 0.1 ? tone(st.belly) : tone(st.fur)) }));
-  r.ellipsoid(P([0, hy + 2.8, hz - 1 - (p.mouth ? 0.4 : 0)]), [1.4 * S, 2.1 * S, 1.3 * S], m(st.belly, 4));
-  if (p.mouth) r.ellipsoid(P([0, hy + 2.7, hz - 2.4]), [1.1 * S, 1.8 * S, 0.6 * S], m(PAL.crimson, 4));
-  r.sphere(P([0, hy + 4.7, hz - 0.7]), 0.6 * S, m(PAL.black, 4));
+  // the snout tips up to howl and down to sniff
+  const sz = pitch * 1.6;
+  r.ellipsoid(P([0, hy + 2.8 - Math.abs(pitch) * 0.5, hz - 1 - (p.mouth ? 0.4 : 0) + sz]), [1.4 * S, 2.1 * S, 1.3 * S], m(st.belly, 4));
+  if (p.mouth) r.ellipsoid(P([0, hy + 2.7 - Math.abs(pitch) * 0.5, hz - 2.4 + sz]), [1.1 * S, 1.8 * S, 0.6 * S], m(PAL.crimson, 4));
+  r.sphere(P([0, hy + 4.7 - Math.abs(pitch) * 0.8, hz - 0.7 + sz * 1.6]), 0.6 * S, m(PAL.black, 4));
   for (const side of [-1, 1]) {
     r.sweep([P([side * 1.8, hy - 0.4, hz + 2.6]), P([side * 2.5, hy - 0.9 + Math.sin(t * 2 + side) * 0.2, hz + 6.4])], [1.5 * S, 0.25 * S], m(st.fur, 4, { shader: (sf, tone) => (sf.n[1] > 0.3 && sf.u < 0.7 && st.earInner ? tone(st.earInner) : tone(st.fur)) }));
   }
-  eyes(r, head, 3.6 * S, st.eye);
+  if (!p.closed) eyes(r, head, 3.6 * S, st.eye);
   // tails
   for (let i = 0; i < st.tails; i++) {
     const side = st.tails === 1 ? 0 : i - (st.tails - 1) / 2;
     const ph = t + i * 0.9;
-    const pts = spline([P([0, -5.6, 8.6]), P([side * 3 + Math.sin(ph) * 1.4, -9.2, 9 + recoil]), P([side * 4.6 + Math.sin(ph + 0.8) * 2, -11.4, 13]), P([side * 5 + Math.sin(ph + 1.6) * 2.6, -11, 17.5])], 3);
+    // asleep, the tails curl round the body like a scarf
+    const pts = crouch > 2
+      ? spline([B([0, -5.6, 8.6]), B([side * 2 + 4, -7.5, 5]), B([side * 2 + 6.5, -2, 3.6]), B([side * 1.5 + 5, 4, 3.4])], 3)
+      : spline([B([0, -5.6, 8.6]), B([side * 3 + Math.sin(ph) * 1.4, -9.2, 9 + recoil]), B([side * 4.6 + Math.sin(ph + 0.8) * 2, -11.4, 13]), B([side * 5 + Math.sin(ph + 1.6) * 2.6, -11, 17.5])], 3);
     r.sweep(pts, [1.3 * S, 2.5 * S, 2.7 * S, 1.2 * S], m(st.fur, 5, { shader: (sf, tone) => (st.tailTip && sf.u > 0.78 ? tone(st.tailTip) : tone(st.fur)) }));
   }
   // flame mane (demon wolf)
@@ -102,7 +121,7 @@ export function paintQuad(st: QuadStyle, p: BeastPose, facing: number): PixelBuf
     for (let i = 0; i < 7; i++) {
       const y = 6 - i * 1.8;
       const flick = Math.sin(t * 3 + i * 1.7) * 1.2;
-      r.sweep([P([0, y, 10.3 - i * 0.2]), P([flick * 0.5, y - 1.5, 14.5 - i * 0.4 + flick])], [1.6 * S, 0.3 * S], m(mane, 6, { shader: (sf, tone) => (sf.u > 0.6 ? mane[0] : tone(mane)) }));
+      r.sweep([B([0, y, 10.3 - i * 0.2]), B([flick * 0.5, y - 1.5, 14.5 - i * 0.4 + flick])], [1.6 * S, 0.3 * S], m(mane, 6, { shader: (sf, tone) => (sf.u > 0.6 ? mane[0] : tone(mane)) }));
     }
   }
   let out = r.finish();
@@ -166,7 +185,10 @@ export function paintCrane(p: BeastPose, facing: number): PixelBuffer {
   const white = m(PAL.white, 1);
   r.ellipsoid(P([0, 0, 12]), [2.6, 4.8, 2.5], white);
   r.sweep([P([0, -4, 12.4]), P([0, -6.8, 12.8])], [1.7, 0.6], m(PAL.black, 1));
-  const neck = flying ? [P([0, 3.8, 12.6]), P([0, 7, 13.2]), P([0, 9.6, 13.6])] : [P([0, 3.6, 13]), P([0, 5.4, 16.5]), P([0, 6.2, 20])];
+  const dip = Math.max(0, -(p.head ?? 0));
+  const neck = flying
+    ? [P([0, 3.8, 12.6]), P([0, 7, 13.2]), P([0, 9.6, 13.6])]
+    : [P([0, 3.6, 13]), P([0, 5.4 + dip * 2.4, 16.5 - dip * 3.5]), P([0, 6.2 + dip * 4.2, 20 - dip * 13])];
   r.sweep(neck, 0.85, m(PAL.white, 2));
   const head = neck[2];
   r.sphere(head, 1.5, m(PAL.white, 2, { shader: (s, tone) => (s.n[2] > 0.55 ? tone(PAL.red) : s.n[1] < -0.2 ? tone(PAL.black) : tone(PAL.white)) }));

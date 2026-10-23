@@ -153,7 +153,7 @@ for (const id of AREA_IDS) {
 
 // 4b. The whole jianghu in one picture, and a walk along the highway
 if (!QUICK) {
-  const world = new World(getWorld(), { x: 100.5, y: 103.5, dir: 4 }, FLAGS, []);
+  const world = new World(getWorld(), { x: 150.5, y: 166.5, dir: 4 }, FLAGS, []);
   world.dayNight = false;
   const left = isoX(0, WORLD_H) - 40;
   const right = isoX(WORLD_W, 0) + 40;
@@ -163,13 +163,13 @@ if (!QUICK) {
   world.camX = -left;
   world.camY = -top;
   world.render(new BufferSurface(big), 2);
-  writePng(half(big), path.join(OUT, "world-overview.png"));
+  writePng(half(half(big)), path.join(OUT, "world-overview.png"));
 
   const walk: PixelBuffer[] = [];
   for (let i = 0; i < 72; i++) {
     const t = 3 + i / 12;
-    world.hero.x = 72 + i * 0.4;
-    world.hero.y = 103.4;
+    world.hero.x = 136 + i * 0.4;
+    world.hero.y = 166.6;
     world.hero.dir = 4;
     world.setAnim(world.hero, "run", 3);
     world.update(1 / 12, t, true);
@@ -179,6 +179,25 @@ if (!QUICK) {
     walk.push(b);
   }
   writeGif("highway.gif", walk, 12);
+}
+
+// 4c. The landmarks of the wilds, each a short loop (day, with the bandit camp after dark)
+{
+  const world = new World(getWorld(), { x: 150.5, y: 174.5, dir: 2 }, { ...FLAGS, metElder: true }, []);
+  for (const l of getWorld().landmarks) {
+    world.placeHero(l.x + 2.5, l.y + 3.5, 10);
+    const night = l.key === "bandits" || l.key === "pagoda";
+    const frames = Array.from({ length: QUICK ? 2 : 36 }, (_, i) => {
+      const t = (night ? 170 : 30) + i / 12;
+      world.update(1 / 12, t, true);
+      world.updateCamera(W, H, 0, [l.x, l.y, 2]);
+      const b = new PixelBuffer(W, H);
+      world.render(new BufferSurface(b), t);
+      return b;
+    });
+    writePng(frames[0].scaled(2), path.join(OUT, `site-${l.key}.png`));
+    if (!QUICK) writeGif(`site-${l.key}.gif`, frames, 12);
+  }
 }
 
 // 5. World map
