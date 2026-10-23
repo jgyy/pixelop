@@ -34,6 +34,16 @@ export interface NpcPlacement {
   wander?: number;
   /** Only present while this predicate on story flags holds. */
   when?: (flags: Record<string, boolean>) => boolean;
+  /** Patrol back and forth along these points (tile coordinates) instead of wandering. */
+  route?: [number, number][];
+}
+
+/** Ambient wildlife: wanders, and takes flight when the heroine comes close. */
+export interface Critter {
+  key: string;
+  char: "crane" | "bat";
+  i: number;
+  j: number;
 }
 
 export interface EnemySpawn {
@@ -75,6 +85,7 @@ export interface AreaDef {
   npcs: NpcPlacement[];
   enemies: EnemySpawn[];
   interacts: Interactable[];
+  critters?: Critter[];
 }
 
 const P = (id: PropId, i: number, j: number): PropPlacement => ({ id, i, j });
@@ -181,6 +192,10 @@ function buildSect(): AreaDef {
       { key: "lan", char: "discipleF", i: 8, j: 22, dir: 12, anim: "practice" },
     ],
     enemies: [],
+    critters: [
+      { key: "crane-s1", char: "crane", i: 20, j: 20 },
+      { key: "crane-s2", char: "crane", i: 25, j: 19 },
+    ],
     interacts: [
       { key: "sect-shrine", kind: "shrine", i: 6, j: 13 },
       { key: "sect-gate", kind: "exit", i: 15, j: 27 },
@@ -462,6 +477,10 @@ function buildLake(): AreaDef {
       { key: "wolf-l", enemy: "wolf", i: 27, j: 14, range: 1.5 },
       { key: "serpent-king", enemy: "serpentKing", i: 25, j: 8, range: 0.5, when: (f) => !!f.metWen && !f.serpentKingDefeated },
     ],
+    critters: [
+      { key: "crane-l1", char: "crane", i: 5, j: 15 },
+      { key: "crane-l2", char: "crane", i: 27, j: 22 },
+    ],
     interacts: [
       { key: "lake-exit", kind: "exit", i: 16, j: 31 },
       { key: "lake-shrine", kind: "shrine", i: 6, j: 25 },
@@ -540,6 +559,11 @@ function buildValley(): AreaDef {
       { key: "wolf-v", enemy: "wolf", i: 12, j: 27, range: 2 },
       { key: "patriarch", enemy: "patriarch", i: 25, j: 6, range: 0, when: (f) => !f.patriarchDefeated },
     ],
+    critters: [
+      { key: "bat-v1", char: "bat", i: 14, j: 27 },
+      { key: "bat-v2", char: "bat", i: 27, j: 18 },
+      { key: "bat-v3", char: "bat", i: 20, j: 10 },
+    ],
     interacts: [
       { key: "valley-exit", kind: "exit", i: 4, j: 31 },
       { key: "valley-shrine", kind: "shrine", i: 5, j: 27 },
@@ -583,6 +607,7 @@ function buildPeak(): AreaDef {
     props,
     npcs: [{ key: "elderPeak", char: "elder", i: 10, j: 13, dir: 2, when: (f) => !!f.heartReturned && !f.ascended }],
     enemies: [],
+    critters: [{ key: "crane-p1", char: "crane", i: 16, j: 15 }],
     interacts: [
       { key: "peak-exit", kind: "exit", i: 12, j: 21 },
       { key: "peak-altar", kind: "altar", i: 12, j: 9 },

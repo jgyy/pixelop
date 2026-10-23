@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { AREA_IDS, getArea } from "@/game/world/areas";
 import { LIQUID } from "@/game/world/tilemap";
-import { EDGES, mapTerrain, MAP_H, MAP_W, neighbours, NODES, route } from "@/game/world/overworld";
+import { flightPath, mapTerrain, MAP_H, MAP_W, NODES } from "@/game/world/overworld";
+import { getWorld, regionAt } from "@/game/world/continent";
+import { REGION_ORIGIN, toWorld, WORLD_H, WORLD_W } from "@/game/world/layout";
 import { ENEMIES } from "@/game/engine/enemies";
 
 /** Tiles reachable on foot from a start tile (steps of at most one level). */
@@ -62,38 +64,128 @@ describe("areas", () => {
   }
 });
 
-describe("world map", () => {
-  it("connects every region", () => {
-    const seen = new Set(["sect"]);
-    const q = ["sect"];
-    while (q.length)
-      for (const n of neighbours(q.shift() as never))
-        if (!seen.has(n)) {
-          seen.add(n);
-          q.push(n);
-        }
-    expect(seen.size).toBe(AREA_IDS.length);
-  });
+describe("the continuous world", () => {
+  const w = getWorld();
+  const m = w.map;
 
-  it("routes start and end at their nodes and stay on the map", () => {
-    for (const [a, b] of EDGES) {
-      const r = route(a, b);
-      expect(r[0]).toEqual([NODES[a].x, NODES[a].y]);
-      expect(r[r.length - 1]).toEqual([NODES[b].x, NODES[b].y]);
-      for (const [x, y] of r) {
-        expect(x).toBeGreaterThanOrEqual(0);
-        expect(y).toBeGreaterThanOrEqual(0);
-        expect(x).toBeLessThan(MAP_W);
-        expect(y).toBeLessThan(MAP_H);
+  /** Every tile reachable on foot from the sect, with every seal lifted. */
+  const walkable = (() => {
+    const seen = new Set<number>();
+    const [sx, sy] = w.waypoints.sect;
+    const q = [Math.floor(sy) * m.w + Math.floor(sx)];
+    seen.add(q[0]);
+    while (q.length) {
+      const idx = q.shift()!;
+      const i = idx % m.w;
+      const j = Math.floor(idx / m.w);
+      for (const [di, dj] of [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ]) {
+        const n = (j + dj) * m.w + i + di;
+        if (seen.has(n) || !m.standable(i + di, j + dj)) continue;
+        if (Math.abs(m.height(i + di, j + dj) - m.height(i, j)) > 1) continue;
+        seen.add(n);
+        q.push(n);
       }
+    }
+    return seen;
+  })();
+  const near = (i: number, j: number) => [-1, 0, 1].some((dj) => [-1, 0, 1].some((di) => walkable.has((j + dj) * m.w + i + di)));
+
+  it("is one map holding all six regions, with every region reachable on foot", () => {
+    expect(m.w).toBe(WORLD_W);
+    expect(m.h).toBe(WORLD_H);
+    expect(walkable.size).toBeGreaterThan(5000);
+    for (const id of AREA_IDS) {
+      const [x, y] = w.waypoints[id];
+      expect(walkable.has(Math.floor(y) * m.w + Math.floor(x)), `${id} waypoint`).toBe(true);
+      expect(regionAt(w, x, y)).toBe(id);
+      const [lx, ly] = getArea(id).arrive;
+      expect(toWorld(id, lx, ly)).toEqual([x, y]);
     }
   });
 
-  it("generates terrain with sea, mountains and settlements on dry land", () => {
+  it("keeps every NPC, encounter, critter and interactable on open, reachable ground", () => {
+    for (const n of w.npcs) {
+      expect(m.standable(n.i, n.j), `${n.key} stands on open ground`).toBe(true);
+      expect(near(n.i, n.j), `${n.key} can be reached`).toBe(true);
+    }
+    for (const e of w.enemies) {
+      expect(ENEMIES[e.enemy]).toBeDefined();
+      expect(m.standable(e.i, e.j), `${e.key} spawns on open ground`).toBe(true);
+      expect(near(e.i, e.j), `${e.key} can be reached`).toBe(true);
+    }
+    for (const it of w.interacts) expect(near(it.i, it.j), `${it.key} can be reached`).toBe(true);
+    for (const c of w.critters ?? []) expect(m.kind(c.i, c.j), c.key).not.toBe("void");
+    const keys = [...w.npcs, ...w.enemies, ...w.interacts].map((x) => x.key);
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it("stamps each hand-built region at its place in the world", () => {
+    for (const id of AREA_IDS) {
+      const a = getArea(id);
+      const [ox, oy] = REGION_ORIGIN[id];
+      let same = 0;
+      let total = 0;
+      a.map.each((i, j) => {
+        if (a.map.kind(i, j) === "void") return;
+        total++;
+        if (m.kind(ox + i, oy + j) === a.map.kind(i, j)) same++;
+      });
+      // only the highway, rivers and bridges carve through a region
+      expect(same / total, id).toBeGreaterThan(0.93);
+    }
+  });
+
+  it("joins the sky islands to the mainland with bridges and lets rivers fall off the edge", () => {
+    const bridge = (i: number, j0: number, j1: number) => {
+      for (let j = j0; j <= j1; j++) expect(walkable.has(j * m.w + i), `bridge tile ${i},${j}`).toBe(true);
+    };
+    bridge(100, 57, 66); // sect gate → village
+    bridge(102, 25, 33); // behind the Hall of Clouds → peak
+    let falls = 0;
+    m.each((i, j) => {
+      if (LIQUID[m.kind(i, j)] && (m.kind(i + 1, j) === "void" || m.kind(i, j + 1) === "void")) falls++;
+    });
+    expect(falls).toBeGreaterThan(0);
+  });
+
+  it("never stands props in rivers, on the highway or over the void", () => {
+    for (const p of w.props) {
+      const k = m.kind(p.i, p.j);
+      expect(k, `${p.id} at ${p.i},${p.j}`).not.toBe("void");
+      if (!["lotus", "boat", "reeds"].includes(p.id)) expect(LIQUID[k], `${p.id} at ${p.i},${p.j}`).toBeUndefined();
+    }
+  });
+});
+
+describe("world map", () => {
+  it("places every region's landmark on the land of the miniature", () => {
     const t = mapTerrain();
     expect(t).toHaveLength(MAP_W * MAP_H);
-    const biomes = new Set(t.map((c) => c.biome));
-    for (const b of ["sea", "mountain", "snow", "bamboo", "ash", "lake", "road"]) expect(biomes.has(b as never)).toBe(true);
-    for (const n of Object.values(NODES)) expect(t[n.y * MAP_W + n.x].biome).not.toBe("sea");
+    for (const n of Object.values(NODES)) {
+      expect(n.x).toBeGreaterThanOrEqual(0);
+      expect(n.y).toBeGreaterThanOrEqual(0);
+      expect(n.x).toBeLessThan(MAP_W);
+      expect(n.y).toBeLessThan(MAP_H);
+      expect(t[n.y * MAP_W + n.x].biome, n.id).not.toBe("void");
+    }
+    expect(t[NODES.sect.y * MAP_W + NODES.sect.x].sky).toBe(true);
+    expect(t[NODES.village.y * MAP_W + NODES.village.x].sky).toBe(false);
+  });
+
+  it("is drawn from the real world's terrain", () => {
+    const biomes = new Set(mapTerrain().map((c) => c.biome));
+    for (const b of ["void", "road", "river", "lake", "snow", "bamboo", "ash", "lava", "forest", "plain"]) expect(biomes.has(b as never), b).toBe(true);
+  });
+
+  it("flies in an arc that starts and ends on the given points", () => {
+    const p = flightPath([NODES.village.x, NODES.village.y], [NODES.valley.x, NODES.valley.y]);
+    expect(p[0]).toEqual([NODES.village.x, NODES.village.y]);
+    expect(p[p.length - 1][0]).toBeCloseTo(NODES.valley.x);
+    expect(p[p.length - 1][1]).toBeCloseTo(NODES.valley.y);
   });
 });
