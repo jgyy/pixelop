@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { addCultivation, atBottleneck, breakthrough, cultivationNeeded, levelIndex, realmLabel, REALMS, statsFor } from "@/game/engine/realms";
 import { mitigate, resolveTurn, reviveAtSect, SKILLS, startBattle } from "@/game/engine/battle";
+import { toWorld } from "@/game/world/layout";
 import { applyBreakthrough, buyPill, consumePill, GameStateSchema, gainCultivation, newGame, PILL_PRICE, SKILL_IDS, stats } from "@/game/engine/state";
 import { ENEMIES } from "@/game/engine/enemies";
 
@@ -44,6 +45,14 @@ describe("game state", () => {
     const g = newGame();
     expect(GameStateSchema.parse(g)).toEqual(g);
     expect(g.hp).toBe(stats(g).maxHp);
+  });
+
+  it("migrates version 2 saves (one map per region) into world coordinates", () => {
+    const old = { ...newGame(), version: 2, area: "village", x: 16.5, y: 29.5 };
+    const g = GameStateSchema.parse(old);
+    expect(g.version).toBe(3);
+    expect([g.x, g.y]).toEqual(toWorld("village", 16.5, 29.5));
+    expect(GameStateSchema.safeParse({ ...newGame(), version: 1 }).success).toBe(false);
   });
 
   it("restores vitals on stage-up and breakthrough", () => {

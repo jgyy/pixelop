@@ -6,6 +6,8 @@ import { getProp, PROP_IDS, type PropId } from "@/game/art/props";
 import { World } from "@/game/runtime/world";
 import { WorldMap } from "@/game/runtime/worldmap";
 import { AREA_IDS, getArea, type AreaId } from "@/game/world/areas";
+import { getWorld } from "@/game/world/continent";
+import { toWorld } from "@/game/world/layout";
 import { useCanvasLoop } from "./useCanvasLoop";
 
 const SCALE = 3;
@@ -13,7 +15,7 @@ const SCALE = 3;
 const GROUPS: { label: string; ids: CharId[] }[] = [
   { label: "Heroine", ids: ["heroine"] },
   { label: "Azure Cloud Sect", ids: ["elder", "qing", "abao", "discipleM", "discipleF"] },
-  { label: "Willow Creek & the Wilds", ids: ["zhou", "hua", "farmer", "child", "huli", "wen"] },
+  { label: "Willow Creek & the Wilds", ids: ["zhou", "hua", "farmer", "child", "peddler", "huli", "wen"] },
   { label: "Blood Moon Sect & Demonic Beasts", ids: ["patriarch", "cultist", "jiangshi", "fox", "wolf", "serpent", "serpentKing", "crane", "bat"] },
 ];
 
@@ -89,11 +91,15 @@ function AreaCanvas({ id }: { id: AreaId }) {
   const world = useRef<World | null>(null);
   const area = getArea(id);
   useCanvasLoop(ref, (s, t) => {
-    if (!world.current) world.current = new World(id, { x: area.arrive[0], y: area.arrive[1] - 7, dir: 8 }, { metElder: true, foxesCleared: true, metWen: true }, [], new Set());
+    if (!world.current) {
+      const [x, y] = toWorld(id, area.arrive[0], area.arrive[1] - 7);
+      world.current = new World(getWorld(), { x, y, dir: 8 }, { metElder: true, foxesCleared: true, metWen: true }, []);
+    }
     const w = world.current;
     w.update(1 / 60, t, true);
     const k = Math.sin(t * 0.15);
-    w.updateCamera(s.width, s.height, 0, [area.map.w / 2 + k * 5, area.map.h / 2 - k * 4, 2]);
+    const [fx, fy] = toWorld(id, area.map.w / 2 + k * 5, area.map.h / 2 - k * 4);
+    w.updateCamera(s.width, s.height, 0, [fx, fy, 2]);
     w.render(s, t);
   });
   return (

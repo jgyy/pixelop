@@ -1,13 +1,18 @@
 import { z } from "zod";
 import { AREA_IDS } from "../world/ids";
+import { REGION_SIZE, toWorld, WORLD_H, WORLD_W } from "../world/layout";
 import { addCultivation, breakthrough, statsFor, type Stats } from "./realms";
 
 export const SKILL_IDS = ["strike", "palm", "lotus", "swords", "thunder"] as const;
 export type SkillId = (typeof SKILL_IDS)[number];
 
-/** Serializable game state — this is exactly what gets saved server-side. */
-export const GameStateSchema = z.object({
-  version: z.literal(2),
+/**
+ * Serializable game state — this is exactly what gets saved server-side.
+ * Version 3 stores the heroine's position in world tiles of the continuous
+ * jianghu; version 2 saves (one map per region) are migrated on load.
+ */
+const SaveFields = z.object({
+  version: z.union([z.literal(2), z.literal(3)]),
   name: z.string().min(1).max(24),
   realm: z.number().int().min(0).max(5),
   stage: z.number().int().min(0).max(3),
@@ -17,8 +22,8 @@ export const GameStateSchema = z.object({
   stones: z.number().int().min(0),
   pills: z.object({ heal: z.number().int().min(0).max(99), qi: z.number().int().min(0).max(99) }),
   area: z.enum(AREA_IDS),
-  x: z.number().min(0).max(64),
-  y: z.number().min(0).max(64),
+  x: z.number().min(0).max(WORLD_W),
+  y: z.number().min(0).max(WORLD_H),
   dir: z.number().int().min(0).max(15),
   skills: z.array(z.enum(SKILL_IDS)).max(SKILL_IDS.length),
   bossDefeated: z.boolean(),
@@ -30,12 +35,21 @@ export const GameStateSchema = z.object({
   taken: z.array(z.string()).max(200),
 });
 
-export type GameState = z.infer<typeof GameStateSchema>;
+export const GameStateSchema = SaveFields.transform((s) => {
+  if (s.version === 3) return { ...s, version: 3 as const };
+  const [x, y] = toWorld(s.area, Math.min(s.x, REGION_SIZE[s.area] - 0.5), Math.min(s.y, REGION_SIZE[s.area] - 0.5));
+  return { ...s, version: 3 as const, x, y };
+});
+
+export type GameState = z.output<typeof GameStateSchema>;
+
+/** Where a new cultivator wakes: the sect's training ground. */
+const START = toWorld("sect", 15.5, 20.5);
 
 export function newGame(name = "Lin Yue"): GameState {
   const s = statsFor(0, 0);
   return {
-    version: 2,
+    version: 3,
     name,
     realm: 0,
     stage: 0,
@@ -45,8 +59,8 @@ export function newGame(name = "Lin Yue"): GameState {
     stones: 20,
     pills: { heal: 2, qi: 1 },
     area: "sect",
-    x: 15.5,
-    y: 20.5,
+    x: START[0],
+    y: START[1],
     dir: 8,
     skills: ["strike", "palm", "lotus"],
     bossDefeated: false,
