@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { newGame, type GameState } from "@/game/engine/state";
 import { cultivationNeeded, FINAL_REALM } from "@/game/engine/realms";
 import { AREA_IDS, getArea } from "@/game/world/areas";
+import { getWorld } from "@/game/world/continent";
+import { getInterior, INTERIOR_IDS } from "@/game/world/interiors";
 import type { Step } from "@/game/story/script";
 import { altarScript, areaUnlocked, arrivalScript, endingScript, FOXES_NEEDED, hasNews, introScript, lockReason, npcScript, preBattleScript, questLog, victoryScript } from "@/game/story/story";
 
@@ -60,9 +62,33 @@ describe("story", () => {
     expect(questLog(g).chapter).toBe("Fin");
   });
 
-  it("every NPC in every area has something to say", () => {
+  it("every NPC in every area, the wilds and every building has something of their own to say", () => {
     const g = { ...newGame(), flags: { metElder: true } };
-    for (const id of AREA_IDS) for (const n of getArea(id).npcs) expect(npcScript(n.key, g).length).toBeGreaterThan(0);
+    const npcs = [...AREA_IDS.flatMap((id) => getArea(id).npcs), ...getWorld().npcs, ...INTERIOR_IDS.flatMap((id) => getInterior(id).npcs)];
+    for (const n of npcs) {
+      const script = npcScript(n.key, g);
+      expect(script.length, n.key).toBeGreaterThan(0);
+      // nobody falls through to the narrator's shrug
+      expect(script.some((st) => "say" in st && st.say === "narrator" && st.text === "…"), n.key).toBe(false);
+    }
+  });
+
+  it("the folk indoors give their gifts once, then fall back to small talk", () => {
+    let g: GameState = { ...newGame(), flags: { metElder: true } };
+    for (const [key, flag] of [
+      ["shen", "shenLore"],
+      ["lu", "luGift"],
+      ["qiao", "qiaoTale"],
+      ["ming", "mingBlessing"],
+    ] as const) {
+      expect(hasNews(key, g), key).toBe(true);
+      const before = { ...g };
+      g = run(g, npcScript(key, g));
+      expect(g.flags[flag], key).toBe(true);
+      expect(hasNews(key, g), key).toBe(false);
+      expect(run(g, npcScript(key, g)).flags, key).toEqual(g.flags);
+      expect(g.cultivation + g.stage * 1000 + g.pills.heal, key).toBeGreaterThan(before.cultivation + before.stage * 1000 + before.pills.heal);
+    }
   });
 
   it("plays first-arrival scenes only once", () => {

@@ -97,6 +97,15 @@ const SKIES: Record<SkyId, SkyStyle> = {
     cloudSea: "#6a6290",
     lightning: true,
   },
+  // the warm dark around a cutaway room: no horizon, just lamplight fading out
+  interior: {
+    stops: [
+      [0, "#0c0810"],
+      [0.6, "#1a1018"],
+      [1, "#24161a"],
+    ],
+    ridges: [],
+  },
 };
 
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];

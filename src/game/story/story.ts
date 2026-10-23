@@ -1,5 +1,5 @@
 import { levelIndex, realmLabel, FINAL_REALM, atBottleneck } from "../engine/realms";
-import { bump, gainCultivation, learn, setFlag, stats, type GameState } from "../engine/state";
+import { bump, gainCultivation, heal, learn, setFlag, stats, type GameState } from "../engine/state";
 import { cultivationNeeded } from "../engine/realms";
 import type { EnemyId } from "../engine/enemies";
 import type { AreaId } from "../world/ids";
@@ -122,6 +122,14 @@ export function hasNews(key: string, g: GameState): boolean {
       return !!f.metElder && !f.hanDuel;
     case "wu":
       return !f.wuGift;
+    case "shen":
+      return !f.shenLore;
+    case "lu":
+      return !f.luGift;
+    case "qiao":
+      return !f.qiaoTale;
+    case "ming":
+      return !f.mingBlessing;
     default:
       return false;
   }
@@ -318,6 +326,103 @@ export function npcScript(key: string, g: GameState): Step[] {
           { toast: "Received 20 spirit stones" },
         ];
       return [{ say: "farmer", name: "Farmer Wu", text: pick(g, ["The pagoda's lamps keep the night spirits off the fields. Or so Granny says.", "Rain from the highlands, sun from the sky. Good year, this one.", "Cranes in the paddy mean a fat harvest."]) }];
+    case "shen":
+      if (!f.shenLore)
+        return [
+          { anim: "shen", name: "idle" },
+          say("archivist", "Shh — oh. Lin Yue. The whole sect is running about after those bells, and here I am, reading. Someone has to remember why we run."),
+          say("archivist", "The Heart was never made, you know. It was left behind. When our founder Lian Qingxue ascended, the lotus in her dantian stayed on the shrine. Whoever holds it holds a little of her Dao."),
+          say("archivist", "That is why Xue wants it. He was one of ours. A boy from Willow Creek with an outer-sect token and eyes full of sky."),
+          { emote: "hero", icon: "!" },
+          say("heroine", "Patriarch Xue… was an Azure Cloud disciple?"),
+          say("archivist", "Read the register on the shelf by the door, if you doubt me. And take this: a page of the founder's own breathing method. I copied it for a student who never came back for it."),
+          { anim: "hero", name: "read", wait: true },
+          { flash: "#9ff5de" },
+          { mutate: (s) => setFlag(gainCultivation(s, Math.round(cultivationNeeded(s.realm, s.stage) * 0.4)).state, "shenLore") },
+          { toast: "The founder's breathing method deepens your cultivation" },
+          { anim: "shen", name: "read" },
+        ];
+      return [say("archivist", pick(g, [
+        f.patriarchDefeated ? "So Xue Ming's line in the register is finished. I will write the ending myself: “He found the sky he was hungry for, and it was too heavy for him.”" : "History on the left wall, technique on the right. The scrolls nobody may read, I keep in my head.",
+        "A sect that forgets its history is only some people living on a rock in the sky.",
+        "Wen and Yun? I still have their old homework. Dreadful handwriting, the pair of them.",
+        "Bow to the tablets before you leave. The founder liked good manners more than good swordwork.",
+      ]))];
+    case "lu":
+      if (!f.luGift)
+        return [
+          { emote: "lu", icon: "!" },
+          say("weaver", "Mind the threads! …Ah, you're the cultivator who saved our Mei. Mother Hua talks of nothing else."),
+          say("weaver", "I'm Lü. I married Hua's son. He took our cloth down the river to the southern markets, and he's staying there until the foxes calm down."),
+          say("weaver", "So I weave. This tapestry is the whole war of the Blood Moon, the way Mother tells it. Every time she remembers something new, I unpick a row and start again."),
+          say("weaver", "Here. A woman alone keeps more healing pills than she can use, and you'll need them in the west."),
+          { mutate: (s) => setFlag({ ...s, pills: { ...s.pills, heal: Math.min(99, s.pills.heal + 2) } }, "luGift") },
+          { toast: "Received 2 Healing Pills" },
+          { anim: "lu", name: "weave" },
+        ];
+      return [say("weaver", pick(g, [
+        f.foxesCleared ? "A letter came! Now the bamboo's quiet, my husband is coming home from the south. I'm weaving him a new coat." : "Every night the foxes howl, I add another red thread. The tapestry is getting very red.",
+        "The red in the tapestry is madder root. Mother says the real Blood Moon was redder.",
+        "Mother still pours a cup of tea for her husband every morning. Don't tell her I told you.",
+        "The founder in my tapestry has Mother's face. She doesn't know. Don't tell her that either.",
+      ]))];
+    case "qiao":
+      if (!f.qiaoTale)
+        return [
+          { anim: "qiao", name: "clap" },
+          say("storyteller", "Ah, a new listener! Sit, sit. Old Qiao tells the old tales for a cup of tea and a little quiet."),
+          say("storyteller", "Long ago, before there was any sect in the clouds, a farm girl named Lian Qingxue climbed the tallest mountain to ask heaven why the rains had failed."),
+          say("storyteller", "Heaven answered with lightning. She sat through it. Heaven sent more. She sat through that too. On the ninth bolt heaven gave in and sent the rain…"),
+          say("storyteller", "…and the mountain was so ashamed of the sky's bad manners that it tore itself out of the earth and floated up to sit beside her. And that, little immortal, is why your sect floats!"),
+          { anim: "hero", name: "laugh", wait: true },
+          say("heroine", "That's not what the Annals say."),
+          say("storyteller", "The Annals were written by people who weren't there either. Mine has better lightning."),
+          { mutate: (s) => setFlag(gainCultivation(s, Math.round(cultivationNeeded(s.realm, s.stage) * 0.25)).state, "qiaoTale") },
+          { toast: "The old tale stirs your dao heart · Cultivation rises" },
+          { anim: "qiao", name: "tell" },
+        ];
+      return pick(g, [
+        [say("storyteller", "The tale of the seven farmers! When the Blood Moon came up the south road, seven farmers held it with hoes for one night."), say("storyteller", "The immortals came down at dawn. The farmers didn't see it. So the south built a pagoda, and lit a lamp for each of them.")],
+        [say("storyteller", "The tale of the fox and the scholar! Three hundred years ago a fox spirit nursed a wounded scholar in the bamboo. He left to sit the imperial examinations and never came back."), say("storyteller", "She's waiting still, they say. Three tails and a very long memory."), { emote: "gu", icon: "..." }],
+        [say("storyteller", "The tale of the two brothers! One of the lake, one of the sky. They quarrelled over whether water or cloud was the truer teacher."), say("storyteller", "That was eighty years ago. Neither has said sorry yet. Cultivators live far too long to make up quickly.")],
+        f.patriarchDefeated
+          ? [say("storyteller", "A new tale! A jade disciple walked into the red valley alone and walked out with the Heart of the founder."), say("storyteller", "I tell it with a great deal more lightning than I expect there was. Don't correct me."), { anim: "qiao", name: "laugh" }]
+          : [say("storyteller", "The tale of the boy who stole moonlight. A boy from Willow Creek once carried the Heart's glow away in a jar, to light his mother's sickroom."), say("storyteller", "The sect threw him out. The jar went dark by morning. Nobody tells what happened to the boy. Not even me.")],
+      ]);
+    case "gu":
+      return [say("scholar", pick(g, [
+        "I'm on my way to sit the imperial examinations in the capital. Third attempt. The essay question is always about virtue, and I'm always too tired to have any.",
+        "Qiao's tales are wrong in every detail and right in every way that matters.",
+        "Do cultivators sit examinations? …With lightning? Oh. I'll stay with essays.",
+        "Auntie Fang lets me pay for tea with poems. They have to rhyme, which is harder than it sounds.",
+      ])), { anim: "gu", name: "read" }];
+    case "dou":
+      return [{ emote: "dou", icon: "note" }, say("millhand", pick(g, [
+        "Master Tang says flour dust is mortal qi. If that's true, I sweep up an awful lot of qi.",
+        "The night the creek ran backwards, the stones turned the wrong way all by themselves. I hid in a flour sack until morning!",
+        "When I grow up I'm going to be a cultivator. Or a miller. A miller who can fly!",
+        "Forty years the wheel's turned. Master Tang has a mark for every one on the shaft. I'm allowed to cut the next one.",
+      ]))];
+    case "ming":
+      if (!f.mingBlessing)
+        return [
+          say("lampkeeper", "Seven lamps. I trim the wicks at dawn and fill the oil at dusk. Forty-one years now."),
+          say("lampkeeper", "Little Qiu was one of my family. He was fourteen. He went with the others because Old Pan had the only lantern, and somebody had to carry it. Two hundred years, and we still say his name at New Year."),
+          say("lampkeeper", "You're going west, aren't you? Towards the red valley. Kneel with me a moment."),
+          { anim: "hero", name: "pray" },
+          { wait: 1.4 },
+          { flash: "#ffd070" },
+          { mutate: (s) => setFlag(heal(gainCultivation(s, Math.round(cultivationNeeded(s.realm, s.stage) * 0.3)).state, 9999, 9999), "mingBlessing") },
+          { anim: "hero", name: "idle" },
+          { toast: "The seven lamps bless you · Vitality restored, cultivation rises" },
+          say("lampkeeper", "There. Now seven farmers walk the road with you."),
+          { anim: "ming", name: "pray" },
+        ];
+      return [say("lampkeeper", pick(g, [
+        f.patriarchDefeated ? "Last night all seven flames burned straight and still for the first time in my life. I think they know." : "The flames lean west on nights the moon turns red.",
+        "Farmer Wu brings me rice every harvest. The fields remember who held the road.",
+        "The scroll on the wall was painted by an immortal who came down too late. He stayed a year, painting it over and over.",
+      ])), { anim: "ming", name: "pray" }];
     default:
       return [say("narrator", "…")];
   }

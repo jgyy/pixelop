@@ -15,6 +15,7 @@ import { WorldMap } from "../src/game/runtime/worldmap";
 import { renderTitle } from "../src/game/runtime/title";
 import { AREA_IDS, getArea } from "../src/game/world/areas";
 import { getWorld } from "../src/game/world/continent";
+import { getInterior, INTERIOR_IDS } from "../src/game/world/interiors";
 import { toWorld, WORLD_H, WORLD_W } from "../src/game/world/layout";
 import { isoX, isoY } from "../src/game/iso/projection";
 import { writePng } from "./lib";
@@ -81,6 +82,22 @@ const cast = HUMAN_IDS.filter((id) => id !== "heroine").map((id): Cell => ({ id,
 writeGif("cast.gif", showcase(cast, 7, 2, seconds), 12);
 const bestiary = BEAST_IDS.flatMap((id) => charDef(id).anims.filter((a) => a !== "walk").map((anim): Cell => ({ id, anim, dir: 2, label: `${id} ${anim}` })));
 writeGif("bestiary.gif", showcase(bestiary, 6, 2, seconds), 12);
+// the folk at home and at work: the newer everyday animations
+const chores: [CharId, AnimId][] = [
+  ["weaver", "weave"],
+  ["storyteller", "tell"],
+  ["archivist", "read"],
+  ["lampkeeper", "pray"],
+  ["millhand", "sweep"],
+  ["scholar", "sit"],
+  ["teawoman", "pour"],
+  ["hua", "pour"],
+  ["child", "clap"],
+  ["zhou", "laugh"],
+  ["peddler", "clap"],
+  ["monk", "pray"],
+];
+writeGif("folk-at-work.gif", showcase(chores.map(([id, anim]): Cell => ({ id, anim, dir: 1, label: anim })), 6, 2, seconds), 12);
 
 // 2. Portraits
 const portraitIds = HUMAN_IDS.filter((id) => charDef(id).portrait);
@@ -198,6 +215,22 @@ if (!QUICK) {
     writePng(frames[0].scaled(2), path.join(OUT, `site-${l.key}.png`));
     if (!QUICK) writeGif(`site-${l.key}.gif`, frames, 12);
   }
+}
+
+// 4d. The buildings she can walk into, each a short loop
+for (const id of INTERIOR_IDS) {
+  const def = { ...getInterior(id), id: "sect" as const };
+  const world = new World(def, { x: def.arrive[0], y: def.arrive[1], dir: 10 }, FLAGS, []);
+  const frames = Array.from({ length: QUICK ? 2 : 36 }, (_, i) => {
+    const t = 30 + i / 12;
+    world.update(1 / 12, t, true);
+    world.updateCamera(W, H, 0, [def.map.w / 2, def.map.h / 2, 1]);
+    const b = new PixelBuffer(W, H);
+    world.render(new BufferSurface(b), t);
+    return b;
+  });
+  writePng(frames[0].scaled(2), path.join(OUT, `room-${id}.png`));
+  if (!QUICK) writeGif(`room-${id}.gif`, frames, 12);
 }
 
 // 5. World map

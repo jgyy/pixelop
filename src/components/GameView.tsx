@@ -79,6 +79,8 @@ export function GameView({ initial, intro, onQuit }: { initial: GameState; intro
   }, [game, save]);
 
   const onCanvasPointer = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    // like Enter, a tap on the scene first finishes a line still being typed out
+    if (game.mode === "scene" && ui.dialog && !typing.current.done) return typing.current.finish();
     const rect = e.currentTarget.getBoundingClientRect();
     const k = scale.current || 1;
     game.tap((e.clientX - rect.left) / k, (e.clientY - rect.top) / k);
@@ -98,7 +100,7 @@ export function GameView({ initial, intro, onQuit }: { initial: GameState; intro
           <div className="hud panel" data-testid="hud">
             <div className="name">
               <span>{s.name}</span>
-              <span className="muted">{ui.area.name}</span>
+              <span className="muted" data-testid="place">{ui.interior ? ui.interior.name : ui.area.name}</span>
             </div>
             <div className="realm" style={{ color: ui.realmColour }} data-testid="realm">
               {ui.realm}

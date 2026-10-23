@@ -155,7 +155,7 @@ export function resolveTurn(game: GameState, battle: BattleState, action: Battle
 
   if (g.hp <= 0) {
     b.phase = "lost";
-    const lost = Math.floor(g.stones * 0.1);
+    const lost = enemy.friendly ? 0 : Math.floor(g.stones * 0.1);
     g.stones -= lost;
     events.push({ kind: "defeat", stonesLost: lost });
   }
