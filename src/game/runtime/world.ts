@@ -8,9 +8,9 @@ import { charDef, frameAt, getAnim, type AnimId, type CharId } from "../art/char
 import { getProp, glowSprite, propDef, type PropId } from "../art/props";
 import { drawSky } from "../art/sky";
 import { foamOverlay, LIQUID_FRAMES, liquidFrame, paintTile, type TileBuffer } from "../art/tiles";
-import { AREA_IDS, type AreaDef, type AreaId, type Interactable, type SkyId, type Weather } from "../world/areas";
+import { AREA_IDS, placementTiles, type AreaDef, type AreaId, type Interactable, type PropPlacement, type SkyId, type Weather } from "../world/areas";
 import { isWorldDef, regionAt, type WorldDef } from "../world/continent";
-import { rectDistance } from "../world/layout";
+import { rectDistance, WORLD_SCALE } from "../world/layout";
 import { LIQUID, type TileMap } from "../world/tilemap";
 import { ENEMIES, type EnemyId } from "../engine/enemies";
 import { Effects } from "./particles";
@@ -63,9 +63,14 @@ interface PropInst {
   id: PropId;
   i: number;
   j: number;
+  /** Drawn k times its size. */
+  k: number;
+  /** Tiles covered [i0, j0, i1, j1]. */
+  foot: [number, number, number, number];
   ax: number;
   ay: number;
-  key: number;
+  /** Lies on the floor (mats, cushions): drawn beneath whoever stands on it. */
+  flat: boolean;
   phase: number;
 }
 
@@ -88,7 +93,7 @@ export const DAY_LENGTH = 360;
 const ACTIVE_RANGE = 26;
 const RESPAWN_AFTER = 60;
 /** Idle fidgets an NPC may break into, when its character has the animation. */
-const NPC_FIDGETS: AnimId[] = ["nod", "look", "stretch", "drink", "point", "dance", "cheer", "gather", "pour", "clap", "laugh"];
+const NPC_FIDGETS: AnimId[] = ["nod", "look", "stretch", "drink", "point", "dance", "cheer", "gather", "pour", "clap", "laugh", "flute", "eat", "juggle", "fan"];
 /** Idles that absorb an NPC (fishing, reading, weaving…): they neither turn to greet nor fidget. */
 const ABSORBED = new Set<AnimId>(["fish", "practice", "meditate", "read", "weave", "tell", "pray", "sit"]);
 /** …and the ones a roaming beast may (sleeping takes a while). */
@@ -168,7 +173,7 @@ export class World {
     for (let k = 0; k < m.heights.length; k++) this.maxH = Math.max(this.maxH, m.heights[k]);
     if (this.interior) m.each((i, j) => m.kind(i, j) === "window" && this.windows.push({ i, j }));
     this.bucketProps = Array.from({ length: m.w + m.h }, () => []);
-    for (const p of def.props) this.addProp(p.id, p.i, p.j);
+    for (const p of def.props) this.addProp(p);
     for (const t of taken) this.taken.add(t);
     if (this.world) {
       const w = this.world;
@@ -238,8 +243,8 @@ export class World {
     if (initial)
       for (const c of this.def.critters ?? []) {
         const a = this.makeActor(c.key, "critter", c.char, c.i + 0.5, c.j + 0.5, Math.floor(hash2(c.i, c.j, 5) * 16), c.char === "bat" ? "fly" : "idle");
-        a.wander = 2;
-        a.speed = 0.6;
+        a.wander = c.char === "horse" ? 3.5 : 2;
+        a.speed = c.char === "horse" ? 0.9 : 0.6;
         a.alt = c.char === "bat" ? 2.2 : 0;
         this.actors.push(a);
       }
@@ -251,11 +256,13 @@ export class World {
     this.removeActor(key);
   }
 
-  private addProp(id: PropId, i: number, j: number): void {
+  private addProp(p: PropPlacement): void {
+    const { id, i, j } = p;
     const def = propDef(id);
-    const z = this.def.map.height(i, j);
-    // flat props (mats, cushions) sort beneath anyone standing on them
-    const inst: PropInst = { id, i, j, ax: isoX(i + 0.5, j + 0.5), ay: isoY(i + 0.5, j + 0.5, z), key: i + j + (def.flat ? 0.05 : 1 + (def.foot[2] + def.foot[3]) / 2), phase: hash2(i, j, 5) * 10 };
+    const [x, y] = p.at ?? [i + 0.5, j + 0.5];
+    const foot = placementTiles(p);
+    const z = this.def.map.height(Math.floor(x), Math.floor(y));
+    const inst: PropInst = { id, i, j, k: p.k ?? 1, foot, ax: isoX(x, y), ay: isoY(x, y, z), flat: !!def.flat, phase: hash2(i, j, 5) * 10 };
     this.props.push(inst);
     if (def.emit) this.emitters.push(inst);
     if (def.light) this.lights.push(inst);
@@ -263,14 +270,14 @@ export class World {
 
   /** Depth buckets for a prop's screen columns: each 16 px strip sorts with the footprint tile it covers. */
   private propStrips(p: PropInst): { c: number; bucket: number }[] {
+    // bigger sheets are only painted when first seen: estimate their columns from the size-1 sheet (with a pixel to spare per k)
     const sheet = getProp(p.id);
-    const def = propDef(p.id);
-    const left = p.ax - sheet.ox;
+    const left = p.ax - sheet.ox * p.k - (p.k > 1 ? p.k : 0);
     const c0 = Math.floor(left / HALF_W);
-    const c1 = Math.floor((left + sheet.frames[0].width - 1) / HALF_W);
+    const c1 = Math.floor((left + sheet.frames[0].width * p.k + (p.k > 1 ? 2 * p.k : 0) - 1) / HALF_W);
     const footCols = new Map<number, number>();
-    for (let fj = p.j + def.foot[1]; fj <= p.j + def.foot[3]; fj++)
-      for (let fi = p.i + def.foot[0]; fi <= p.i + def.foot[2]; fi++)
+    for (let fj = p.foot[1]; fj <= p.foot[3]; fj++)
+      for (let fi = p.foot[0]; fi <= p.foot[2]; fi++)
         for (const c of [fi - fj - 1, fi - fj]) footCols.set(c, Math.max(footCols.get(c) ?? -1, fi + fj));
     const cols = [...footCols.keys()].sort((a, b) => a - b);
     const strips: { c: number; bucket: number }[] = [];
@@ -283,11 +290,14 @@ export class World {
 
   private stripsCache = new Map<PropInst, { c: number; bucket: number }[]>();
   private bucketed = false;
+  /** How far (in screen px) the tallest prop rises above its footing: props this far below the view still poke into it. */
+  private propRise = 0;
   /** Prop sheets are painted on first use, so bucket them lazily too. */
   private ensureBuckets(): void {
     if (this.bucketed) return;
     this.bucketed = true;
     for (const p of this.props) {
+      this.propRise = Math.max(this.propRise, getProp(p.id).oy * p.k);
       const strips = this.propStrips(p);
       this.stripsCache.set(p, strips);
       for (const b of new Set(strips.map((s) => s.bucket))) this.bucketProps[b].push(p);
@@ -368,6 +378,8 @@ export class World {
     h.dir = dir;
     h.target = null;
     h.flying = false;
+    // she gets up off the ground she sat down on to wait
+    if (h.idleAnim === "sit") h.idleAnim = "idle";
     h.z = this.groundZ(x, y);
     this.camInit = false;
     this.footprints = [];
@@ -383,10 +395,11 @@ export class World {
       if (d < 1.5 && (!best || d < best.d)) best = { npc: a, d };
     }
     for (const it of this.def.interacts) {
-      if (Math.abs(it.i - h.x) > 3 || Math.abs(it.j - h.y) > 3) continue;
+      if (Math.abs(it.i - h.x) > 6 || Math.abs(it.j - h.y) > 6) continue;
       if ((it.kind === "chest" || it.kind === "herb") && this.taken.has(it.key)) continue;
       const d = Math.hypot(it.i + 0.5 - h.x, it.j + 0.5 - h.y);
-      const reach = it.kind === "exit" || it.kind === "door" ? 1.6 : it.kind === "altar" ? 2.4 : 1.45;
+      // the taiji dais grows with the world, so its edge is further from its heart
+      const reach = it.kind === "exit" || it.kind === "door" ? 1.6 : it.kind === "altar" ? 2.4 * WORLD_SCALE : 1.45;
       if (d < reach && (!best || d < best.d - 0.2)) best = { it, d };
     }
     return best;
@@ -531,6 +544,7 @@ export class World {
     a.dir = a.baseDir ?? a.dir;
     this.setAnim(a, pick, t, true);
     if (pick === "sleep") a.emote = { icon: "zzz", until: t + 2 };
+    if (pick === "flute") a.emote = { icon: "note", until: t + 1.4 };
     return true;
   }
 
@@ -555,8 +569,57 @@ export class World {
     a.rest = 1.5 + hash2(Math.floor(t), 9, k) * 3;
   }
 
+  /**
+   * Wild horses graze and amble about their pasture; one that sees the
+   * heroine come close on foot tosses its head and gallops off, then wanders
+   * back. They don't shy from another horse, so a rider can ride among them.
+   */
+  private horseStep(a: Actor, dt: number, t: number): void {
+    const h = this.hero;
+    const d = Math.hypot(h.x - a.x, h.y - a.y);
+    if (!a.running && d < 3.4 && h.char !== "rider") {
+      const l = d || 1;
+      const tx = a.x + ((a.x - h.x) / l) * 8;
+      const ty = a.y + ((a.y - h.y) / l) * 8;
+      a.running = true;
+      a.speed = 6.2;
+      a.target = [tx, ty];
+      a.holdUntil = undefined;
+      a.emote = { icon: "!", until: t + 0.8 };
+      this.setAnim(a, "run", t);
+      a.rest = 4;
+      return;
+    }
+    if (a.target) {
+      if (this.stepToward(a, a.target[0], a.target[1], dt, t)) {
+        a.target = null;
+        a.running = false;
+        a.speed = 0.9;
+        a.rest = 1.5;
+        this.setAnim(a, "idle", t);
+      }
+      return;
+    }
+    a.rest -= dt;
+    if (a.rest > 0 || a.holdUntil !== undefined) return;
+    const kh = keyHash(a.key);
+    const roll = hash2(Math.floor(t * 2), kh, 31);
+    a.rest = 2 + hash2(Math.floor(t), kh, 32) * 4;
+    // far from home (after bolting), it walks back; otherwise it grazes, rears for joy now and then, or ambles
+    if (Math.hypot(a.x - a.home[0], a.y - a.home[1]) > a.wander + 1) a.target = [...a.home];
+    else if (roll < 0.55) this.setAnim(a, "graze", t, true);
+    else if (roll < 0.62) this.setAnim(a, "rear", t, true);
+    else {
+      const ang = hash2(Math.floor(t * 3), kh, 33) * Math.PI * 2;
+      const tx = a.home[0] + Math.cos(ang) * a.wander;
+      const ty = a.home[1] + Math.sin(ang) * a.wander;
+      if (this.canStand(tx, ty, this.def.map.height(Math.floor(a.x), Math.floor(a.y)), false)) a.target = [tx, ty];
+    }
+  }
+
   /** Cranes strut about and take wing when the heroine comes near; bats flit in circles. */
   private critterStep(a: Actor, dt: number, t: number): void {
+    if (a.char === "horse") return this.horseStep(a, dt, t);
     const h = this.hero;
     const d = Math.hypot(h.x - a.x, h.y - a.y);
     const bat = a.char === "bat";
@@ -637,6 +700,11 @@ export class World {
     if (this.footprints.length > 80) this.footprints.shift();
   }
 
+  /** Snap the camera onto its target at the next frame instead of gliding there. */
+  recenter(): void {
+    this.camInit = false;
+  }
+
   updateCamera(viewW: number, viewH: number, dt: number, focus?: [number, number, number]): void {
     const m = this.def.map;
     // indoors the camera settles between the heroine and the middle of the room
@@ -665,7 +733,7 @@ export class World {
     const near = AREA_IDS.map((id) => ({ id, d: rectDistance(id, x, y) })).sort((p, q) => p.d - q.d);
     const A = w.regions[near[0].id];
     const B = w.regions[near[1].id];
-    const k = Math.max(0, 0.5 - (near[1].d - near[0].d) / 14);
+    const k = Math.max(0, 0.5 - (near[1].d - near[0].d) / (7 * WORLD_SCALE));
     const tintA = A.tint ?? "#1a1440";
     const tintB = B.tint ?? "#1a1440";
     const weather: [Weather, number][] = A.weather === B.weather ? [[A.weather, 1]] : [
@@ -710,7 +778,7 @@ export class World {
     // visible diagonals: tiles hang below their top corner by at most a column; props and actors rise far above it
     const bMin = Math.max(0, Math.floor((-cy - 64) / 8));
     const bTiles = Math.min(m.w + m.h - 2, Math.ceil((H - cy + this.maxH * LEVEL_H) / 8));
-    const bMax = Math.min(m.w + m.h - 2, bTiles + 24);
+    const bMax = Math.min(m.w + m.h - 2, bTiles + Math.max(24, Math.ceil(this.propRise / 8) + 2));
     const dMin = Math.floor((-16 - cx) / 16) - 1;
     const dMax = Math.ceil((W - cx + 16) / 16) + 1;
 
@@ -777,14 +845,14 @@ export class World {
       }
       const entries: { key: number; draw: () => void }[] = [];
       for (const p of this.bucketProps[b]) {
-        const sheet = getProp(p.id);
+        const sheet = getProp(p.id, p.k);
         const fr = sheet.frames[Math.floor((t + p.phase) * sheet.fps) % sheet.frames.length];
         const px = p.ax + cx - sheet.ox;
         const py = p.ay + cy - sheet.oy;
         if (!visible(px, py, fr.width, fr.height)) continue;
         const frame = p.id === "chest" ? sheet.frames[this.isTakenAt(p.i, p.j) ? 1 : 0] : p.id === "herb" && this.isTakenAt(p.i, p.j) ? null : fr;
         if (!frame) continue;
-        for (const st of this.stripsCache.get(p)!) if (st.bucket === b) entries.push({ key: p.key, draw: () => s.spriteSlice(frame, px, py, st.c * HALF_W - (p.ax - sheet.ox), HALF_W) });
+        for (const st of this.stripsCache.get(p)!) if (st.bucket === b) entries.push({ key: p.flat ? b + 0.05 : b + 1, draw: () => s.spriteSlice(frame, px, py, st.c * HALF_W - (p.ax - sheet.ox), HALF_W) });
       }
       for (const a of actorBuckets.get(b) ?? []) entries.push({ key: a.x + a.y, draw: () => this.drawActor(s, a, t, cx, cy) });
       for (const e of seals.get(b) ?? []) entries.push({ key: e.i + e.j + 0.95, draw: () => this.drawSeal(s, e.i, e.j, e.region, t, cx, cy) });
@@ -841,7 +909,9 @@ export class World {
     const def = charDef(a.char);
     const x = isoX(a.x, a.y) + cx;
     const seated = a.anim === "sit" || a.anim === "tell" || a.anim === "weave" || a.anim === "pray" || a.anim === "meditate" || a.anim === "fish" || a.anim === "sleep";
-    const top = isoY(a.x, a.y, a.z) + cy - (def.oy - 6) * (def.h > 70 ? 1 : 0.62) - 22 + (seated ? 7 : 0);
+    // a rider's head is about as high as a tall figure's, whatever the size of her (horse-wide) sprite
+    const lift = a.char === "rider" ? 44 : (def.oy - 6) * (def.h > 70 ? 1 : 0.62);
+    const top = isoY(a.x, a.y, a.z) + cy - lift - 22 + (seated ? 7 : 0);
     if (x < -20 || x > s.width + 20 || top < -30 || top > s.height + 30) return;
     if (a.emote) drawEmote(s, a.emote.icon, x, top - 6 + Math.round(Math.sin(t * 6)), t);
     else if (a.marker) {
@@ -984,6 +1054,23 @@ export class World {
             s.px(x, y, alpha("#e8ff90", 0.5 + glow * 0.5));
             if (glow > 0.7) s.sprite(glowSprite("#d8ff80", 4), x - 4, y - 2);
           }
+        } else if ((k === "dirt" || k === "ash" || k === "sand") && r > 0.993 && daylight > 0.35) {
+          // now and then a little dust devil (or a whirl of ash) spins along the ground and dies away
+          const period = 8 + r * 300;
+          const age = ((t + r * 977) % period) / 2.6;
+          if (age < 1) {
+            const x0 = isoX(i + 0.5, j + 0.5) + cx + age * 26;
+            const y0 = isoY(i + 0.5, j + 0.5, m.height(i, j)) + cy;
+            const fade = Math.sin(age * Math.PI);
+            const c = k === "ash" ? "#6a5a6a" : k === "sand" ? "#f0dca0" : "#d8c49a";
+            for (let n = 0; n < 12; n++) {
+              const h = (n / 12) * 14 * fade;
+              const a = t * 9 + n * 1.7;
+              const rr = 1.5 + (n / 12) * 5;
+              s.px(x0 + Math.cos(a) * rr, y0 - h + Math.sin(a) * rr * 0.35, alpha(c, 0.75 * fade));
+            }
+            if (k === "dirt") s.rect(x0 + Math.cos(t * 5) * 4, y0 - 10 * fade, 2, 1, alpha("#c84a2a", fade));
+          }
         } else if (k === "grass" && r > 0.993 && daylight > 0.5) {
           // dandelion seeds drift on the wind
           const age = (t * 0.12 + r * 31) % 1;
@@ -1102,9 +1189,10 @@ export class World {
       if (!def.emit) continue;
       const x0 = p.ax + cx;
       const y0 = p.ay + cy;
-      if (x0 < -60 || x0 > s.width + 60 || y0 < -40 || y0 > s.height + 120) continue;
-      const sheet = getProp(p.id);
+      if (x0 < -60 * p.k || x0 > s.width + 60 * p.k || y0 < -40 || y0 > s.height + 120 * p.k) continue;
+      const sheet = getProp(p.id, p.k);
       const top = y0 - sheet.oy;
+      const K = p.k;
       for (let n = 0; n < 6; n++) {
         const age = (t * 0.45 + n / 6 + p.phase) % 1;
         const r = hash2(n, p.i * 7 + p.j, 3);
@@ -1112,9 +1200,9 @@ export class World {
           case "smoke": {
             // out of the chimney (houses, the stove), or straight up off the fire
             const chimney = p.id === "house" || p.id === "hearth";
-            const sx = x0 + (p.id === "house" ? 10 : 0) + Math.sin(age * 4 + n) * 3 + age * 6;
-            const sy = (chimney ? top + 4 : y0 - 12) - age * 30;
-            const sz = 1 + Math.floor(age * 3);
+            const sx = x0 + (p.id === "house" ? 10 * K : 0) + Math.sin(age * 4 + n) * 3 + age * 6;
+            const sy = (chimney ? top + 4 * K : y0 - 12 * K) - age * 30 * Math.sqrt(K);
+            const sz = Math.round((1 + Math.floor(age * 3)) * Math.sqrt(K));
             s.rect(sx, sy, sz, sz, alpha("#d8d4e4", 0.55 * (1 - age)));
             break;
           }
@@ -1225,10 +1313,11 @@ export class World {
       const L = propDef(p.id).light;
       if (!L) continue;
       const x = p.ax + cx;
-      const y = p.ay + cy - L.dy;
-      if (x < -L.radius || x > s.width + L.radius || y < -L.radius || y > s.height + L.radius) continue;
+      const y = p.ay + cy - L.dy * p.k;
+      const radius = L.radius * Math.sqrt(p.k);
+      if (x < -radius || x > s.width + radius || y < -radius || y > s.height + radius) continue;
       const flick = 1 + Math.sin(t * 9 + p.phase) * 0.04;
-      const g = glowSprite(L.color, Math.round(L.radius * flick));
+      const g = glowSprite(L.color, Math.round(radius * flick));
       s.sprite(g, x - g.width / 2, y - g.height / 2, false, Math.min(1, 0.5 + night));
     }
     const [hx, hy] = this.heroScreen();

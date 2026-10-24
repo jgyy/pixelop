@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { battle, mode, patch, startNewGame, state, teleport } from "./helpers";
+import { battle, goto, mode, patch, standBy, startNewGame, state, teleport, tileOf } from "./helpers";
 
 async function finishDialogue(page: Page, timeout = 20_000): Promise<void> {
   const end = Date.now() + timeout;
@@ -43,7 +43,7 @@ test.describe("Jade Lotus Ascension", () => {
 
   test("Elder Mo's briefing advances the story and unlocks the world map", async ({ page }) => {
     await startNewGame(page);
-    await teleport(page, "sect", 15.5, 10.5);
+    await standBy(page, "elder");
     await expect(page.getByTestId("prompt")).toContainText("Elder Mo");
     await page.keyboard.press("KeyE");
     await expect(page.getByTestId("dialog")).toContainText("You heard the bells");
@@ -66,9 +66,27 @@ test.describe("Jade Lotus Ascension", () => {
     await patch(page, { flags: { metElder: true, villageArrived: true } });
     await teleport(page, "sect", 15.5, 25.5);
     await page.evaluate(() => window.__pixelop!.game.setStick(-0.8, 0.4));
-    await expect.poll(async () => (await state(page)).area, { timeout: 15_000 }).toBe("village");
+    await expect.poll(async () => (await state(page)).area, { timeout: 40_000 }).toBe("village");
     await page.evaluate(() => window.__pixelop!.game.setStick(0, 0));
     await expect(page.getByText("Willow Creek Village").first()).toBeVisible();
+  });
+
+  test("whistle for Cloudmane and gallop: faster than the flying sword", async ({ page }) => {
+    await startNewGame(page);
+    await patch(page, { flags: { metElder: true } });
+    await page.getByTestId("ride").click();
+    await expect(page.getByTestId("ride")).toContainText("Dismount");
+    await expect.poll(() => page.evaluate(() => window.__pixelop!.game.world.hero.char)).toBe("rider");
+    const s0 = await state(page);
+    await page.keyboard.down("ShiftLeft");
+    await page.keyboard.down("KeyS");
+    await page.waitForTimeout(600);
+    await page.keyboard.up("KeyS");
+    await page.keyboard.up("ShiftLeft");
+    const s1 = await state(page);
+    expect(Math.hypot(s1.x - s0.x, s1.y - s0.y)).toBeGreaterThan(4);
+    await page.keyboard.press("KeyR");
+    await expect(page.getByTestId("ride")).toContainText("Ride");
   });
 
   test("a battle can be fought and won", async ({ page }) => {
@@ -87,8 +105,8 @@ test.describe("Jade Lotus Ascension", () => {
   test("the grown world: tea and pills at the crossroads teahouse", async ({ page }) => {
     await startNewGame(page);
     await patch(page, { hp: 10, flags: { metElder: true, villageArrived: true, villageSaved: true, metZhou: true, bambooArrived: true } });
-    // the crossroads lie far south of the sect, below the old highway (positions relative to the sect's corner)
-    await teleport(page, "sect", 148.5 - 177, 174.5 - 34);
+    // the crossroads lie far south of the sect, below the old highway
+    await standBy(page, "fang");
     await expect(page.getByText("Crossroads Teahouse").first()).toBeVisible();
     await page.keyboard.press("KeyE");
     await expect(page.getByTestId("dialog")).toContainText("Fang", { timeout: 5_000 });
@@ -110,8 +128,9 @@ test.describe("Jade Lotus Ascension", () => {
   test("step inside the crossroads teahouse, hear the storyteller, and walk back out", async ({ page }) => {
     await startNewGame(page);
     await patch(page, { flags: { metElder: true } });
-    // the teahouse door, in world tiles, given relative to the sect's corner of the map
-    await teleport(page, "sect", 145.5 - 177, 172.5 - 34);
+    // the teahouse door, on the step in front of its open front
+    const [di, dj] = await tileOf(page, "door-teahouse");
+    await goto(page, di + 0.5, dj + 0.5);
     await expect(page.getByTestId("prompt")).toContainText("Enter the Crossroads Teahouse");
     await page.keyboard.press("KeyE");
     await expect(page.getByTestId("place")).toContainText("Crossroads Teahouse");
@@ -126,7 +145,8 @@ test.describe("Jade Lotus Ascension", () => {
     await expect(page.getByTestId("dialog")).toContainText("Qiao");
     await finishDialogue(page);
     expect((await state(page)).flags.qiaoTale).toBe(true);
-    await page.evaluate(() => Object.assign(window.__pixelop!.game.world.hero, { x: 5.5, y: 8.5 }));
+    const [ei, ej] = await tileOf(page, "teahouse-exit");
+    await page.evaluate(([x, y]) => Object.assign(window.__pixelop!.game.world.hero, { x, y }), [ei + 0.5, ej + 0.5]);
     await expect(page.getByTestId("prompt")).toContainText("Step outside");
     await page.keyboard.press("KeyE");
     await expect.poll(() => page.evaluate(() => window.__pixelop!.game.inside)).toBeNull();
@@ -151,7 +171,7 @@ test.describe("Jade Lotus Ascension", () => {
     test.setTimeout(120_000);
     await page.goto("/gallery");
     await expect(page.getByRole("heading", { name: "Pixel Art Gallery" })).toBeVisible();
-    await expect(page.locator("[data-testid^=sheet-]")).toHaveCount(34);
+    await expect(page.locator("[data-testid^=sheet-]")).toHaveCount(36);
     await expect(page.getByTestId("scene")).toHaveCount(12);
     expect(await page.getByTestId("prop").count()).toBeGreaterThanOrEqual(50);
     expect(await page.getByTestId("anim").count()).toBeGreaterThanOrEqual(80);

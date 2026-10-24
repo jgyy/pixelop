@@ -3,7 +3,8 @@ import { AREA_IDS, getArea } from "@/game/world/areas";
 import { LIQUID } from "@/game/world/tilemap";
 import { flightPath, mapTerrain, MAP_H, MAP_W, NODES } from "@/game/world/overworld";
 import { FLOATS, getWorld, regionAt } from "@/game/world/continent";
-import { REGION_ORIGIN, toWorld, WORLD_H, WORLD_W } from "@/game/world/layout";
+import { REGION_ORIGIN, toWorld, WORLD_H, WORLD_SCALE, WORLD_W } from "@/game/world/layout";
+import { placementTiles } from "@/game/world/areas";
 import { ENEMIES } from "@/game/engine/enemies";
 import { getInterior, INTERIOR_IDS } from "@/game/world/interiors";
 import type { TileMap } from "@/game/world/tilemap";
@@ -135,7 +136,9 @@ describe("the continuous world", () => {
       a.map.each((i, j) => {
         if (a.map.kind(i, j) === "void") return;
         total++;
-        if (m.kind(ox + i, oy + j) === a.map.kind(i, j)) same++;
+        // each template tile is a WORLD_SCALE × WORLD_SCALE block of the world (its corners rounded off)
+        const block = [0, 1].flatMap((dj) => [0, 1].map((di) => m.kind(ox + i * WORLD_SCALE + di, oy + j * WORLD_SCALE + dj)));
+        if (block.includes(a.map.kind(i, j))) same++;
       });
       // only the highway, rivers and bridges carve through a region
       expect(same / total, id).toBeGreaterThan(0.93);
@@ -160,15 +163,15 @@ describe("the continuous world", () => {
     expect(falls).toBeGreaterThan(0);
   });
 
-  it("is twice the size of the old world, with its landmarks on open land", () => {
-    expect(WORLD_W).toBe(162 * 2);
-    expect(WORLD_H).toBe(116 * 2);
-    expect(walkable.size).toBeGreaterThan(30000);
+  it("is twice the size of the version 4 world (four times the version 3 one), with its landmarks on open land", () => {
+    expect(WORLD_W).toBe(324 * 2);
+    expect(WORLD_H).toBe(232 * 2);
+    expect(walkable.size).toBeGreaterThan(120000);
     expect(w.landmarks.length).toBeGreaterThanOrEqual(8);
     for (const l of w.landmarks) {
       expect(m.kind(Math.floor(l.x), Math.floor(l.y)), l.name).not.toBe("void");
       let open = false;
-      for (let dj = -6; dj <= 6 && !open; dj++) for (let di = -6; di <= 6 && !open; di++) open = walkable.has((Math.floor(l.y) + dj) * m.w + Math.floor(l.x) + di);
+      for (let dj = -12; dj <= 12 && !open; dj++) for (let di = -12; di <= 12 && !open; di++) open = walkable.has((Math.floor(l.y) + dj) * m.w + Math.floor(l.x) + di);
       expect(open, `${l.name} can be walked to`).toBe(true);
     }
     // the new people, beasts and treasures of the wilds
@@ -232,6 +235,21 @@ describe("building interiors", () => {
       for (const n of d.npcs) expect(r.has(`${n.i},${n.j}`), `${id}/${n.key}`).toBe(true);
       for (const it of d.interacts) expect(adjacentReachable(r, it.i, it.j), `${id}/${it.key}`).toBe(true);
       expect(d.npcs.length + d.interacts.length).toBeGreaterThan(2);
+    }
+  });
+
+  it("is the same size inside as outside: each room's map is its building's footprint in the world", () => {
+    const w = getWorld();
+    for (const id of INTERIOR_IDS) {
+      const d = getInterior(id);
+      const b = w.props.find((p) => p.id === d.building.id && p.i === d.building.i && p.j === d.building.j && p.k === d.building.k);
+      expect(b, `${id} stands in the world`).toBeDefined();
+      const [i0, j0, i1, j1] = placementTiles(b!);
+      expect([i1 - i0 + 1, j1 - j0 + 1], id).toEqual([d.map.w, d.map.h]);
+      // the threshold inside lines up with the front door outside
+      if (d.inward[0]) expect(d.exit[1] + j0, id).toBe(d.door[1]);
+      else expect(d.exit[0] + i0, id).toBe(d.door[0]);
+      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) expect(w.map.isBlocked(i, j), `${id} ${i},${j}`).toBe(true);
     }
   });
 

@@ -1,7 +1,7 @@
 import { PixelBuffer } from "../pixel/PixelBuffer";
 import { alpha } from "../pixel/color";
 import { add, facingBasis, norm, Raster, scale3, spline, sub, type Mat, type Ramp, type Shader, type V3 } from "../iso/raster";
-import { OUTLINE, PAL } from "./palette";
+import { OUTLINE, PAL, tones as ramp4 } from "./palette";
 
 /**
  * Procedural chibi cultivators. A humanoid is a rig of ~20 solids (bell
@@ -62,7 +62,7 @@ export interface HumanPose {
   footR?: V3;
   handL?: V3;
   handR?: V3;
-  stance?: "stand" | "sit" | "kneel";
+  stance?: "stand" | "sit" | "kneel" | "ride";
   eyes?: Eyes;
   mouth?: Mouth;
   sword?: "sheath" | "hand" | "under" | "none";
@@ -71,6 +71,8 @@ export interface HumanPose {
   wind?: V3;
   /** Extra light-blue tint (qi casting) or white (hit flash) applied after. */
   flash?: number;
+  /** Something held in the hands: a bamboo dizi flute, a rice bowl and chopsticks, or juggling balls. */
+  held?: "flute" | "bowl" | "balls";
 }
 
 export const HUMAN_W = 56;
@@ -98,11 +100,15 @@ export interface RenderOpts {
   k?: number;
   /** Only head and shoulders (dialogue portraits). */
   bust?: boolean;
+  /** Paint into this raster (sharing its depth buffer, e.g. a rider on her horse) instead of a fresh one; nothing is returned. */
+  into?: Raster;
+  /** Model-space offset of the figure's feet (where a rider sits). */
+  at?: V3;
 }
 
 export function paintHuman(st: HumanStyle, p: HumanPose, facing: number, o: RenderOpts = {}): PixelBuffer {
   const k = o.k ?? 1;
-  const r = new Raster(o.w ?? HUMAN_W, o.h ?? HUMAN_H, o.ox ?? HUMAN_OX, o.oy ?? HUMAN_OY, facingBasis(facing), k);
+  const r = o.into ?? new Raster(o.w ?? HUMAN_W, o.h ?? HUMAN_H, o.ox ?? HUMAN_OX, o.oy ?? HUMAN_OY, facingBasis(facing), k);
   const S = st.scale ?? 1;
   const t = p.t;
   const wind = p.wind ?? [0, -0.25, 0];
@@ -112,8 +118,9 @@ export function paintHuman(st: HumanStyle, p: HumanPose, facing: number, o: Rend
   const lift = p.lift ?? 0;
   const bob = (p.bob ?? 0) - drop;
 
+  const at = o.at ?? [0, 0, 0];
   /** Scale + lift for points that stay grounded (feet, hem). */
-  const G = (v: V3): V3 => [v[0] * S, v[1] * S, v[2] * S + lift];
+  const G = (v: V3): V3 => [v[0] * S + at[0], v[1] * S + at[1], v[2] * S + lift + at[2]];
   /** Upper body: bob and lean around the waist. */
   const U = (v: V3): V3 => {
     const z = v[2] + bob;
@@ -129,7 +136,22 @@ export function paintHuman(st: HumanStyle, p: HumanPose, facing: number, o: Rend
     const fl = p.footL ?? DEFAULT_FOOT_L;
     const fr = p.footR ?? DEFAULT_FOOT_R;
     const hem = st.hem ?? 2.4;
-    if (stance === "sit") {
+    if (stance === "ride") {
+      // astride a saddle: knees out and forward over the flanks, feet in the stirrups, the robe draped to either side
+      for (const [f, side] of [
+        [fl, -1],
+        [fr, 1],
+      ] as const) {
+        const hip: V3 = [side * 1.6, 0.4, 9];
+        const knee: V3 = [side * 3.9, 2.8, 6.4];
+        const ankle: V3 = [f[0], f[1], f[2] + 1.4];
+        r.sweep([G(hip), G(knee), G(ankle)], Rr(1.25), mat(st.inner, 1));
+        r.ellipsoid(G([f[0], f[1] + 0.6, f[2] + 0.9]), [Rr(1.1), Rr(1.8), Rr(1.0)], mat(st.shoes, 1));
+        r.sweep([U([side * 1.2, 0.2, WAIST]), G([side * 3.8 + wind[0] * 0.6, 1.4 + wind[1] * 0.8, 7]), G([side * 4.6 + wind[0], 0.6 + wind[1] * 1.6, 3.4])], [Rr(2.6), Rr(2.4), Rr(2.2)], mat(st.robe, 2, { shader: hemShader(st, 0.86) }));
+      }
+      // the robe's back panel spills over the horse's rump
+      r.sweep([U([0, -1.6, WAIST]), G([wind[0], -3.4 + wind[1] * 0.6, 9]), G([wind[0] * 1.5, -5 + wind[1] * 1.2, 7.4])], [Rr(2.6), Rr(2.8), Rr(2.2)], mat(st.robe, 2, { shader: hemShader(st, 0.84) }));
+    } else if (stance === "sit") {
       // lotus position: crossed knees and a wide pooled skirt
       r.ellipsoid(G([0, 0.5, 2.4]), [Rr(7.4), Rr(5.2), Rr(2.6)], mat(st.robe, 2, { shader: hemShader(st, 0.55) }));
       r.ellipsoid(G([-4.4, 2.2, 2.4]), [Rr(2.4), Rr(2.6), Rr(1.8)], mat(st.robe, 2));
@@ -345,6 +367,27 @@ export function paintHuman(st: HumanStyle, p: HumanPose, facing: number, o: Rend
     r.sweep([U([-3.8, 2, 12.6]), U([-4.3, -6, 8.2])], [Rr(0.7), Rr(0.9)], mat(st.weaponRamp ?? PAL.crimson, 9));
   }
 
+  // ------------------------------------------------------------------ things held in the hands
+  if (p.held === "flute") {
+    // a bamboo dizi held out to the right of the lips, with a red tassel
+    const lips = U([0.6, 5.8, 21.6]);
+    const end = add(U(handR), [1.6 * S, -0.6 * S, -0.2 * S]);
+    r.sweep([lips, end], Rr(0.45), mat(ramp4("#e8c878", "#c8a050", "#8a6a30", "#4a3418"), 9, { shader: (s, tone) => (Math.sin(s.u * 40) > 0.85 ? "#3a2410" : tone(ramp4("#e8c878", "#c8a050", "#8a6a30", "#4a3418"))) }));
+    r.sweep([end, add(end, [wind[0] * S, wind[1] * S, -2.4 * S])], Rr(0.3), mat(PAL.red, 9));
+  } else if (p.held === "bowl") {
+    const bowl = add(U(handL), [0.6 * S, 0.6 * S, 0.8 * S]);
+    r.ellipsoid(bowl, [Rr(1.7), Rr(1.7), Rr(1)], mat(ramp4("#ffffff", "#e8eef8", "#9aa8c8", "#4a5a7a"), 9, { shader: (s, tone) => (s.n[2] > 0.55 ? tone(PAL.paper) : Math.abs(s.n[2]) < 0.2 ? tone(PAL.azure) : tone(ramp4("#ffffff", "#e8eef8", "#9aa8c8", "#4a5a7a"))) }));
+    const tip = U(handR);
+    for (const dx of [-0.3, 0.3]) r.sweep([add(tip, [dx * S, -0.6 * S, -0.4 * S]), add(tip, [dx * S - 0.6 * S, 3 * S, 0.6 * S])], Rr(0.18), mat(PAL.woodDark, 9));
+  } else if (p.held === "balls") {
+    const cols = [PAL.red, PAL.gold, PAL.jade];
+    for (let b = 0; b < 3; b++) {
+      const a = t + (b * Math.PI * 2) / 3;
+      // tossed in an arc that peaks above the juggler's head
+      r.sphere(U([Math.cos(a) * 4.6, 4, 34 + Math.sin(a) * 5]), Math.max(1.1, Rr(1.2)), mat(cols[b], 9));
+    }
+  }
+
   // ------------------------------------------------------------------ shawl, cape, tails, beard
   if (st.shawl) {
     const pts = spline(
@@ -390,6 +433,7 @@ export function paintHuman(st: HumanStyle, p: HumanPose, facing: number, o: Rend
   // ------------------------------------------------------------------ face decals
   drawFace(r, st, p, head, HR, k, S);
 
+  if (o.into) return r.buf;
   let out = r.finish({ inner: true });
   if (p.flash) out = out.tinted("#ffffff", p.flash);
   return out;

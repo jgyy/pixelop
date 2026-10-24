@@ -19,6 +19,7 @@ const GROUPS: { label: string; ids: CharId[] }[] = [
   { label: "Willow Creek & the Wilds", ids: ["zhou", "hua", "farmer", "child", "peddler", "huli", "wen"] },
   { label: "Wayside Folk", ids: ["teawoman", "miller", "monk", "hermit", "swordsman"] },
   { label: "Folk Indoors", ids: ["archivist", "weaver", "storyteller", "scholar", "millhand", "lampkeeper"] },
+  { label: "Cloudmane & the Wild Herds", ids: ["rider", "horse"] },
   { label: "Blood Moon Sect, Bandits & Demonic Beasts", ids: ["patriarch", "cultist", "jiangshi", "bandit", "fox", "wolf", "serpent", "serpentKing", "crane", "bat"] },
 ];
 

@@ -11,7 +11,7 @@ import { getArea, type AreaId } from "../world/areas";
 import { getWorld } from "../world/continent";
 import { getInterior, isInteriorId, type InteriorDef, type InteriorId } from "../world/interiors";
 import { AREA_IDS } from "../world/ids";
-import { toWorld } from "../world/layout";
+import { toWorld, WORLD_SCALE } from "../world/layout";
 import { NODES } from "../world/overworld";
 import type { Step } from "../story/script";
 import { altarScript, areaUnlocked, arrivalScript, endingScript, hasNews, introScript, lockReason, npcScript, preBattleScript, questLog, victoryScript, type Quest } from "../story/story";
@@ -32,6 +32,8 @@ export interface UiSnapshot {
   area: { id: AreaId; name: string; hanzi: string; subtitle: string };
   prompt: string | null;
   flying: boolean;
+  /** Riding Cloudmane, her spirit horse. */
+  riding: boolean;
   quest: Quest;
   dialog: { speaker: string; portrait: HumanId | null; text: string; seq: number } | null;
   narration: { text: string; index: number; total: number } | null;
@@ -58,13 +60,16 @@ const MOVE_KEYS: Record<string, [number, number]> = {
 
 const CONFIRM = new Set(["KeyE", "Enter", "Space", "NumpadEnter"]);
 /** One-shot animations that walking away interrupts. */
-const IDLE_FIDGETS = new Set<AnimId>(["stretch", "look", "gather", "nod", "point", "cheer", "drink", "read", "pray", "clap", "laugh"]);
+const IDLE_FIDGETS = new Set<AnimId>(["stretch", "look", "gather", "nod", "point", "cheer", "drink", "read", "pray", "clap", "laugh", "rear", "flute"]);
 /** Seated or absorbed idles that a speaker keeps while talking instead of standing up. */
 const SEATED = new Set<AnimId>(["fish", "sit", "tell", "weave", "pray"]);
 const RUN_KEYS = ["ShiftLeft", "ShiftRight"];
 const WALK_SPEED = 3.3;
 const RUN_SPEED = 5.2;
 const FLY_SPEED = 5.6;
+/** Cloudmane at a canter, and flat out at a gallop (Shift): the fastest way across the jianghu's roads. */
+const CANTER_SPEED = 7.4;
+const GALLOP_SPEED = 11;
 
 interface Runner {
   steps: Step[];
@@ -216,16 +221,61 @@ export class Game {
     return !!this.world.hero.flying;
   }
 
+  get riding(): boolean {
+    return this.world.hero.char === "rider";
+  }
+
+  /** Whistle Cloudmane down out of the clouds, or swing down from her saddle. */
+  toggleRide(): void {
+    if (this.mode !== "explore") return;
+    if (this.riding) return this.dismount(true);
+    if (!this.state.flags.metElder) return this.toast("Elder Mo has not given you Cloudmane's whistle yet.");
+    if (this.interior) return this.toast("Cloudmane waits outside — there's no room for a horse in here.");
+    const h = this.world.hero;
+    if (h.flying) {
+      if (!this.world.def.map.standable(Math.floor(h.x), Math.floor(h.y))) return this.toast("Cloudmane can't stand on water.");
+      h.flying = false;
+    }
+    h.char = "rider";
+    h.idleAnim = "idle";
+    this.idleTime = 0;
+    // she rears as she arrives, tossing her cloud mane
+    this.world.setAnim(h, "rear", this.clock, true);
+    const [x, y] = [isoX(h.x, h.y), isoY(h.x, h.y, h.z)];
+    this.world.fx.burst(x, y - 10, 26, ["#ffffff", "#e8fff8", "#9ff5de"], 60);
+    if (!this.state.flags.rodeCloudmane) {
+      this.state = { ...this.state, flags: { ...this.state.flags, rodeCloudmane: true } };
+      this.toast("Cloudmane gallops down out of the clouds. Shift to gallop, R to dismount.");
+    }
+    this.markDirty();
+  }
+
+  /** Step down from the saddle (Cloudmane melts back into the clouds). */
+  private dismount(effects = false): void {
+    const h = this.world.hero;
+    if (h.char !== "rider") return;
+    h.char = "heroine";
+    h.running = false;
+    this.world.setAnim(h, "idle", this.clock);
+    if (effects) {
+      const [x, y] = [isoX(h.x, h.y), isoY(h.x, h.y, h.z)];
+      this.world.fx.burst(x, y - 10, 20, ["#ffffff", "#e8fff8"], 45);
+    }
+    this.markDirty();
+  }
+
   toggleFly(): void {
     if (this.mode !== "explore") return;
     if (!this.state.flags.metElder) return this.toast("You have not learned Sword Riding yet.");
     if (this.interior) return this.toast("There's no room to ride a sword in here.");
+    this.dismount();
     const h = this.world.hero;
     if (h.flying) {
       const m = this.world.def.map;
       if (!m.standable(Math.floor(h.x), Math.floor(h.y), false)) return this.toast("You can't land here.");
     }
     h.flying = !h.flying;
+    if (h.idleAnim === "sit") h.idleAnim = "idle";
     this.world.setAnim(h, h.flying ? "fly" : "idle", this.clock);
     const [x, y] = [isoX(h.x, h.y), isoY(h.x, h.y, h.z)];
     this.world.fx.burst(x, y, 14, ["#9ff5de", "#ffffff"], 50);
@@ -238,7 +288,7 @@ export class Game {
     if (!next) return this.toast("No pills of that kind.");
     this.state = next;
     const h = this.world.hero;
-    if (!h.flying && this.mode === "explore") this.world.setAnim(h, "drink", this.clock, true);
+    if (!h.flying && !this.riding && this.mode === "explore") this.world.setAnim(h, "drink", this.clock, true);
     this.world.fx.burst(isoX(h.x, h.y), isoY(h.x, h.y, h.z) - 14, 14, kind === "heal" ? ["#ff8aa8", "#ffffff"] : ["#9ff5de", "#ffffff"], 40);
     this.toast(kind === "heal" ? "A Healing Pill restores your vitality." : "A Qi Gathering Pill refills your dantian.");
   }
@@ -345,6 +395,7 @@ export class Game {
   /** Fast travel: land at a region's waypoint (or a given world position) in the one continuous world. */
   enterArea(id: AreaId, pos?: [number, number]): void {
     this.dropInterior();
+    this.dismount();
     const [x, y] = pos ?? getWorld().waypoints[id];
     this.state = { ...this.state, area: id, x, y };
     this.world.placeHero(x, y, 8);
@@ -368,13 +419,18 @@ export class Game {
 
   /** Jump to region-local coordinates (as the hand-built region layouts are authored). */
   debugTeleport(area: AreaId, lx: number, ly: number): void {
+    this.debugGoto(...toWorld(area, lx, ly));
+  }
+
+  /** Jump to a point of the open world, in world tiles. */
+  debugGoto(x: number, y: number): void {
+    this.dismount();
     this.runner = null;
     this.queue = [];
     this.dialog = null;
     this.narration = null;
     this.battle = null;
     this.dropInterior();
-    const [x, y] = toWorld(area, lx, ly);
     this.state = { ...this.state, area: this.world.regionAt(x, y), x, y };
     this.world.placeHero(x, y, 8);
     this.world.syncPopulation(this.state.flags);
@@ -414,6 +470,8 @@ export class Game {
     const w = new World(getWorld(), { x, y, dir }, this.state.flags, this.state.taken);
     w.sealed = (id) => !areaUnlocked(id, this.state);
     w.updateCamera(480, 270, 0);
+    // the real view may be any size: snap to it on the first frame rather than sliding across
+    w.recenter();
     return w;
   }
 
@@ -422,6 +480,8 @@ export class Game {
     if (this.interior) return;
     const outdoor = this.world;
     if (outdoor.hero.flying) return this.toast("Step down from your sword first.");
+    // Cloudmane waits in the clouds while she is indoors
+    this.dismount();
     const base = getInterior(id);
     // the room belongs to the region its door stands in
     const def: InteriorDef = { ...base, id: this.state.area };
@@ -429,6 +489,7 @@ export class Game {
     outdoor.setAnim(outdoor.hero, "idle", this.clock);
     const w = new World(def, { x: def.arrive[0], y: def.arrive[1], dir: dirFrom(def.inward[0], def.inward[1]) }, this.state.flags, this.state.taken);
     w.updateCamera(480, 270, 0);
+    w.recenter();
     this.world = w;
     this.interior = { def, outdoor };
     this.tapTarget = null;
@@ -509,9 +570,9 @@ export class Game {
   private trackLandmark(): void {
     if (this.interior) return;
     const h = this.world.hero;
-    const near = getWorld().landmarks.find((l) => Math.hypot(l.x + 0.5 - h.x, l.y + 0.5 - h.y) < 7);
+    const near = getWorld().landmarks.find((l) => Math.hypot(l.x + 0.5 - h.x, l.y + 0.5 - h.y) < 7 * WORLD_SCALE);
     if (!near) {
-      if (this.landmark && !getWorld().landmarks.some((l) => l.key === this.landmark && Math.hypot(l.x + 0.5 - h.x, l.y + 0.5 - h.y) < 11)) this.landmark = null;
+      if (this.landmark && !getWorld().landmarks.some((l) => l.key === this.landmark && Math.hypot(l.x + 0.5 - h.x, l.y + 0.5 - h.y) < 11 * WORLD_SCALE)) this.landmark = null;
       return;
     }
     if (near.key === this.landmark) return;
@@ -539,6 +600,8 @@ export class Game {
   /** Queue a script; it starts immediately if nothing else is running. */
   play(steps: Step[]): void {
     if (steps.length === 0) return;
+    // she swings down from the saddle to talk, read or watch
+    this.dismount();
     if (this.runner) {
       this.queue.push(steps);
       return;
@@ -764,6 +827,7 @@ export class Game {
 
   private startBattle(enemy: EnemyId, key: string): void {
     this.land();
+    this.dismount();
     this.battle = new BattleScene(this.state.area, enemy, key, this.state, (this.seed + Math.floor(this.clock * 1000)) >>> 0);
     this.mode = "battle";
     this.dialog = null;
@@ -807,6 +871,7 @@ export class Game {
   private beginMeditation(): void {
     const h = this.world.hero;
     this.land();
+    this.dismount();
     this.mode = "meditate";
     this.world.setAnim(h, "meditate", this.clock);
     h.idleAnim = "meditate";
@@ -953,7 +1018,8 @@ export class Game {
       }
     }
     run &&= !h.flying;
-    const speed = h.flying ? FLY_SPEED : run ? RUN_SPEED : WALK_SPEED;
+    const riding = h.char === "rider";
+    const speed = h.flying ? FLY_SPEED : riding ? (run ? GALLOP_SPEED : CANTER_SPEED) : run ? RUN_SPEED : WALK_SPEED;
     if (dx || dy) {
       this.idleTime = 0;
       h.dir = dirFrom(dx, dy);
@@ -965,19 +1031,29 @@ export class Game {
       w.trail(Math.hypot(h.x - x0, h.y - y0), this.clock);
       h.running = run;
       if (h.holdUntil === undefined || IDLE_FIDGETS.has(h.anim)) w.setAnim(h, h.flying ? "fly" : run ? "run" : "walk", this.clock);
-      if (!h.flying && Math.random() < dt * (run ? 16 : 6)) w.fx.emit({ x: isoX(h.x, h.y) - dx * 4, y: isoY(h.x, h.y, h.z), vx: -dx * (run ? 18 : 8), vy: run ? -14 : -8, life: run ? 0.5 : 0.4, color: "#e8dcc8", gravity: 20, size: run && Math.random() < 0.4 ? 2 : 1 });
+      if (!h.flying && Math.random() < dt * (run ? 16 : 6) * (riding ? 2 : 1)) w.fx.emit({ x: isoX(h.x, h.y) - dx * 4 + (riding ? (Math.random() - 0.5) * 10 : 0), y: isoY(h.x, h.y, h.z), vx: -dx * (run ? 18 : 8) * (riding ? 1.6 : 1), vy: run ? -14 : -8, life: run ? 0.5 : 0.4, color: "#e8dcc8", gravity: 20, size: (run || riding) && Math.random() < 0.4 ? 2 : 1 });
+      // Cloudmane's hooves leave little wisps of cloud
+      if (riding && Math.random() < dt * 10) w.fx.emit({ x: isoX(h.x, h.y) + (Math.random() - 0.5) * 12, y: isoY(h.x, h.y, h.z) - 2, vx: -dx * 10, vy: -6, life: 0.7, color: Math.random() < 0.5 ? "#ffffff" : "#c8fff0" });
       if (h.flying && Math.random() < dt * 25) w.fx.emit({ x: isoX(h.x, h.y), y: isoY(h.x, h.y, h.z) + 2, vx: -dx * 30, vy: -4, life: 0.5, color: Math.random() < 0.5 ? "#9ff5de" : "#ffffff" });
     } else if (h.holdUntil === undefined) {
       w.setAnim(h, h.flying ? "fly" : h.idleAnim, this.clock);
-      // left alone for a while, Lin Yue stretches or glances around
+      // left alone for a while, Lin Yue stretches or glances around (and Cloudmane rears now and then)
       this.idleTime += dt;
-      if (!h.flying && this.idleTime > 8) {
+      if (riding && this.idleTime > 9) {
+        this.idleTime = 0;
+        w.setAnim(h, "rear", this.clock, true);
+      } else if (!h.flying && !riding && this.idleTime > 8) {
         this.idleTime = -4;
         // first a stretch or a glance around; left alone longer, she hums, nods off or practises a pointing form
-        const pool: AnimId[] = this.fidgets++ < 1 ? ["look", "stretch"] : ["stretch", "look", "nod", "point", "cheer", "clap", "laugh"];
+        const pool: AnimId[] = this.fidgets++ < 1 ? ["look", "stretch"] : ["stretch", "look", "nod", "point", "cheer", "clap", "laugh", "flute"];
         // left alone long enough, she sits down where she stands until she moves again
         if (this.fidgets > 4 && h.idleAnim === "idle") h.idleAnim = "sit";
-        else w.setAnim(h, pool[Math.floor(this.clock) % pool.length], this.clock, true);
+        else {
+          const pick = pool[Math.floor(this.clock) % pool.length];
+          w.setAnim(h, pick, this.clock, true);
+          // the dizi plays a few bars
+          if (pick === "flute") h.emote = { icon: "note", until: this.clock + 1.6 };
+        }
       }
     }
     // indoors, the save remembers the step outside the door
@@ -1040,6 +1116,8 @@ export class Game {
   private interact(): void {
     const near = this.world.nearestInteraction();
     if (!near) return;
+    // she swings down from the saddle to talk, gather, open or read (a world-map gate she can use from horseback)
+    if (near.it?.kind !== "exit") this.dismount();
     const h = this.world.hero;
     if (near.npc) {
       const npc = near.npc;
@@ -1145,6 +1223,7 @@ export class Game {
       case "explore":
         if (CONFIRM.has(code)) this.interact();
         else if (code === "KeyF") this.toggleFly();
+        else if (code === "KeyR") this.toggleRide();
         else if (code === "KeyB") this.startTribulation();
         else if (code === "KeyH") this.takePill("heal");
         else if (code === "KeyQ") this.takePill("qi");
@@ -1318,6 +1397,7 @@ export class Game {
       area: { id: area.id, name: area.name, hanzi: area.hanzi, subtitle: area.subtitle },
       prompt: this.mode === "explore" ? this.prompt : null,
       flying: this.flying,
+      riding: this.riding,
       quest: questLog(this.state),
       dialog: this.mode === "scene" ? this.dialog : null,
       narration: this.mode === "scene" ? this.narration : null,
