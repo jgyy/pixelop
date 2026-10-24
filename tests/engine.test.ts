@@ -50,7 +50,7 @@ describe("game state", () => {
   it("migrates version 2 saves (one map per region) into world coordinates", () => {
     const old = { ...newGame(), version: 2, area: "village", x: 16.5, y: 29.5 };
     const g = GameStateSchema.parse(old);
-    expect(g.version).toBe(4);
+    expect(g.version).toBe(5);
     expect([g.x, g.y]).toEqual(toWorld("village", 16.5, 29.5));
     expect(GameStateSchema.safeParse({ ...newGame(), version: 1 }).success).toBe(false);
   });
@@ -58,13 +58,21 @@ describe("game state", () => {
   it("migrates version 3 saves from the smaller world, keeping the spot relative to its region", () => {
     // Willow Creek's square in the old 162 × 116 world, and a spot on the old highway
     const square = GameStateSchema.parse({ ...newGame(), version: 3, area: "village", x: 84 + 16.5, y: 66 + 10.5 });
-    expect(square.version).toBe(4);
+    expect(square.version).toBe(5);
     expect([square.x, square.y]).toEqual(toWorld("village", 16.5, 10.5));
     expect(square.area).toBe("village");
     const lake = GameStateSchema.parse({ ...newGame(), version: 3, area: "lake", x: 124 + 3.5, y: 66 + 28.5 });
     expect([lake.x, lake.y]).toEqual(toWorld("lake", 3.5, 28.5));
     const road = GameStateSchema.parse({ ...newGame(), version: 3, area: "village", x: 100.5, y: 103.5 });
     expect(road.area).toBe("village");
+  });
+
+  it("migrates version 4 saves into the doubled world, at the same spot", () => {
+    // Willow Creek's square on the version 4 map (the authoring grid)
+    const v4 = GameStateSchema.parse({ ...newGame(), version: 4, area: "village", x: 176 + 16.5, y: 98 + 10.5 });
+    expect(v4.version).toBe(5);
+    expect([v4.x, v4.y]).toEqual(toWorld("village", 16.5, 10.5));
+    expect(v4.area).toBe("village");
   });
 
   it("restores vitals on stage-up and breakthrough", () => {

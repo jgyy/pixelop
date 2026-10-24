@@ -16,7 +16,7 @@ import { renderTitle } from "../src/game/runtime/title";
 import { AREA_IDS, getArea } from "../src/game/world/areas";
 import { getWorld } from "../src/game/world/continent";
 import { getInterior, INTERIOR_IDS } from "../src/game/world/interiors";
-import { toWorld, WORLD_H, WORLD_W } from "../src/game/world/layout";
+import { toWorld, WORLD_H, WORLD_SCALE, WORLD_W } from "../src/game/world/layout";
 import { isoX, isoY } from "../src/game/iso/projection";
 import { writePng } from "./lib";
 
@@ -98,6 +98,29 @@ const chores: [CharId, AnimId][] = [
   ["monk", "pray"],
 ];
 writeGif("folk-at-work.gif", showcase(chores.map(([id, anim]): Cell => ({ id, anim, dir: 1, label: anim })), 6, 2, seconds), 12);
+// the newest idles: a tune on the dizi, a bowl of noodles, juggling and a folding fan
+const pastimes: [CharId, AnimId][] = [
+  ["heroine", "flute"],
+  ["hermit", "flute"],
+  ["swordsman", "flute"],
+  ["farmer", "eat"],
+  ["millhand", "eat"],
+  ["bandit", "eat"],
+  ["child", "juggle"],
+  ["peddler", "juggle"],
+  ["abao", "juggle"],
+  ["zhou", "fan"],
+  ["scholar", "fan"],
+  ["storyteller", "fan"],
+];
+writeGif("pastimes.gif", showcase(pastimes.map(([id, anim]): Cell => ({ id, anim, dir: 1, label: `${charDef(id).name.split(" ").pop()} ${anim}` })), 6, 2, seconds), 12);
+// Cloudmane, the spirit horse, and the wild herds
+const steeds: Cell[] = [
+  ...charDef("rider").anims.map((anim): Cell => ({ id: "rider", anim, dir: 2, label: `ride ${anim}` })),
+  { id: "rider", anim: "run", dir: "spin", label: "16 directions" },
+  ...charDef("horse").anims.map((anim): Cell => ({ id: "horse", anim, dir: 14, label: `wild ${anim}` })),
+];
+writeGif("cloudmane.gif", showcase(steeds, 5, 2, seconds), 12);
 
 // 2. Portraits
 const portraitIds = HUMAN_IDS.filter((id) => charDef(id).portrait);
@@ -170,7 +193,7 @@ for (const id of AREA_IDS) {
 
 // 4b. The whole jianghu in one picture, and a walk along the highway
 if (!QUICK) {
-  const world = new World(getWorld(), { x: 150.5, y: 166.5, dir: 4 }, FLAGS, []);
+  const world = new World(getWorld(), { x: 150.5 * WORLD_SCALE, y: 166.5 * WORLD_SCALE, dir: 4 }, FLAGS, []);
   world.dayNight = false;
   const left = isoX(0, WORLD_H) - 40;
   const right = isoX(WORLD_W, 0) + 40;
@@ -180,13 +203,13 @@ if (!QUICK) {
   world.camX = -left;
   world.camY = -top;
   world.render(new BufferSurface(big), 2);
-  writePng(half(half(big)), path.join(OUT, "world-overview.png"));
+  writePng(half(half(half(big))), path.join(OUT, "world-overview.png"));
 
   const walk: PixelBuffer[] = [];
   for (let i = 0; i < 72; i++) {
     const t = 3 + i / 12;
-    world.hero.x = 136 + i * 0.4;
-    world.hero.y = 166.6;
+    world.hero.x = 136 * WORLD_SCALE + i * 0.4;
+    world.hero.y = 166.6 * WORLD_SCALE;
     world.hero.dir = 4;
     world.setAnim(world.hero, "run", 3);
     world.update(1 / 12, t, true);
@@ -196,13 +219,31 @@ if (!QUICK) {
     walk.push(b);
   }
   writeGif("highway.gif", walk, 12);
+
+  // and Cloudmane at a gallop down the same road, outrunning everything on it
+  const ride: PixelBuffer[] = [];
+  world.hero.char = "rider";
+  for (let i = 0; i < 72; i++) {
+    const t = 9 + i / 12;
+    world.hero.x = 176 * WORLD_SCALE + i * (11 / 12);
+    world.hero.y = 165.6 * WORLD_SCALE;
+    world.hero.dir = 4;
+    world.setAnim(world.hero, "run", 9);
+    world.update(1 / 12, t, true);
+    world.updateCamera(W, H, 0);
+    const b = new PixelBuffer(W, H);
+    world.render(new BufferSurface(b), t);
+    ride.push(b);
+  }
+  writeGif("gallop.gif", ride, 12);
+  world.hero.char = "heroine";
 }
 
 // 4c. The landmarks of the wilds, each a short loop (day, with the bandit camp after dark)
 {
-  const world = new World(getWorld(), { x: 150.5, y: 174.5, dir: 2 }, { ...FLAGS, metElder: true }, []);
+  const world = new World(getWorld(), { x: 150.5 * WORLD_SCALE, y: 174.5 * WORLD_SCALE, dir: 2 }, { ...FLAGS, metElder: true }, []);
   for (const l of getWorld().landmarks) {
-    world.placeHero(l.x + 2.5, l.y + 3.5, 10);
+    world.placeHero(l.x + 2.5 * WORLD_SCALE, l.y + 3.5 * WORLD_SCALE, 10);
     const night = l.key === "bandits" || l.key === "pagoda";
     const frames = Array.from({ length: QUICK ? 2 : 36 }, (_, i) => {
       const t = (night ? 170 : 30) + i / 12;

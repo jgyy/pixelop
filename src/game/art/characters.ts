@@ -1,6 +1,7 @@
 import type { PixelBuffer } from "../pixel/PixelBuffer";
 import type { V3 } from "../iso/raster";
 import { BEAST_H, BEAST_OX, BEAST_OY, BEAST_W, FOX_STYLE, paintBat, paintCrane, paintQuad, paintSerpent, WOLF_STYLE, type BeastPose } from "./beasts";
+import { CLOUDMANE, gaitAt, HORSE_H, HORSE_OX, HORSE_OY, HORSE_W, paintHorse, paintRider, RIDER_H, RIDER_OX, RIDER_OY, RIDER_W, WILD_HORSE, type HorsePose } from "./horse";
 import { HUMAN_H, HUMAN_OX, HUMAN_OY, HUMAN_W, paintHuman, REST_HAND_L, REST_HAND_R, type HumanPose, type HumanStyle } from "./humanoid";
 import { PAL, ramp } from "./palette";
 
@@ -59,7 +60,13 @@ export type AnimId =
   | "pour"
   | "clap"
   | "laugh"
-  | "tell";
+  | "tell"
+  | "graze"
+  | "rear"
+  | "flute"
+  | "eat"
+  | "juggle"
+  | "fan";
 
 export interface Anim {
   fps: number;
@@ -428,6 +435,47 @@ const human: Partial<Record<AnimId, AnimSpec<HumanPose>>> = {
       return { t: a, stance: "sit", lean: 0.04 + c * 0.04, handR: [3.6 + s * 1.6, 3 + c * 2.2, 15 + Math.max(0, s) * 4], handL: [-3.2 + Math.max(0, -s) * -1.4, 2.6, 13 + Math.max(0, -s) * 3], eyes: i === 6 ? "closed" : "open", mouth: i % 2 ? "open" : "smile", wind: [s * 0.3, -0.2, 0] };
     },
   },
+  // playing the bamboo dizi: eyes closed, fingers lifting along the flute, swaying to the tune
+  flute: {
+    n: 8,
+    fps: 5,
+    loop: true,
+    pose: (i, n) => {
+      const a = ph(i, n);
+      const f = i % 2 ? 0.4 : 0;
+      return { t: a, held: "flute", lean: Math.sin(a) * 0.05, bob: Math.max(0, Math.sin(a * 2)) * 0.4, handL: [1.4, 4.8, 21 + f], handR: [5.2, 3.8, 20.6 - f], eyes: i === 3 ? "blink" : "closed", mouth: "neutral", wind: [Math.sin(a) * 0.4, -0.3, 0] };
+    },
+  },
+  // a bowl of noodles: chopsticks dip to the bowl and up to the mouth
+  eat: {
+    n: 8,
+    fps: 6,
+    loop: false,
+    pose: (i) => {
+      const up = [0, 0.4, 1, 1, 0.3, 0, 0.6, 1][i];
+      return { t: i, held: "bowl", lean: 0.05, handL: [-1.2, 4.2, 14.2 + up * 1.6], handR: [1.2, 4.6 - up * 0.4, 14.8 + up * 5.6], eyes: up > 0.9 ? "closed" : "open", mouth: up > 0.9 ? "open" : "smile", wind: [0, -0.2, 0] };
+    },
+  },
+  // three bright balls tossed in a shower
+  juggle: {
+    n: 8,
+    fps: 9,
+    loop: false,
+    pose: (i, n) => {
+      const a = ph(i, n);
+      return { t: a * 2, held: "balls", handL: [-2.6, 4, 14.4 + Math.max(0, Math.sin(a * 2)) * 1.4], handR: [2.6, 4, 14.4 + Math.max(0, -Math.sin(a * 2)) * 1.4], bob: i % 2 ? 0.3 : 0, eyes: "open", mouth: i % 4 === 2 ? "grin" : "smile", wind: [0, -0.3, 0] };
+    },
+  },
+  // cooling off with a folding fan
+  fan: {
+    n: 6,
+    fps: 7,
+    loop: false,
+    pose: (i, n) => {
+      const s = Math.sin(ph(i, n) * 2);
+      return { t: i, lean: -0.04, handR: [3.6 + s * 0.8, 4.2, 19.4 + s * 1.2], eyes: i === 3 ? "blink" : "open", mouth: "smile", wind: [s * 0.3, -0.4, 0.2] };
+    },
+  },
 };
 
 // ----------------------------------------------------------------------------- beast poses
@@ -442,6 +490,23 @@ const beast: Partial<Record<AnimId, AnimSpec<BeastPose>>> = {
   howl: { n: 8, fps: 6, loop: false, pose: (i) => ({ t: i, crouch: [0, 0.4, 0.6, 0.6, 0.6, 0.6, 0.4, 0][i], head: [0, 0.6, 1, 1, 1, 1, 0.6, 0][i], mouth: i >= 2 && i <= 5 }) },
   sniff: { n: 8, fps: 6, loop: false, pose: (i) => ({ t: i, head: [-0.3, -0.8, -1, -0.9, -1, -0.8, -0.4, 0][i], stride: i % 2 ? 0.3 : 0 }) },
   peck: { n: 6, fps: 7, loop: false, pose: (i) => ({ t: i, head: [0, -0.6, -1, -0.5, -1, 0][i] }) },
+};
+
+// ----------------------------------------------------------------------------- horses and their rider
+const horse: Partial<Record<AnimId, AnimSpec<HorsePose>>> = {
+  idle: { n: 8, fps: 5, loop: true, pose: (i, n) => ({ t: gaitAt(i, n), head: i === 5 ? 0.25 : 0, tail: Math.sin(gaitAt(i, n)) * (i > 3 ? 1 : 0.3), ears: i === 6 ? 0.6 : 0 }) },
+  walk: { n: 8, fps: 9, loop: true, pose: (i, n) => ({ t: gaitAt(i, n) * 2, gait: gaitAt(i, n), kind: "walk", lift: Math.abs(Math.sin(gaitAt(i, n) * 2)) * 0.3, head: Math.sin(gaitAt(i, n) * 2) * 0.12 }) },
+  run: { n: 8, fps: 14, loop: true, pose: (i, n) => ({ t: gaitAt(i, n) * 2, gait: gaitAt(i, n), kind: "gallop", lift: Math.max(0, Math.sin(gaitAt(i, n))) * 1.6, head: Math.cos(gaitAt(i, n)) * 0.25 - 0.1, ears: 0.4 }) },
+  graze: { n: 10, fps: 4, loop: true, pose: (i) => ({ t: i * 0.6, head: [-1, -1, -0.95, -1, -1, -0.9, -1, -1, -0.6, -1][i], tail: Math.sin(i * 1.4) * (i % 4 === 0 ? 1 : 0.3) }) },
+  rear: { n: 8, fps: 8, loop: false, pose: (i) => ({ t: i * 0.8, rear: [0.3, 0.7, 1, 1, 0.9, 0.6, 0.25, 0][i], head: [0.3, 0.8, 1, 1, 0.8, 0.5, 0.2, 0][i], tail: Math.sin(i), ears: 0.3 }) },
+};
+
+/** What the rider does on each of her horse's animations. */
+const ridden: Partial<Record<AnimId, (i: number, n: number) => HumanPose>> = {
+  idle: (i, n) => ({ t: ph(i, n), handL: [-1.6, 4.4, 12.6], handR: [1.6, 4.4, 12.6], eyes: i === 4 ? "blink" : "open", mouth: "smile", bob: i % 4 === 2 ? 0.3 : 0, wind: [0, -0.4, 0] }),
+  walk: (i, n) => ({ t: ph(i, n) * 2, handL: [-1.6, 4.6, 12.6], handR: [1.6, 4.6, 12.6], lean: 0.05, bob: Math.abs(Math.sin(ph(i, n) * 2)) * 0.6, mouth: "smile", wind: [0, -0.9, 0] }),
+  run: (i, n) => ({ t: ph(i, n) * 2, handL: [-1.5, 5.4, 12], handR: [1.5, 5.4, 12], lean: 0.2, bob: Math.max(0, Math.sin(ph(i, n))) * 1.4, mouth: i % 4 === 1 ? "open" : "smile", eyes: "fierce", wind: [Math.sin(ph(i, n)) * 0.3, -2.6, 0.5] }),
+  rear: (i) => ({ t: i, handL: [-1.4, 4.8, 14], handR: [3.4, 2, 24.5 - Math.abs(i - 3.5)], mouth: "grin", eyes: i > 1 && i < 6 ? "closed" : "open", wind: [0, -1.6, 0.4] }),
 };
 
 // ----------------------------------------------------------------------------- styles
@@ -488,35 +553,37 @@ export const STYLES = {
 } satisfies Record<string, HumanStyle>;
 
 export type HumanId = keyof typeof STYLES;
-export type BeastId = "fox" | "wolf" | "serpent" | "serpentKing" | "crane" | "bat";
-export type CharId = HumanId | BeastId;
+export type BeastId = "fox" | "wolf" | "serpent" | "serpentKing" | "crane" | "bat" | "horse";
+/** Lin Yue on Cloudmane, her spirit horse. */
+export type MountId = "rider";
+export type CharId = HumanId | BeastId | MountId;
 
 const HUMAN_ANIMS: Record<HumanId, AnimId[]> = {
-  heroine: ["idle", "walk", "run", "talk", "attack", "cast", "hurt", "meditate", "fly", "victory", "defeat", "bow", "gather", "stretch", "look", "wave", "drink", "cheer", "point", "nod", "read", "sit", "pray", "clap", "laugh"],
+  heroine: ["idle", "walk", "run", "talk", "attack", "cast", "hurt", "meditate", "fly", "victory", "defeat", "bow", "gather", "stretch", "look", "wave", "drink", "cheer", "point", "nod", "read", "sit", "pray", "clap", "laugh", "flute"],
   elder: ["idle", "walk", "talk", "cast", "bow", "wave", "nod", "read"],
   qing: ["idle", "walk", "talk", "bow", "wave", "nod", "cheer", "clap", "pour"],
-  abao: ["idle", "walk", "run", "talk", "practice", "wave", "cheer", "laugh", "clap"],
+  abao: ["idle", "walk", "run", "talk", "practice", "wave", "cheer", "laugh", "clap", "juggle"],
   discipleM: ["idle", "walk", "practice", "bow", "nod", "clap"],
   discipleF: ["idle", "walk", "practice", "bow", "wave", "clap"],
-  zhou: ["idle", "walk", "talk", "wave", "nod", "point", "laugh"],
+  zhou: ["idle", "walk", "talk", "wave", "nod", "point", "laugh", "fan"],
   hua: ["idle", "walk", "talk", "wave", "drink", "nod", "pour", "laugh"],
-  farmer: ["idle", "walk", "talk", "gather", "wave", "nod", "stretch", "laugh"],
-  child: ["idle", "walk", "run", "talk", "wave", "dance", "cheer", "clap", "laugh"],
-  huli: ["idle", "walk", "talk", "cast", "bow", "wave", "dance"],
-  wen: ["idle", "talk", "fish", "cast", "wave", "sleep"],
-  monk: ["idle", "walk", "talk", "sweep", "bow", "nod", "wave", "meditate", "pray"],
+  farmer: ["idle", "walk", "talk", "gather", "wave", "nod", "stretch", "laugh", "eat"],
+  child: ["idle", "walk", "run", "talk", "wave", "dance", "cheer", "clap", "laugh", "juggle"],
+  huli: ["idle", "walk", "talk", "cast", "bow", "wave", "dance", "flute"],
+  wen: ["idle", "talk", "fish", "cast", "wave", "sleep", "flute"],
+  monk: ["idle", "walk", "talk", "sweep", "bow", "nod", "wave", "meditate", "pray", "eat"],
   teawoman: ["idle", "walk", "talk", "wave", "drink", "nod", "bow", "pour", "laugh"],
-  miller: ["idle", "walk", "talk", "gather", "wave", "nod", "point", "stretch", "laugh"],
-  hermit: ["idle", "talk", "meditate", "cast", "nod", "bow"],
-  swordsman: ["idle", "walk", "talk", "practice", "sleep", "attack", "cast", "hurt", "defeat", "drink", "nod", "wave", "laugh"],
-  bandit: ["idle", "walk", "run", "attack", "hurt", "point", "cheer"],
-  peddler: ["idle", "walk", "talk", "wave", "look", "nod", "point", "laugh", "clap"],
+  miller: ["idle", "walk", "talk", "gather", "wave", "nod", "point", "stretch", "laugh", "eat"],
+  hermit: ["idle", "talk", "meditate", "cast", "nod", "bow", "flute"],
+  swordsman: ["idle", "walk", "talk", "practice", "sleep", "attack", "cast", "hurt", "defeat", "drink", "nod", "wave", "laugh", "flute"],
+  bandit: ["idle", "walk", "run", "attack", "hurt", "point", "cheer", "eat"],
+  peddler: ["idle", "walk", "talk", "wave", "look", "nod", "point", "laugh", "clap", "juggle", "eat"],
   archivist: ["idle", "walk", "talk", "read", "nod", "bow", "point"],
-  storyteller: ["idle", "talk", "tell", "sit", "laugh", "clap", "nod", "drink"],
+  storyteller: ["idle", "talk", "tell", "sit", "laugh", "clap", "nod", "drink", "fan"],
   weaver: ["idle", "walk", "talk", "weave", "nod", "wave", "laugh"],
-  millhand: ["idle", "walk", "talk", "sweep", "wave", "cheer", "laugh"],
+  millhand: ["idle", "walk", "talk", "sweep", "wave", "cheer", "laugh", "eat"],
   lampkeeper: ["idle", "talk", "pray", "bow", "nod", "meditate"],
-  scholar: ["idle", "talk", "read", "sit", "drink", "nod", "laugh", "clap"],
+  scholar: ["idle", "talk", "read", "sit", "drink", "nod", "laugh", "clap", "fan"],
   cultist: ["idle", "walk", "attack", "hurt"],
   jiangshi: ["idle", "hop", "attack", "hurt"],
   patriarch: ["idle", "walk", "attack", "cast", "hurt", "defeat", "talk"],
@@ -557,6 +624,8 @@ const NAMES: Record<CharId, [string, string]> = {
   serpentKing: ["Serpent King", "Ancient Lake Guardian"],
   crane: ["Spirit Crane", "Messenger of the Sect"],
   bat: ["Blood Bat", "Valley Vermin"],
+  horse: ["Wild Horse", "Highland Herd"],
+  rider: ["Lin Yue", "Riding Cloudmane"],
 };
 
 const BEAST_ANIMS: Record<BeastId, AnimId[]> = {
@@ -566,11 +635,13 @@ const BEAST_ANIMS: Record<BeastId, AnimId[]> = {
   serpentKing: ["idle", "walk", "attack", "hurt"],
   crane: ["idle", "fly", "peck"],
   bat: ["fly"],
+  horse: ["idle", "walk", "run", "graze", "rear"],
 };
+const RIDER_ANIMS: AnimId[] = ["idle", "walk", "run", "rear"];
 
 export const HUMAN_IDS = Object.keys(STYLES) as HumanId[];
 export const BEAST_IDS = Object.keys(BEAST_ANIMS) as BeastId[];
-export const CHAR_IDS: CharId[] = [...HUMAN_IDS, ...BEAST_IDS];
+export const CHAR_IDS: CharId[] = [...HUMAN_IDS, ...BEAST_IDS, "rider"];
 
 const isHuman = (id: CharId): id is HumanId => id in STYLES;
 
@@ -592,6 +663,8 @@ export function charDef(id: CharId): CharacterDef {
     };
   }
   if (id === "bat") return { id, name, title, w: 40, h: 32, ox: 20, oy: 26, anims: BEAST_ANIMS[id], portrait: false };
+  if (id === "rider") return { id, name, title, w: RIDER_W, h: RIDER_H, ox: RIDER_OX, oy: RIDER_OY, anims: RIDER_ANIMS, portrait: false };
+  if (id === "horse") return { id, name, title, w: HORSE_W, h: HORSE_H, ox: HORSE_OX, oy: HORSE_OY, anims: BEAST_ANIMS[id], portrait: false };
   return { id, name, title, w: BEAST_W, h: BEAST_H, ox: BEAST_OX, oy: BEAST_OY, anims: BEAST_ANIMS[id], portrait: false };
 }
 
@@ -612,6 +685,12 @@ function paintFrame(id: CharId, anim: AnimId, i: number, dir: number): PixelBuff
     }
     if (pose.handL === undefined) pose.handL = REST_HAND_L;
     return paintHuman(st, pose, a, { w: def.w, h: def.h, ox: def.ox, oy: def.oy });
+  }
+  if (id === "rider" || id === "horse") {
+    const spec = horse[anim] ?? horse.idle!;
+    const hp = spec.pose(i, spec.n);
+    if (id === "horse") return paintHorse(WILD_HORSE, hp, a);
+    return paintRider(STYLES.heroine, CLOUDMANE, hp, (ridden[anim] ?? ridden.idle!)(i, spec.n), a);
   }
   const spec = beast[anim] ?? beast.idle!;
   const pose = spec.pose(i, spec.n);
@@ -640,7 +719,7 @@ export function getAnim(id: CharId, anim: AnimId, dir: number): Anim {
   const key = `${id}/${real}/${d}`;
   let a = cache.get(key);
   if (!a) {
-    const spec = (isHuman(id) ? human[real] : beast[real]) ?? (isHuman(id) ? human.idle! : beast.idle!);
+    const spec = (isHuman(id) ? human[real] : id === "rider" || id === "horse" ? horse[real] : beast[real]) ?? (isHuman(id) ? human.idle! : beast.idle!);
     const n = id === "bat" ? 6 : spec.n;
     a = { fps: spec.fps, loop: spec.loop, frames: Array.from({ length: n }, (_, i) => paintFrame(id, real, i, d)) };
     cache.set(key, a);

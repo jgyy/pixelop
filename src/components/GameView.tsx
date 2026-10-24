@@ -147,6 +147,11 @@ export function GameView({ initial, intro, onQuit }: { initial: GameState; intro
                   {ui.flying ? "Land" : "Fly"} <span className="kbd">F</span>
                 </button>
               )}
+              {s.flags.metElder && !ui.interior && (
+                <button className="btn" onClick={() => game.toggleRide()} data-testid="ride">
+                  {ui.riding ? "Dismount" : "Ride"} <span className="kbd">R</span>
+                </button>
+              )}
               <button className="btn" onClick={() => void save()} data-testid="save">
                 Save
               </button>
@@ -241,7 +246,7 @@ export function GameView({ initial, intro, onQuit }: { initial: GameState; intro
           </div>
         )}
       </div>
-      {(ui.mode === "explore" || ui.mode === "scene" || ui.mode === "meditate") && <TouchControls game={game} />}
+      {(ui.mode === "explore" || ui.mode === "scene" || ui.mode === "meditate") && <TouchControls game={game} typing={typing} />}
     </main>
   );
 }
@@ -391,7 +396,7 @@ function BattleMenu({ ui, act }: { ui: UiSnapshot; act: (a: BattleAction) => voi
 }
 
 /** Virtual joystick + action buttons for touch screens. */
-function TouchControls({ game }: { game: Game }) {
+function TouchControls({ game, typing }: { game: Game; typing: React.RefObject<{ done: boolean; finish: () => void }> }) {
   const base = useRef<HTMLDivElement>(null);
   const [knob, setKnob] = useState<[number, number]>([0, 0]);
   const move = (e: React.PointerEvent) => {
@@ -409,6 +414,8 @@ function TouchControls({ game }: { game: Game }) {
   const press = (code: string) => ({
     onPointerDown: (e: React.PointerEvent) => {
       e.preventDefault();
+      // like Enter on a keyboard, E first finishes a line of dialogue that is still being typed out
+      if (code === "KeyE" && game.mode === "scene" && !typing.current.done) return typing.current.finish();
       game.keyDown(code);
     },
     onPointerUp: () => game.keyUp(code),
@@ -437,6 +444,9 @@ function TouchControls({ game }: { game: Game }) {
         </button>
         <button className="btn" {...press("KeyF")}>
           F
+        </button>
+        <button className="btn" {...press("KeyR")} aria-label="Ride Cloudmane">
+          R
         </button>
         <button className="btn" {...press("KeyM")}>
           M

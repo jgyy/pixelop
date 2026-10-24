@@ -8,7 +8,7 @@ A **2.5D isometric pixel-art xianxia RPG** built as a full-stack **Next.js 16** 
 
 ### One world, no loading screens
 
-The whole jianghu is a single **324 × 232 tile map** (twice as wide and twice as deep as it used to be). You can walk from the sect gate down a long sky bridge that rests on Cloudrest Isle half way, along the old highway past the bamboo, and on to the waterfall where the Lotus Lake spills off the edge of the world. South of the highway lie the ashen wastes, a stone forest with a ruined temple, scarecrow fields under a seven-tier pagoda and the snowy highlands with a hot spring and a bandit camp. East of the sect, plank walkways lead out to the floating Cloudstep Isles. Sealed regions sit behind walls of mist, talismans, demonic qi or heaven's light until the story opens them.
+The whole jianghu is a single **648 × 464 tile map**: twice as wide and twice as deep as it used to be, with every region, road and river magnified with it. Whistle for **Cloudmane**, Lin Yue's spirit horse, to cover it at a gallop. You can walk from the sect gate down a long sky bridge that rests on Cloudrest Isle half way, along the old highway past the bamboo, and on to the waterfall where the Lotus Lake spills off the edge of the world. South of the highway lie the ashen wastes, a stone forest with a ruined temple, scarecrow fields under a seven-tier pagoda and the snowy highlands with a hot spring and a bandit camp. East of the sect, plank walkways lead out to the floating Cloudstep Isles. Sealed regions sit behind walls of mist, talismans, demonic qi or heaven's light until the story opens them.
 
 ![The whole continuous world](docs/art/world-overview.png)
 
@@ -46,7 +46,57 @@ Each landmark has its own keeper, beasts and treasure, and its name appears in a
 | ![Heavenly tribulation](docs/screenshots/11-heavenly-tribulation.png) | ![Crimson Demon Valley](docs/screenshots/12-demon-valley.png) |
 | ![Boss battle with Patriarch Xue](docs/screenshots/13-boss-battle.png) | ![Heavenly Tribulation Peak](docs/screenshots/14-tribulation-peak.png) |
 
+### Riding Cloudmane
+
+With so much more road to cover, Elder Mo hands Lin Yue a jade whistle along with Sword Riding. Press `R` (or the **Ride** button) and Cloudmane, a white spirit horse with a mane of jade cloud, gallops down out of the sky and rears as she mounts. A canter (7.4 tiles/s) already beats running on foot (5.2), and a gallop with `Shift` (11) is twice as fast as the flying sword (5.6). No beast on the road can keep up with her at a gallop. She swings down from the saddle by herself to talk, read, gather, open a chest, meditate, fight or step through a door, and Cloudmane waits in the clouds while she is indoors. The sword is still the way across water. Herds of wild horses graze the fields, the highlands and the lakeside. They bolt if she comes near on foot, but let a rider among them.
+
+| | |
+|---|---|
+| ![Cloudmane rears as she arrives](docs/screenshots/45-cloudmane-arrives.png) | ![At a gallop down the old highway](docs/screenshots/46-gallop-highway.png) |
+| ![Riding among the wild herd](docs/screenshots/47-wild-horses.png) | ![The doubled world on the map](docs/screenshots/50-world-map-doubled.png) |
+
+| Cloudmane and the wild herds | A gallop down the highway |
+|---|---|
+| ![](docs/art/cloudmane.gif) | ![](docs/art/gallop.gif) |
+
+```mermaid
+stateDiagram-v2
+  [*] --> OnFoot
+  OnFoot --> Riding: R (after Elder Mo's whistle) · rears on arrival
+  Riding --> OnFoot: R
+  Riding --> OnFoot: talk · read · gather · chest · shrine · battle · cutscene · door
+  OnFoot --> Sword: F
+  Riding --> Sword: F (steps down first)
+  Sword --> OnFoot: F (only over land)
+  state Riding {
+    [*] --> Canter
+    Canter --> Gallop: Shift / joystick pushed all the way
+    Gallop --> Canter
+  }
+  note right of Riding
+    walk 3.3 · run 5.2 · sword 5.6
+    canter 7.4 · gallop 11 tiles/s
+  end note
+```
+
 ### Step inside
+
+Every building you can enter is **the same size inside as outside**: the room's tile map is exactly the building's footprint in the world, walls included, and the threshold inside lines up with the front door outside. The buildings grew to fit their rooms. The Hall of Clouds and the Pagoda of Seven Lamps are 9 × 9 tiles, and Granny Hua's cottage, the teahouse and the watermill are 8 × 8.
+
+| Outside | Inside |
+|---|---|
+| ![The Hall of Clouds, 9 × 9 tiles](docs/screenshots/39-hall-outside.png) | ![The same 9 × 9 tiles inside](docs/screenshots/40-hall-inside.png) |
+| ![Granny Hua's cottage, 8 × 8 tiles](docs/screenshots/41-cottage-outside.png) | ![The same 8 × 8 tiles inside](docs/screenshots/42-cottage-inside.png) |
+| ![The crossroads teahouse, 8 × 8 tiles](docs/screenshots/43-teahouse-outside.png) | ![The same 8 × 8 tiles inside](docs/screenshots/44-teahouse-inside.png) |
+
+```mermaid
+flowchart LR
+  B["Building on the authoring grid<br/>(hall 3×3, house / teahouse 2×2)"] -- "grown k× about its block's centre<br/>(hall, pagoda k=3 · cottage, mill, teahouse k=4)" --> F["Footprint in the world<br/>footTiles(): 9×9 or 8×8"]
+  F --> R["room(): a TileMap exactly that size<br/>walls on i=0 and j=0"]
+  F --> D["Front door: middle of the east<br/>(or south) face, one tile out"]
+  D --> E["Room exit: the same row (or column)<br/>on the room's open edge"]
+  R --> E
+```
 
 Five buildings open their doors: the **Hall of Clouds** (the sect's ancestral hall and archive), **Granny Hua's cottage** in Willow Creek, the **crossroads teahouse**, the **watermill** and the **Pagoda of Seven Lamps**. Walk into a door (or press `E` on the step) and the world fades into a cutaway room with plastered walls, lattice windows that let shafts of daylight in (with dust turning in them, fading at dusk), lamplight, and furniture that moves: a crackling stove, a loom whose shuttle flies, a millstone turning on its shaft, incense curling off the altars, candles and seven oil lamps flickering on their own rhythms. Each room has its own folk and its own piece of the story.
 
@@ -67,7 +117,7 @@ Five buildings open their doors: the **Hall of Clouds** (the sect's ancestral ha
 
 ### Animated art
 
-| Lin Yue's 25 animations | All 16 facing directions |
+| Lin Yue's 26 animations | All 16 facing directions |
 |---|---|
 | ![Heroine move set](docs/art/heroine-moves.gif) | ![Heroine 16 directions](docs/art/heroine-16dir.gif) |
 
@@ -83,6 +133,10 @@ Five buildings open their doors: the **Hall of Clouds** (the sect's ancestral ha
 |---|---|---|
 | ![](docs/art/area-lake.gif) | ![](docs/art/area-valley.gif) | ![](docs/art/area-peak.gif) |
 
+| Pastimes: the dizi flute, a bowl of noodles, juggling and a fan | Festival lanterns and a kite over Willow Creek |
+|---|---|
+| ![Pastimes](docs/art/pastimes.gif) | ![Lanterns and a kite](docs/screenshots/48-village-lanterns-kite.png) |
+
 | World map (a miniature of the real world) | Dialogue portraits |
 |---|---|
 | ![World map](docs/art/worldmap.gif) | ![Portraits](docs/art/portraits.png) |
@@ -95,9 +149,9 @@ Five buildings open their doors: the **Hall of Clouds** (the sect's ancestral ha
 - **A living world:** a day/night cycle (stars come out, shooting stars streak past, lanterns glow), dragonflies over the shallows, fireflies rising from the grass after dusk, dandelion seeds on the wind, lava bubbles that swell and pop, birds and bats wheeling overhead, butterflies over meadow flowers, koi leaping in the water, cloud shadows drifting over the land, footprints in sand, snow and ash, cranes that take flight when you come close, NPCs who turn and wave as you pass, a peddler walking the highway with his shop, beasts that shout "!" and gallop after you (and give up with a "?"), and beaten beasts that come back once you've been away for a while.
 - **2.5D isometric world:** height-mapped tile maps with cliffs, stairs, raised platforms, floating islands with rocky undersides, animated water and lava with shore foam, depth-sorted props (sliced into screen columns so they occlude correctly), contact shadows, an x-ray silhouette when the heroine walks behind something, and parallax skies.
 - **Building interiors:** five cutaway rooms behind real doors in the world, each its own small map run by the same World runtime: back walls with timber frames, wainscots and lattice windows, raised floors with rugs, daylight shafts that follow the day/night cycle, and lamplit furniture. Walking into a door goes through it; walking out over the threshold mat steps back onto the street. Saves made indoors remember the step outside, so a reload lands in the open world. You can't ride your sword or open the world map under a roof.
-- **Procedural 3D pixel sprites:** 28 humanoid characters and 6 beasts, each built from roughly 20 ray-cast solids (bell skirts, sleeves, hair strands, shawls, tails, hats, weapons) with hue-shifted 4-tone shading, face decals and selective outlines. They render in 16 directions with up to 25 animations: idle, walk, run, talk, attack, cast, hurt, meditate, sword-flight, victory, defeat, bow, wave, gather (kneel and pick), drink, cheer, point and nod, stretch and look-around idle fidgets, plus hop, practice, fishing, sweeping, dancing and dozing, and the everyday ones: reading (with a page turn), sitting, kneeling in prayer, weaving at a loom, pouring tea, clapping, laughing and a seated storyteller's sweeping gestures. Foxes and wolves gallop with a run cycle, sniff the ground and curl up asleep with their tails wrapped round them; wolves sit back and howl; cranes peck at the grass. Dialogue portraits are rendered from the same models at 3× scale, with blink and talk frames.
+- **Procedural 3D pixel sprites:** 28 humanoid characters, 7 beasts and a rider on her horse, each built from roughly 20 ray-cast solids (bell skirts, sleeves, hair strands, shawls, tails, hats, weapons) with hue-shifted 4-tone shading, face decals and selective outlines. They render in 16 directions with up to 26 animations: idle, walk, run, talk, attack, cast, hurt, meditate, sword-flight, victory, defeat, bow, wave, gather (kneel and pick), drink, cheer, point and nod, stretch and look-around idle fidgets, plus hop, practice, fishing, sweeping, dancing and dozing, and the everyday ones: reading (with a page turn), sitting, kneeling in prayer, weaving at a loom, pouring tea, clapping, laughing, a seated storyteller's sweeping gestures, and four pastimes: playing the dizi flute (with a few notes over her head), eating a bowl of noodles, juggling three bright balls and cooling off with a folding fan. Horses walk, gallop, graze and rear, and Lin Yue rides one: horse and rider are painted into one depth buffer so they occlude each other properly. Foxes and wolves gallop with a run cycle, sniff the ground and curl up asleep with their tails wrapped round them; wolves sit back and howl; cranes peck at the grass. Dialogue portraits are rendered from the same models at 3× scale, with blink and talk frames.
 - **Idle life:** villagers and wayfarers break into nods, stretches, sips of tea, pours from the teapot, claps, laughs, little dances and cheers when nobody needs them; sleepers breathe with drifting "Z"s; roaming beasts stop to sniff, howl or nap (and leap up the moment they spot you); Lin Yue drinks her pills, reads the steles she stops at, bows in prayer at altars and, left alone, nods, points, claps and laughs as well as stretching, and in the end sits down where she stands until you move her again. Fish shadows glide in slow circles under the water, and washing flaps on a line in Willow Creek.
-- **71 props, 40 of them animated:** swaying pines, cherry and maple trees, bamboo groves, willows, a glowing spirit tree, the multi-tier Hall of Clouds, village houses with chimney smoke, a lake pavilion, flickering lanterns and braziers that cast soft glows at night, waving banners, a bubbling alchemy cauldron, bobbing lotuses and boats, a rotating taiji dais, a pulsing blood altar, a turning waterwheel that sheds water, crackling campfires, scarecrows flapping in the wind, a five-tier pagoda with swinging wind chimes, a teahouse with a fluttering tea flag, tents, fluttering prayer flags, steaming hot-spring rocks, karst spires, temple ruins, haystacks and benches; and indoors, bookcases, hanging scrolls that stir in the draught, a brick stove with a fire and a steaming wok, a loom, a millstone with its crown wheel, grain sacks, ancestral altars with incense and candles, a bronze tree of seven oil lamps, a jade founder's statue, folding screens, a bed, an herb-drying rack, porcelain vases, a sword rack, tea tables with steaming cups, cushions and a washing line.
+- **74 props, 43 of them animated** (buildings grow with the world, drawn 2–4× their size and painted only when first seen): swaying pines, cherry and maple trees, bamboo groves, willows, a glowing spirit tree, the multi-tier Hall of Clouds, village houses with chimney smoke, a lake pavilion, flickering lanterns and braziers that cast soft glows at night, waving banners, a bubbling alchemy cauldron, bobbing lotuses and boats, a rotating taiji dais, a pulsing blood altar, a turning waterwheel that sheds water, crackling campfires, scarecrows flapping in the wind, a five-tier pagoda with swinging wind chimes, a teahouse with a fluttering tea flag, tents, fluttering prayer flags, steaming hot-spring rocks, karst spires, temple ruins, haystacks and benches; and indoors, bookcases, hanging scrolls that stir in the draught, a brick stove with a fire and a steaming wok, a loom, a millstone with its crown wheel, grain sacks, ancestral altars with incense and candles, a bronze tree of seven oil lamps, a jade founder's statue, folding screens, a bed, an herb-drying rack, porcelain vases, a sword rack, tea tables with steaming cups, cushions and a washing line; and new: strings of festival lanterns swinging over the village square and the crossroads, bronze temple bells that swing now and then in their bell-frames, and a paper kite riding the wind over Willow Creek. Little dust devils (and whirls of ash and sand) spin along the roads.
 - **Six regions plus a world map:** the floating Azure Cloud Sect (day, falling petals), Willow Creek Village (dusk, autumn leaves), the Whispering Bamboo Forest (fireflies), the Moonlit Lotus Lake (night, stars and moon), the Crimson Demon Valley (blood moon, embers, lava) and Heavenly Tribulation Peak (snow, storm lightning). The miniature isometric continent has roads, rivers, sea, drifting clouds and their shadows, and animated landmarks. Regions unlock as the story advances.
 - **Narrative:** a prologue, five chapters and an epilogue, with a quest tracker, scripted cutscenes (walk, emote, camera, flash, shake, spawn), typed-out dialogue with animated portraits, full-screen narration, first-arrival scenes, pre-boss speeches and an ending.
 - **Cultivation:** 6 realms × 4 stages. Battles, spirit herbs, chests and shrine meditation grow your cultivation. At a realm's peak you must survive a Heavenly Tribulation (3 bolts, or 9 for the final ascension).
@@ -121,7 +175,7 @@ npm run dev            # http://localhost:3000
 | `npm run screenshots` | Re-captures `docs/screenshots/*` through Playwright |
 | `npm run assets` | Exports the animated GIF showcases and PNGs to `docs/art/` |
 
-Saves live in `$DATA_DIR/saves.json` (default `.data/`). Set `SAVE_STORE=memory` for an ephemeral in-memory store. Saves are version 4. Older saves are migrated on load: version 3 positions from the smaller 162 × 116 world keep their place relative to their region, and a position that is no longer open ground (or a save made while flying over water) lands on the nearest open tile.
+Saves live in `$DATA_DIR/saves.json` (default `.data/`). Set `SAVE_STORE=memory` for an ephemeral in-memory store. Saves are version 5. Older saves are migrated on load: version 4 positions from the 324 × 232 world are doubled into the magnified world, version 3 positions from the smaller 162 × 116 world keep their place relative to their region, and a position that is no longer open ground (or a save made while flying over water) lands on the nearest open tile.
 
 ## Controls
 
@@ -129,7 +183,8 @@ Saves live in `$DATA_DIR/saves.json` (default `.data/`). Set `SAVE_STORE=memory`
 |---|---|
 | `W A S D` / arrows (or click / tap a tile) | Walk (screen-relative) |
 | `Shift` (or push the joystick all the way) | Run |
-| `F` | Ride the flying sword (faster, crosses water, enemies can't reach you) |
+| `F` | Ride the flying sword (crosses water, enemies can't reach you) |
+| `R` | Whistle for Cloudmane, your spirit horse (`Shift` to gallop; `R` again to dismount) |
 | `E` / `Space` / `Enter` | Talk · meditate at shrines · open chests · gather herbs · read steles · enter and leave buildings · open the world map at a region's gate |
 | `M` | World map of the real world (arrows or clicks pick a region, the sword flies there, `E` lands at its waypoint) |
 | `B` | Face the Heavenly Tribulation (while meditating at a bottleneck) |
@@ -265,10 +320,11 @@ flowchart LR
   I --> C["Carve rivers, hot spring, lava pools,<br/>highway, branches, sky bridges & walkways"]
   C --> L["Smooth wild heights<br/>(≤ 1 level per tile from roads,<br/>regions and rivers)"]
   L --> P["Furnish landmarks (keepers, beasts,<br/>treasure), scatter trees,<br/>drop props off roads/water,<br/>block footprints"]
-  P --> R["Region of every tile → seals,<br/>sky / weather / light blend"]
+  P --> X["Magnify 2×: Scale2x the terrain,<br/>move placements to their blocks,<br/>grow buildings (rooms 1:1), thicken the wild<br/>world/magnify.ts"]
+  X --> R["Region of every tile → seals,<br/>sky / weather / light blend"]
   R --> W["WorldDef (one TileMap)<br/>world/continent.ts"]
   W --> RT["World runtime: lazy tile painting,<br/>visible-diagonal renderer"]
-  W --> M["World map: 3×3 downsample<br/>+ landmark icons<br/>world/overworld.ts"]
+  W --> M["World map: 6×6 downsample<br/>+ landmark icons<br/>world/overworld.ts"]
 ```
 
 ## Architecture
@@ -335,6 +391,7 @@ stateDiagram-v2
   Explore --> Indoors: walk into a door / E on its step (still explore mode, in a room)
   Indoors --> Explore: threshold mat (back on the step)
   Indoors --> Scene: talk · read a shelf · pray at an altar
+  Explore --> Explore: R mounts / dismounts Cloudmane (canter, Shift gallops)
   Explore --> Meditate: E at a shrine
   Meditate --> Tribulation: B at a bottleneck
   Tribulation --> Explore: breakthrough

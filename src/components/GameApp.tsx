@@ -67,7 +67,7 @@ function TitleScreen({ existing, leaders, onNew, onContinue }: { existing: GameS
             <h2>How to cultivate</h2>
             <ul>
               <li>
-                <span className="kbd">WASD</span>/<span className="kbd">←↑→↓</span> walk · <span className="kbd">F</span> ride your sword
+                <span className="kbd">WASD</span>/<span className="kbd">←↑→↓</span> walk · <span className="kbd">F</span> ride your sword · <span className="kbd">R</span> whistle for Cloudmane, your spirit horse (<span className="kbd">Shift</span> gallops)
               </li>
               <li>
                 <span className="kbd">E</span>/<span className="kbd">Space</span> talk, meditate, open chests · <span className="kbd">M</span> world map

@@ -400,7 +400,7 @@ const PROPS = {
         const fx = Math.abs(s.n[0]) > 0.5;
         const along = fx ? s.p[1] - cy : s.p[0] - cx;
         if (Math.abs(along) > W - 2.5 || s.p[2] > 21.5 || s.p[2] < 5) return tone(PAL.woodDark);
-        if (fx && Math.abs(along + 6) < 4 && s.p[2] < 17) return tone(PAL.wood);
+        if (fx && s.n[0] > 0 && Math.abs(along) < 4 && s.p[2] < 17) return Math.abs(along) < 0.4 ? tone(PAL.woodDark) : tone(PAL.wood);
         if (!fx && Math.abs(along - 5) < 3.5 && Math.abs(s.p[2] - 14) < 3) return Math.abs(along - 5) < 0.6 || Math.abs(s.p[2] - 14) < 0.6 ? tone(PAL.woodDark) : "#ffd890";
         return tone(WALL);
       } }));
@@ -819,7 +819,12 @@ const PROPS = {
     light: { color: "#ffd070", radius: 52, dy: 64 },
     paint: (r, f, n) => {
       const W = T * 0.78;
-      r.prism(0, 0, W + 6, 0, 4, 8, md(PAL.stone, 1), Math.PI / 8);
+      // a square stone terrace as wide as the pagoda's footprint, with the octagonal tower on it
+      const E = T * 1.45;
+      r.box([-E, -E, 0], [E, E, 2], md(PAL.stone, 1));
+      r.prism(0, 0, W + 6, 2, 4, 8, md(PAL.stone, 1), Math.PI / 8);
+      // the lamplit door on the east face
+      r.box([W * 0.66, -4, 4], [W * 0.74 + 1, 4, 14], m(PAL.woodDark, 12, { shader: (s, tone) => (s.n[0] > 0.5 && Math.abs(s.p[1]) < 3 && s.p[2] < 13 ? (Math.abs(s.p[1]) < 0.4 ? tone(PAL.black) : "#ffcf78") : tone(PAL.woodDark)) }));
       let z = 4;
       for (let k = 0; k < 5; k++) {
         const w = W * (1 - k * 0.13);
@@ -858,7 +863,7 @@ const PROPS = {
       r.box([cx - W, cy - W, 3], [cx + W, cy - W + 2, 22], md(WALL, 2));
       r.box([cx - W, cy - W, 3], [cx - W + 2, cy + W, 22], md(WALL, 2));
       r.box([cx + W - 2, cy - W, 3], [cx + W, cy + W, 22], md(WALL, 2, { shader: (s, tone) => (Math.abs(s.p[1] - cy) < 4 && Math.abs(s.p[2] - 13) < 3 ? "#ffd890" : tone(WALL)) }));
-      for (const x of [cx - W + 1, cx, cx + W - 1]) r.prism(x, cy + W - 1, 1.3, 3, 22, 6, m(PILLAR, 3));
+      for (const x of [cx - W + 1, cx - W / 3, cx + W / 3, cx + W - 1]) r.prism(x, cy + W - 1, 1.3, 3, 22, 6, m(PILLAR, 3));
       // a table with a teapot inside
       r.box([cx - 5, cy - 2, 3], [cx + 5, cy + 4, 9], m(PAL.woodDark, 4));
       r.sphere([cx, cy + 1, 11], 2, m(ramp("#e8e0d0"), 5));
@@ -1306,6 +1311,103 @@ const PROPS = {
       }
     },
   },
+  // a festival string of red lanterns between two poles, swinging in the breeze
+  lanterns: {
+    foot: [0, 0, 0, 0],
+    blocks: false,
+    frames: 6,
+    fps: 5,
+    light: { color: "#ff7a40", radius: 50, dy: 26 },
+    paint: (r, f, n) => {
+      const a: V3 = [-24, 24, 0];
+      const b: V3 = [24, -24, 0];
+      for (const p of [a, b]) {
+        r.sweep([p, add(p, [0, 0, 36])], 1, m(PAL.woodDark, 1));
+        r.sphere(add(p, [0, 0, 36.6]), 1.3, m(PAL.gold, 1));
+      }
+      const at = (u: number): V3 => [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, 34 - Math.sin(u * Math.PI) * 6];
+      for (let k = 0; k < 10; k++) r.sweep([at(k / 10), at((k + 1) / 10)], 0.25, m(PAL.black, 2));
+      for (let k = 0; k < 5; k++) {
+        const u = 0.17 + k * 0.165;
+        const top = at(u);
+        const sw = Math.sin((f / n) * TAU + k * 1.3) * 1.6;
+        const c: V3 = add(top, [sw * 0.7, -sw * 0.7, -4.6]);
+        r.sweep([top, c], 0.2, m(PAL.black, 3 + k));
+        r.ellipsoid(c, [2.2, 2.2, 2.8], m(k % 2 ? ramp("#ff5a3a", { hi: "#ffd27a", lo: "#7a1020" }) : ramp("#f0402a", { hi: "#ffc070", lo: "#6a0a1a" }), 3 + k, { shader: (s, tone) => (Math.abs(s.n[2]) > 0.8 ? tone(PAL.gold) : Math.sin(Math.atan2(s.n[1], s.n[0]) * 6) > 0.8 ? tone(PAL.red, 1) : tone(PAL.red, -1)) }));
+        r.sweep([add(c, [0, 0, -2.8]), add(c, [sw * 0.5, -sw * 0.5, -5.2])], [0.5, 0.2], m(PAL.gold, 3 + k));
+      }
+    },
+  },
+  // a bronze temple bell in a wooden frame; now and then it swings and rings
+  bell: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 12,
+    fps: 6,
+    paint: (r, f, n) => {
+      for (const x of [-9, 9]) {
+        r.box([x - 1.2, -1.2, 0], [x + 1.2, 1.2, 30], m(PAL.woodDark, 1));
+        r.box([x - 2, -2, 0], [x + 2, 2, 2], m(PAL.stone, 1));
+      }
+      r.box([-12, -1.6, 29], [12, 1.6, 32], m(PILLAR, 2));
+      r.hipRoof(0, 0, 15, 6, 32, 9, 0.5, 38, md(ROOF_GREY, 3, { shader: roofTiles(ROOF_GREY) }));
+      // it swings for the first half of the loop and hangs still for the rest
+      const swing = f < n / 2 ? Math.sin((f / (n / 2)) * TAU) * 0.32 * (1 - f / (n / 2)) : 0;
+      const pivot: V3 = [0, 0, 28.6];
+      const hang = (l: number, x = 0): V3 => [x, Math.sin(swing) * l, pivot[2] - Math.cos(swing) * l];
+      r.sweep([pivot, hang(3)], 0.5, m(PAL.black, 4));
+      r.cone(hang(9)[0], hang(9)[1], 5.4, hang(16)[2], 3, hang(4)[2], 14, md(BRONZE, 5, { shader: (s, tone) => (Math.abs(s.p[2] - hang(13)[2]) < 0.6 || Math.abs(s.p[2] - hang(7)[2]) < 0.5 ? tone(BRONZE, 1) : tone(BRONZE)) }));
+      r.sphere(hang(3.6), 3, md(BRONZE, 5));
+      // the wooden striker on its ropes
+      r.sweep([[12, -6, 21], [4, -6, 21]], 1.1, m(PAL.wood, 6));
+      for (const x of [6, 10]) r.sweep([[x, -6, 21], [x, -1.6, 30]], 0.2, m(PAL.black, 6));
+    },
+  },
+  // a paper kite on a long string, tied to a stake: it bobs and its tail ripples
+  kite: {
+    foot: [0, 0, 0, 0],
+    blocks: false,
+    frames: 8,
+    fps: 4,
+    paint: (r, f, n) => {
+      const ph = (f / n) * TAU;
+      r.sweep([[0, 0, 0], [0, 0, 5]], 0.6, m(PAL.woodDark, 1));
+      const kite: V3 = [14 + Math.sin(ph) * 2, -14 + Math.sin(ph) * 2, 96 + Math.cos(ph) * 3];
+      // the string sags in a long curve
+      const pts: V3[] = [];
+      for (let k = 0; k <= 10; k++) {
+        const u = k / 10;
+        pts.push([kite[0] * u, kite[1] * u, 5 + (kite[2] - 5) * u - Math.sin(u * Math.PI) * 10]);
+      }
+      r.sweep(pts, 0.2, m(PAL.paper, 2));
+      const tilt = Math.sin(ph * 2) * 1.5;
+      const top = add(kite, [tilt * 0.3, -tilt * 0.3, 7]);
+      const bottom = add(kite, [-tilt * 0.3, tilt * 0.3, -8]);
+      const left = add(kite, [-6, -6, 1]);
+      const right = add(kite, [6, 6, 1]);
+      const red = m(PAL.red, 3, { shader: (s, tone) => (Math.abs(s.p[2] - kite[2] - 1) < 1.2 ? tone(PAL.gold) : tone(PAL.red)) });
+      // a diamond of paper over a cross of bamboo
+      for (const [p, q] of [
+        [top, left],
+        [left, bottom],
+        [bottom, right],
+        [right, top],
+      ] as [V3, V3][])
+        r.sweep([p, q], 0.5, m(PAL.woodDark, 4));
+      r.sweep([top, bottom], 3.4, red);
+      r.sweep([left, right], 2.2, red);
+      r.sweep([top, bottom], 0.35, m(PAL.woodDark, 4));
+      r.sweep([left, right], 0.35, m(PAL.woodDark, 4));
+      // and a tail of little bows, rippling
+      let prev = bottom;
+      for (let k = 1; k <= 5; k++) {
+        const p: V3 = add(bottom, [Math.sin(ph * 2 + k) * 1.6, -k * 2.2, -k * 3.4]);
+        r.sweep([prev, p], 0.2, m(PAL.paper, 5));
+        r.sphere(p, 0.9, m(k % 2 ? PAL.gold : PAL.jade, 5));
+        prev = p;
+      }
+    },
+  },
 } satisfies Record<string, PropDef>;
 
 /** A bookcase backed against an interior wall: `sw` puts it on the wall along the other axis. */
@@ -1373,27 +1475,61 @@ export const propDef = (id: PropId): PropDef => PROPS[id];
 const CANVAS = 200;
 const ORIGIN_X = 100;
 const ORIGIN_Y = 150;
-const cache = new Map<PropId, PropSheet>();
+const cache = new Map<string, PropSheet>();
 
-/** Paint every frame of a prop and crop them all to one shared bounding box. */
-export function getProp(id: PropId): PropSheet {
-  let sheet = cache.get(id);
+/**
+ * Footprint box of a prop in tiles, relative to its model origin (the centre
+ * of the anchor tile at size 1), as [x0, y0, x1, y1].
+ */
+export function footBox(id: PropId): [number, number, number, number] {
+  const f = PROPS[id].foot;
+  return [f[0] - 0.5, f[1] - 0.5, f[2] + 0.5, f[3] + 0.5];
+}
+
+/**
+ * The tiles (inclusive [i0, j0, i1, j1]) a prop covers when its model origin
+ * stands at world point (x, y) and it is drawn k times its size.
+ */
+export function footTiles(id: PropId, x: number, y: number, k = 1): [number, number, number, number] {
+  const [b0, b1, b2, b3] = footBox(id);
+  return [Math.round(x + b0 * k), Math.round(y + b1 * k), Math.round(x + b2 * k) - 1, Math.round(y + b3 * k) - 1];
+}
+
+/**
+ * Where to stand a k-times prop's model origin so that its footprint is whole
+ * tiles centred (as near as tiles allow) on world point (cx, cy).
+ */
+export function originFor(id: PropId, cx: number, cy: number, k = 1): [number, number] {
+  const [b0, b1, b2, b3] = footBox(id);
+  const t0 = Math.round(cx - ((b2 - b0) * k) / 2);
+  const u0 = Math.round(cy - ((b3 - b1) * k) / 2);
+  return [t0 - b0 * k, u0 - b1 * k];
+}
+
+/** Paint every frame of a prop (k times its size) and crop them all to one shared bounding box. */
+export function getProp(id: PropId, k = 1): PropSheet {
+  const key = k === 1 ? id : `${id}*${k}`;
+  let sheet = cache.get(key);
   if (sheet) return sheet;
   const def: PropDef = PROPS[id];
+  const W = Math.ceil(CANVAS * k);
+  const H = Math.ceil(CANVAS * k);
+  const OX = Math.round(ORIGIN_X * k);
+  const OY = Math.round(ORIGIN_Y * k);
   const raw: PixelBuffer[] = [];
   for (let f = 0; f < def.frames; f++) {
-    const r = new Raster(CANVAS, CANVAS, ORIGIN_X, ORIGIN_Y, WORLD_BASIS);
+    const r = new Raster(W, H, OX, OY, WORLD_BASIS, k);
     def.paint(r, f, def.frames);
     raw.push(r.finish());
   }
-  let x0 = CANVAS;
-  let y0 = CANVAS;
+  let x0 = W;
+  let y0 = H;
   let x1 = 0;
   let y1 = 0;
   for (const b of raw)
-    for (let y = 0; y < CANVAS; y++)
-      for (let x = 0; x < CANVAS; x++)
-        if (b.data[(y * CANVAS + x) * 4 + 3] > 0) {
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++)
+        if (b.data[(y * W + x) * 4 + 3] > 0) {
           x0 = Math.min(x0, x);
           y0 = Math.min(y0, y);
           x1 = Math.max(x1, x);
@@ -1407,11 +1543,11 @@ export function getProp(id: PropId): PropSheet {
   const h = y1 - y0 + 1;
   const frames = raw.map((b) => {
     const out = new PixelBuffer(w, h);
-    for (let y = 0; y < h; y++) out.data.set(b.data.subarray(((y + y0) * CANVAS + x0) * 4, ((y + y0) * CANVAS + x0 + w) * 4), y * w * 4);
+    for (let y = 0; y < h; y++) out.data.set(b.data.subarray(((y + y0) * W + x0) * 4, ((y + y0) * W + x0 + w) * 4), y * w * 4);
     return out;
   });
-  sheet = { frames, fps: def.fps, ox: ORIGIN_X - x0, oy: ORIGIN_Y - y0 };
-  cache.set(id, sheet);
+  sheet = { frames, fps: def.fps, ox: OX - x0, oy: OY - y0 };
+  cache.set(key, sheet);
   return sheet;
 }
 
