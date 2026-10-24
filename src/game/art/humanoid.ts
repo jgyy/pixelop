@@ -71,8 +71,8 @@ export interface HumanPose {
   wind?: V3;
   /** Extra light-blue tint (qi casting) or white (hit flash) applied after. */
   flash?: number;
-  /** Something held in the hands: a bamboo dizi flute, a rice bowl and chopsticks, or juggling balls. */
-  held?: "flute" | "bowl" | "balls";
+  /** Something held in the hands: a bamboo dizi flute, a rice bowl and chopsticks, juggling balls, a smith's hammer, a writing brush or a paper lantern. */
+  held?: "flute" | "bowl" | "balls" | "hammer" | "brush" | "lantern";
 }
 
 export const HUMAN_W = 56;
@@ -386,6 +386,26 @@ export function paintHuman(st: HumanStyle, p: HumanPose, facing: number, o: Rend
       // tossed in an arc that peaks above the juggler's head
       r.sphere(U([Math.cos(a) * 4.6, 4, 34 + Math.sin(a) * 5]), Math.max(1.1, Rr(1.2)), mat(cols[b], 9));
     }
+  } else if (p.held === "hammer") {
+    // a smith's hammer: an ash haft and a dark iron head, swung from the right hand
+    const grip = U(handR);
+    const head = add(grip, [0.4 * S, 2.2 * S, 4.6 * S]);
+    r.sweep([sub(grip, [0, 0.4 * S, 1.2 * S]), head], Rr(0.4), mat(PAL.wood, 9));
+    r.sweep([add(head, [-1.4 * S, 0, 0]), add(head, [1.4 * S, 0, 0])], Rr(1.1), mat(ramp4("#a8a8b8", "#5a5a6a", "#3a3a4a", "#1a1a26"), 9));
+  } else if (p.held === "brush") {
+    // a writing brush, its tip dark with ink
+    const grip = U(handR);
+    const tip = add(grip, [0.2 * S, 1.2 * S, -2.6 * S]);
+    r.sweep([add(grip, [0, -0.4 * S, 2.4 * S]), tip], [Rr(0.3), Rr(0.22)], mat(PAL.woodDark, 9));
+    r.sweep([tip, add(tip, [0, 0.2 * S, -1 * S])], [Rr(0.35), Rr(0.08)], mat(PAL.black, 9));
+  } else if (p.held === "lantern") {
+    // a round paper lantern on a short pole, swinging a little
+    const grip = U(handR);
+    const top = add(grip, [0.6 * S, 1.6 * S, 4 * S]);
+    r.sweep([sub(grip, [0, 0, 0.8 * S]), top], Rr(0.3), mat(PAL.woodDark, 9));
+    const c = add(top, [Math.sin(t) * 0.6 * S, 0.4 * S, -2.6 * S]);
+    r.sweep([top, c], Rr(0.15), mat(PAL.black, 9));
+    r.ellipsoid(c, [Rr(1.8), Rr(1.8), Rr(2.1)], mat(ramp4("#fff0b0", "#ff6a3a", "#c02a2a", "#6a0a1a"), 9, { shader: (s, tone) => (Math.abs(s.n[2]) > 0.8 ? tone(PAL.gold) : tone(ramp4("#fff0b0", "#ff6a3a", "#c02a2a", "#6a0a1a"), s.n[0] > 0.3 ? -1 : 0)) }));
   }
 
   // ------------------------------------------------------------------ shawl, cape, tails, beard

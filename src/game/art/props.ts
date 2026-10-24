@@ -1408,6 +1408,184 @@ const PROPS = {
       }
     },
   },
+  // a village forge: a brick furnace roaring under its hood, bellows that breathe, and an anvil
+  forge: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 8,
+    fps: 8,
+    light: { color: "#ff7a30", radius: 48, dy: 14 },
+    emit: "embers",
+    paint: (r, f, n) => {
+      const ph = (f / n) * TAU;
+      const brick = md(ramp("#a85a42", { lo: "#3a1a1a" }), 1, { shader: (s, tone) => ((Math.floor(s.p[2] / 2.4) % 2 ? Math.sin(s.p[0] * 1.3) : Math.sin(s.p[0] * 1.3 + 1.6)) > 0.92 || s.p[2] % 2.4 < 0.4 ? tone(ramp("#a85a42", { lo: "#3a1a1a" }), 2) : tone(ramp("#a85a42", { lo: "#3a1a1a" }))) });
+      r.box([-8, -9, 0], [6, 3, 14], brick);
+      // the glowing mouth of the furnace on its front face
+      r.box([-4.6, 2.6, 3], [2.6, 3.4, 9], m(FIRE, 2, { shader: (s, tone) => tone(FIRE, Math.sin(s.p[0] * 0.9 + ph * 2) > 0.3 ? -1 : 0) }));
+      for (let k = 0; k < 4; k++) {
+        const x = -3.6 + k * 1.9;
+        r.sweep([[x, 0, 14], [x + Math.sin(ph + k) * 0.6, 0, 16.5 + Math.sin(ph * 2 + k * 1.7) * 1.6]], [1.4, 0.2], m(FIRE, 3));
+      }
+      // a stone hood and its chimney
+      r.cone(-1, -3, 9, 14.5, 3.6, 22, 4, md(PAL.stone, 4), Math.PI / 4);
+      r.prism(-1, -3, 2.6, 22, 34, 4, md(PAL.stone, 4), Math.PI / 4);
+      // the leather bellows, swelling and emptying
+      const b = 1.4 + Math.max(0, Math.sin(ph)) * 1.4;
+      r.ellipsoid([-11.4, -3, 6], [2.6, 4, b], m(ramp("#6a4a30"), 5));
+      r.sweep([[-11.4, -3, 6 + b], [-14, -3, 10 - b * 0.6]], 0.6, m(PAL.woodDark, 5));
+      // the anvil on its stump, in front of the furnace
+      r.prism(8, 9, 2.6, 0, 6, 8, m(BARK, 6));
+      r.box([5.4, 7.8, 6], [10.6, 10.2, 8.6], m(ramp("#6a6a7a", { lo: "#141420" }), 7));
+      r.sweep([[10.6, 9, 7.8], [13, 9, 7.6]], [1, 0.3], m(ramp("#6a6a7a", { lo: "#141420" }), 7));
+      // a red-hot blade cooling on it
+      r.sweep([[6, 9, 9], [10, 9.4, 9]], [0.6, 0.25], m(f % 4 < 2 ? FIRE : tones("#ffe0a0", "#ff9040", "#c84020", "#6a1a10"), 8));
+    },
+  },
+  // the Sword Tomb: a cairn bristling with the swords of the fallen, glinting in turn
+  swordtomb: {
+    foot: [-1, -1, 1, 1],
+    blocks: true,
+    frames: 8,
+    fps: 5,
+    emit: "sparkle",
+    paint: (r, f, n) => {
+      const st = md(PAL.stone, 1, { shader: (s, tone) => (fbm(s.p[0] * 0.3, s.p[1] * 0.3 + s.p[2] * 0.2, 5) > 0.6 ? tone(ramp("#6a8a5a", { lo: "#1a2a1a" })) : tone(PAL.stone)) });
+      r.ellipsoid([0, 0, 0], [20, 20, 10], st);
+      r.ellipsoid([-2, 2, 7], [10, 10, 7], st);
+      const glint = f;
+      for (let k = 0; k < 13; k++) {
+        const a = k * 2.399;
+        const d = 3 + (k % 5) * 3.2;
+        const base: V3 = [Math.cos(a) * d, Math.sin(a) * d, Math.max(2, 13 - d * 0.75)];
+        const tilt: V3 = [Math.cos(a) * 3 + Math.sin(k) * 2, Math.sin(a) * 3, 15 + (k % 3) * 3];
+        const tip = add(base, tilt);
+        const bright = k % n === glint;
+        const blade = bright ? tones("#ffffff", "#ffffff", "#dfe8f4", "#9aaccc") : PAL.steel;
+        r.sweep([base, tip], [0.9, 0.2], m(blade, 2 + (k % 4)));
+        // crossguard and grip poke out of the stones
+        const g0 = add(base, [tilt[0] * 0.05, tilt[1] * 0.05, -0.6]);
+        r.sweep([add(g0, [-1.6, 1.6, 0]), add(g0, [1.6, -1.6, 0])], 0.45, m(k % 3 ? BRONZE : PAL.gold, 2 + (k % 4)));
+      }
+      // one great sword stands upright at the summit, a red tassel stirring
+      r.sweep([[-2, 2, 13], [-2, 2, 38]], [1.6, 0.3], m(PAL.steel, 6));
+      r.sweep([[-5, 5, 13.5], [1, -1, 13.5]], 0.8, m(PAL.gold, 7));
+      r.sweep([[-2, 2, 13], [-2, 2, 9]], 0.7, m(PAL.woodDark, 7));
+      const sw = Math.sin((f / n) * TAU) * 1.2;
+      r.sweep([[-2, 2, 9], [-2 + sw, 2 - sw, 4.6]], [0.6, 0.2], m(PAL.red, 8));
+    },
+  },
+  // a peach tree, heavy with blossom and fruit, swaying in the breeze
+  peachtree: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 6,
+    fps: 4,
+    emit: "petals",
+    paint: (r, f, n) => {
+      r.sweep([[0, 0, 0], [-1, 1, 10], [2, -1, 18]], [2.6, 2, 1.4], m(BARK, 1));
+      r.sweep([[-1, 1, 10], [-7, 4, 20]], [1.4, 0.8], m(BARK, 1));
+      const leaf = ramp("#6aa84a", { lo: "#1a4a2a" });
+      const blobs: [number, number, number, number][] = [
+        [2, -2, 28, 10],
+        [-7, 5, 25, 8.5],
+        [7, 5, 23, 7.5],
+        [-3, -7, 24, 7.5],
+      ];
+      // pink blossom over a few patches of fresh green
+      blobs.forEach(([x, y, z, rr], k) =>
+        r.sphere(add([x, y, z], swayAt(f, n, z, 1.6)), rr, md(BLOSSOM, 2 + k, { shader: (s, tone) => (fbm(s.p[0] * 0.5 + k, s.p[1] * 0.5 + s.p[2] * 0.3, 21 + k) > 0.62 ? tone(leaf) : tone(BLOSSOM, s.n[2] > 0.5 ? -1 : s.n[2] < -0.2 ? 1 : 0)) })),
+      );
+      // ripe peaches peeping from the leaves
+      for (let k = 0; k < 6; k++) {
+        const [x, y, z, rr] = blobs[k % 4];
+        const a = k * 1.9;
+        const p = add([x + Math.cos(a) * rr * 0.8, y + Math.sin(a) * rr * 0.8, z - rr * 0.45], swayAt(f, n, z, 1.6));
+        r.sphere(p, 1.5, m(tones("#fff0c0", "#ffa070", "#e8504a", "#8a1a3a"), 6));
+      }
+    },
+  },
+  // a straw beehive skep on a stand, with bees looping round it
+  beehive: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 8,
+    fps: 10,
+    paint: (r, f, n) => {
+      r.box([-5, -5, 0], [5, 5, 6], m(PAL.woodDark, 1));
+      r.ellipsoid([0, 0, 6], [6, 6, 9], md(PAL.straw, 2, { shader: (s, tone) => (Math.sin(s.p[2] * 1.6) > 0.6 ? tone(PAL.straw, 1) : tone(PAL.straw)) }));
+      r.box([-1.2, 5.4, 7], [1.2, 6, 8.6], m(PAL.black, 3));
+      for (let k = 0; k < 5; k++) {
+        const a = (f / n) * TAU * (k % 2 ? 1 : -1) + k * 1.3;
+        const rr = 8 + (k % 3) * 2.4;
+        r.sphere([Math.cos(a) * rr, Math.sin(a) * rr, 10 + Math.sin(a * 2 + k) * 4], 0.9, m(k % 2 ? PAL.gold : tones("#fff0a0", "#3a3a3a", "#2a2238", "#120c22"), 4));
+      }
+    },
+  },
+  // a lonely grave mound with a stone tablet and a stick of incense
+  grave: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    emit: "incense",
+    paint: (r) => {
+      r.ellipsoid([0, -2, 0], [8, 7, 5], md(ramp("#6a8a4a", { lo: "#1a2a1a" }), 1));
+      r.box([-4, 3, 0], [4, 5, 13], md(PAL.stone, 2, { shader: (s, tone) => (Math.abs(s.p[0]) < 1 && s.p[2] > 3 && s.p[2] < 11 && Math.floor(s.p[2]) % 3 ? "#2a2238" : tone(PAL.stone)) }));
+      r.cone(0, 4, 4.6, 13, 3.4, 14.6, 4, md(PAL.stone, 2), Math.PI / 4);
+      r.cone(0, 8, 2, 0, 1.6, 2, 8, m(BRONZE, 3));
+      r.sweep([[0, 8, 2], [0, 8, 7]], 0.25, m(PAL.red, 4));
+    },
+  },
+  // ghostly will-o'-wisps that drift and bob above the ground
+  wisps: {
+    foot: [0, 0, 0, 0],
+    blocks: false,
+    frames: 8,
+    fps: 5,
+    light: { color: "#8ad0ff", radius: 36, dy: 18 },
+    paint: (r, f, n) => {
+      const ph = (f / n) * TAU;
+      for (let k = 0; k < 3; k++) {
+        const a = ph + (k * TAU) / 3;
+        const c: V3 = [Math.cos(a) * 7, Math.sin(a) * 7, 14 + Math.sin(ph * 2 + k * 2) * 3 + k * 2];
+        r.sphere(c, 1.8, m(tones("#ffffff", "#c8f0ff", "#6ab0ff", "#3a5aa8"), 1 + k, { outline: undefined }));
+        r.sweep([c, add(c, [Math.cos(a + 1.6) * 3, Math.sin(a + 1.6) * 3, -1.4])], [1.2, 0.2], m(tones("#e8f8ff", "#9ad8ff", "#5a9ae8", "#3a5aa8"), 1 + k, { outline: undefined }));
+      }
+    },
+  },
+  // festival fireworks: a rocket climbs from its stand and bursts into a chrysanthemum of sparks that drift down
+  fireworks: {
+    foot: [0, 0, 0, 0],
+    blocks: false,
+    frames: 14,
+    fps: 7,
+    light: { color: "#ffb060", radius: 44, dy: 8 },
+    paint: (r, f, n) => {
+      r.box([-2.6, -2.6, 0], [2.6, 2.6, 4], m(PAL.red, 1));
+      r.sweep([[0, 0, 4], [0, 0, 8]], 0.6, m(PAL.gold, 1));
+      const rise = 4;
+      const cols = [PAL.gold, PAL.rose, PAL.qi, tones("#ffffff", "#ffb040", "#f0601e", "#a81a10")];
+      if (f < rise) {
+        const z = 12 + (f / rise) * 84;
+        r.sweep([[0, 0, z - 12], [0, 0, z]], [0.2, 1.2], m(FIRE, 2));
+        return;
+      }
+      const k = (f - rise) / (n - rise);
+      const rad = 8 + Math.sqrt(k) * 34;
+      const c: V3 = [0, 0, 100 - k * 14];
+      for (let s = 0; s < 22; s++) {
+        const a = (s / 22) * TAU;
+        const e = Math.sin(s * 2.1) * 0.7;
+        const dir: V3 = [Math.cos(a) * Math.cos(e), Math.sin(a) * Math.cos(e), Math.sin(e)];
+        const fall = k * k * 12;
+        const tip = add(c, [dir[0] * rad, dir[1] * rad, dir[2] * rad - fall]);
+        const tail = add(c, [dir[0] * rad * 0.6, dir[1] * rad * 0.6, dir[2] * rad * 0.6 - fall * 0.5]);
+        // the sparks thin out and wink as the burst fades
+        if (k > 0.75 && (s + f) % 3 === 0) continue;
+        r.sweep([tail, tip], [0.3, k > 0.8 ? 0.6 : 1.3], m(cols[s % cols.length], 3, { outline: undefined }));
+      }
+    },
+  },
 } satisfies Record<string, PropDef>;
 
 /** A bookcase backed against an interior wall: `sw` puts it on the wall along the other axis. */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CHAR_IDS, charDef, DIRS, dirFromWorld, getAnim, getPortrait, HUMAN_IDS, PORTRAIT, STYLES } from "@/game/art/characters";
+import { CHAR_IDS, charDef, DIRS, dirFromWorld, getAnim, getPortrait, HUMAN_IDS, OUTFITS, PORTRAIT, STYLES, type HumanId } from "@/game/art/characters";
 import { paintHuman } from "@/game/art/humanoid";
 import { getProp, getPropScaled, glowSprite, PROP_IDS, propDef } from "@/game/art/props";
 import { foamOverlay, LIQUID_FRAMES, liquidFrame, paintTile } from "@/game/art/tiles";
@@ -42,6 +42,25 @@ describe("characters", () => {
     expect(dirFromWorld(1, -1)).toBe(4); // screen right
     expect(dirFromWorld(-1, -1)).toBe(8); // away
     expect(dirFromWorld(-1, 1)).toBe(12); // screen left
+  });
+
+  it("dresses characters in their outfits, on foot, on horseback and in portraits", () => {
+    const same = (a: { data: Uint8ClampedArray }, b: { data: Uint8ClampedArray }) => Buffer.from(a.data).equals(Buffer.from(b.data));
+    for (const [id, outfits] of Object.entries(OUTFITS) as [HumanId, Record<string, unknown>][])
+      for (const o of Object.keys(outfits)) {
+        expect(same(getAnim(id, "idle", 2, o).frames[0], getAnim(id, "idle", 2).frames[0]), `${id}/${o}`).toBe(false);
+        expect(same(getPortrait(id, o)[0], getPortrait(id)[0]), `${id}/${o} portrait`).toBe(false);
+      }
+    expect(same(getAnim("rider", "run", 4, "mail").frames[0], getAnim("rider", "run", 4).frames[0])).toBe(false);
+    // an outfit nobody has is just their everyday clothes
+    expect(getAnim("elder", "idle", 2, "festival")).toBe(getAnim("elder", "idle", 2));
+  });
+
+  it("a twirl turns her once round on the spot", () => {
+    const tw = getAnim("heroine", "twirl", 0);
+    expect(tw.loop).toBe(false);
+    const facing = (b: { data: Uint8ClampedArray }) => Buffer.from(b.data).toString("base64");
+    expect(new Set(tw.frames.map(facing)).size).toBe(tw.frames.length);
   });
 
   it("paints dialogue portraits with blink and talk frames", () => {

@@ -678,4 +678,84 @@ describe("Game runtime", () => {
     renderTitle(t, 3);
     expect((t as BufferSurface).buffer.opaqueCount()).toBe(320 * 180);
   });
+
+  it("changes attire with C: a twirl, a new look in the world, in battle and in her portrait", () => {
+    const game = fresh();
+    game.debugPatch({ flags: { metElder: true, "attire:wayfarer": true } });
+    game.debugGoto(...toWorld("sect", 15.5, 20.5));
+    game.debugSkipTime(0.2);
+    expect(game.snapshot().attire).toEqual({ id: "jade", name: "Jade Lotus Robes", owned: 2 });
+    game.keyDown("KeyC");
+    game.keyUp("KeyC");
+    game.debugSkipTime(0.1);
+    expect(game.snapshot().attire.id).toBe("wayfarer");
+    expect(game.world.hero.outfit).toBe("wayfarer");
+    expect(game.world.hero.anim).toBe("twirl");
+    expect(game.snapshot().toasts.some((t) => /Wayfarer/.test(t.text))).toBe(true);
+    // she rides in it too, and fights in it
+    game.toggleRide();
+    game.debugSkipTime(0.1);
+    expect(game.world.hero.char).toBe("rider");
+    expect(game.world.hero.outfit).toBe("wayfarer");
+    game.debugBattle("fox");
+    expect(game.battle!.hero.outfit).toBe("wayfarer");
+  });
+
+  it("with only her jade robes, C explains how to find more", () => {
+    const game = fresh();
+    game.keyDown("KeyC");
+    game.keyUp("KeyC");
+    expect(game.snapshot().attire.id).toBe("jade");
+    expect(game.snapshot().toasts.some((t) => /Jade Lotus Robes/.test(t.text))).toBe(true);
+  });
+
+  it("Willow Creek's folk put on their festival best (lanterns in hand) once the Heart is home", () => {
+    const game = fresh();
+    game.debugPatch({ flags: { metElder: true, villageArrived: true, villageSaved: true, metZhou: true, patriarchDefeated: true } });
+    game.debugTeleport("village", 16.5, 12.5);
+    game.debugSkipTime(0.6);
+    const zhou = game.world.actor("zhou")!;
+    expect(zhou.outfit).toBeUndefined();
+    game.debugPatch({ flags: { ...game.state.flags, heartReturned: true, festivalSeen: true } });
+    game.debugSkipTime(0.6);
+    expect(zhou.outfit).toBe("festival");
+    expect(zhou.idleAnim).toBe("lantern");
+    const s = surface();
+    game.render(s);
+    expect(s.buffer.opaqueCount()).toBeGreaterThan(0);
+  });
+
+  it("the scholar's shade writes at the Moon-Gazing Pavilion, and finds his rest when Hu Li comes", () => {
+    const game = fresh();
+    game.debugPatch({ flags: { metElder: true, villageArrived: true, villageSaved: true, metZhou: true, foxesCleared: true, bambooArrived: true, metHuli: true } });
+    talkTo(game, "pei");
+    expect(game.mode).toBe("scene");
+    game.debugSkipTime(1);
+    expect(game.snapshot().dialog?.speaker).toBe("Scholar Pei");
+    talkThrough(game);
+    expect(game.state.flags.peiMet).toBe(true);
+    expect(game.snapshot().errand).toMatch(/Hu Li/);
+    talkTo(game, "huli");
+    talkThrough(game);
+    expect(game.state.flags.huliLetter).toBe(true);
+    talkTo(game, "pei");
+    game.debugSkipTime(0.6);
+    expect(game.world.actor("huliPav")).toBeDefined();
+    talkThrough(game);
+    expect(game.state.flags.peiAtRest).toBe(true);
+    expect(game.snapshot().attire.id).toBe("foxfire");
+    game.debugSkipTime(0.6);
+    expect(game.world.actor("pei")).toBeUndefined();
+  });
+
+  it("refusing the final tribulation away from the peak doesn't leave her sitting in meditation", () => {
+    const game = fresh();
+    game.debugPatch({ realm: 4, stage: 3, cultivation: cultivationNeeded(4, 3), flags: { metElder: true } });
+    standBy(game, "sect-shrine");
+    game.keyDown("KeyB");
+    game.keyUp("KeyB");
+    expect(game.mode).toBe("explore");
+    expect(game.world.hero.idleAnim).toBe("idle");
+    expect(game.snapshot().toasts.some((t) => /Tribulation Peak/.test(t.text))).toBe(true);
+  });
 });
