@@ -482,8 +482,9 @@ function drawFace(r: Raster, st: HumanStyle, p: HumanPose, head: V3, HR: number,
     const outer = side * (r.basis.xh >= 0 ? 1 : -1);
     if (big) {
       const e = k * S;
-      const ew = Math.max(2, Math.round(1.3 * e));
-      const eh = Math.max(3, Math.round(2 * e));
+      // portrait eyes: big enough to read expressions, small enough not to swallow the face
+      const ew = Math.max(2, Math.round(1.05 * e));
+      const eh = Math.max(3, Math.round(1.6 * e));
       if (eyes === "closed" || eyes === "blink") {
         for (let i = -ew; i <= ew; i++) r.plot(x + i, y + Math.round(Math.abs(i) * 0.25) - (eyes === "blink" ? 1 : 0), lash);
       } else if (eyes === "hurt") {
