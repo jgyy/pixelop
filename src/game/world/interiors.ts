@@ -1,6 +1,6 @@
 import type { PropId } from "../art/props";
 import { propDef } from "../art/props";
-import { placementTiles, type AreaDef, type Interactable, type NpcPlacement, type PropPlacement } from "./areas";
+import { festive, placementTiles, type AreaDef, type Interactable, type NpcPlacement, type PropPlacement } from "./areas";
 import { toCoarse } from "./layout";
 import { buildingTiles, magnifyBuilding } from "./magnify";
 import { TileMap, type TileKind } from "./tilemap";
@@ -186,7 +186,7 @@ function buildCottage(): InteriorDef {
       P("vase", 1, 7),
       P("sacks", 7, 7),
     ],
-    npcs: [{ key: "lu", char: "weaver", i: 3, j: 4, dir: 0, anim: "weave" }],
+    npcs: [{ key: "lu", char: "weaver", i: 3, j: 4, dir: 0, anim: "weave", outfit: festive }],
     interacts: [
       { key: "cottage-sword", kind: "sign", i: 4, j: 1, text: "A sheathed sword wrapped in faded azure silk, the sect's cloud crest still stitched on the hilt. Beneath it a cup of tea has been poured and left to go cold — fresh, by the smell of it, this very morning." },
       { key: "cottage-shelf", kind: "sign", i: 1, j: 3, text: "Jars of dried herbs, each labelled in a careful hand: snow lotus, ginseng, fox-ear moss, “for Mei's cough”, and one marked only “for when he comes home”." },

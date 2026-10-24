@@ -115,9 +115,50 @@ Five buildings open their doors: the **Hall of Clouds** (the sect's ancestral ha
 |---|---|
 | ![](docs/art/room-mill.gif) | ![](docs/art/room-pagoda.gif) |
 
+### Errands, attire and three new landmarks
+
+The jianghu has more to say. Three new landmarks stand in the wilds, each with its own keeper and story, and four **side errands** run alongside the main quest. They show under the quest tracker as you pick them up, and each ends in a new outfit for Lin Yue. Press `C` (or **Attire**) to change: she twirls into it, and wears it on foot, on Cloudmane, in battle and in her dialogue portrait. Once the Heart is home, Willow Creek holds its first lantern festival in seven years: fireworks burst over the square, the villagers put on their festival best and hold up lanterns, and Little Mei gives her a festival dress.
+
+| | |
+|---|---|
+| ![The Sword Tomb, where Smith Ou keeps the swords of the fallen](docs/screenshots/51-sword-tomb.png) | ![Smith Ou and Dawnfrost](docs/screenshots/52-smith-ou.png) |
+| ![The Moon-Gazing Pavilion and a restless shade](docs/screenshots/53-moon-pavilion.png) | ![Scholar Pei asks her to find his fox](docs/screenshots/54-scholar-pei.png) |
+| ![Hu Li comes to the pavilion: the last line of the letter](docs/screenshots/55-the-last-line.png) | ![Auntie Rong's peach orchard](docs/screenshots/56-peach-orchard.png) |
+| ![Cloud-silk robes on the Cloudstep Isles](docs/screenshots/57-attire-cloudsilk.png) | ![The wayfarer's cloak at a gallop](docs/screenshots/58-attire-wayfarer-gallop.png) |
+| ![Sword-Tomb mail in battle](docs/screenshots/59-attire-mail-battle.png) | ![Little Mei's festival dress](docs/screenshots/60-festival-dress.png) |
+| ![A twirl into the festival dress](docs/screenshots/61-festival-twirl.png) | ![Willow Creek's lantern festival](docs/screenshots/62-lantern-festival.png) |
+
+| Lin Yue's wardrobe and Willow Creek's festival best | New moves: salute, twirl, hammer, brush, a drifting shade, a lantern |
+|---|---|
+| ![](docs/art/attire.gif) | ![](docs/art/new-moves.gif) |
+
+| Sword Tomb | Moon-Gazing Pavilion (night) | Peach Orchard |
+|---|---|---|
+| ![](docs/art/site-swordtomb.gif) | ![](docs/art/site-pavilion.gif) | ![](docs/art/site-orchard.gif) |
+
+```mermaid
+flowchart LR
+  subgraph letter["The scholar's letter"]
+    pei1["Scholar Pei's shade<br/>(Moon-Gazing Pavilion, after meeting Hu Li)"] --> huli1["Hu Li, beneath the spirit tree"]
+    huli1 --> pei2["Hu Li keeps vigil at the pavilion:<br/>the last line, and Pei is at rest"]
+    pei2 --> fox(["Foxfire Dress"])
+  end
+  subgraph brothers["The brothers' quarrel"]
+    yun1["Master Yun: a tea brick,<br/>'not an apology'"] --> wen["Old Fisher Wen: a moon-pearl"] --> yun2["Master Yun laughs at last"] --> cloud(["Cloud-Silk Robes"])
+  end
+  subgraph dawn["Dawnfrost"]
+    ou1["Smith Ou at the Sword Tomb"] --> xue["Patriarch Xue's altar:<br/>the sword he never drew"] --> ou2["Dawnfrost goes home"] --> mail(["Sword-Tomb Mail"])
+  end
+  hua["Granny Hua, once the foxes sleep"] --> cloak(["Wayfarer's Cloak"])
+  heart["The Heart returned"] --> fest["Willow Creek's lantern festival:<br/>fireworks, festival clothes"] --> dress(["Lantern Festival Dress"])
+  asc["Ascension"] --> cel(["Celestial Raiment"])
+  classDef o fill:#241a40,stroke:#f39bc0,color:#fff6dc;
+  class fox,cloud,mail,cloak,dress,cel o;
+```
+
 ### Animated art
 
-| Lin Yue's 26 animations | All 16 facing directions |
+| Lin Yue's 29 animations | All 16 facing directions |
 |---|---|
 | ![Heroine move set](docs/art/heroine-moves.gif) | ![Heroine 16 directions](docs/art/heroine-16dir.gif) |
 
@@ -149,11 +190,11 @@ Five buildings open their doors: the **Hall of Clouds** (the sect's ancestral ha
 - **A living world:** a day/night cycle (stars come out, shooting stars streak past, lanterns glow), dragonflies over the shallows, fireflies rising from the grass after dusk, dandelion seeds on the wind, lava bubbles that swell and pop, birds and bats wheeling overhead, butterflies over meadow flowers, koi leaping in the water, cloud shadows drifting over the land, footprints in sand, snow and ash, cranes that take flight when you come close, NPCs who turn and wave as you pass, a peddler walking the highway with his shop, beasts that shout "!" and gallop after you (and give up with a "?"), and beaten beasts that come back once you've been away for a while.
 - **2.5D isometric world:** height-mapped tile maps with cliffs, stairs, raised platforms, floating islands with rocky undersides, animated water and lava with shore foam, depth-sorted props (sliced into screen columns so they occlude correctly), contact shadows, an x-ray silhouette when the heroine walks behind something, and parallax skies.
 - **Building interiors:** five cutaway rooms behind real doors in the world, each its own small map run by the same World runtime: back walls with timber frames, wainscots and lattice windows, raised floors with rugs, daylight shafts that follow the day/night cycle, and lamplit furniture. Walking into a door goes through it; walking out over the threshold mat steps back onto the street. Saves made indoors remember the step outside, so a reload lands in the open world. You can't ride your sword or open the world map under a roof.
-- **Procedural 3D pixel sprites:** 28 humanoid characters, 7 beasts and a rider on her horse, each built from roughly 20 ray-cast solids (bell skirts, sleeves, hair strands, shawls, tails, hats, weapons) with hue-shifted 4-tone shading, face decals and selective outlines. They render in 16 directions with up to 26 animations: idle, walk, run, talk, attack, cast, hurt, meditate, sword-flight, victory, defeat, bow, wave, gather (kneel and pick), drink, cheer, point and nod, stretch and look-around idle fidgets, plus hop, practice, fishing, sweeping, dancing and dozing, and the everyday ones: reading (with a page turn), sitting, kneeling in prayer, weaving at a loom, pouring tea, clapping, laughing, a seated storyteller's sweeping gestures, and four pastimes: playing the dizi flute (with a few notes over her head), eating a bowl of noodles, juggling three bright balls and cooling off with a folding fan. Horses walk, gallop, graze and rear, and Lin Yue rides one: horse and rider are painted into one depth buffer so they occlude each other properly. Foxes and wolves gallop with a run cycle, sniff the ground and curl up asleep with their tails wrapped round them; wolves sit back and howl; cranes peck at the grass. Dialogue portraits are rendered from the same models at 3× scale, with blink and talk frames.
+- **Procedural 3D pixel sprites:** 31 humanoid characters, 7 beasts and a rider on her horse, each built from roughly 20 ray-cast solids (bell skirts, sleeves, hair strands, shawls, tails, hats, weapons) with hue-shifted 4-tone shading, face decals and selective outlines. They render in 16 directions with up to 29 animations: idle, walk, run, talk, attack, cast, hurt, meditate, sword-flight, victory, defeat, bow, wave, gather (kneel and pick), drink, cheer, point and nod, stretch and look-around idle fidgets, plus hop, practice, fishing, sweeping, dancing and dozing, and the everyday ones: reading (with a page turn), sitting, kneeling in prayer, weaving at a loom, pouring tea, clapping, laughing, a seated storyteller's sweeping gestures, and four pastimes: playing the dizi flute (with a few notes over her head), eating a bowl of noodles, juggling three bright balls and cooling off with a folding fan; and the newest: the cultivator's fist-in-palm salute, a twirl on the spot that flares the skirts, a smith's hammer ringing on the anvil, kneeling to write with a brush, a restless shade drifting above the ground, and holding up a festival lantern. People can change clothes: every humanoid can wear **outfits** (style overrides painted and cached per outfit, on foot, on horseback, in battle and in their portrait). Horses walk, gallop, graze and rear, and Lin Yue rides one: horse and rider are painted into one depth buffer so they occlude each other properly. Foxes and wolves gallop with a run cycle, sniff the ground and curl up asleep with their tails wrapped round them; wolves sit back and howl; cranes peck at the grass. Dialogue portraits are rendered from the same models at 3× scale, with blink and talk frames.
 - **Idle life:** villagers and wayfarers break into nods, stretches, sips of tea, pours from the teapot, claps, laughs, little dances and cheers when nobody needs them; sleepers breathe with drifting "Z"s; roaming beasts stop to sniff, howl or nap (and leap up the moment they spot you); Lin Yue drinks her pills, reads the steles she stops at, bows in prayer at altars and, left alone, nods, points, claps and laughs as well as stretching, and in the end sits down where she stands until you move her again. Fish shadows glide in slow circles under the water, and washing flaps on a line in Willow Creek.
-- **74 props, 43 of them animated** (buildings grow with the world, drawn 2–4× their size and painted only when first seen): swaying pines, cherry and maple trees, bamboo groves, willows, a glowing spirit tree, the multi-tier Hall of Clouds, village houses with chimney smoke, a lake pavilion, flickering lanterns and braziers that cast soft glows at night, waving banners, a bubbling alchemy cauldron, bobbing lotuses and boats, a rotating taiji dais, a pulsing blood altar, a turning waterwheel that sheds water, crackling campfires, scarecrows flapping in the wind, a five-tier pagoda with swinging wind chimes, a teahouse with a fluttering tea flag, tents, fluttering prayer flags, steaming hot-spring rocks, karst spires, temple ruins, haystacks and benches; and indoors, bookcases, hanging scrolls that stir in the draught, a brick stove with a fire and a steaming wok, a loom, a millstone with its crown wheel, grain sacks, ancestral altars with incense and candles, a bronze tree of seven oil lamps, a jade founder's statue, folding screens, a bed, an herb-drying rack, porcelain vases, a sword rack, tea tables with steaming cups, cushions and a washing line; and new: strings of festival lanterns swinging over the village square and the crossroads, bronze temple bells that swing now and then in their bell-frames, and a paper kite riding the wind over Willow Creek. Little dust devils (and whirls of ash and sand) spin along the roads.
+- **81 props, 49 of them animated** (buildings grow with the world, drawn 2–4× their size and painted only when first seen): swaying pines, cherry and maple trees, bamboo groves, willows, a glowing spirit tree, the multi-tier Hall of Clouds, village houses with chimney smoke, a lake pavilion, flickering lanterns and braziers that cast soft glows at night, waving banners, a bubbling alchemy cauldron, bobbing lotuses and boats, a rotating taiji dais, a pulsing blood altar, a turning waterwheel that sheds water, crackling campfires, scarecrows flapping in the wind, a five-tier pagoda with swinging wind chimes, a teahouse with a fluttering tea flag, tents, fluttering prayer flags, steaming hot-spring rocks, karst spires, temple ruins, haystacks and benches; and indoors, bookcases, hanging scrolls that stir in the draught, a brick stove with a fire and a steaming wok, a loom, a millstone with its crown wheel, grain sacks, ancestral altars with incense and candles, a bronze tree of seven oil lamps, a jade founder's statue, folding screens, a bed, an herb-drying rack, porcelain vases, a sword rack, tea tables with steaming cups, cushions and a washing line; and new: strings of festival lanterns swinging over the village square and the crossroads, bronze temple bells that swing now and then in their bell-frames, and a paper kite riding the wind over Willow Creek; and newest: a village forge with breathing bellows and a red-hot blade on the anvil, the Sword Tomb bristling with glinting blades, peach trees in blossom and fruit that shed petals, straw beehives with bees looping round them, a lonely grave with a stick of incense, drifting will-o'-wisps, and festival fireworks that climb and burst over Willow Creek once the Heart is home (props can now appear only while a story condition holds). Little dust devils (and whirls of ash and sand) spin along the roads.
 - **Six regions plus a world map:** the floating Azure Cloud Sect (day, falling petals), Willow Creek Village (dusk, autumn leaves), the Whispering Bamboo Forest (fireflies), the Moonlit Lotus Lake (night, stars and moon), the Crimson Demon Valley (blood moon, embers, lava) and Heavenly Tribulation Peak (snow, storm lightning). The miniature isometric continent has roads, rivers, sea, drifting clouds and their shadows, and animated landmarks. Regions unlock as the story advances.
-- **Narrative:** a prologue, five chapters and an epilogue, with a quest tracker, scripted cutscenes (walk, emote, camera, flash, shake, spawn), typed-out dialogue with animated portraits, full-screen narration, first-arrival scenes, pre-boss speeches and an ending.
+- **Narrative:** a prologue, five chapters and an epilogue, with a quest tracker, scripted cutscenes (walk, emote, camera, flash, shake, spawn), typed-out dialogue with animated portraits, full-screen narration, first-arrival scenes, pre-boss speeches and an ending; plus four side errands shown under the quest tracker (a ghost's unfinished letter, two quarrelling brothers, a sword brought home, a dead husband's cloak) and Willow Creek's lantern festival, each ending in a new outfit.
 - **Cultivation:** 6 realms × 4 stages. Battles, spirit herbs, chests and shrine meditation grow your cultivation. At a realm's peak you must survive a Heavenly Tribulation (3 bolts, or 9 for the final ascension).
 - **Turn-based battles** on themed isometric arenas, with five techniques (Azure Sword Strike, Jade Lotus Palm, Lotus Heart Sutra, Myriad Swords Return, Nine Heavens Thunder), pills and fleeing. Fighters dash in, recoil, throw qi orbs and foxfire, and call down lightning, with damage pop-ups, crits, screen shake and flashes.
 - **Controls:** keyboard, click/tap-to-walk, and a virtual joystick on touch screens.
@@ -185,6 +226,7 @@ Saves live in `$DATA_DIR/saves.json` (default `.data/`). Set `SAVE_STORE=memory`
 | `Shift` (or push the joystick all the way) | Run |
 | `F` | Ride the flying sword (crosses water, enemies can't reach you) |
 | `R` | Whistle for Cloudmane, your spirit horse (`Shift` to gallop; `R` again to dismount) |
+| `C` | Change attire (once someone has given you something to wear) |
 | `E` / `Space` / `Enter` | Talk · meditate at shrines · open chests · gather herbs · read steles · enter and leave buildings · open the world map at a region's gate |
 | `M` | World map of the real world (arrows or clicks pick a region, the sword flies there, `E` lands at its waypoint) |
 | `B` | Face the Heavenly Tribulation (while meditating at a bottleneck) |
@@ -226,6 +268,9 @@ flowchart TB
     mill["水磨坊 Watermill"]
     lake["月莲湖 Lotus Lake"]
     hw(["the old highway"])
+    tomb["剑冢 Sword Tomb<br/>(westwood)"]
+    pav["望月亭 Moon-Gazing Pavilion"]
+    orch["桃园 Peach Orchard"]
   end
   subgraph south["The southern lands"]
     camp["血月营 Blood Moon Camp<br/>(ashen wastes)"]
@@ -240,6 +285,9 @@ flowchart TB
   sect -- "sky bridge below the gate" --> rest
   rest -- "seal: met Elder Mo" --> village
   village -- "creek road" --> mill
+  hw -- "north road" --> tomb
+  village -- "west footpath" --> pav
+  hw -- "east of the lake" --> orch
   hw --> tea
   tea --> temple
   hw --> pagoda

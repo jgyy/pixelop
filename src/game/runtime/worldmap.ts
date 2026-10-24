@@ -105,6 +105,8 @@ function paintStatic(): PixelBuffer {
 
 /** Overworld runtime: the heroine's flying-sword token over a miniature of the real world. */
 export class WorldMap {
+  /** What Lin Yue is wearing as she flies over the map. */
+  outfit?: string;
   at: AreaId;
   pos: [number, number];
   dir = 2;
@@ -283,7 +285,7 @@ export class WorldMap {
     const gy = cy + OY + my(px, py, hAt(px, py));
     ellipse(s, sx, gy + 4, 6, 2, alpha("#0a0a20", 0.35));
     const def = charDef("heroine");
-    const fr = frameAt(getAnim("heroine", "fly", this.dir), t);
+    const fr = frameAt(getAnim("heroine", "fly", this.dir, this.outfit), t);
     const sy = cy + OY + my(px, py, tokenH);
     for (let k = 1; k < 7; k++) s.px(sx - k * 2 * Math.sin((this.dir / 16) * Math.PI * 2), sy + 2 - k * Math.cos((this.dir / 16) * Math.PI * 2) * 0.5, alpha(k % 2 ? "#9ff5de" : "#ffffff", 0.8 - k * 0.1));
     s.sprite(fr, sx - def.ox, sy - def.oy);

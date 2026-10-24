@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import { CHAR_IDS, charDef, DIRS, frameAt, getAnim, type AnimId, type CharId } from "@/game/art/characters";
+import { CHAR_IDS, charDef, DIRS, frameAt, getAnim, OUTFITS, type AnimId, type CharId, type HumanId } from "@/game/art/characters";
 import { getProp, PROP_IDS, type PropId } from "@/game/art/props";
 import { World } from "@/game/runtime/world";
 import { WorldMap } from "@/game/runtime/worldmap";
@@ -19,17 +19,18 @@ const GROUPS: { label: string; ids: CharId[] }[] = [
   { label: "Willow Creek & the Wilds", ids: ["zhou", "hua", "farmer", "child", "peddler", "huli", "wen"] },
   { label: "Wayside Folk", ids: ["teawoman", "miller", "monk", "hermit", "swordsman"] },
   { label: "Folk Indoors", ids: ["archivist", "weaver", "storyteller", "scholar", "millhand", "lampkeeper"] },
+  { label: "The Sword Tomb, the Pavilion & the Orchard", ids: ["smith", "ghost", "orchardist"] },
   { label: "Cloudmane & the Wild Herds", ids: ["rider", "horse"] },
   { label: "Blood Moon Sect, Bandits & Demonic Beasts", ids: ["patriarch", "cultist", "jiangshi", "bandit", "fox", "wolf", "serpent", "serpentKing", "crane", "bat"] },
 ];
 
-function AnimCanvas({ id, anim, dir }: { id: CharId; anim: AnimId; dir: number }) {
+function AnimCanvas({ id, anim, dir, outfit, label }: { id: CharId; anim: AnimId; dir: number; outfit?: string; label?: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const def = charDef(id);
   useCanvasLoop(
     ref,
     (s, t) => {
-      const a = getAnim(id, anim, dir);
+      const a = getAnim(id, anim, dir, outfit);
       const dur = a.frames.length / a.fps;
       s.ctx.clearRect(0, 0, def.w, def.h);
       s.sprite(frameAt(a, a.loop ? t : t % (dur + 0.6)), 0, 0);
@@ -39,8 +40,28 @@ function AnimCanvas({ id, anim, dir }: { id: CharId; anim: AnimId; dir: number }
   return (
     <div className="anim" data-testid="anim">
       <canvas ref={ref} width={def.w} height={def.h} style={{ width: def.w * SCALE, height: def.h * SCALE }} />
-      <span>{anim}</span>
+      <span>{label ?? anim}</span>
     </div>
+  );
+}
+
+/** Every outfit in the jianghu: Lin Yue's wardrobe and Willow Creek's festival best. */
+function Wardrobe() {
+  const rows = Object.entries(OUTFITS) as [HumanId, Record<string, unknown>][];
+  return (
+    <article className="sheet panel" data-testid="sheet-attire">
+      <header>
+        <strong>Attire</strong>
+        <em>Lin Yue&apos;s wardrobe (press C in game) and Willow Creek&apos;s festival best</em>
+      </header>
+      <div className="anims">
+        <AnimCanvas id="heroine" anim="twirl" dir={2} label="jade" />
+        {rows.flatMap(([id, outfits]) =>
+          Object.keys(outfits).map((o) => <AnimCanvas key={`${id}/${o}`} id={id} anim={id === "heroine" ? "twirl" : charDef(id).anims.includes("lantern") ? "lantern" : "idle"} dir={2} outfit={o} label={id === "heroine" ? o : `${charDef(id).name.split(" ").pop()} · ${o}`} />),
+        )}
+        <AnimCanvas id="rider" anim="run" dir={2} outfit="mail" label="riding · mail" />
+      </div>
+    </article>
   );
 }
 
@@ -188,6 +209,8 @@ export function SpriteGallery() {
           })}
         </section>
       ))}
+      <h2>Attire</h2>
+      <Wardrobe />
       <h2>World Props</h2>
       <div className="anims">
         {PROP_IDS.map((id) => (

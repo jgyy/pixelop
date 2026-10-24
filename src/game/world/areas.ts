@@ -26,6 +26,8 @@ export interface PropPlacement {
   k?: number;
   /** Model origin in world coordinates, when it is not the anchor tile's centre. */
   at?: [number, number];
+  /** Only shown while this predicate on story flags holds (festival decorations). Never blocks. */
+  when?: (flags: Record<string, boolean>) => boolean;
 }
 
 /** The tiles [i0, j0, i1, j1] (inclusive) a placed prop covers. */
@@ -47,7 +49,12 @@ export interface NpcPlacement {
   when?: (flags: Record<string, boolean>) => boolean;
   /** Patrol back and forth along these points (tile coordinates) instead of wandering. */
   route?: [number, number][];
+  /** The outfit worn, by story flags (everyday clothes when it returns nothing). */
+  outfit?: (flags: Record<string, boolean>) => string | undefined;
 }
+
+/** Willow Creek puts on its festival best once the Jade Lotus Heart is home. */
+export const festive = (f: Record<string, boolean>) => (f.heartReturned ? "festival" : undefined);
 
 /** Ambient wildlife: wanders, and takes flight when the heroine comes close. */
 export interface Critter {
@@ -320,10 +327,10 @@ function buildVillage(): AreaDef {
     arrive: [16.5, 29.5],
     props,
     npcs: [
-      { key: "zhou", char: "zhou", i: 16, j: 10, dir: 0 },
-      { key: "hua", char: "hua", i: 10, j: 6, dir: 1 },
-      { key: "liu", char: "farmer", i: 5, j: 24, dir: 2, wander: 1.5 },
-      { key: "mei", char: "child", i: 19, j: 15, dir: 0, wander: 2.5 },
+      { key: "zhou", char: "zhou", i: 16, j: 10, dir: 0, outfit: festive },
+      { key: "hua", char: "hua", i: 10, j: 6, dir: 1, outfit: festive },
+      { key: "liu", char: "farmer", i: 5, j: 24, dir: 2, wander: 1.5, outfit: festive },
+      { key: "mei", char: "child", i: 19, j: 15, dir: 0, wander: 2.5, outfit: festive },
     ],
     enemies: [
       { key: "village-fox", enemy: "fox", i: 16, j: 22, range: 1.5, when: (f) => !!f.metElder && !f.villageSaved },
@@ -399,7 +406,8 @@ function buildBamboo(): AreaDef {
     tint: "#3a8a6a",
     arrive: [16.5, 29.5],
     props,
-    npcs: [{ key: "huli", char: "huli", i: 16, j: 6, dir: 0, when: (f) => !!f.foxesCleared }],
+    // while she keeps her vigil at the Moon-Gazing Pavilion, the grove's spirit tree stands alone
+    npcs: [{ key: "huli", char: "huli", i: 16, j: 6, dir: 0, when: (f) => !!f.foxesCleared && !(f.huliLetter && !f.peiAtRest) }],
     enemies: [
       { key: "fox-a", enemy: "fox", i: 12, j: 23, range: 2, when: (f) => !f.foxesCleared },
       { key: "fox-b", enemy: "fox", i: 17, j: 16, range: 2, when: (f) => !f.foxesCleared },
