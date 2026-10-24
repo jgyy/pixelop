@@ -57,6 +57,8 @@ export interface Actor {
   alt?: number;
   /** Clock time of this actor's next idle fidget (a nod, a sniff, a peck…). */
   fidgetAt?: number;
+  /** The outfit a person (or the heroine on horseback) is wearing. */
+  outfit?: string;
 }
 
 interface PropInst {
@@ -72,6 +74,8 @@ interface PropInst {
   /** Lies on the floor (mats, cushions): drawn beneath whoever stands on it. */
   flat: boolean;
   phase: number;
+  /** Shown only while this holds on the story flags. */
+  when?: (flags: Record<string, boolean>) => boolean;
 }
 
 interface Env {
@@ -93,9 +97,9 @@ export const DAY_LENGTH = 360;
 const ACTIVE_RANGE = 26;
 const RESPAWN_AFTER = 60;
 /** Idle fidgets an NPC may break into, when its character has the animation. */
-const NPC_FIDGETS: AnimId[] = ["nod", "look", "stretch", "drink", "point", "dance", "cheer", "gather", "pour", "clap", "laugh", "flute", "eat", "juggle", "fan"];
+const NPC_FIDGETS: AnimId[] = ["nod", "look", "stretch", "drink", "point", "dance", "cheer", "gather", "pour", "clap", "laugh", "flute", "eat", "juggle", "fan", "salute", "twirl"];
 /** Idles that absorb an NPC (fishing, reading, weaving…): they neither turn to greet nor fidget. */
-const ABSORBED = new Set<AnimId>(["fish", "practice", "meditate", "read", "weave", "tell", "pray", "sit"]);
+const ABSORBED = new Set<AnimId>(["fish", "practice", "meditate", "read", "weave", "tell", "pray", "sit", "hammer", "write"]);
 /** …and the ones a roaming beast may (sleeping takes a while). */
 const BEAST_FIDGETS: AnimId[] = ["sniff", "howl", "sniff", "sleep"];
 
@@ -214,8 +218,14 @@ export class World {
     const h = this.hero;
     for (const n of this.def.npcs) {
       const want = !n.when || n.when(flags);
+      if (want && present.has(n.key) && n.outfit) {
+        // a change of clothes as the story moves on (Willow Creek's festival best)
+        const a = this.actor(n.key);
+        if (a) this.dress(a, n.outfit(flags), n.anim);
+      }
       if (want && !present.has(n.key)) {
         const a = this.makeActor(n.key, "npc", n.char, n.i + 0.5, n.j + 0.5, n.dir, n.anim ?? "idle");
+        if (n.outfit) this.dress(a, n.outfit(flags), n.anim);
         a.wander = n.wander ?? 0;
         a.speed = n.route ? 1.3 : 1.1;
         a.baseDir = n.dir;
@@ -250,6 +260,18 @@ export class World {
       }
   }
 
+  /** Put an NPC into an outfit; at the festival, folk who can hold up a lantern do so while they stand about. */
+  private dress(a: Actor, outfit: string | undefined, anim: AnimId | undefined): void {
+    if (a.outfit === outfit) return;
+    a.outfit = outfit;
+    const lantern = outfit === "festival" && !anim && charDef(a.char).anims.includes("lantern");
+    const idle: AnimId = lantern ? "lantern" : (anim ?? "idle");
+    if (a.idleAnim !== idle && (a.idleAnim === "idle" || a.idleAnim === "lantern")) {
+      a.idleAnim = idle;
+      if (a.holdUntil === undefined && !a.target) this.setAnim(a, idle, this.clock);
+    }
+  }
+
   /** Record a beaten encounter and take it off the map. */
   defeat(key: string): void {
     this.defeated.set(key, this.clock);
@@ -262,7 +284,7 @@ export class World {
     const [x, y] = p.at ?? [i + 0.5, j + 0.5];
     const foot = placementTiles(p);
     const z = this.def.map.height(Math.floor(x), Math.floor(y));
-    const inst: PropInst = { id, i, j, k: p.k ?? 1, foot, ax: isoX(x, y), ay: isoY(x, y, z), flat: !!def.flat, phase: hash2(i, j, 5) * 10 };
+    const inst: PropInst = { id, i, j, k: p.k ?? 1, foot, ax: isoX(x, y), ay: isoY(x, y, z), flat: !!def.flat, phase: hash2(i, j, 5) * 10, when: p.when };
     this.props.push(inst);
     if (def.emit) this.emitters.push(inst);
     if (def.light) this.lights.push(inst);
@@ -411,7 +433,7 @@ export class World {
     a.anim = anim;
     a.animStart = t;
     if (hold) {
-      const an = getAnim(a.char, anim, a.dir);
+      const an = getAnim(a.char, anim, a.dir, a.outfit);
       a.holdUntil = t + an.frames.length / an.fps / (a.animRate ?? 1);
     } else a.holdUntil = undefined;
   }
@@ -845,6 +867,7 @@ export class World {
       }
       const entries: { key: number; draw: () => void }[] = [];
       for (const p of this.bucketProps[b]) {
+        if (p.when && !p.when(this.flags)) continue;
         const sheet = getProp(p.id, p.k);
         const fr = sheet.frames[Math.floor((t + p.phase) * sheet.fps) % sheet.frames.length];
         const px = p.ax + cx - sheet.ox;
@@ -863,7 +886,7 @@ export class World {
     // x-ray silhouette so the heroine stays visible behind tall props
     if (!this.hero.hidden) {
       const def = charDef(this.hero.char);
-      const fr = frameAt(getAnim(this.hero.char, this.hero.anim, this.hero.dir), (t - this.hero.animStart) * (this.hero.animRate ?? 1));
+      const fr = frameAt(getAnim(this.hero.char, this.hero.anim, this.hero.dir, this.hero.outfit), (t - this.hero.animStart) * (this.hero.animRate ?? 1));
       const ground = this.groundZ(this.hero.x, this.hero.y);
       s.sprite(fr, isoX(this.hero.x, this.hero.y) + cx - def.ox, isoY(this.hero.x, this.hero.y, ground) + cy - (this.hero.z - ground) * LEVEL_H - def.oy, false, 0.28);
     }
@@ -888,13 +911,14 @@ export class World {
 
   private drawActor(s: Surface, a: Actor, t: number, cx: number, cy: number): void {
     const def = charDef(a.char);
-    const anim = getAnim(a.char, a.anim, a.dir);
+    const anim = getAnim(a.char, a.anim, a.dir, a.outfit);
     const fr = frameAt(anim, (t - a.animStart) * (a.animRate ?? 1));
     const gx = isoX(a.x, a.y) + cx;
     const ground = this.groundZ(a.x, a.y);
     const gy = isoY(a.x, a.y, ground) + cy;
     const lift = (a.z - ground) * LEVEL_H;
-    const op = a.opacity ?? 1;
+    // a restless shade is only half there, and flickers
+    const op = (a.opacity ?? 1) * (a.char === "ghost" ? 0.6 + Math.sin(t * 2.3 + a.x) * 0.08 : 1);
     // contact shadow shrinks as the actor rises
     const sw = Math.max(2, (a.char === "crane" || a.char === "bat" ? 5 : def.w > 60 ? 9 : 6) - lift * 0.15);
     for (let yy = -1; yy <= 1; yy++) {
@@ -908,7 +932,7 @@ export class World {
   private drawOverhead(s: Surface, a: Actor, t: number, cx: number, cy: number): void {
     const def = charDef(a.char);
     const x = isoX(a.x, a.y) + cx;
-    const seated = a.anim === "sit" || a.anim === "tell" || a.anim === "weave" || a.anim === "pray" || a.anim === "meditate" || a.anim === "fish" || a.anim === "sleep";
+    const seated = a.anim === "sit" || a.anim === "tell" || a.anim === "weave" || a.anim === "pray" || a.anim === "meditate" || a.anim === "fish" || a.anim === "sleep" || a.anim === "write";
     // a rider's head is about as high as a tall figure's, whatever the size of her (horse-wide) sprite
     const lift = a.char === "rider" ? 44 : (def.oy - 6) * (def.h > 70 ? 1 : 0.62);
     const top = isoY(a.x, a.y, a.z) + cy - lift - 22 + (seated ? 7 : 0);
@@ -1186,7 +1210,7 @@ export class World {
   private drawEmitters(s: Surface, t: number, cx: number, cy: number): void {
     for (const p of this.emitters) {
       const def = propDef(p.id);
-      if (!def.emit) continue;
+      if (!def.emit || (p.when && !p.when(this.flags))) continue;
       const x0 = p.ax + cx;
       const y0 = p.ay + cy;
       if (x0 < -60 * p.k || x0 > s.width + 60 * p.k || y0 < -40 || y0 > s.height + 120 * p.k) continue;
@@ -1311,7 +1335,7 @@ export class World {
     s.rect(0, 0, s.width, s.height, alpha("#0a0618", night * 0.32));
     for (const p of this.lights) {
       const L = propDef(p.id).light;
-      if (!L) continue;
+      if (!L || (p.when && !p.when(this.flags))) continue;
       const x = p.ax + cx;
       const y = p.ay + cy - L.dy * p.k;
       const radius = L.radius * Math.sqrt(p.k);

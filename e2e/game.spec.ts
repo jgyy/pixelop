@@ -167,11 +167,26 @@ test.describe("Jade Lotus Ascension", () => {
     await expect(page.getByTestId("leaderboard")).toContainText("Lin Yue");
   });
 
+  test("a side errand shows under the quest, and C changes her attire", async ({ page }) => {
+    await startNewGame(page);
+    await patch(page, { flags: { metElder: true, peiMet: true, "attire:wayfarer": true } });
+    await expect(page.getByTestId("errand")).toContainText("Hu Li");
+    await expect(page.getByTestId("attire")).toBeVisible();
+    await page.keyboard.press("KeyC");
+    await expect.poll(async () => (await state(page)).counters.attire).toBe(1);
+    await expect(page.getByTestId("attire")).toHaveAttribute("title", "Wayfarer's Cloak");
+    // browser shortcuts are left to the browser
+    await page.keyboard.press("Control+KeyC");
+    await page.keyboard.press("Control+KeyF");
+    expect((await state(page)).counters.attire).toBe(1);
+    expect(await page.evaluate(() => window.__pixelop!.game.flying)).toBe(false);
+  });
+
   test("the gallery animates every character, prop and region", async ({ page }) => {
     test.setTimeout(120_000);
     await page.goto("/gallery");
     await expect(page.getByRole("heading", { name: "Pixel Art Gallery" })).toBeVisible();
-    await expect(page.locator("[data-testid^=sheet-]")).toHaveCount(36);
+    await expect(page.locator("[data-testid^=sheet-]")).toHaveCount(40);
     await expect(page.getByTestId("scene")).toHaveCount(12);
     expect(await page.getByTestId("prop").count()).toBeGreaterThanOrEqual(50);
     expect(await page.getByTestId("anim").count()).toBeGreaterThanOrEqual(80);

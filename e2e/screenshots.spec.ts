@@ -319,3 +319,132 @@ async function visit(page: Page, name: string, x: number, y: number, wait = 1600
   if ((await mode(page)) === "scene") await skipScene(page);
   await shot(page, name);
 }
+
+/** The Sword Tomb, the Moon-Gazing Pavilion, the orchard, the festival, and Lin Yue's wardrobe. */
+test("capture side errands, attire and new landmarks", async ({ page }) => {
+  test.setTimeout(240_000);
+  await startNewGame(page);
+  const flags = { metElder: true, villageSaved: true, villageArrived: true, metZhou: true, foxesCleared: true, bambooArrived: true, metHuli: true, lakeArrived: true, metWen: true, yunTeaching: true, huaTea: true };
+  await patch(page, { flags, realm: 1, stage: 1 });
+  const settle = async (ms = 1500) => {
+    await page.waitForTimeout(ms);
+    if ((await mode(page)) === "scene") await skipScene(page);
+  };
+  /** Clear old toasts so each shot shows only its own. */
+  const quiet = () => page.evaluate(() => ((window.__pixelop!.game as unknown as { toasts: unknown[] }).toasts = []));
+  /** Time of day as a fraction of the cycle (0 dawn, 0.5 midnight). */
+  const timeOfDay = (k: number) => page.evaluate((k) => (window.__pixelop!.game.clock = k * 360), k);
+  const near = (key: string, dx: number, dy: number, dir = 3) =>
+    page.evaluate(
+      ([key, dx, dy, dir]) => {
+        const g = window.__pixelop!.game;
+        const n = g.world.def.npcs.find((x) => x.key === key)!;
+        g.debugGoto(n.i + 0.5 + (dx as number), n.j + 0.5 + (dy as number));
+        g.world.hero.dir = dir as number;
+      },
+      [key, dx, dy, dir] as const,
+    );
+
+  // the Sword Tomb at dusk, Smith Ou at his anvil
+  await timeOfDay(0.3);
+  await near("ou", -4, -4, 3);
+  await settle(1800);
+  await quiet();
+  await shot(page, "51-sword-tomb");
+  await standBy(page, "ou");
+  await page.keyboard.press("KeyE");
+  await sayUntil(page, "Dawnfrost");
+  await shot(page, "52-smith-ou");
+  await skipScene(page);
+
+  // the scholar's shade writes by moonlight at the Moon-Gazing Pavilion
+  await timeOfDay(0.48);
+  await near("pei", 2, 2.5, 10);
+  await settle(1800);
+  await quiet();
+  await shot(page, "53-moon-pavilion");
+  await standBy(page, "pei");
+  await page.keyboard.press("KeyE");
+  await sayUntil(page, "never forgot");
+  await shot(page, "54-scholar-pei");
+  await skipScene(page);
+  await standBy(page, "huli");
+  await page.keyboard.press("KeyE");
+  await skipScene(page);
+  await standBy(page, "pei");
+  await page.waitForTimeout(600);
+  await page.keyboard.press("KeyE");
+  await sayUntil(page, "Wherever I am");
+  await shot(page, "55-the-last-line");
+  await skipScene(page);
+
+  // the peach orchard in the afternoon
+  await timeOfDay(0.18);
+  await near("rong", 3, 3, 10);
+  await settle(1800);
+  await quiet();
+  await shot(page, "56-peach-orchard");
+
+  // the wardrobe: the cloud-silk robes on the Cloudstep Isles, the wayfarer's cloak at a gallop, the mail in battle
+  await patch(page, { flags: { ...flags, peiMet: true, huliLetter: true, peiAtRest: true, "attire:foxfire": true, "attire:wayfarer": true, "attire:cloudsilk": true, "attire:mail": true }, counters: { attire: 3 } });
+  await near("yun", 2, 2.5, 10);
+  await settle(1600);
+  await quiet();
+  await shot(page, "57-attire-cloudsilk");
+  await patch(page, { counters: { attire: 1 } });
+  await teleport(page, "sect", -6, 131.6);
+  await settle(800);
+  await page.evaluate(() => (window.__pixelop!.game.world.hero.dir = 3));
+  await page.keyboard.press("KeyR");
+  await page.waitForTimeout(1300);
+  await page.evaluate(() => window.__pixelop!.game.setStick(0.894, 0.447));
+  await page.waitForTimeout(900);
+  await quiet();
+  await shot(page, "58-attire-wayfarer-gallop");
+  await page.evaluate(() => window.__pixelop!.game.setStick(0, 0));
+  await page.keyboard.press("KeyR");
+  await patch(page, { counters: { attire: 4 } });
+  await battle(page, "bandit");
+  await page.waitForTimeout(1600);
+  await page.getByTestId("skill-strike").click();
+  await page.waitForTimeout(500);
+  await quiet();
+  await shot(page, "59-attire-mail-battle");
+  await page.evaluate(() => {
+    const g = window.__pixelop!.game;
+    g.battle = null;
+    g.mode = "explore";
+  });
+
+  // Willow Creek's lantern festival: everyone in their best, fireworks over the square
+  await patch(page, { flags: { ...flags, patriarchDefeated: true, heartReturned: true, "attire:foxfire": true }, counters: { attire: 2 } });
+  await timeOfDay(0.45);
+  await near("zhou", 1.5, 4.5, 10);
+  await page.waitForTimeout(400);
+  // Little Mei runs up to her
+  await page.evaluate(() => {
+    const g = window.__pixelop!.game;
+    const m = g.world.actor("mei")!;
+    const h = g.world.hero;
+    Object.assign(m, { x: h.x - 1, y: h.y - 0.6, target: null, wander: 0 });
+    h.dir = 10;
+  });
+  await page.waitForTimeout(200);
+  await page.keyboard.press("KeyE");
+  await sayUntil(page, "festival dress");
+  await quiet();
+  await shot(page, "60-festival-dress");
+  await skipScene(page);
+  await page.waitForTimeout(400);
+  // from the foxfire dress into the festival one, with a twirl
+  await patch(page, { counters: { attire: 2 } });
+  await page.waitForTimeout(200);
+  await page.keyboard.press("KeyC");
+  await page.waitForTimeout(300);
+  await shot(page, "61-festival-twirl");
+  await page.waitForTimeout(1600);
+  await near("zhou", 1.5, 3.5, 10);
+  await settle(2600);
+  await quiet();
+  await shot(page, "62-lantern-festival");
+});

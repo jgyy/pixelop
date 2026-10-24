@@ -5,6 +5,7 @@ import type { EnemyId } from "../engine/enemies";
 import type { AreaId } from "../world/ids";
 import { toWorld } from "../world/layout";
 import { say, type Step } from "./script";
+import { giveAttire } from "./wardrobe";
 
 /**
  * The tale of the Jade Lotus Ascension: quest log, region gating, every
@@ -39,6 +40,23 @@ export function questLog(g: GameState): Quest {
   if (!f.heartReturned) return { chapter: "Chapter V", title: "The Blood Moon", objective: "Bring the Jade Lotus Heart home to Elder Mo." };
   if (!f.ascended) return { chapter: "Epilogue", title: "Ascension", objective: `Reach the peak of Spirit Severing, cross the sky bridge behind the Hall of Clouds, and face the final tribulation at the dais of Heavenly Tribulation Peak. (${realmLabel(g.realm, g.stage)})` };
   return { chapter: "Fin", title: "Immortal", objective: "Lin Yue has ascended. Wander the jianghu as you please." };
+}
+
+/**
+ * The side errand most worth mentioning: favours the folk of the jianghu have
+ * asked of her, in the order she is likely to pick them up. Null when nobody
+ * is waiting on her.
+ */
+export function errand(g: GameState): string | null {
+  const f = g.flags;
+  if (f.peiMet && !f.huliLetter) return "Scholar Pei's letter: tell Hu Li, beneath the spirit tree in the bamboo, that he never forgot her.";
+  if (f.huliLetter && !f.peiAtRest) return "Scholar Pei's letter: Hu Li waits at the Moon-Gazing Pavilion, north of the creek. Speak with the scholar's shade.";
+  if (f.ouMet && hasDawnfrost(f) && !f.ouMail) return "Dawnfrost: bring Xue Ming's first sword home to Smith Ou at the Sword Tomb, north of the western highway.";
+  if (f.yunTea && !f.wenReply) return "The brothers' quarrel: take Master Yun's tea brick to Old Fisher Wen at the Lotus Lake.";
+  if (f.wenReply && !f.brothersReconciled) return "The brothers' quarrel: carry Old Fisher Wen's answer back to Master Yun on the Cloudstep Isles.";
+  if (f.ouMet && !hasDawnfrost(f)) return "Dawnfrost: Smith Ou asks you to look for the sword he forged for Xue Ming.";
+  if (f.heartReturned && !f.festivalSeen) return "Willow Creek is lighting its lanterns. Go home to the village for the festival.";
+  return null;
 }
 
 /** Why a region is sealed on the world map, or null if it is open. */
@@ -102,12 +120,6 @@ export function hasNews(key: string, g: GameState): boolean {
       return !f.qingGift && !!f.metElder;
     case "zhou":
       return !!f.villageSaved && !f.metZhou;
-    case "huli":
-      return !f.metHuli;
-    case "wen":
-      return !f.metWen || (!!f.serpentKingDefeated && !g.skills.includes("swords"));
-    case "hua":
-      return !f.huaTea;
     case "elderPeak":
       return true;
     case "fang":
@@ -116,8 +128,6 @@ export function hasNews(key: string, g: GameState): boolean {
       return !f.tangGift;
     case "kong":
       return !f.kongSutra;
-    case "yun":
-      return !f.yunTeaching;
     case "han":
       return !!f.metElder && !f.hanDuel;
     case "wu":
@@ -130,6 +140,22 @@ export function hasNews(key: string, g: GameState): boolean {
       return !f.qiaoTale;
     case "ming":
       return !f.mingBlessing;
+    case "hua":
+      return !f.huaTea || (!!f.foxesCleared && !f.huaCloak);
+    case "huli":
+      return !f.metHuli || (!!f.peiMet && !f.huliLetter);
+    case "wen":
+      return !f.metWen || (!!f.serpentKingDefeated && !g.skills.includes("swords")) || (!!f.yunTea && !f.wenReply);
+    case "yun":
+      return !f.yunTeaching || (!!f.metWen && !f.yunTea) || (!!f.wenReply && !f.brothersReconciled);
+    case "ou":
+      return !f.ouMet || (hasDawnfrost(f) && !f.ouMail);
+    case "pei":
+      return !f.peiMet || !!f.huliLetter;
+    case "rong":
+      return !f.rongGift;
+    case "mei":
+      return !!f.heartReturned && !f[`attire:festival`];
     default:
       return false;
   }
@@ -200,10 +226,25 @@ export function npcScript(key: string, g: GameState): Step[] {
           { toast: "HP and QI fully restored" },
           say("hua", "Spirit herbs glow faintly where qi pools. Pick them when you see them — they feed a cultivator's foundation."),
         ];
+      if (f.foxesCleared && !f.huaCloak)
+        return [
+          { emote: "hua", icon: "heart" },
+          say("hua", "There she is. The foxes sleep at night again, and so do I. Come here, child — no, closer. Arms out."),
+          say("hua", "This was my husband's travelling cloak. Forty years it has hung by the door, waiting. Lü took it in for you; she says you're narrower in the shoulder than a sword disciple ought to be."),
+          say("heroine", "Granny Hua, I can't take his cloak. What if he—"),
+          say("hua", "Comes home? Then he can come home in his house clothes. A cloak is for the road, and you are the one on the road."),
+          { mutate: (s) => setFlag(giveAttire(s, "wayfarer"), "huaCloak") },
+          { anim: "hero", name: "twirl", wait: true },
+          { toast: "Received the Wayfarer's Cloak · Press C to change your attire" },
+          say("hua", "Hm. The straw hat suits you better than it ever suited him. Don't tell him I said so."),
+        ];
       return [say("hua", pick(g, ["Shrines, herbs and honest fights — that's how cultivators grow. Patience, child.", "My husband was a sect disciple once. He never came home from the valley in the west.", "Have some more tea. No? Then off with you!"])), { mutate: (s) => ({ ...s, hp: stats(s).maxHp }) }];
     case "liu":
       return [say("farmer", pick(g, ["The rice drinks the creek, and the creek drinks the mountain's qi. If the mountain sickens, so do we.", "Foxes trampled half my paddy. Hope you gave them a good scare.", "Fine weather. Too fine. Feels like the calm before a storm."]))];
     case "mei":
+      if (f.heartReturned && !f["attire:festival"]) return festivalScript();
+      if (f.heartReturned)
+        return [{ emote: "mei", icon: "heart" }, say("child", pick(g, ["You look like a lantern! A pretty one!", "Granny says the Heart made the rice green overnight. I checked. It's true!", "Watch the sky! Head Zhou bought ALL the fireworks."]))];
       return [{ emote: "mei", icon: "note" }, say("child", pick(g, ["Are you a real immortal? Can you fly? Show me!", "Granny Hua's tea is SO bitter.", "When I grow up I'll join the sect in the clouds too!"]))];
     case "huli":
       if (!f.metHuli)
@@ -221,6 +262,18 @@ export function npcScript(key: string, g: GameState): Step[] {
           say("huli", `But grow stronger first, little sister. Below ${realmLabel(0, LAKE_LEVEL)}, the lake serpents will swallow you whole.`),
           { emote: "huli", icon: "heart" },
         ];
+      if (f.peiMet && !f.huliLetter)
+        return [
+          say("heroine", "Hu Li… at the pavilion north of the creek, I met a scholar's shade. His name is Pei. He's been writing you a letter for three hundred years."),
+          { emote: "huli", icon: "..." },
+          { wait: 0.8 },
+          say("huli", "…Pei. He said he'd be back before the plum rains. I waited through three hundred of them."),
+          say("huli", "He never broke a promise in his life. So I told myself he'd simply never died. That was easier."),
+          say("huli", "The Moon-Gazing Pavilion. Of course it's there. Go ahead of me, little sister. A fox needs a moment to tidy her tails."),
+          { mutate: (s) => setFlag(s, "huliLetter") },
+          { toast: "Hu Li will meet you at the Moon-Gazing Pavilion" },
+        ];
+      if (f.peiAtRest) return [say("huli", pick(g, ["I go to the pavilion on clear nights. The moon is the same moon. He was right about that.", "Wear the dress when you need courage. Fox-fire never goes out — it only waits.", "The kits ask why I smile now. I tell them a scholar finally finished his homework."]))];
       return [say("huli", pick(g, ["The grove breathes easier. Thank you.", "Xue was a gentle boy once, they say. Power is a hungry thing.", "Visit the shrine by the stream. Its qi is sweet."]))];
     case "wen":
       if (!f.metWen)
@@ -246,6 +299,18 @@ export function npcScript(key: string, g: GameState): Step[] {
           say("wen", "Break through to Foundation Establishment. Meditate at a shrine when your qi is full and let heaven test you."),
           say("wen", "…And tell Mo his old teacher still fishes. He will understand."),
           { emote: "hero", icon: "!" },
+          { anim: "wen", name: "fish" },
+        ];
+      if (f.yunTea && !f.wenReply)
+        return [
+          say("heroine", "Master Wen, Master Yun sent this. A brick of cloud-mist tea. He said, and I quote, “it is not an apology.”"),
+          { emote: "wen", icon: "..." },
+          say("wen", "…Cloud-mist from the high terraces. He remembered. Eighty years, and the old cloud remembered I like it bitter."),
+          say("wen", "Hmph. Then this is not a reply."),
+          { anim: "wen", name: "cast", wait: true },
+          say("wen", "A moon-pearl from the deepest part of the lake. Tell him — tell him the lake is deep enough to hold the whole sky. That is all. He'll understand."),
+          { mutate: (s) => setFlag(s, "wenReply") },
+          { toast: "Received Old Fisher Wen's moon-pearl, for Master Yun" },
           { anim: "wen", name: "fish" },
         ];
       return [say("wen", pick(g, ["The fish bite best when the mind is empty.", "Foundation first. Then the valley.", "Mo was my finest student. Don't tell him I said so."]))];
@@ -305,6 +370,33 @@ export function npcScript(key: string, g: GameState): Step[] {
           say("hermit", "Now go. And if you see Wen, tell him the sky is still bigger than his lake."),
           { anim: "yun", name: "meditate" },
         ];
+      if (f.wenReply && !f.brothersReconciled)
+        return [
+          say("heroine", "Master Yun. From Master Wen: a moon-pearl. He says the lake is deep enough to hold the whole sky."),
+          { emote: "yun", icon: "!" },
+          { wait: 0.6 },
+          say("hermit", "…Ha. Hahaha! The stubborn old carp. That was my line. I said it to him eighty years ago, and he threw his rod at me."),
+          say("hermit", "Water holds the sky; the sky fills the water. We were both right, and too proud to be right together."),
+          say("hermit", "Next spring I will go down to the lake. Or he will come up. One of us will have to cross the bridge first. …Probably me."),
+          say("hermit", "You walked between us without taking a side. That is rarer than any technique. Here — cloud-silk, woven on the isles from the morning mist. It has waited a long time for someone light enough to wear it."),
+          { anim: "yun", name: "cast", wait: true },
+          { flash: "#c8f0ff" },
+          { mutate: (s) => setFlag(gainCultivation(giveAttire(s, "cloudsilk"), Math.round(cultivationNeeded(s.realm, s.stage) * 0.3)).state, "brothersReconciled") },
+          { toast: "Received the Cloud-Silk Robes · Cultivation rises" },
+          { anim: "hero", name: "salute", wait: true },
+          { anim: "yun", name: "meditate" },
+        ];
+      if (f.yunTeaching && f.metWen && !f.yunTea)
+        return [
+          say("hermit", "You have been to the lake. I can smell it on you — mud and moonlight. How is he?"),
+          say("heroine", "Master Wen? He fishes. He said you chose the sky and he chose the lake."),
+          say("hermit", "Hmph. Eighty years, and still a sentence like a closed door."),
+          say("hermit", "Take him this. Cloud-mist tea from the high terraces. And tell him it is NOT an apology."),
+          { mutate: (s) => setFlag(s, "yunTea") },
+          { toast: "Received a brick of cloud-mist tea, for Old Fisher Wen" },
+          { anim: "yun", name: "meditate" },
+        ];
+      if (f.brothersReconciled) return [say("hermit", pick(g, ["I practised walking down the sky bridge yesterday. I got as far as Cloudrest Isle and had a sit.", "Tell Wen the tea was not an apology. He will know it was.", "The cloud-silk suits you. It always wanted to go somewhere."]))];
       return [say("hermit", pick(g, ["The clouds pass. So do worries.", "Even the Hall of Clouds looks small from here.", "Xue once sat where you stand. He asked how to own the sky. I had no answer for him."]))];
     case "han":
       if (!f.metElder) return [{ emote: "han", icon: "zzz" }, say("narrator", "A swordsman dozes by the spring, his blade across his knees.")];
@@ -423,9 +515,139 @@ export function npcScript(key: string, g: GameState): Step[] {
         "Farmer Wu brings me rice every harvest. The fields remember who held the road.",
         "The scroll on the wall was painted by an immortal who came down too late. He stayed a year, painting it over and over.",
       ])), { anim: "ming", name: "pray" }];
+    case "ou":
+      return smithScript(g);
+    case "pei":
+      return peiScript(g);
+    case "huliPav":
+      return [say("huli", "He's still talking to the moon, isn't he? Speak to him, little sister. I… can't be the first.")];
+    case "rong":
+      if (!f.rongGift)
+        return [
+          { anim: "rong", name: "wave" },
+          say("orchardist", "A traveller! Mind the bees — they're cross with me for taking their honey. Rong's the name; the peaches are mine, and the bees think the peaches are theirs."),
+          say("orchardist", "They say the first tree here grew from a peach stone the founder threw over her shoulder on her way up the mountain. My grandmother's grandmother saw it sprout. Or said she did."),
+          say("orchardist", "Here, take a few for the road. Peaches of long life, the old stories call them. They're really just very good peaches."),
+          { anim: "hero", name: "eat", wait: true },
+          { mutate: (s) => setFlag({ ...heal(s, 9999, 9999), pills: { ...s.pills, heal: Math.min(99, s.pills.heal + 2) } }, "rongGift") },
+          { toast: "HP and QI fully restored · Received 2 Healing Pills (well, peaches)" },
+          say("orchardist", "If the Serpent of the lake's outflow bothers you, throw it a peach. It won't help, but you'll feel better."),
+        ];
+      return [say("orchardist", pick(g, [
+        f.heartReturned ? "This spring every tree blossomed in one night. Every single one! The bees were so surprised they forgot to sting me." : "The blossoms came late this year. The trees know when the land is unwell.",
+        "Peddler Bai owes me three peaches. Tell him I've written it on the gate. In big letters.",
+        "Old Fisher Wen trades me fish for peaches. He always says the peaches are too sweet, and he always comes back.",
+        "Bees are like cultivators: they work all their lives for something sweet, and they get very cross if you interrupt.",
+      ])), { anim: "rong", name: "gather" }];
     default:
       return [say("narrator", "…")];
   }
+}
+
+/** Dawnfrost lay on Xue's altar: whoever beat him has it (saves from before the smith knew of it included). */
+const hasDawnfrost = (f: Record<string, boolean>) => !!(f.dawnfrost || f.patriarchDefeated);
+
+/** Smith Ou at the Sword Tomb, and the sword he made for Xue Ming. */
+function smithScript(g: GameState): Step[] {
+  const f = g.flags;
+  if (!f.ouMet)
+    return [
+      say("smith", "Hm. You're not here to buy a sword. Nobody comes here to buy a sword. They come to look at the ones that aren't for sale."),
+      say("smith", "Ou. I was the sect's smith once, when there was a war to forge for. When it was over I carried every sword the west lost up this hill, one at a time. Three hundred and twelve trips."),
+      say("heroine", "Every sword here belonged to someone who fell?"),
+      say("smith", "Every one. And one that's missing. I took an apprentice, after — a boy from Willow Creek, all elbows and questions. Xue Ming. When the sect took him up to the clouds, I made him a blade. Dawnfrost. Bright as the first frost on the paddies."),
+      say("smith", "If you're going where I think you're going… he'll have it with him still, or he'll have thrown it away. Either way. Bring it home. It belongs on this hill, not in his hand."),
+      { mutate: (s) => setFlag({ ...s, pills: { ...s.pills, heal: Math.min(99, s.pills.heal + 1) } }, "ouMet") },
+      ...(hasDawnfrost(f) ? [] : [{ toast: "Received a Healing Pill · Smith Ou asks you to find Dawnfrost" }, { anim: "ou", name: "hammer" } as Step]),
+      // she already carries it: the valley is behind her
+      ...(hasDawnfrost(f) && !f.ouMail ? dawnfrostHome() : []),
+    ];
+  if (hasDawnfrost(f) && !f.ouMail) return dawnfrostHome();
+  return smithTalk(g);
+}
+
+function dawnfrostHome(): Step[] {
+  return [
+    say("heroine", "Master Ou. It was on his altar, under the Heart. Dawnfrost."),
+    { emote: "ou", icon: "..." },
+    { wait: 0.8 },
+    say("smith", "…Not a nick on it. He never used it on anyone. Forty years a demon and he never once drew the sword I made him."),
+    say("smith", "That's something. That's not nothing."),
+    { anim: "ou", name: "salute", wait: true },
+    say("smith", "It goes at the top, upright. Like it was always meant to. …And you'll take this. I made it for no one, out of the swords' broken tips. It's been waiting for someone who could bring one home."),
+    { flash: "#dfe8f4" },
+    { mutate: (s) => setFlag(giveAttire({ ...s, stones: s.stones + 60 }, "mail"), "ouMail") },
+    { toast: "Received the Sword-Tomb Mail and 60 spirit stones" },
+    { anim: "hero", name: "salute", wait: true },
+    { anim: "ou", name: "hammer" },
+  ];
+}
+
+function smithTalk(g: GameState): Step[] {
+  const f = g.flags;
+  return [say("smith", pick(g, [
+    f.ouMail ? "Some nights the swords hum. I think Dawnfrost is telling them about you." : "Three hundred and twelve. I still count them every morning.",
+    "A good sword is mostly patience and a little bit of fire. Same as a good cultivator.",
+    "Xiao Han came by once and asked to duel the tomb. I told him to try. He bowed to it instead. Good lad.",
+    "The forge never goes out. If it goes out, I'll have to start remembering things without hitting them.",
+  ])), { anim: "ou", name: "hammer" }];
+}
+
+/** Scholar Pei, three hundred years dead, still writing the letter he never sent. */
+function peiScript(g: GameState): Step[] {
+  const f = g.flags;
+  if (!f.huliLetter)
+    return [
+      { emote: "hero", icon: "!" },
+      say("ghost", "Oh! You can see me. Forgive me — I haven't had a visitor since the Song dynasty. Possibly the one before."),
+      say("ghost", "Pei. Candidate for the imperial examinations, eternally. I was on my way to the capital, and I stopped here to watch the moon one last time, and… well. The road was longer than I was."),
+      say("ghost", "There was a fox in the bamboo who nursed me when I was hurt. I promised her I'd come back before the plum rains. I've been writing to explain why I'm late."),
+      say("ghost", "Three hundred years and I can't find the last line. If you meet a fox with three tails and a long memory — would you tell her I never forgot?"),
+      { mutate: (s) => setFlag(s, "peiMet") },
+      { toast: "The scholar's shade asks you to find his fox" },
+      { anim: "pei", name: "write" },
+    ];
+  return [
+    { face: "pei", to: "huliPav" },
+    say("ghost", "…You came. You came, and I'm the one who's late. I'm sorry, Li. I'm so sorry."),
+    say("huli", "Three hundred plum rains, you foolish man. Did you think I'd stopped counting?"),
+    say("ghost", "I never finished the letter. I couldn't find the last line."),
+    say("huli", "Then say it. I'm right here."),
+    say("ghost", "…“Wherever I am, look up, and we are looking at each other.”"),
+    { emote: "huliPav", icon: "heart" },
+    { flash: "#c8e0ff" },
+    say("narrator", "The moon comes out from behind a cloud. For a moment the scholar is not pale at all. Then there is only moonlight on the pavilion floor, and a sheet of paper, finished."),
+    { despawn: "pei" },
+    { wait: 1 },
+    say("huli", "…He always did take forever to get to the point."),
+    say("huli", "Little sister. You carried a dead man's words three hundred years late and didn't drop a single one. Take this — fox-fire silk. It was going to be my wedding dress. It should go somewhere instead of waiting."),
+    { anim: "huliPav", name: "twirl", wait: true },
+    { mutate: (s) => setFlag(gainCultivation(giveAttire(s, "foxfire"), Math.round(cultivationNeeded(s.realm, s.stage) * 0.3)).state, "peiAtRest") },
+    { toast: "Received the Foxfire Dress · Cultivation rises" },
+    { anim: "hero", name: "bow", wait: true },
+  ];
+}
+
+/** Willow Creek's lantern festival, once the Heart is home. */
+export function festivalScript(): Step[] {
+  return [
+    { mutate: (s) => setFlag(s, "festivalSeen") },
+    { camera: "mei" },
+    { emote: "mei", icon: "!" },
+    say("child", "Big Sister Lin! You came back for the festival! Everyone said you'd be too busy being immortal!"),
+    say("zhou", "Willow Creek has not lit its lanterns in seven years. Tonight we light every one. The rice is green, the creek runs the right way, and the foxes only come to the square to beg for dumplings."),
+    { shake: 0.2 },
+    { flash: "#ffd27a" },
+    say("narrator", "A rocket whistles up from the square and bursts gold over the creek. Somebody's dog begins to howl along."),
+    say("child", "Granny and Auntie Lü sewed this. It's a festival dress! Red is for luck, and gold is because Granny ran out of red."),
+    { mutate: (s) => giveAttire(s, "festival") },
+    { anim: "hero", name: "twirl", wait: true },
+    { toast: "Received the Lantern Festival Dress · Press C to change your attire" },
+    { anim: "mei", name: "cheer", wait: true },
+    { camera: null },
+    say("heroine", "Thank you, Mei. Thank you, all of you. …Save me a dumpling?"),
+    say("zhou", "Save you one? You're the guest of honour. Sit, eat, and let an old man make a very long speech."),
+  ];
 }
 
 function elderScript(g: GameState): Step[] {
@@ -478,6 +700,7 @@ function pick<T>(g: GameState, lines: T[]): T {
 // ----------------------------------------------------------------------------- arrivals & battles
 export function arrivalScript(area: AreaId, g: GameState): Step[] | null {
   const f = g.flags;
+  if (area === "village" && f.heartReturned && !f.festivalSeen) return festivalScript();
   if (area === "village" && !f.villageArrived)
     return [
       { mutate: (s) => setFlag(s, "villageArrived") },
@@ -561,6 +784,9 @@ export function victoryScript(enemy: EnemyId, key: string, area: AreaId, g: Game
       { shake: 0.8 },
       say("narrator", "Patriarch Xue dissolves into crimson mist. Upon the altar, a lotus of pure jade light opens its petals."),
       { toast: "Obtained the Jade Lotus Heart · Return to Elder Mo" },
+      ...(g.flags.ouMet
+        ? [say("narrator", "Beneath the Heart lies a plain sword in a dusty scabbard, bright as the first frost on the paddies. Its blade has never been drawn in anger."), { mutate: (s: GameState) => setFlag(s, "dawnfrost") }, { toast: "Found Dawnfrost · Bring it to Smith Ou" }]
+        : [{ mutate: (s: GameState) => setFlag(s, "dawnfrost") }]),
     );
   return steps;
 }
@@ -575,7 +801,7 @@ export function altarScript(g: GameState): Step[] {
 
 export function endingScript(): Step[] {
   return [
-    { mutate: (s) => setFlag(s, "ascended") },
+    { mutate: (s) => setFlag(giveAttire(s, "celestial"), "ascended") },
     {
       narrate: [
         "Nine bolts fell upon Heavenly Tribulation Peak, and nine times Lin Yue stood.",

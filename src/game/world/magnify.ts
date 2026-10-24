@@ -19,6 +19,8 @@ const S = WORLD_SCALE;
 export const STRUCTURE_SCALE: Partial<Record<PropId, number>> = {
   gate: 2,
   pavilion: 2,
+  swordtomb: 2,
+  forge: 2,
   dais: 2,
   bloodaltar: 2,
   pagoda: 2,
@@ -33,11 +35,12 @@ export const STRUCTURE_SCALE: Partial<Record<PropId, number>> = {
 };
 
 /** Props of the wild that are scattered more thickly once the land doubles (a second one shares the tile block). */
-const NATURE = new Set<PropId>(["pine", "cherry", "maple", "bamboo", "willow", "deadtree", "rock", "boulder", "tallgrass", "reeds", "bones", "spikes", "crystal", "karst", "haystack"]);
+const NATURE = new Set<PropId>(["pine", "cherry", "maple", "bamboo", "willow", "deadtree", "rock", "boulder", "tallgrass", "reeds", "bones", "spikes", "crystal", "karst", "haystack", "peachtree"]);
 /** What may spring up beside each kind of nature prop. */
 const COMPANION: Partial<Record<PropId, PropId[]>> = {
   pine: ["pine", "rock", "tallgrass"],
   cherry: ["tallgrass", "cherry"],
+  peachtree: ["tallgrass", "peachtree", "peachtree"],
   maple: ["maple", "tallgrass"],
   bamboo: ["bamboo", "bamboo", "tallgrass"],
   willow: ["reeds", "tallgrass"],

@@ -14,7 +14,8 @@ import { AREA_IDS } from "../world/ids";
 import { toWorld, WORLD_SCALE } from "../world/layout";
 import { NODES } from "../world/overworld";
 import type { Step } from "../story/script";
-import { altarScript, areaUnlocked, arrivalScript, endingScript, hasNews, introScript, lockReason, npcScript, preBattleScript, questLog, victoryScript, type Quest } from "../story/story";
+import { currentAttire, nextAttire, ownedAttire } from "../story/wardrobe";
+import { altarScript, areaUnlocked, arrivalScript, endingScript, errand, hasNews, introScript, lockReason, npcScript, preBattleScript, questLog, victoryScript, type Quest } from "../story/story";
 import { BattleScene } from "./battle";
 import { dirFrom, World, type Actor } from "./world";
 import { WorldMap } from "./worldmap";
@@ -35,7 +36,11 @@ export interface UiSnapshot {
   /** Riding Cloudmane, her spirit horse. */
   riding: boolean;
   quest: Quest;
-  dialog: { speaker: string; portrait: HumanId | null; text: string; seq: number } | null;
+  /** A side errand someone in the jianghu has asked of her, if any. */
+  errand: string | null;
+  /** The outfit she has on, and how many she owns. */
+  attire: { id: string; name: string; owned: number };
+  dialog: { speaker: string; portrait: HumanId | null; outfit?: string; text: string; seq: number } | null;
   narration: { text: string; index: number; total: number } | null;
   battle: { enemy: EnemyId; enemyName: string; enemyHp: number; enemyMax: number; heroHp: number; heroQi: number; busy: boolean; log: string[]; boss: boolean; skills: SkillId[] } | null;
   worldmap: { at: AreaId; travelling: boolean; heading: AreaId; nodes: { id: AreaId; name: string; hanzi: string; subtitle: string; locked: string | null }[] } | null;
@@ -60,7 +65,7 @@ const MOVE_KEYS: Record<string, [number, number]> = {
 
 const CONFIRM = new Set(["KeyE", "Enter", "Space", "NumpadEnter"]);
 /** One-shot animations that walking away interrupts. */
-const IDLE_FIDGETS = new Set<AnimId>(["stretch", "look", "gather", "nod", "point", "cheer", "drink", "read", "pray", "clap", "laugh", "rear", "flute"]);
+const IDLE_FIDGETS = new Set<AnimId>(["stretch", "look", "gather", "nod", "point", "cheer", "drink", "read", "pray", "clap", "laugh", "rear", "flute", "salute", "twirl"]);
 /** Seated or absorbed idles that a speaker keeps while talking instead of standing up. */
 const SEATED = new Set<AnimId>(["fish", "sit", "tell", "weave", "pray"]);
 const RUN_KEYS = ["ShiftLeft", "ShiftRight"];
@@ -282,6 +287,30 @@ export class Game {
     this.markDirty();
   }
 
+  /** Change into the next outfit in her wardrobe (with a twirl, if she has room for one). */
+  changeAttire(): void {
+    if (this.mode !== "explore") return;
+    if (ownedAttire(this.state).length < 2) return this.toast("You have only your Jade Lotus Robes. Help the folk of the jianghu, and some may have clothes to spare.");
+    this.state = nextAttire(this.state);
+    const h = this.world.hero;
+    this.dressHero();
+    if (!h.flying && h.char === "heroine") {
+      if (h.idleAnim === "sit") h.idleAnim = "idle";
+      this.world.setAnim(h, "twirl", this.clock, true);
+    }
+    this.world.fx.burst(isoX(h.x, h.y), isoY(h.x, h.y, h.z) - 12, 22, ["#ffffff", "#f8bcd6", "#f2c55c"], 50);
+    this.idleTime = 0;
+    const a = currentAttire(this.state);
+    this.toast(`Attire: ${a.name} · ${a.hanzi} (${a.from})`);
+  }
+
+  /** Keep her sprite in the outfit the save says she is wearing. */
+  private dressHero(): void {
+    const id = currentAttire(this.state).id;
+    this.world.hero.outfit = id;
+    if (this.interior) this.interior.outdoor.hero.outfit = id;
+  }
+
   takePill(kind: "heal" | "qi"): void {
     if (this.mode !== "explore" && this.mode !== "meditate") return;
     const next = consumePill(this.state, kind);
@@ -368,6 +397,7 @@ export class Game {
     if (!this.state.flags.metElder) return this.toast("Elder Mo is waiting for you. Speak with him before leaving the sect.");
     if (this.interior) return this.toast("Step outside to see the roads of the jianghu.");
     this.worldMap = new WorldMap(this.state.area, [this.world.hero.x, this.world.hero.y]);
+    this.worldMap.outfit = currentAttire(this.state).id;
     this.mode = "worldmap";
     this.markDirty();
   }
@@ -665,7 +695,6 @@ export class Game {
       if ("say" in step) {
         const portrait = step.say !== "narrator" && charDef(step.say).portrait ? step.say : null;
         const speaker = step.name ?? (step.say === "narrator" ? "" : charDef(step.say).name);
-        this.dialog = { speaker, portrait, text: step.text, seq: ++this.seq };
         r.waitInput = true;
         // the nearest NPC of that character speaks (two villagers may share a look)
         const h = this.world.hero;
@@ -673,6 +702,9 @@ export class Game {
           step.say === "heroine"
             ? h
             : this.world.actors.filter((a) => a.char === step.say && a.kind === "npc").sort((a, b) => Math.hypot(a.x - h.x, a.y - h.y) - Math.hypot(b.x - h.x, b.y - h.y))[0];
+        // the portrait wears what the speaker is wearing
+        const outfit = step.say === "heroine" ? currentAttire(this.state).id : actor?.outfit;
+        this.dialog = { speaker, portrait, ...(outfit && { outfit }), text: step.text, seq: ++this.seq };
         if (actor && actor.kind === "npc" && !SEATED.has(actor.idleAnim) && charDef(actor.char).anims.includes("talk") && !actor.holdUntil) {
           this.world.setAnim(actor, "talk", this.clock);
           const back = actor;
@@ -829,6 +861,7 @@ export class Game {
     this.land();
     this.dismount();
     this.battle = new BattleScene(this.state.area, enemy, key, this.state, (this.seed + Math.floor(this.clock * 1000)) >>> 0);
+    this.battle.hero.outfit = currentAttire(this.state).id;
     this.mode = "battle";
     this.dialog = null;
     this.markDirty();
@@ -918,13 +951,14 @@ export class Game {
   startTribulation(): void {
     if (this.mode !== "meditate" && this.mode !== "explore") return;
     if (!atBottleneck(this.state)) return this.toast("Your qi has not yet reached its peak.");
+    const final = this.state.realm === FINAL_REALM - 1;
+    // checked before she sits down, so a refusal doesn't leave her meditating
+    if (final && (this.state.area !== "peak" || this.interior)) return this.toast("The final tribulation can only be faced on Heavenly Tribulation Peak.");
     if (this.mode === "explore") {
       const near = this.world.nearestInteraction();
       if (!near?.it || (near.it.kind !== "shrine" && near.it.kind !== "altar")) return this.toast("Face the tribulation while meditating at a shrine.");
       this.beginMeditation();
     }
-    const final = this.state.realm === FINAL_REALM - 1;
-    if (final && this.state.area !== "peak") return this.toast("The final tribulation can only be faced on Heavenly Tribulation Peak.");
     this.mode = "tribulation";
     this.trib = { start: this.clock, bolts: final ? 9 : 3, struck: 0, final, done: false };
     this.tribText = final ? "The heavens split open. Nine bolts gather above the peak…" : "Heaven's lightning gathers above you…";
@@ -1045,7 +1079,7 @@ export class Game {
       } else if (!h.flying && !riding && this.idleTime > 8) {
         this.idleTime = -4;
         // first a stretch or a glance around; left alone longer, she hums, nods off or practises a pointing form
-        const pool: AnimId[] = this.fidgets++ < 1 ? ["look", "stretch"] : ["stretch", "look", "nod", "point", "cheer", "clap", "laugh", "flute"];
+        const pool: AnimId[] = this.fidgets++ < 1 ? ["look", "stretch"] : ["stretch", "look", "nod", "point", "cheer", "clap", "laugh", "flute", "salute", "twirl"];
         // left alone long enough, she sits down where she stands until she moves again
         if (this.fidgets > 4 && h.idleAnim === "idle") h.idleAnim = "sit";
         else {
@@ -1224,6 +1258,7 @@ export class Game {
         if (CONFIRM.has(code)) this.interact();
         else if (code === "KeyF") this.toggleFly();
         else if (code === "KeyR") this.toggleRide();
+        else if (code === "KeyC") this.changeAttire();
         else if (code === "KeyB") this.startTribulation();
         else if (code === "KeyH") this.takePill("heal");
         else if (code === "KeyQ") this.takePill("qi");
@@ -1289,6 +1324,7 @@ export class Game {
       }
     }
     for (const a of this.world.actors) if (a.kind === "npc") a.marker = this.mode === "explore" && hasNews(a.key, this.state);
+    if (this.world.hero.outfit !== currentAttire(this.state).id) this.dressHero();
     if (this.dirty) {
       this.dirty = false;
       const snap = this.snapshot();
@@ -1399,6 +1435,8 @@ export class Game {
       flying: this.flying,
       riding: this.riding,
       quest: questLog(this.state),
+      errand: errand(this.state),
+      attire: { id: currentAttire(this.state).id, name: currentAttire(this.state).name, owned: ownedAttire(this.state).length },
       dialog: this.mode === "scene" ? this.dialog : null,
       narration: this.mode === "scene" ? this.narration : null,
       battle: b

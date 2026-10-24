@@ -66,7 +66,13 @@ export type AnimId =
   | "flute"
   | "eat"
   | "juggle"
-  | "fan";
+  | "fan"
+  | "salute"
+  | "twirl"
+  | "hammer"
+  | "write"
+  | "float"
+  | "lantern";
 
 export interface Anim {
   fps: number;
@@ -476,6 +482,64 @@ const human: Partial<Record<AnimId, AnimSpec<HumanPose>>> = {
       return { t: i, lean: -0.04, handR: [3.6 + s * 0.8, 4.2, 19.4 + s * 1.2], eyes: i === 3 ? "blink" : "open", mouth: "smile", wind: [s * 0.3, -0.4, 0.2] };
     },
   },
+  // the cultivator's salute: right fist into the left palm before the chest, and a small bow
+  salute: {
+    n: 6,
+    fps: 6,
+    loop: false,
+    pose: (i) => {
+      const k = [0, 0.7, 1, 1, 1, 0.4][i];
+      return { t: i, lean: [0, 0.04, 0.12, 0.14, 0.08, 0][i], handL: [-0.4 - (1 - k) * 3.6, 4.6 * k + 0.6, 11.2 + k * 5.4], handR: [0.5 + (1 - k) * 3.6, 4.4 * k + 0.6, 11.2 + k * 5.2], eyes: i === 3 ? "closed" : "open", mouth: i >= 2 ? "smile" : "neutral", wind: [0, -0.3, 0] };
+    },
+  },
+  // a twirl on the spot that flares the skirts out (the facing turns a full circle, see paintFrame)
+  twirl: {
+    n: 8,
+    fps: 10,
+    loop: false,
+    pose: (i, n) => {
+      const a = ph(i, n);
+      const out = Math.sin((i / (n - 1)) * Math.PI);
+      return { t: a * 2, lift: out * 1.2, handL: [-5 - out * 2.4, 0.4, 13 + out * 5], handR: [5 + out * 2.4, 0.4, 13 + out * 5], eyes: i > 2 && i < 6 ? "closed" : "open", mouth: "grin", wind: [-1.6 * out, 0.8 * out, 0.6 * out] };
+    },
+  },
+  // a smith at the anvil: the hammer rises over the shoulder and rings down
+  hammer: {
+    n: 6,
+    fps: 8,
+    loop: true,
+    pose: (i) => {
+      const up = [0.2, 0.7, 1, 0.6, 0, 0][i];
+      return { t: i, held: "hammer", lean: 0.12 - up * 0.08, handR: [3.4, 3 + (1 - up) * 2.6, 12 + up * 10], handL: [-2.6, 4.6, 11], footR: [1.7, 1.4, 0], eyes: up < 0.1 ? "closed" : "fierce", mouth: up < 0.1 ? "open" : "neutral", wind: [0, -0.3, 0] };
+    },
+  },
+  // kneeling at a low desk with a brush: strokes left to right, a pause to dip in the ink
+  write: {
+    n: 8,
+    fps: 4,
+    loop: true,
+    pose: (i) => {
+      const x = [-1.6, -0.6, 0.4, 1.4, 2.2, 2.2, -2.6, -1.6][i];
+      return { t: i * 0.5, held: "brush", stance: "kneel", lean: 0.2, handR: [1.6 + x, 6, 9.6 + (i === 6 ? 1.6 : 0)], handL: [-2.8, 4.6, 10.4], eyes: i === 4 ? "blink" : "closed", mouth: "neutral", wind: [0, -0.2, 0] };
+    },
+  },
+  // a restless shade drifts above the ground, sleeves trailing
+  float: {
+    n: 8,
+    fps: 4,
+    loop: true,
+    pose: (i, n) => {
+      const a = ph(i, n);
+      return { t: a, lift: 2.6 + Math.sin(a) * 1.2, lean: 0.06, handL: [-3.4, 2.6, 12 + Math.sin(a) * 0.6], handR: [3.4, 2.6, 12 + Math.sin(a + 1) * 0.6], footL: [-1, 0.6, 0], footR: [1, 0.6, 0], eyes: i === 5 ? "blink" : "closed", mouth: "neutral", wind: [Math.sin(a) * 0.6, -0.8, -0.4] };
+    },
+  },
+  // holding a paper lantern up on its pole for the festival, swaying it gently
+  lantern: {
+    n: 6,
+    fps: 4,
+    loop: true,
+    pose: (i, n) => ({ t: ph(i, n), held: "lantern", handR: [3.6, 2.4, 15.4 + Math.sin(ph(i, n)) * 0.6], bob: i % 3 === 1 ? 0.3 : 0, eyes: i === 4 ? "blink" : "open", mouth: "smile", wind: [Math.sin(ph(i, n)) * 0.3, -0.3, 0] }),
+  },
 };
 
 // ----------------------------------------------------------------------------- beast poses
@@ -549,41 +613,75 @@ export const STYLES = {
   millhand: s({ robe: ramp("#a89a7a"), inner: PAL.white, trim: PAL.brown, sash: PAL.brown, hair: PAL.hairBrown, hairStyle: "short", skin: PAL.skinTan, scale: 0.82, flare: 4, hem: 4.6, shoes: PAL.brown }),
   lampkeeper: s({ robe: ramp("#9a9aa8", { lo: "#3a3a5a" }), inner: PAL.white, trim: PAL.gold, sash: PAL.gold, hairStyle: "bald", female: true, shawl: ramp("#e0b050"), eye: "#3a2a3a", hunch: 0.08, flare: 5.4 }),
   scholar: s({ robe: ramp("#8ab0d0"), inner: PAL.white, trim: PAL.navy, sash: PAL.navy, hairStyle: "topknot", hat: "scholar", hatRamp: PAL.black, weapon: "fan", flare: 5 }),
+  smith: s({ robe: ramp("#5a4a3a"), inner: PAL.white, trim: PAL.red, sash: PAL.red, hair: PAL.hairGrey, beard: PAL.hairGrey, hairStyle: "short", skin: PAL.skinTan, shawl: ramp("#3a2a26"), hunch: 0.04, flare: 4.4, hem: 4.6, shoes: PAL.brown, eye: "#3a2a1a" }),
+  ghost: s({ robe: ramp("#c8d8f0", { lo: "#4a5a8a" }), inner: PAL.white, trim: PAL.navy, sash: PAL.navy, skin: PAL.skinPale, hair: PAL.hairBlack, hairStyle: "long", hat: "scholar", hatRamp: PAL.black, eye: "#4a6a9a", flare: 5.4, hem: 1.6 }),
+  orchardist: s({ robe: ramp("#e88aa0"), inner: PAL.white, trim: PAL.green, sash: PAL.green, hair: PAL.hairBrown, hairStyle: "bun", female: true, hat: "straw", hatRamp: PAL.straw, skin: PAL.skinTan, eye: "#3a2a1a", flare: 5, hem: 3.6, shoes: PAL.brown }),
   patriarch: s({ robe: PAL.crimson, inner: PAL.black, trim: PAL.gold, sash: PAL.black, hair: PAL.hairSilver, hairStyle: "long", hat: "crown", hatRamp: PAL.black, cape: PAL.black, weapon: "saber", scale: 1.3, glowEyes: "#ff2040", flare: 6.2 }),
 } satisfies Record<string, HumanStyle>;
 
 export type HumanId = keyof typeof STYLES;
+
+/**
+ * Attire: alternative outfits a character can wear, as overrides of their
+ * style. Lin Yue collects hers over the story (see story/wardrobe.ts); the
+ * folk of Willow Creek put on their festival best once the Heart is home.
+ */
+const FESTIVAL_SHAWL = ramp("#ffd27a", { lo: "#8a4a20" });
+export const OUTFITS: Partial<Record<HumanId, Record<string, Partial<HumanStyle>>>> = {
+  heroine: {
+    wayfarer: { robe: ramp("#8a7a5a"), inner: PAL.paper, trim: PAL.teal, sash: PAL.teal, shoes: PAL.brown, hat: "straw", hatRamp: PAL.straw, shawl: undefined, cape: ramp("#4a6a5a", { lo: "#1a2a3a" }), hem: 3.4, flare: 4.6 },
+    foxfire: { robe: ramp("#fbe6d6"), inner: PAL.orange, trim: PAL.orange, sash: PAL.red, shawl: ramp("#ffb070"), eye: "#c06a20" },
+    cloudsilk: { robe: ramp("#e8ecf8", { lo: "#5a6a9a" }), inner: PAL.azure, trim: PAL.azure, sash: PAL.navy, shoes: PAL.navy, hat: "veil", hatRamp: ramp("#e8f0ff"), shawl: ramp("#c8e0ff"), flare: 5.6 },
+    mail: { robe: ramp("#4a4a5e", { lo: "#141428" }), inner: PAL.crimson, trim: PAL.steel, sash: PAL.crimson, shoes: PAL.black, shawl: undefined, cape: PAL.crimson, hem: 4.2, flare: 4.4 },
+    festival: { robe: PAL.red, inner: PAL.gold, trim: PAL.gold, sash: PAL.gold, shawl: FESTIVAL_SHAWL, shoes: PAL.red },
+    celestial: { robe: PAL.white, inner: PAL.gold, trim: PAL.gold, sash: PAL.gold, shoes: PAL.gold, hat: "crown", hatRamp: PAL.gold, shawl: ramp("#fff0a0", { lo: "#a87a30" }), flare: 6 },
+  },
+  zhou: { festival: { robe: PAL.red, inner: PAL.gold, trim: PAL.gold, sash: PAL.gold, hatRamp: PAL.red } },
+  hua: { festival: { robe: ramp("#c04a6a"), inner: PAL.gold, trim: PAL.gold, sash: PAL.gold, shawl: FESTIVAL_SHAWL } },
+  child: { festival: { robe: ramp("#f39bc0"), inner: PAL.white, trim: PAL.gold, sash: PAL.red, shawl: FESTIVAL_SHAWL } },
+  farmer: { festival: { robe: ramp("#c8603a"), inner: PAL.gold, trim: PAL.gold, sash: PAL.red, hat: "none" } },
+  weaver: { festival: { robe: ramp("#d84a4a"), inner: PAL.white, trim: PAL.gold, sash: PAL.gold, shawl: FESTIVAL_SHAWL } },
+};
+
+/** A character's style in one of their outfits (their everyday clothes when it is unknown). */
+export function styleOf(id: HumanId, outfit?: string): HumanStyle {
+  const o = outfit ? OUTFITS[id]?.[outfit] : undefined;
+  return o ? { ...STYLES[id], ...o } : STYLES[id];
+}
 export type BeastId = "fox" | "wolf" | "serpent" | "serpentKing" | "crane" | "bat" | "horse";
 /** Lin Yue on Cloudmane, her spirit horse. */
 export type MountId = "rider";
 export type CharId = HumanId | BeastId | MountId;
 
 const HUMAN_ANIMS: Record<HumanId, AnimId[]> = {
-  heroine: ["idle", "walk", "run", "talk", "attack", "cast", "hurt", "meditate", "fly", "victory", "defeat", "bow", "gather", "stretch", "look", "wave", "drink", "cheer", "point", "nod", "read", "sit", "pray", "clap", "laugh", "flute"],
-  elder: ["idle", "walk", "talk", "cast", "bow", "wave", "nod", "read"],
-  qing: ["idle", "walk", "talk", "bow", "wave", "nod", "cheer", "clap", "pour"],
-  abao: ["idle", "walk", "run", "talk", "practice", "wave", "cheer", "laugh", "clap", "juggle"],
-  discipleM: ["idle", "walk", "practice", "bow", "nod", "clap"],
-  discipleF: ["idle", "walk", "practice", "bow", "wave", "clap"],
-  zhou: ["idle", "walk", "talk", "wave", "nod", "point", "laugh", "fan"],
-  hua: ["idle", "walk", "talk", "wave", "drink", "nod", "pour", "laugh"],
-  farmer: ["idle", "walk", "talk", "gather", "wave", "nod", "stretch", "laugh", "eat"],
-  child: ["idle", "walk", "run", "talk", "wave", "dance", "cheer", "clap", "laugh", "juggle"],
-  huli: ["idle", "walk", "talk", "cast", "bow", "wave", "dance", "flute"],
+  heroine: ["idle", "walk", "run", "talk", "attack", "cast", "hurt", "meditate", "fly", "victory", "defeat", "bow", "gather", "stretch", "look", "wave", "drink", "cheer", "point", "nod", "read", "sit", "pray", "clap", "laugh", "flute", "salute", "twirl", "write"],
+  elder: ["idle", "walk", "talk", "cast", "bow", "wave", "nod", "read", "salute", "write"],
+  qing: ["idle", "walk", "talk", "bow", "wave", "nod", "cheer", "clap", "pour", "salute"],
+  abao: ["idle", "walk", "run", "talk", "practice", "wave", "cheer", "laugh", "clap", "juggle", "salute"],
+  discipleM: ["idle", "walk", "practice", "bow", "nod", "clap", "salute"],
+  discipleF: ["idle", "walk", "practice", "bow", "wave", "clap", "salute"],
+  zhou: ["idle", "walk", "talk", "wave", "nod", "point", "laugh", "fan", "lantern"],
+  hua: ["idle", "walk", "talk", "wave", "drink", "nod", "pour", "laugh", "lantern"],
+  farmer: ["idle", "walk", "talk", "gather", "wave", "nod", "stretch", "laugh", "eat", "lantern"],
+  child: ["idle", "walk", "run", "talk", "wave", "dance", "cheer", "clap", "laugh", "juggle", "twirl", "lantern"],
+  huli: ["idle", "walk", "talk", "cast", "bow", "wave", "dance", "flute", "twirl"],
   wen: ["idle", "talk", "fish", "cast", "wave", "sleep", "flute"],
   monk: ["idle", "walk", "talk", "sweep", "bow", "nod", "wave", "meditate", "pray", "eat"],
   teawoman: ["idle", "walk", "talk", "wave", "drink", "nod", "bow", "pour", "laugh"],
   miller: ["idle", "walk", "talk", "gather", "wave", "nod", "point", "stretch", "laugh", "eat"],
   hermit: ["idle", "talk", "meditate", "cast", "nod", "bow", "flute"],
-  swordsman: ["idle", "walk", "talk", "practice", "sleep", "attack", "cast", "hurt", "defeat", "drink", "nod", "wave", "laugh", "flute"],
+  swordsman: ["idle", "walk", "talk", "practice", "sleep", "attack", "cast", "hurt", "defeat", "drink", "nod", "wave", "laugh", "flute", "salute"],
   bandit: ["idle", "walk", "run", "attack", "hurt", "point", "cheer", "eat"],
   peddler: ["idle", "walk", "talk", "wave", "look", "nod", "point", "laugh", "clap", "juggle", "eat"],
   archivist: ["idle", "walk", "talk", "read", "nod", "bow", "point"],
   storyteller: ["idle", "talk", "tell", "sit", "laugh", "clap", "nod", "drink", "fan"],
-  weaver: ["idle", "walk", "talk", "weave", "nod", "wave", "laugh"],
+  weaver: ["idle", "walk", "talk", "weave", "nod", "wave", "laugh", "lantern", "twirl"],
   millhand: ["idle", "walk", "talk", "sweep", "wave", "cheer", "laugh", "eat"],
   lampkeeper: ["idle", "talk", "pray", "bow", "nod", "meditate"],
-  scholar: ["idle", "talk", "read", "sit", "drink", "nod", "laugh", "clap", "fan"],
+  scholar: ["idle", "talk", "read", "sit", "drink", "nod", "laugh", "clap", "fan", "write"],
+  smith: ["idle", "walk", "talk", "hammer", "nod", "wave", "laugh", "drink", "salute"],
+  ghost: ["float", "talk", "write", "bow", "nod"],
+  orchardist: ["idle", "walk", "talk", "gather", "wave", "nod", "laugh", "eat", "pour", "cheer"],
   cultist: ["idle", "walk", "attack", "hurt"],
   jiangshi: ["idle", "hop", "attack", "hurt"],
   patriarch: ["idle", "walk", "attack", "cast", "hurt", "defeat", "talk"],
@@ -613,6 +711,9 @@ const NAMES: Record<CharId, [string, string]> = {
   millhand: ["Little Dou", "Miller Tang's Apprentice"],
   lampkeeper: ["Sister Ming", "Keeper of the Seven Lamps"],
   scholar: ["Scholar Gu", "Examination Candidate"],
+  smith: ["Smith Ou", "Keeper of the Sword Tomb"],
+  ghost: ["Scholar Pei", "A Restless Shade"],
+  orchardist: ["Auntie Rong", "Keeper of the Peach Orchard"],
   swordsman: ["Xiao Han", "Wandering Swordsman"],
   bandit: ["Mountain Bandit", "Highland Outlaw"],
   cultist: ["Blood Moon Cultist", "Demonic Sect Acolyte"],
@@ -668,12 +769,14 @@ export function charDef(id: CharId): CharacterDef {
   return { id, name, title, w: BEAST_W, h: BEAST_H, ox: BEAST_OX, oy: BEAST_OY, anims: BEAST_ANIMS[id], portrait: false };
 }
 
-function paintFrame(id: CharId, anim: AnimId, i: number, dir: number): PixelBuffer {
-  const a = dirAngle(dir);
+function paintFrame(id: CharId, anim: AnimId, i: number, dir: number, outfit?: string): PixelBuffer {
+  let a = dirAngle(dir);
   if (isHuman(id)) {
     const spec = human[anim] ?? human.idle!;
-    const st = STYLES[id];
+    const st = styleOf(id, outfit);
     const pose = spec.pose(i, spec.n);
+    // a twirl turns her once round on the spot, ending where she started
+    if (anim === "twirl") a += (i / spec.n) * TAU;
     const def = charDef(id);
     // non-sword users keep the default resting hands for sword poses
     if (anim === "attack" && st.weapon !== "jian" && st.weapon !== "saber") pose.handR = pose.handR ?? REST_HAND_R;
@@ -690,7 +793,7 @@ function paintFrame(id: CharId, anim: AnimId, i: number, dir: number): PixelBuff
     const spec = horse[anim] ?? horse.idle!;
     const hp = spec.pose(i, spec.n);
     if (id === "horse") return paintHorse(WILD_HORSE, hp, a);
-    return paintRider(STYLES.heroine, CLOUDMANE, hp, (ridden[anim] ?? ridden.idle!)(i, spec.n), a);
+    return paintRider(styleOf("heroine", outfit), CLOUDMANE, hp, (ridden[anim] ?? ridden.idle!)(i, spec.n), a);
   }
   const spec = beast[anim] ?? beast.idle!;
   const pose = spec.pose(i, spec.n);
@@ -711,17 +814,18 @@ function paintFrame(id: CharId, anim: AnimId, i: number, dir: number): PixelBuff
 
 const cache = new Map<string, Anim>();
 
-/** Lazily painted animation for a character in one of 16 directions. */
-export function getAnim(id: CharId, anim: AnimId, dir: number): Anim {
+/** Lazily painted animation for a character in one of 16 directions (and, for people, one of their outfits). */
+export function getAnim(id: CharId, anim: AnimId, dir: number, outfit?: string): Anim {
   const def = charDef(id);
   const real: AnimId = def.anims.includes(anim) ? anim : anim === "walk" && def.anims.includes("hop") ? "hop" : anim === "walk" && def.anims.includes("fly") ? "fly" : def.anims[0];
   const d = ((dir % DIRS) + DIRS) % DIRS;
-  const key = `${id}/${real}/${d}`;
+  const dress = outfit && (id === "rider" ? OUTFITS.heroine?.[outfit] : isHuman(id) && OUTFITS[id]?.[outfit]) ? outfit : "";
+  const key = `${id}/${real}/${d}/${dress}`;
   let a = cache.get(key);
   if (!a) {
     const spec = (isHuman(id) ? human[real] : id === "rider" || id === "horse" ? horse[real] : beast[real]) ?? (isHuman(id) ? human.idle! : beast.idle!);
     const n = id === "bat" ? 6 : spec.n;
-    a = { fps: spec.fps, loop: spec.loop, frames: Array.from({ length: n }, (_, i) => paintFrame(id, real, i, d)) };
+    a = { fps: spec.fps, loop: spec.loop, frames: Array.from({ length: n }, (_, i) => paintFrame(id, real, i, d, dress || undefined)) };
     cache.set(key, a);
   }
   return a;
@@ -740,17 +844,19 @@ export const PORTRAIT = 72;
 const portraitCache = new Map<string, PixelBuffer[]>();
 
 /** Dialogue portrait frames: [neutral, talking, blink]. */
-export function getPortrait(id: HumanId): PixelBuffer[] {
-  let p = portraitCache.get(id);
+export function getPortrait(id: HumanId, outfit?: string): PixelBuffer[] {
+  const dress = outfit && OUTFITS[id]?.[outfit] ? outfit : "";
+  const key = `${id}/${dress}`;
+  let p = portraitCache.get(key);
   if (!p) {
-    const st = STYLES[id];
+    const st = styleOf(id, dress || undefined);
     const S = st.scale ?? 1;
     const k = 3 / S;
     const facing = id === "heroine" ? -0.45 : 0.45;
     const opts = { w: PORTRAIT, h: PORTRAIT, ox: PORTRAIT / 2, oy: Math.round(34 + 24.3 * S * k * 0.866), k, bust: true };
     const base: HumanPose = { t: 0.6, mouth: "smile", handL: [-4.4, 0.8, 10], handR: [4.4, 0.8, 10], wind: [0, -0.2, 0], sword: "none" };
     p = [paintHuman(st, base, facing, opts), paintHuman(st, { ...base, mouth: "open" }, facing, opts), paintHuman(st, { ...base, eyes: "blink" }, facing, opts)];
-    portraitCache.set(id, p);
+    portraitCache.set(key, p);
   }
   return p;
 }

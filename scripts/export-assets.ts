@@ -8,7 +8,7 @@ import { applyPalette, GIFEncoder, quantize } from "gifenc";
 import { PixelBuffer } from "../src/game/pixel/PixelBuffer";
 import { drawText, textWidth } from "../src/game/pixel/font";
 import { BufferSurface } from "../src/game/pixel/surface";
-import { BEAST_IDS, charDef, DIRS, frameAt, getAnim, getPortrait, HUMAN_IDS, PORTRAIT, type AnimId, type CharId } from "../src/game/art/characters";
+import { BEAST_IDS, charDef, DIRS, frameAt, getAnim, getPortrait, HUMAN_IDS, OUTFITS, PORTRAIT, type AnimId, type CharId, type HumanId } from "../src/game/art/characters";
 import { getProp, PROP_IDS } from "../src/game/art/props";
 import { World } from "../src/game/runtime/world";
 import { WorldMap } from "../src/game/runtime/worldmap";
@@ -41,6 +41,7 @@ interface Cell {
   anim: AnimId;
   dir: number | "spin";
   label: string;
+  outfit?: string;
 }
 
 /** Grid of labelled animation cells, all playing in sync. */
@@ -57,7 +58,7 @@ function showcase(cells: Cell[], cols: number, scale: number, seconds: number, f
     cells.forEach((c, k) => {
       const def = charDef(c.id);
       const dir = c.dir === "spin" ? Math.floor(t * 4) % DIRS : c.dir;
-      const a = getAnim(c.id, c.anim, dir);
+      const a = getAnim(c.id, c.anim, dir, c.outfit);
       const dur = a.frames.length / a.fps;
       const x = (k % cols) * cw;
       const y = Math.floor(k / cols) * ch;
@@ -121,6 +122,30 @@ const steeds: Cell[] = [
   ...charDef("horse").anims.map((anim): Cell => ({ id: "horse", anim, dir: 14, label: `wild ${anim}` })),
 ];
 writeGif("cloudmane.gif", showcase(steeds, 5, 2, seconds), 12);
+// Lin Yue's wardrobe, twirling, and Willow Creek in its festival best
+const wardrobe: Cell[] = [
+  { id: "heroine", anim: "twirl", dir: 2, label: "jade" },
+  ...Object.keys(OUTFITS.heroine!).map((o): Cell => ({ id: "heroine", anim: "twirl", dir: 2, label: o, outfit: o })),
+  { id: "rider", anim: "run", dir: 2, label: "ride mail", outfit: "mail" },
+  ...(Object.keys(OUTFITS) as HumanId[]).filter((id) => id !== "heroine").map((id): Cell => ({ id, anim: charDef(id).anims.includes("lantern") ? "lantern" : "idle", dir: 1, label: `${charDef(id).name.split(" ").pop()!.normalize("NFD").replace(/[\u0300-\u036f]/g, "")} fest`, outfit: "festival" })),
+];
+writeGif("attire.gif", showcase(wardrobe, 7, 2, seconds), 12);
+// the newest animations: a salute, a twirl, the smith's hammer, the brush, a drifting shade, a festival lantern
+const newest: [CharId, AnimId][] = [
+  ["heroine", "salute"],
+  ["discipleM", "salute"],
+  ["swordsman", "salute"],
+  ["huli", "twirl"],
+  ["child", "twirl"],
+  ["smith", "hammer"],
+  ["heroine", "write"],
+  ["scholar", "write"],
+  ["ghost", "float"],
+  ["ghost", "write"],
+  ["zhou", "lantern"],
+  ["orchardist", "gather"],
+];
+writeGif("new-moves.gif", showcase(newest.map(([id, anim]): Cell => ({ id, anim, dir: 1, label: `${charDef(id).name.split(" ").pop()} ${anim}`, outfit: anim === "lantern" ? "festival" : undefined })), 6, 2, seconds), 12);
 
 // 2. Portraits
 const portraitIds = HUMAN_IDS.filter((id) => charDef(id).portrait);
@@ -241,10 +266,10 @@ if (!QUICK) {
 
 // 4c. The landmarks of the wilds, each a short loop (day, with the bandit camp after dark)
 {
-  const world = new World(getWorld(), { x: 150.5 * WORLD_SCALE, y: 174.5 * WORLD_SCALE, dir: 2 }, { ...FLAGS, metElder: true }, []);
+  const world = new World(getWorld(), { x: 150.5 * WORLD_SCALE, y: 174.5 * WORLD_SCALE, dir: 2 }, { ...FLAGS, metElder: true, metHuli: true }, []);
   for (const l of getWorld().landmarks) {
     world.placeHero(l.x + 2.5 * WORLD_SCALE, l.y + 3.5 * WORLD_SCALE, 10);
-    const night = l.key === "bandits" || l.key === "pagoda";
+    const night = l.key === "bandits" || l.key === "pagoda" || l.key === "pavilion";
     const frames = Array.from({ length: QUICK ? 2 : 36 }, (_, i) => {
       const t = (night ? 170 : 30) + i / 12;
       world.update(1 / 12, t, true);
