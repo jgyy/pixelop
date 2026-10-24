@@ -6,7 +6,7 @@ import { newGame, SKILL_IDS } from "@/game/engine/state";
 import { Game, type UiSnapshot } from "@/game/runtime/Game";
 import { renderTitle } from "@/game/runtime/title";
 import { duskAt, DAY_LENGTH } from "@/game/runtime/world";
-import { REGION_ORIGIN, toWorld } from "@/game/world/layout";
+import { toWorld, WORLD_SCALE } from "@/game/world/layout";
 import { getWorld } from "@/game/world/continent";
 import { getInterior } from "@/game/world/interiors";
 
@@ -26,11 +26,9 @@ const dirTo = (a: { x: number; y: number }, b: { x: number; y: number }) => {
   return ((Math.round(ang / (Math.PI / 8)) % 16) + 16) % 16;
 };
 
-/** Stand the heroine on open ground beside an NPC of the open world, and talk to them. */
-function talkTo(game: Game, key: string): void {
-  const w = getWorld();
-  const n = w.npcs.find((x) => x.key === key)!;
-  const [ox, oy] = REGION_ORIGIN.sect;
+/** Stand the heroine on open ground right beside a tile of the open world. */
+function standBeside(game: Game, i: number, j: number): void {
+  const m = getWorld().map;
   for (const [di, dj] of [
     [1, 0],
     [0, 1],
@@ -38,11 +36,24 @@ function talkTo(game: Game, key: string): void {
     [0, -1],
     [1, 1],
     [-1, 1],
+    [1, -1],
+    [-1, -1],
   ])
-    if (w.map.standable(n.i + di, n.j + dj)) {
-      game.debugTeleport("sect", n.i + di + 0.5 - ox, n.j + dj + 0.5 - oy);
-      break;
-    }
+    if (m.standable(i + di, j + dj)) return game.debugGoto(i + di + 0.5, j + dj + 0.5);
+  throw new Error(`nowhere to stand beside ${i},${j}`);
+}
+
+/** Stand beside something of the open world by its key (an NPC, a beast's den, a chest, a shrine, a crane). */
+function standBy(game: Game, key: string): void {
+  const w = getWorld();
+  const x = [...w.npcs, ...w.enemies, ...w.interacts, ...(w.critters ?? [])].find((n) => n.key === key);
+  if (!x) throw new Error(`no ${key} in the world`);
+  standBeside(game, x.i, x.j);
+}
+
+/** Stand the heroine on open ground beside an NPC of the open world, and talk to them. */
+function talkTo(game: Game, key: string): void {
+  standBy(game, key);
   game.debugSkipTime(0.1);
   game.keyDown("KeyE");
   game.keyUp("KeyE");
@@ -94,7 +105,7 @@ describe("Game runtime", () => {
 
   it("talks to Elder Mo and learns to ride the sword", () => {
     const game = fresh();
-    game.debugTeleport("sect", 15.5, 10.5);
+    standBy(game, "elder");
     let snap: UiSnapshot | null = null;
     game.subscribe((s) => (snap = s));
     game.debugSkipTime(0.1);
@@ -161,7 +172,7 @@ describe("Game runtime", () => {
 
   it("meditates at a shrine, faces the tribulation and breaks through", () => {
     const game = fresh();
-    game.debugTeleport("sect", 7.5, 13.5);
+    standBy(game, "sect-shrine");
     game.debugPatch({ stage: 3, cultivation: cultivationNeeded(0, 3) - 5 });
     game.keyDown("KeyE");
     game.keyUp("KeyE");
@@ -181,7 +192,7 @@ describe("Game runtime", () => {
 
   it("collects herbs and chests once", () => {
     const game = fresh();
-    game.debugTeleport("sect", 5.5, 10.4);
+    standBy(game, "sect-chest");
     const stones = game.state.stones;
     game.keyDown("KeyE");
     game.keyUp("KeyE");
@@ -195,7 +206,9 @@ describe("Game runtime", () => {
   it("touching Patriarch Xue starts his speech, then the boss battle", () => {
     const game = fresh();
     game.debugPatch({ realm: 1, flags: { metElder: true, valleyArrived: true } });
-    game.debugTeleport("valley", 25.5, 7.05);
+    standBy(game, "patriarch");
+    const xue = game.world.actor("patriarch")!;
+    Object.assign(game.world.hero, { x: xue.x + 0.3, y: xue.y + 0.3 });
     game.debugSkipTime(1.2);
     expect(game.mode).toBe("scene");
     expect(game.snapshot().dialog?.speaker).toBe("Patriarch Xue");
@@ -225,7 +238,7 @@ describe("Game runtime", () => {
     game.debugTeleport("sect", 15.5, 25.5);
     const world = game.world;
     game.setStick(-0.8, 0.4); // straight down the bridge (+y in world tiles), across Cloudrest Isle
-    game.debugSkipTime(15);
+    game.debugSkipTime(15 * WORLD_SCALE);
     game.setStick(0, 0);
     expect(game.world).toBe(world);
     expect(game.state.area).toBe("village");
@@ -237,20 +250,20 @@ describe("Game runtime", () => {
     const game = fresh();
     game.debugTeleport("sect", 15.5, 25.5);
     game.setStick(-0.8, 0.4);
-    game.debugSkipTime(10);
+    game.debugSkipTime(10 * WORLD_SCALE);
     game.setStick(0, 0);
     expect(game.state.area).toBe("sect");
-    expect(game.state.y).toBeLessThan(toWorld("village", 0, 0)[1] - 12);
+    expect(game.state.y).toBeLessThan(toWorld("village", 0, 0)[1] - 12 * WORLD_SCALE);
     expect(game.snapshot().toasts.map((t) => t.text).join(" ")).toMatch(/Willow Creek Village: Speak with Elder Mo/);
   });
 
   it("holding Shift breaks into a run", () => {
     const walkFrom = (run: boolean) => {
       const game = fresh();
-      game.debugTeleport("sect", 13.5, 15.5);
+      // down the open road to the sect gate
       const { x, y } = game.state;
       if (run) game.keyDown("ShiftLeft");
-      game.keyDown("KeyW");
+      game.keyDown("KeyS");
       game.debugSkipTime(0.8);
       const anim = game.world.hero.anim;
       return { d: Math.hypot(game.state.x - x, game.state.y - y), anim };
@@ -262,9 +275,76 @@ describe("Game runtime", () => {
     expect(run.d).toBeGreaterThan(walk.d * 1.3);
   });
 
+  it("whistles Cloudmane down to ride: a canter outpaces a run, a gallop outpaces the sword, and she steps down to talk", () => {
+    const distance = (mode: "run" | "canter" | "gallop" | "fly") => {
+      const game = fresh();
+      game.debugPatch({ flags: { metElder: true } });
+      if (mode === "fly") game.toggleFly();
+      if (mode === "canter" || mode === "gallop") {
+        game.keyDown("KeyR");
+        game.keyUp("KeyR");
+        expect(game.riding).toBe(true);
+        expect(game.world.hero.char).toBe("rider");
+      }
+      const { x, y } = game.state;
+      if (mode !== "canter") game.keyDown("ShiftLeft");
+      game.keyDown("KeyS"); // down the open road to the sect gate
+      game.debugSkipTime(0.5);
+      if (mode === "gallop") expect(game.world.hero.anim).toBe("run");
+      return Math.hypot(game.state.x - x, game.state.y - y);
+    };
+    const run = distance("run");
+    expect(distance("canter")).toBeGreaterThan(run * 1.3);
+    expect(distance("gallop")).toBeGreaterThan(Math.max(run * 2, distance("fly") * 1.6));
+
+    // before Elder Mo hands over the whistle there is no horse
+    const early = fresh();
+    early.toggleRide();
+    expect(early.riding).toBe(false);
+
+    // she swings down from the saddle to talk to someone, and never rides indoors
+    const game = fresh();
+    game.debugPatch({ flags: { metElder: true } });
+    standBy(game, "qing");
+    game.toggleRide();
+    expect(game.riding).toBe(true);
+    game.keyDown("KeyE");
+    game.keyUp("KeyE");
+    expect(game.mode).toBe("scene");
+    expect(game.riding).toBe(false);
+    for (let i = 0; i < 5 && game.mode !== "explore"; i++) {
+      talkThrough(game);
+      if (game.mode === "shop") game.closeShop();
+    }
+    game.toggleRide();
+    expect(game.riding).toBe(true);
+    game.debugEnter("hall");
+    expect(game.riding).toBe(false);
+    game.toggleRide();
+    expect(game.riding).toBe(false);
+  });
+
+  it("wild horses bolt from her on foot, but let a rider among them", () => {
+    const game = fresh();
+    game.debugPatch({ flags: { metElder: true } });
+    standBy(game, "horse-fields-0");
+    const horse = game.world.actor("horse-fields-0")!;
+    const d0 = Math.hypot(horse.x - game.world.hero.x, horse.y - game.world.hero.y);
+    game.debugSkipTime(0.8);
+    expect(horse.anim).toBe("run");
+    expect(Math.hypot(horse.x - game.world.hero.x, horse.y - game.world.hero.y)).toBeGreaterThan(d0 + 1.5);
+
+    const calm = fresh();
+    calm.debugPatch({ flags: { metElder: true } });
+    standBy(calm, "horse-highlands-0");
+    calm.toggleRide();
+    calm.debugSkipTime(0.8);
+    expect(calm.world.actor("horse-highlands-0")!.running).toBeFalsy();
+  });
+
   it("cranes take flight when the heroine comes close", () => {
     const game = fresh();
-    game.debugTeleport("sect", 20.5, 22.4);
+    standBy(game, "crane-s1");
     game.debugSkipTime(0.6);
     const crane = game.world.actor("crane-s1")!;
     expect(crane.flying).toBe(true);
@@ -274,7 +354,7 @@ describe("Game runtime", () => {
   it("villagers turn to greet and wave at the heroine", () => {
     const game = fresh();
     game.debugPatch({ flags: { metElder: true, villageArrived: true, villageSaved: true } });
-    game.debugTeleport("village", 12.4, 6.5);
+    standBy(game, "hua");
     game.debugSkipTime(0.2);
     const hua = game.world.actor("hua")!;
     expect(hua.anim).toBe("wave");
@@ -343,15 +423,13 @@ describe("Game runtime", () => {
   it("walking up to a landmark of the wilds names it", () => {
     const game = fresh();
     game.debugPatch({ flags: { metElder: true, villageArrived: true, villageSaved: true, metZhou: true, bambooArrived: true } });
-    const [ox, oy] = REGION_ORIGIN.sect;
-    game.debugTeleport("sect", 150.5 - ox, 164.5 - oy);
+    const tea = getWorld().landmarks.find((l) => l.key === "teahouse")!;
+    // on the highway just beyond the teahouse's name, then a few steps down the road to it
+    game.debugGoto(tea.x + 0.5, tea.y + 0.5 - 7 * WORLD_SCALE - 1);
     game.debugSkipTime(4);
-    game.keyDown("KeyS");
-    game.keyDown("KeyD"); // screen down-right: south along the road to the crossroads
-    game.debugSkipTime(0.2);
-    game.keyUp("KeyS");
-    game.keyUp("KeyD");
-    game.debugSkipTime(0.1);
+    expect(game.snapshot().banner?.title).not.toBe("Crossroads Teahouse");
+    game.tap(...game.world.heroScreen().map((v, k) => v + (k ? 40 : 0)) as [number, number]);
+    game.debugSkipTime(0.8);
     expect(game.snapshot().banner?.title).toBe("Crossroads Teahouse");
     expect(game.snapshot().banner?.hanzi).toBe("茶馆");
   });
@@ -391,9 +469,8 @@ describe("Game runtime", () => {
   it("beasts sniff, howl and doze, and cranes peck, when left alone", () => {
     const game = fresh();
     game.debugPatch({ flags: { metElder: true } });
-    const [ox, oy] = REGION_ORIGIN.sect;
     // hover on the sword above the highway (safe from the beasts) near the bandit camp's wolves
-    game.debugTeleport("sect", 300 - ox, 172.5 - oy);
+    game.debugGoto(300 * WORLD_SCALE, 172.5 * WORLD_SCALE);
     game.toggleFly();
     const seen = new Set<string>();
     for (let k = 0; k < 120; k++) {
@@ -407,11 +484,10 @@ describe("Game runtime", () => {
     const game = fresh();
     game.debugPatch({ flags: { metElder: true } });
     const spawn = getWorld().enemies.find((e) => e.key === "wild-wolf-1")!;
-    const [ox, oy] = REGION_ORIGIN.sect;
     const m = getWorld().map;
     // find a line out from its den along which both the beast and the heroine can stand
     const dir = ([[1, 0], [-1, 0], [0, 1], [0, -1]] as const).find(([dx, dy]) => [5, 6, 7, 8].every((k) => m.standable(spawn.i + dx * k, spawn.j + dy * k)))!;
-    game.debugTeleport("sect", spawn.i + 0.5 + dir[0] * 8 - ox, spawn.j + 0.5 + dir[1] * 8 - oy);
+    game.debugGoto(spawn.i + 0.5 + dir[0] * 8, spawn.j + 0.5 + dir[1] * 8);
     game.debugSkipTime(1.2);
     const wolf = game.world.actor("wild-wolf-1")!;
     Object.assign(wolf, { x: spawn.i + 0.5 + dir[0] * 5.9, y: spawn.j + 0.5 + dir[1] * 5.9, target: null, holdUntil: undefined });
@@ -420,6 +496,21 @@ describe("Game runtime", () => {
     expect(wolf.alerted).toBe(true);
     expect(wolf.anim).toBe("idle");
     expect(Math.hypot(wolf.x - wolf.home[0], wolf.y - wolf.home[1])).toBeLessThanOrEqual(spawn.range + 4 + 0.01);
+  });
+
+  it("once she has sat down to wait, riding her sword or travelling gets her up for good", () => {
+    const game = fresh();
+    game.debugPatch({ flags: { metElder: true } });
+    game.debugSkipTime(90, 1 / 10);
+    expect(game.world.hero.idleAnim).toBe("sit");
+    game.toggleFly();
+    game.toggleFly();
+    game.debugSkipTime(0.5);
+    expect(game.world.hero.anim).toBe("idle");
+    game.debugSkipTime(90, 1 / 10);
+    expect(game.world.hero.idleAnim).toBe("sit");
+    game.enterArea("village");
+    expect(game.world.hero.idleAnim).toBe("idle");
   });
 
   it("scripted walks are at a walking pace even straight after a run", () => {
@@ -437,7 +528,7 @@ describe("Game runtime", () => {
     game.debugTeleport("lake", 16.5, 20.5); // on the jetty
     game.toggleFly();
     game.keyDown("KeyD"); // out over the open water
-    game.debugSkipTime(0.4);
+    game.debugSkipTime(0.4 * WORLD_SCALE);
     game.keyUp("KeyD");
     const m = game.world.def.map;
     expect(m.standable(Math.floor(game.state.x), Math.floor(game.state.y))).toBe(false);
@@ -472,8 +563,7 @@ describe("Game runtime", () => {
     const game = fresh();
     game.debugPatch({ flags: { metElder: true } });
     const hall = getInterior("hall");
-    const [ox, oy] = REGION_ORIGIN.sect;
-    game.debugTeleport("sect", hall.door[0] + 0.5 - ox, hall.door[1] + 0.5 - oy);
+    game.debugGoto(hall.door[0] + 0.5, hall.door[1] + 0.5);
     game.debugSkipTime(0.1);
     expect(game.snapshot().prompt).toBe("E · Enter the Hall of Clouds");
     // walking into the building from its door step goes through the door (the hall's door faces +x, so walk up-left)
@@ -518,7 +608,7 @@ describe("Game runtime", () => {
     expect(game.world.hero.anim).toBe("read");
     expect(game.snapshot().dialog?.text).toMatch(/Jade Lotus Heart/);
     talkThrough(game);
-    Object.assign(game.world.hero, { x: 5.5, y: 2.5 });
+    Object.assign(game.world.hero, { x: 4.5, y: 2.5 });
     game.debugSkipTime(0.1);
     game.keyDown("KeyE");
     game.keyUp("KeyE");

@@ -1,8 +1,9 @@
 import { fbm, hash2 } from "../pixel/noise";
 import { propDef, type PropId } from "../art/props";
-import { AREA_IDS, getArea, type AreaDef, type AreaId, type Critter, type EnemySpawn, type Interactable, type NpcPlacement, type PropPlacement } from "./areas";
-import { interiorDoors } from "./interiors";
-import { REGION_ORIGIN, rectDistance, regionRect, toWorld, WORLD_H, WORLD_W } from "./layout";
+import { AREA_IDS, getArea, placementTiles, type AreaDef, type AreaId, type Critter, type EnemySpawn, type Interactable, type NpcPlacement, type PropPlacement } from "./areas";
+import { getInterior, INTERIOR_IDS, interiorDoors } from "./interiors";
+import { COARSE_H, COARSE_ORIGIN, COARSE_W, rectDistance, regionRect, toCoarse, toWorld, WORLD_H, WORLD_SCALE, WORLD_W } from "./layout";
+import { companionOf, magnifyMap, magnifyProp, pointTile } from "./magnify";
 import { LIQUID, TileMap, type TileKind } from "./tilemap";
 
 /**
@@ -131,7 +132,7 @@ const RIVERS: { pts: [number, number][]; kind: "water" | "lava"; width: number }
 ];
 
 const inRect = (id: AreaId, i: number, j: number) => {
-  const [x0, y0, x1, y1] = regionRect(id);
+  const [x0, y0, x1, y1] = regionRect(id, 1);
   return i >= x0 && j >= y0 && i < x1 && j < y1;
 };
 
@@ -160,7 +161,7 @@ function wildRegion(i: number, j: number): WildId {
       best = id;
     }
   };
-  for (const id of MAINLAND) consider(id, rectDistance(id, i + 0.5, j + 0.5));
+  for (const id of MAINLAND) consider(id, rectDistance(id, i + 0.5, j + 0.5, 1));
   for (const [id, r] of ZONES) consider(id, rectDist(r, i + 0.5, j + 0.5));
   return best;
 }
@@ -178,7 +179,7 @@ function stroke(points: [number, number][], width: number, fn: (i: number, j: nu
       for (let j = Math.floor(cy - width); j <= Math.ceil(cy + width); j++)
         for (let i = Math.floor(cx - width); i <= Math.ceil(cx + width); i++) {
           if (Math.hypot(i - cx, j - cy) > width / 2 + 0.2) continue;
-          const k = j * 4096 + i;
+          const k = j * 8192 + i;
           if (seen.has(k)) continue;
           seen.add(k);
           fn(i, j);
@@ -191,25 +192,25 @@ function stroke(points: [number, number][], width: number, fn: (i: number, j: nu
 export const FLOATS = new Set<PropId>(["lotus", "boat", "reeds", "waterwheel"]);
 
 function buildWorld(): WorldDef {
-  const m = new TileMap(WORLD_W, WORLD_H, "void", 0);
+  const m = new TileMap(COARSE_W, COARSE_H, "void", 0);
   /** 0 = wild, 1 = region template or landmark site, 2 = carved road/river/bridge (fixed height). */
-  const fixed = new Uint8Array(WORLD_W * WORLD_H);
+  const fixed = new Uint8Array(COARSE_W * COARSE_H);
   const wildOf = new Map<number, WildId>();
   const fix = (i: number, j: number, v: 1 | 2) => {
-    if (m.inside(i, j)) fixed[j * WORLD_W + i] = v;
+    if (m.inside(i, j)) fixed[j * COARSE_W + i] = v;
   };
 
   // 1. the mainland wilds
   m.each((i, j) => {
     if (!mainlandMask(i, j) && !MAINLAND.some((id) => inRect(id, i, j))) return;
     const r = wildRegion(i, j);
-    wildOf.set(j * WORLD_W + i, r);
+    wildOf.set(j * COARSE_W + i, r);
     const st = WILD[r];
     const hills = 1 + Math.round((fbm(i * 0.07, j * 0.07, 31) - 0.45) * st.hills);
     m.set(i, j, st.ground(i, j), Math.max(0, Math.min(5, hills + st.lift)));
   });
   const ashen = (i: number, j: number) => {
-    const r = wildOf.get(j * WORLD_W + i);
+    const r = wildOf.get(j * COARSE_W + i);
     return r ? !!WILD[r].ashen : inRect("valley", i, j);
   };
 
@@ -223,7 +224,7 @@ function buildWorld(): WorldDef {
   for (const id of AREA_IDS) {
     const a = getArea(id);
     regions[id] = a;
-    const [ox, oy] = REGION_ORIGIN[id];
+    const [ox, oy] = COARSE_ORIGIN[id];
     a.map.each((i, j) => {
       const k = a.map.kind(i, j);
       if (k === "void") return;
@@ -295,13 +296,13 @@ function buildWorld(): WorldDef {
       if (Math.hypot(i - x, j - y) < r + 2 && LIQUID[m.kind(i, j)]) fix(i, j, 2);
     });
   };
-  pool(...toWorld("bamboo", -2.5, 19.5), 2.8, "water", 70);
-  pool(...toWorld("valley", 34, 8), 2.2, "lava", 71);
+  pool(...toCoarse("bamboo", -2.5, 19.5), 2.8, "water", 70);
+  pool(...toCoarse("valley", 34, 8), 2.2, "lava", 71);
   pool(252, 192, 2.6, "water", 72);
   pool(56, 191, 2.4, "lava", 73);
   // sandy banks along the wild stretches of the rivers
   m.each((i, j) => {
-    if (fixed[j * WORLD_W + i] || LIQUID[m.kind(i, j)] || m.kind(i, j) === "void") return;
+    if (fixed[j * COARSE_W + i] || LIQUID[m.kind(i, j)] || m.kind(i, j) === "void") return;
     const wet = [-1, 0, 1].some((a) => [-1, 0, 1].some((b) => m.kind(i + a, j + b) === "water"));
     if (wet && !ashen(i, j)) m.set(i, j, "sand", 1);
   });
@@ -315,11 +316,11 @@ function buildWorld(): WorldDef {
       fix(i, j, 2);
     });
   road(HIGHWAY, 2.4, () => 1);
-  const [, valleyY] = toWorld("valley", 0, 31);
+  const [, valleyY] = toCoarse("valley", 0, 31);
   for (const b of BRANCHES) road(b.pts, 2.2, (i, j) => (b.valley && j <= valleyY + 2 ? 2 : 1));
   // the village's north road runs on to the mainland's edge…
-  const [gx, gy] = toWorld("sect", 15, 27);
-  const [, vy] = toWorld("village", 0, 4);
+  const [gx, gy] = toCoarse("sect", 15, 27);
+  const [, vy] = toCoarse("village", 0, 4);
   const onIsle = (i: number, j: number) => ISLES.some((s) => Math.hypot(i - s.c[0], j - s.c[1]) < s.r - 0.6);
   for (let j = gy; j <= vy; j++)
     for (let i = gx - 1; i <= gx + 1; i++) {
@@ -330,14 +331,14 @@ function buildWorld(): WorldDef {
       fix(i, j, 2);
     }
   // a second one leads from behind the Hall of Clouds up to the peak,
-  const [, sy0] = toWorld("sect", 0, 0);
+  const [, sy0] = toCoarse("sect", 0, 0);
   for (let j = sy0 - 5; j <= sy0 + 2; j++)
     for (let i = gx + 1; i <= gx + 3; i++) {
       m.set(i, j, j <= sy0 - 5 ? "marble" : "wood", j <= sy0 - 3 ? 3 : 4);
       fix(i, j, 2);
     }
   // and plank walkways run east from the sect's lotus pond out to the Cloudstep Isles.
-  const [dx, dy] = toWorld("sect", 26, 16);
+  const [dx, dy] = toCoarse("sect", 26, 16);
   const walkway = (pts: [number, number][], width: number) =>
     stroke(pts, width, (i, j) => {
       if (m.kind(i, j) !== "void") return;
@@ -349,11 +350,11 @@ function buildWorld(): WorldDef {
 
   // 7. keep the wilds walkable: no tile rises or falls more than a level per
   // tile away from a region, road or river (multi-source distance fields)
-  const lo = new Float32Array(WORLD_W * WORLD_H).fill(-99);
-  const hi = new Float32Array(WORLD_W * WORLD_H).fill(99);
+  const lo = new Float32Array(COARSE_W * COARSE_H).fill(-99);
+  const hi = new Float32Array(COARSE_W * COARSE_H).fill(99);
   const q: number[] = [];
   m.each((i, j) => {
-    const idx = j * WORLD_W + i;
+    const idx = j * COARSE_W + i;
     if (!fixed[idx] || m.kind(i, j) === "void") return;
     const h = m.height(i, j);
     lo[idx] = LIQUID[m.kind(i, j)] ? -99 : h;
@@ -362,8 +363,8 @@ function buildWorld(): WorldDef {
   });
   for (let qi = 0; qi < q.length; qi++) {
     const idx = q[qi];
-    const i = idx % WORLD_W;
-    const j = (idx / WORLD_W) | 0;
+    const i = idx % COARSE_W;
+    const j = (idx / COARSE_W) | 0;
     for (const [di, dj] of [
       [1, 0],
       [-1, 0],
@@ -372,8 +373,8 @@ function buildWorld(): WorldDef {
     ]) {
       const ni = i + di;
       const nj = j + dj;
-      if (!m.inside(ni, nj) || m.kind(ni, nj) === "void" || fixed[nj * WORLD_W + ni]) continue;
-      const n = nj * WORLD_W + ni;
+      if (!m.inside(ni, nj) || m.kind(ni, nj) === "void" || fixed[nj * COARSE_W + ni]) continue;
+      const n = nj * COARSE_W + ni;
       const nlo = lo[idx] - 1;
       const nhi = hi[idx] + 1;
       if (nlo > lo[n] || nhi < hi[n]) {
@@ -384,14 +385,14 @@ function buildWorld(): WorldDef {
     }
   }
   m.each((i, j) => {
-    const idx = j * WORLD_W + i;
+    const idx = j * COARSE_W + i;
     if (fixed[idx] || m.kind(i, j) === "void") return;
     const h = m.height(i, j);
     m.set(i, j, undefined, Math.round(Math.max(lo[idx], Math.min(hi[idx], h))));
   });
   // snow only caps the higher highland hills
   m.each((i, j) => {
-    if (!fixed[j * WORLD_W + i] && m.kind(i, j) === "snow" && m.height(i, j) < 3) m.set(i, j, "grass");
+    if (!fixed[j * COARSE_W + i] && m.kind(i, j) === "snow" && m.height(i, j) < 3) m.set(i, j, "grass");
   });
 
   // 8. the landmarks: their buildings, keepers, beasts and treasures
@@ -437,6 +438,7 @@ function buildWorld(): WorldDef {
     P("bench", 153, 174);
     P("prayerflags", 146, 175);
     P("redlantern", 144, 173);
+    P("lanterns", 150, 168);
     it("tea-shrine", "shrine", 155, 175);
     it("tea-sign", "sign", 153, 169, "The crossroads teahouse. ← West: the Whispering Bamboo Forest, and beyond the red mist the Crimson Demon Valley. → East: Willow Creek and the Moonlit Lotus Lake. ↓ South: the stone forest and the ruined temple.");
     mark("teahouse", "Crossroads Teahouse", "茶馆", "teahouse", 150, 171);
@@ -473,6 +475,7 @@ function buildWorld(): WorldDef {
     it("temple-herb", "herb", x + 9, y - 6);
     P("lantern", x - 2, y - 2);
     P("lantern", x + 2, y - 2);
+    P("bell", x - 3, y - 4);
     npcs.push({ key: "kong", char: "monk", i: x + 1, j: y + 1, dir: 2, anim: "sweep" });
     enemies.push({ key: "temple-jiangshi-1", enemy: "jiangshi", i: x - 9, j: y + 7, range: 2 }, { key: "temple-jiangshi-2", enemy: "jiangshi", i: x + 11, j: y + 4, range: 2 });
     mark("temple", "Temple of Still Water", "静水寺", "ruin", x, y);
@@ -545,11 +548,8 @@ function buildWorld(): WorldDef {
     mark("camp", "Blood Moon Camp", "血月营", "brazier", x, y);
   }
 
-  // the doors of the buildings she can walk into
-  interacts.push(...interiorDoors());
-
   // 9. wayside landmarks, rewards and wanderers along the highway
-  const [nx] = toWorld("village", 16, 0);
+  const [nx] = toCoarse("village", 16, 0);
   P("lantern", nx - 3, vy - 6);
   P("lantern", nx + 3, vy - 6);
   P("lantern", gx - 2, gy + 1);
@@ -606,6 +606,14 @@ function buildWorld(): WorldDef {
     { key: "wild-cultist-1", enemy: "cultist", i: 40, j: 172, range: 2 },
     { key: "wild-serpent-1", enemy: "serpent", i: 300, j: 140, range: 1.5 },
   );
+  // herds of wild horses on the open pastures
+  for (const [herd, pts] of [
+    ["fields", [[170, 200], [173, 202], [168, 204]]],
+    ["highlands", [[275, 198], [278, 196], [276, 201], [281, 199]]],
+    ["lakeside", [[305, 118], [308, 121]]],
+    ["westwood", [[75, 120], [78, 123]]],
+  ] as [string, [number, number][]][])
+    pts.forEach(([i, j], k) => critters.push({ key: `horse-${herd}-${k}`, char: "horse", i, j }));
   critters.push(
     { key: "crane-w1", char: "crane", i: 244, j: 128 },
     { key: "crane-w2", char: "crane", i: 160, j: 120 },
@@ -614,18 +622,18 @@ function buildWorld(): WorldDef {
   );
 
   // 10. scatter trees and undergrowth over the wilds, clear of roads and landmarks
-  const taken = new Set(props.map((p) => p.j * WORLD_W + p.i));
+  const taken = new Set(props.map((p) => p.j * COARSE_W + p.i));
   const keepClear = [...interacts, ...npcs, ...enemies, ...critters].map((x) => [x.i, x.j] as [number, number]);
-  const clearGrid = new Uint8Array(WORLD_W * WORLD_H);
+  const clearGrid = new Uint8Array(COARSE_W * COARSE_H);
   for (const [x, y] of keepClear)
     for (let dj = -3; dj <= 3; dj++)
-      for (let di = -3; di <= 3; di++) if (Math.hypot(di, dj) <= 2.2 && m.inside(x + di, y + dj)) clearGrid[(y + dj) * WORLD_W + x + di] = 1;
+      for (let di = -3; di <= 3; di++) if (Math.hypot(di, dj) <= 2.2 && m.inside(x + di, y + dj)) clearGrid[(y + dj) * COARSE_W + x + di] = 1;
   const clear = (i: number, j: number, r: number) => {
-    for (let dj = -r; dj <= r; dj++) for (let di = -r; di <= r; di++) if (fixed[(j + dj) * WORLD_W + i + di] === 2) return false;
-    return !clearGrid[j * WORLD_W + i];
+    for (let dj = -r; dj <= r; dj++) for (let di = -r; di <= r; di++) if (fixed[(j + dj) * COARSE_W + i + di] === 2) return false;
+    return !clearGrid[j * COARSE_W + i];
   };
   m.each((i, j) => {
-    const idx = j * WORLD_W + i;
+    const idx = j * COARSE_W + i;
     const r = wildOf.get(idx);
     if (!r || fixed[idx] || taken.has(idx)) return;
     const k = m.kind(i, j);
@@ -644,27 +652,62 @@ function buildWorld(): WorldDef {
     }
   });
 
-  // 11. props never stand in rivers, on roads or over the void
-  const kept = props.filter((p) => {
+  // 11. magnify the authoring grid into the world: the land doubles, the
+  // buildings grow with it (the ones she can enter to the size of their rooms),
+  // and the wild grows thicker so the bigger land doesn't feel empty
+  const S = WORLD_SCALE;
+  const coarse = m;
+  const fixedAt = (i: number, j: number) => fixed[Math.floor(j / S) * COARSE_W + Math.floor(i / S)];
+  const fine = magnifyMap(coarse, (i, j) => fixed[j * COARSE_W + i] === 2 && !LIQUID[coarse.kind(i, j)]);
+  const pt = (i: number, j: number) => pointTile(coarse, fine, i, j);
+  const fnpcs: NpcPlacement[] = npcs.map((n) => ({ ...n, ...xy(pt(n.i, n.j)), wander: n.wander && n.wander * 1.5, route: n.route?.map(([x, y]) => [x * S, y * S] as [number, number]) }));
+  const fenemies: EnemySpawn[] = enemies.map((e) => ({ ...e, ...xy(pt(e.i, e.j)), range: e.range * 1.5 }));
+  const finteracts: Interactable[] = [...interacts.map((x) => ({ ...x, ...xy(pt(x.i, x.j)) })), ...interiorDoors()];
+  const fcritters: Critter[] = critters.map((c) => ({ ...c, ...xy(pt(c.i, c.j)) }));
+  const busy = new Set<number>();
+  for (const x of [...fnpcs, ...fenemies, ...finteracts, ...fcritters]) for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) busy.add((x.j + dj) * WORLD_W + x.i + di);
+  const rooms = new Map(INTERIOR_IDS.map((id) => {
+    const d = getInterior(id);
+    return [`${d.source.id}@${d.source.i},${d.source.j}`, d.building] as const;
+  }));
+  const fprops: PropPlacement[] = [];
+  for (const p of props) {
+    const room = rooms.get(`${p.id}@${p.i},${p.j}`);
+    if (room) {
+      fprops.push(room);
+      continue;
+    }
+    const q = magnifyProp(p, coarse, fine);
+    fprops.push(q);
+    const c = companionOf(p, q, coarse, fine);
+    if (c && !busy.has(c.j * WORLD_W + c.i)) fprops.push(c);
+  }
+
+  // 12. props never stand in rivers, on roads or over the void (buildings only mind the void)
+  const kept = fprops.filter((p) => {
     const d = propDef(p.id);
-    for (let j = p.j + d.foot[1]; j <= p.j + d.foot[3]; j++)
-      for (let i = p.i + d.foot[0]; i <= p.i + d.foot[2]; i++) {
-        const k = m.kind(i, j);
+    const big = (p.k ?? 1) > 1;
+    const [i0, j0, i1, j1] = placementTiles(p);
+    for (let j = j0; j <= j1; j++)
+      for (let i = i0; i <= i1; i++) {
+        const k = fine.kind(i, j);
+        if (k === "void") return false;
+        if (big) continue;
         const wet = !!LIQUID[k] && !FLOATS.has(p.id);
         const afloat = FLOATS.has(p.id) && !!LIQUID[k];
-        if (k === "void" || wet || (fixed[j * WORLD_W + i] === 2 && d.blocks && !afloat)) return false;
+        if (wet || (fixedAt(i, j) === 2 && d.blocks && !afloat)) return false;
       }
     return true;
   });
   for (const p of kept) {
-    const d = propDef(p.id);
-    if (!d.blocks) continue;
-    for (let j = p.j + d.foot[1]; j <= p.j + d.foot[3]; j++) for (let i = p.i + d.foot[0]; i <= p.i + d.foot[2]; i++) m.block(i, j);
+    if (!propDef(p.id).blocks) continue;
+    const [i0, j0, i1, j1] = placementTiles(p);
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) fine.block(i, j);
   }
 
-  // 12. which region owns each tile
+  // 13. which region owns each tile
   const regionOf = new Uint8Array(WORLD_W * WORLD_H);
-  m.each((i, j) => {
+  fine.each((i, j) => {
     let best = 0;
     let bd = Infinity;
     AREA_IDS.forEach((id, n) => {
@@ -685,21 +728,23 @@ function buildWorld(): WorldDef {
     name: "The Jianghu",
     hanzi: "江湖",
     subtitle: "One world beneath heaven",
-    map: m,
+    map: fine,
     base: 0,
     floating: true,
     arrive: waypoints.sect,
     props: kept,
-    npcs,
-    enemies,
-    interacts,
-    critters,
+    npcs: fnpcs,
+    enemies: fenemies,
+    interacts: finteracts,
+    critters: fcritters,
     regionOf,
     regions,
     waypoints,
-    landmarks,
+    landmarks: landmarks.map((l) => ({ ...l, x: l.x * S + (S - 1) / 2, y: l.y * S + (S - 1) / 2 })),
   };
 }
+
+const xy = ([i, j]: [number, number]) => ({ i, j });
 
 /** Height of the highway's centreline at a world x (for roadside decorations). */
 function roadY(x: number): number {

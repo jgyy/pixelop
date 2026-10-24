@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { AREA_IDS as AREAS, type AreaId } from "../world/ids";
-import { LEGACY_REGION_ORIGIN, REGION_SIZE, toWorld, WORLD_H, WORLD_W } from "../world/layout";
+import { LEGACY_REGION_ORIGIN, TEMPLATE_SIZE, toWorld, WORLD_H, WORLD_SCALE, WORLD_W } from "../world/layout";
 import { addCultivation, breakthrough, statsFor, type Stats } from "./realms";
 
 export const SKILL_IDS = ["strike", "palm", "lotus", "swords", "thunder"] as const;
@@ -8,13 +8,14 @@ export type SkillId = (typeof SKILL_IDS)[number];
 
 /**
  * Serializable game state — this is exactly what gets saved server-side.
- * Version 4 stores the heroine's position in world tiles of the continuous
- * jianghu. Older saves are migrated on load: version 3 positions are in the
- * smaller world the jianghu grew out of, and version 2 positions are local
- * to one map per region.
+ * Version 5 stores the heroine's position in world tiles of the continuous
+ * jianghu. Older saves are migrated on load: version 4 positions are in the
+ * world before it doubled (every tile is now WORLD_SCALE × WORLD_SCALE),
+ * version 3 positions are in the smaller world that one grew out of, and
+ * version 2 positions are local to one map per region.
  */
 const SaveFields = z.object({
-  version: z.union([z.literal(2), z.literal(3), z.literal(4)]),
+  version: z.union([z.literal(2), z.literal(3), z.literal(4), z.literal(5)]),
   name: z.string().min(1).max(24),
   realm: z.number().int().min(0).max(5),
   stage: z.number().int().min(0).max(3),
@@ -39,7 +40,7 @@ const SaveFields = z.object({
 
 /** Region-local coordinates, clamped inside the region's layout. */
 const local = (area: AreaId, x: number, y: number): [number, number] => {
-  const n = REGION_SIZE[area];
+  const n = TEMPLATE_SIZE[area];
   return toWorld(area, Math.max(0.5, Math.min(x, n - 0.5)), Math.max(0.5, Math.min(y, n - 0.5)));
 };
 
@@ -53,7 +54,7 @@ function fromLegacyWorld(x: number, y: number): { area: AreaId; x: number; y: nu
   let bd = Infinity;
   for (const id of AREAS) {
     const [ox, oy] = LEGACY_REGION_ORIGIN[id];
-    const n = REGION_SIZE[id];
+    const n = TEMPLATE_SIZE[id];
     const d = Math.hypot(Math.max(ox - x, 0, x - ox - n), Math.max(oy - y, 0, y - oy - n));
     if (d < bd) {
       bd = d;
@@ -66,10 +67,11 @@ function fromLegacyWorld(x: number, y: number): { area: AreaId; x: number; y: nu
 }
 
 export const GameStateSchema = SaveFields.transform((s) => {
-  if (s.version === 4) return { ...s, version: 4 as const };
-  if (s.version === 3) return { ...s, version: 4 as const, ...fromLegacyWorld(s.x, s.y) };
+  if (s.version === 5) return { ...s, version: 5 as const };
+  if (s.version === 4) return { ...s, version: 5 as const, x: Math.min(WORLD_W, s.x * WORLD_SCALE), y: Math.min(WORLD_H, s.y * WORLD_SCALE) };
+  if (s.version === 3) return { ...s, version: 5 as const, ...fromLegacyWorld(s.x, s.y) };
   const [x, y] = local(s.area, s.x, s.y);
-  return { ...s, version: 4 as const, x, y };
+  return { ...s, version: 5 as const, x, y };
 });
 
 export type GameState = z.output<typeof GameStateSchema>;
@@ -80,7 +82,7 @@ const START = toWorld("sect", 15.5, 20.5);
 export function newGame(name = "Lin Yue"): GameState {
   const s = statsFor(0, 0);
   return {
-    version: 4,
+    version: 5,
     name,
     realm: 0,
     stage: 0,
