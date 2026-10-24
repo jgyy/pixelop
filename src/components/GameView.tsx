@@ -54,6 +54,8 @@ export function GameView({ initial, intro, onQuit }: { initial: GameState; intro
     window.__pixelop = { game, save };
     const down = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement) return;
+      // browser shortcuts (Ctrl+F to find, Ctrl+R to reload, Cmd+C to copy) are not game keys
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (CAPTURE.has(e.code)) e.preventDefault();
       if (game.mode === "scene" && CONFIRM.has(e.code) && !typing.current.done) {
         typing.current.finish();
@@ -130,6 +132,11 @@ export function GameView({ initial, intro, onQuit }: { initial: GameState; intro
               {ui.quest.chapter} · {ui.quest.title}
             </div>
             <div className="objective">{ui.quest.objective}</div>
+            {ui.errand && (
+              <div className="errand" data-testid="errand">
+                ✦ {ui.errand}
+              </div>
+            )}
           </div>
         )}
 
@@ -150,6 +157,11 @@ export function GameView({ initial, intro, onQuit }: { initial: GameState; intro
               {s.flags.metElder && !ui.interior && (
                 <button className="btn" onClick={() => game.toggleRide()} data-testid="ride">
                   {ui.riding ? "Dismount" : "Ride"} <span className="kbd">R</span>
+                </button>
+              )}
+              {ui.attire.owned > 1 && (
+                <button className="btn" onClick={() => game.changeAttire()} data-testid="attire" title={ui.attire.name}>
+                  Attire <span className="kbd">C</span>
                 </button>
               )}
               <button className="btn" onClick={() => void save()} data-testid="save">
@@ -271,7 +283,7 @@ function Dialog({ dialog, onAdvance, typingRef }: { dialog: NonNullable<UiSnapsh
   }, [done, total, typingRef]);
   return (
     <div className={`dialog panel${dialog.portrait ? " with-portrait" : ""}${dialog.speaker ? "" : " narrator"}`} onClick={() => (done ? onAdvance() : setShown(total))} data-testid="dialog">
-      {dialog.portrait && <Portrait id={dialog.portrait} talking={!done} />}
+      {dialog.portrait && <Portrait id={dialog.portrait} outfit={dialog.outfit} talking={!done} />}
       <div className="body">
         {dialog.speaker && <div className="speaker">{dialog.speaker}</div>}
         <div className="text">
@@ -284,7 +296,7 @@ function Dialog({ dialog, onAdvance, typingRef }: { dialog: NonNullable<UiSnapsh
   );
 }
 
-function Portrait({ id, talking }: { id: HumanId; talking: boolean }) {
+function Portrait({ id, outfit, talking }: { id: HumanId; outfit?: string; talking: boolean }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const talkRef = useRef(talking);
   useEffect(() => {
@@ -294,7 +306,7 @@ function Portrait({ id, talking }: { id: HumanId; talking: boolean }) {
     const ctx = ref.current?.getContext("2d");
     if (!ctx) return;
     const surface = new CanvasSurface(ctx);
-    const frames = getPortrait(id);
+    const frames = getPortrait(id, outfit);
     let raf = 0;
     const tick = (now: number) => {
       raf = requestAnimationFrame(tick);
@@ -305,7 +317,7 @@ function Portrait({ id, talking }: { id: HumanId; talking: boolean }) {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [id]);
+  }, [id, outfit]);
   return <canvas ref={ref} className="portrait" width={PORTRAIT} height={PORTRAIT} data-testid="portrait" />;
 }
 
@@ -450,6 +462,9 @@ function TouchControls({ game, typing }: { game: Game; typing: React.RefObject<{
         </button>
         <button className="btn" {...press("KeyM")}>
           M
+        </button>
+        <button className="btn" {...press("KeyC")} aria-label="Change attire">
+          C
         </button>
         <button className="btn" {...press("KeyB")}>
           B

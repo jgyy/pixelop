@@ -114,6 +114,12 @@ const BRANCHES: { pts: [number, number][]; valley?: boolean }[] = [
   { pts: [[52, 165], [50, 177], [44, 189], [38, 196]] },
   // along the creek from Willow Creek to the watermill
   { pts: [[203, 105], [216, 107], [230, 110]] },
+  // north through the westwood to the Sword Tomb
+  { pts: [[70, 165.6], [74, 140], [80, 120], [82, 114]] },
+  // a footpath from Willow Creek's west lane to the Moon-Gazing Pavilion
+  { pts: [[175, 104], [164, 103], [155, 103]] },
+  // east past the lake to the peach orchard
+  { pts: [[300, 166.6], [301, 160], [303, 155]] },
 ];
 
 const RIVERS: { pts: [number, number][]; kind: "water" | "lava"; width: number }[] = [
@@ -269,6 +275,9 @@ function buildWorld(): WorldDef {
   site([252, 192], 5.6, "sand", 1, 0.8); // hot spring
   site([292, 207], 5.6, "dirt", 1, 1); // bandit camp
   site([34, 200], 5.6, "ash", 1, 1); // blood moon camp
+  site([83, 108], 6, "dirt", 1, 1); // sword tomb
+  site([150, 101], 4.6, "grass", 1, 0.8); // moon-gazing pavilion
+  site([304, 150], 6.4, "meadow", 1, 0.8); // peach orchard
   // paddies among the fields, edged by dikes
   for (const [x0, y0] of [
     [200, 175],
@@ -548,6 +557,80 @@ function buildWorld(): WorldDef {
     mark("camp", "Blood Moon Camp", "血月营", "brazier", x, y);
   }
 
+  // the Sword Tomb in the westwood, where an old smith keeps the swords of the fallen
+  {
+    const [x, y] = [83, 108];
+    P("swordtomb", x - 1, y - 2);
+    P("forge", x + 4, y + 2);
+    P("house", x - 6, y + 1);
+    P("lantern", x - 2, y + 4);
+    P("lantern", x + 2, y - 5);
+    P("banner", x + 5, y - 3);
+    npcs.push({ key: "ou", char: "smith", i: x + 3, j: y + 4, dir: 3, anim: "hammer" });
+    it("tomb-stele", "sign", x + 1, y + 3, "The Sword Tomb. “Here rest the swords of those who held the west against the Blood Moon. Their names are on the blades. Their bones are in the valley. Walk softly.”");
+    it("tomb-shrine", "shrine", x - 4, y - 4);
+    it("tomb-chest", "chest", x + 5, y - 5);
+    it("tomb-herb", "herb", x - 6, y + 5);
+    enemies.push({ key: "tomb-wolf-1", enemy: "wolf", i: x - 10, j: y + 9, range: 2 }, { key: "tomb-wolf-2", enemy: "wolf", i: x + 11, j: y + 7, range: 2 });
+    critters.push({ key: "crane-st", char: "crane", i: x + 8, j: y - 4 });
+    mark("swordtomb", "Sword Tomb", "剑冢", "swordtomb", x, y);
+  }
+  // the Moon-Gazing Pavilion north of the creek, where a scholar once watched the moon with a fox
+  {
+    const [x, y] = [150, 101];
+    P("pavilion", x, y - 1);
+    P("grave", x - 4, y + 1);
+    P("wisps", x - 3, y + 3);
+    P("willow", x + 4, y + 2);
+    P("willow", x - 5, y - 3);
+    P("lantern", x + 2, y + 3);
+    npcs.push(
+      { key: "pei", char: "ghost", i: x - 2, j: y + 2, dir: 2, anim: "float", when: (f) => !!f.metHuli && !f.peiAtRest },
+      { key: "huliPav", char: "huli", i: x - 1, j: y + 3, dir: 14, when: (f) => !!f.huliLetter && !f.peiAtRest },
+    );
+    it("pavilion-stele", "sign", x + 2, y - 3, "A poem carved into the pavilion's post, the strokes worn soft: “The moon on the creek is the same moon over the capital. Wherever I am, look up, and we are looking at each other.”");
+    it("pavilion-herb", "herb", x + 5, y - 2);
+    mark("pavilion", "Moon-Gazing Pavilion", "望月亭", "pavilion", x, y);
+  }
+  // the peach orchard east of the lake, its trees grown from a stone the founder threw away
+  {
+    const [x, y] = [304, 150];
+    for (const [dx2, dy2] of [
+      [-4, -3],
+      [-1, -4],
+      [2, -3],
+      [-4, 1],
+      [4, 0],
+      [-2, 4],
+      [3, 4],
+    ] as [number, number][])
+      P("peachtree", x + dx2, y + dy2);
+    P("beehive", x + 5, y - 4);
+    P("beehive", x + 6, y - 2);
+    P("house", x - 7, y - 2);
+    P("fence", x - 6, y + 3);
+    P("fence", x - 5, y + 3);
+    P("haystack", x + 6, y + 3);
+    npcs.push({ key: "rong", char: "orchardist", i: x, j: y + 1, dir: 2, wander: 1.5 });
+    it("orchard-sign", "sign", x + 1, y + 6, "Rong's Peach Orchard. “Peaches for travellers: take one, leave a story.” Below, in a child's hand: “Peddler Bai owes three peaches.”");
+    it("orchard-chest", "chest", x + 7, y + 5);
+    it("orchard-herb", "herb", x - 6, y - 6);
+    critters.push({ key: "crane-or", char: "crane", i: x - 3, j: y + 7 });
+    mark("orchard", "Peach Orchard", "桃园", "peachtree", x, y);
+  }
+  // Willow Creek's festival: fireworks over the square once the Heart is home
+  {
+    const homecoming = (f: Record<string, boolean>) => !!f.heartReturned;
+    for (const [lx, ly] of [
+      [14, 8],
+      [20, 9],
+      [22, 12],
+    ] as [number, number][]) {
+      const [i, j] = toCoarse("village", lx, ly);
+      props.push({ id: "fireworks", i, j, when: homecoming });
+    }
+  }
+
   // 9. wayside landmarks, rewards and wanderers along the highway
   const [nx] = toCoarse("village", 16, 0);
   P("lantern", nx - 3, vy - 6);
@@ -611,7 +694,7 @@ function buildWorld(): WorldDef {
     ["fields", [[170, 200], [173, 202], [168, 204]]],
     ["highlands", [[275, 198], [278, 196], [276, 201], [281, 199]]],
     ["lakeside", [[305, 118], [308, 121]]],
-    ["westwood", [[75, 120], [78, 123]]],
+    ["westwood", [[68, 126], [71, 129]]],
   ] as [string, [number, number][]][])
     pts.forEach(([i, j], k) => critters.push({ key: `horse-${herd}-${k}`, char: "horse", i, j }));
   critters.push(
@@ -677,7 +760,7 @@ function buildWorld(): WorldDef {
       fprops.push(room);
       continue;
     }
-    const q = magnifyProp(p, coarse, fine);
+    const q: PropPlacement = { ...magnifyProp(p, coarse, fine), ...(p.when && { when: p.when }) };
     fprops.push(q);
     const c = companionOf(p, q, coarse, fine);
     if (c && !busy.has(c.j * WORLD_W + c.i)) fprops.push(c);
@@ -700,7 +783,7 @@ function buildWorld(): WorldDef {
     return true;
   });
   for (const p of kept) {
-    if (!propDef(p.id).blocks) continue;
+    if (!propDef(p.id).blocks || p.when) continue;
     const [i0, j0, i1, j1] = placementTiles(p);
     for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) fine.block(i, j);
   }
