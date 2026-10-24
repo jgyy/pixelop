@@ -1,6 +1,6 @@
 import { hash2, fbm } from "../pixel/noise";
 import type { AnimId, HumanId } from "../art/characters";
-import { propDef, type PropId } from "../art/props";
+import { footTiles, propDef, type PropId } from "../art/props";
 import type { EnemyId } from "../engine/enemies";
 import { TileMap, type TileKind } from "./tilemap";
 
@@ -19,8 +19,19 @@ export type Weather = "petals" | "leaves" | "fireflies" | "embers" | "snow" | "n
 
 export interface PropPlacement {
   id: PropId;
+  /** Anchor tile. */
   i: number;
   j: number;
+  /** Drawn this many times its size (buildings in the magnified world). */
+  k?: number;
+  /** Model origin in world coordinates, when it is not the anchor tile's centre. */
+  at?: [number, number];
+}
+
+/** The tiles [i0, j0, i1, j1] (inclusive) a placed prop covers. */
+export function placementTiles(p: PropPlacement): [number, number, number, number] {
+  const [x, y] = p.at ?? [p.i + 0.5, p.j + 0.5];
+  return footTiles(p.id, x, y, p.k ?? 1);
 }
 
 export interface NpcPlacement {
@@ -41,7 +52,7 @@ export interface NpcPlacement {
 /** Ambient wildlife: wanders, and takes flight when the heroine comes close. */
 export interface Critter {
   key: string;
-  char: "crane" | "bat";
+  char: "crane" | "bat" | "horse";
   i: number;
   j: number;
 }
@@ -153,6 +164,7 @@ function buildSect(): AreaDef {
     P("lantern", 17, 25),
     P("gate", 15, 27),
     P("shrine", 6, 13),
+    P("bell", 8, 16),
     P("stall", 21, 11),
     P("cauldron", 22, 13),
     P("dummy", 5, 20),
@@ -269,6 +281,8 @@ function buildVillage(): AreaDef {
     P("stall", 18, 11),
     P("redlantern", 13, 12),
     P("redlantern", 19, 13),
+    P("lanterns", 16, 12),
+    P("kite", 21, 14),
     P("redlantern", 15, 25),
     P("sign", 17, 28),
     P("maple", 5, 12),
@@ -630,9 +644,9 @@ export function getArea(id: AreaId): AreaDef {
   if (!a) {
     a = BUILDERS[id]();
     for (const p of a.props) {
-      const d = propDef(p.id);
-      if (!d.blocks) continue;
-      for (let j = p.j + d.foot[1]; j <= p.j + d.foot[3]; j++) for (let i = p.i + d.foot[0]; i <= p.i + d.foot[2]; i++) a.map.block(i, j);
+      if (!propDef(p.id).blocks) continue;
+      const [i0, j0, i1, j1] = placementTiles(p);
+      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) a.map.block(i, j);
     }
     cache.set(id, a);
   }

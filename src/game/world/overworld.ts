@@ -1,15 +1,15 @@
 import type { PropId } from "../art/props";
 import { AREA_IDS, type AreaId } from "./ids";
-import { REGION_ORIGIN, WORLD_H, WORLD_W } from "./layout";
+import { toWorld, WORLD_H, WORLD_SCALE, WORLD_W } from "./layout";
 import { getWorld } from "./continent";
 import { LIQUID } from "./tilemap";
 
 /**
  * The world map: a miniature of the real continuous world (one map cell per
- * 3×3 tiles), with each region's landmark marked as a sword-flight destination.
+ * 6×6 tiles), with each region's landmark marked as a sword-flight destination.
  */
 
-export const MAP_SCALE = 3;
+export const MAP_SCALE = 3 * WORLD_SCALE;
 export const MAP_W = Math.ceil(WORLD_W / MAP_SCALE);
 export const MAP_H = Math.ceil(WORLD_H / MAP_SCALE);
 
@@ -28,8 +28,8 @@ const LANDMARK: Record<AreaId, [number, number]> = { sect: [15, 8], village: [16
 
 const node = (id: AreaId, icon: PropId, extra: MapNode["extra"]): MapNode => ({
   id,
-  x: Math.round((REGION_ORIGIN[id][0] + LANDMARK[id][0]) / MAP_SCALE),
-  y: Math.round((REGION_ORIGIN[id][1] + LANDMARK[id][1]) / MAP_SCALE),
+  x: Math.round(toWorld(id, ...LANDMARK[id])[0] / MAP_SCALE),
+  y: Math.round(toWorld(id, ...LANDMARK[id])[1] / MAP_SCALE),
   icon,
   extra,
 });
@@ -106,7 +106,7 @@ export function mapTerrain(): MapCell[] {
           const r = AREA_IDS[w.regionOf[j * m.w + i]];
           if (r === "sect" || r === "peak") sky = true;
         }
-      if (solid < 3) {
+      if (solid < (MAP_SCALE * MAP_SCALE) / 3) {
         cells.push({ biome: "void", h: 0, sky: false });
         continue;
       }
@@ -157,7 +157,7 @@ export function mapTerrain(): MapCell[] {
         default:
           biome = bamboo.has(c) ? "bamboo" : trees.has(c) ? "forest" : "plain";
       }
-      if (wet && biome !== "road" && (counts.get("water") ?? 0) >= 3) biome = "river";
+      if (wet && biome !== "road" && (counts.get("water") ?? 0) >= (MAP_SCALE * MAP_SCALE) / 3) biome = "river";
       cells.push({ biome, h: Math.round(h * 1.5) + (sky ? 7 : 0), sky });
     }
   terrain = cells;

@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { test, type Page } from "@playwright/test";
 import { cultivationNeeded } from "../src/game/engine/realms";
-import { battle, mode, patch, skipScene, startNewGame, teleport } from "./helpers";
+import { battle, goto, mode, patch, skipScene, standBy, startNewGame, teleport, tileOf } from "./helpers";
 
 /** Captures the README / PR screenshots. Run with `npm run screenshots`. */
 const DIR = "docs/screenshots";
@@ -35,7 +35,7 @@ test("capture screenshots", async ({ page }) => {
   await shot(page, "02-intro-cutscene");
   await skipScene(page);
 
-  await teleport(page, "sect", 15.5, 10.6);
+  await standBy(page, "elder");
   await page.waitForTimeout(500);
   await page.keyboard.press("KeyE");
   await sayUntil(page, "sworn brother");
@@ -60,14 +60,14 @@ test("capture screenshots", async ({ page }) => {
   await page.keyboard.press("Enter");
   await page.waitForTimeout(400);
   await skipScene(page);
-  await teleport(page, "village", 16.5, 11.6);
+  await standBy(page, "zhou");
   await page.waitForTimeout(800);
   await page.keyboard.press("KeyE");
   await sayUntil(page, "seven nights");
   await shot(page, "06-village");
   await skipScene(page);
 
-  await teleport(page, "bamboo", 16.5, 7.7);
+  await standBy(page, "huli");
   await page.waitForTimeout(700);
   await page.keyboard.press("KeyE");
   await sayUntil(page, "Three hundred years");
@@ -86,7 +86,7 @@ test("capture screenshots", async ({ page }) => {
   await shot(page, "09-moonlit-lake");
 
   await patch(page, { realm: 0, stage: 3, cultivation: cultivationNeeded(0, 3) - 2, skills: ["strike", "palm", "lotus"] });
-  await teleport(page, "sect", 7.5, 13.6);
+  await standBy(page, "sect-shrine");
   await page.waitForTimeout(400);
   await page.keyboard.press("KeyE");
   await page.waitForTimeout(2600);
@@ -130,7 +130,7 @@ test("capture screenshots", async ({ page }) => {
   await teleport(page, "sect", -99.5, 132.5); // where the red mist seals the valley
   await page.waitForTimeout(1500);
   await shot(page, "18-demonic-seal");
-  await teleport(page, "sect", 136.5, 91.5);
+  await teleport(page, "sect", 143.2, 92.6);
   await page.waitForTimeout(1500);
   await shot(page, "19-waterfall");
   if ((await mode(page)) === "scene") await skipScene(page);
@@ -146,6 +146,8 @@ test("capture screenshots", async ({ page }) => {
   await visit("20-cloudrest-isle", 15.5, 45.5);
   await visit("21-cloudstep-isles", 39.5, 17.5);
   await visit("22-crossroads-teahouse", -28.5, 140.5);
+  await standBy(page, "fang");
+  await page.waitForTimeout(400);
   await page.keyboard.press("KeyE");
   await sayUntil(page, "Cloud-mist tea");
   await shot(page, "23-auntie-fang");
@@ -184,7 +186,7 @@ test("capture building interiors", async ({ page }) => {
   await startNewGame(page);
   await patch(page, { flags: { metElder: true, villageArrived: true, villageSaved: true, metZhou: true, bambooArrived: true }, realm: 0, stage: 2 });
   const enter = (id: string) => page.evaluate((id) => window.__pixelop!.game.debugEnter(id as never), id);
-  const standBy = (key: string, dx: number, dy: number) =>
+  const nextTo = (key: string, dx: number, dy: number) =>
     page.evaluate(
       ([key, dx, dy]) => {
         const g = window.__pixelop!.game;
@@ -195,13 +197,14 @@ test("capture building interiors", async ({ page }) => {
     );
 
   // the door of the Hall of Clouds, then inside
-  await teleport(page, "sect", 17.5, 6.5);
+  const [hi, hj] = await tileOf(page, "door-hall");
+  await goto(page, hi + 0.5, hj + 0.5);
   await page.waitForTimeout(1200);
   await shot(page, "32-hall-door");
   await page.keyboard.press("KeyE");
   await page.waitForTimeout(1400);
   await shot(page, "33-hall-of-clouds");
-  await standBy("shen", 1, 0);
+  await nextTo("shen", 1, 0);
   await page.waitForTimeout(300);
   await page.keyboard.press("KeyE");
   await sayUntil(page, "one of ours");
@@ -214,7 +217,7 @@ test("capture building interiors", async ({ page }) => {
   await shot(page, "35-granny-hua-cottage");
 
   await enter("teahouse");
-  await standBy("qiao", -1, 0);
+  await nextTo("qiao", -1, 0);
   await page.waitForTimeout(300);
   await page.keyboard.press("KeyE");
   await sayUntil(page, "farm girl");
@@ -227,10 +230,92 @@ test("capture building interiors", async ({ page }) => {
   await shot(page, "37-watermill-inside");
 
   await enter("pagoda");
-  await standBy("ming", 1, 0);
+  await nextTo("ming", 1, 0);
   await page.waitForTimeout(300);
   await page.keyboard.press("KeyE");
   await sayUntil(page, "Little Qiu");
   await shot(page, "38-pagoda-of-seven-lamps");
   await skipScene(page);
 });
+
+test("capture the doubled world, its one-to-one buildings and Cloudmane", async ({ page }) => {
+  test.setTimeout(180_000);
+  await startNewGame(page);
+  await patch(page, { realm: 1, stage: 1, hp: 400, qi: 200, flags: { metElder: true, villageArrived: true, villageSaved: true, metZhou: true, bambooArrived: true, lakeArrived: true, metHuli: true, rodeCloudmane: true } });
+  const door = async (id: string) => {
+    const [i, j] = await tileOf(page, `door-${id}`);
+    await goto(page, i + 0.5, j + 0.5);
+  };
+  const settle = async (ms = 1500) => {
+    await page.waitForTimeout(ms);
+    if ((await mode(page)) === "scene") await skipScene(page);
+  };
+
+  // the same building from outside and in: the room's floor is the building's footprint
+  for (const [id, out, inside] of [
+    ["hall", "39-hall-outside", "40-hall-inside"],
+    ["cottage", "41-cottage-outside", "42-cottage-inside"],
+    ["teahouse", "43-teahouse-outside", "44-teahouse-inside"],
+  ] as const) {
+    await door(id);
+    await settle(1800);
+    await shot(page, out);
+    await page.keyboard.press("KeyE");
+    await page.waitForTimeout(1600);
+    await shot(page, inside);
+    await page.evaluate(() => {
+      const g = window.__pixelop!.game;
+      const d = g.world.def.interacts.find((x) => x.kind === "door")!;
+      Object.assign(g.world.hero, { x: d.i + 0.5, y: d.j + 0.5 });
+    });
+    await page.waitForTimeout(200);
+    await page.keyboard.press("KeyE");
+    await page.waitForTimeout(600);
+  }
+
+  // whistle for Cloudmane on the old highway, then gallop east
+  await teleport(page, "sect", -6, 131.6);
+  await settle(1200);
+  await page.evaluate(() => (window.__pixelop!.game.world.hero.dir = 3));
+  await page.keyboard.press("KeyR");
+  await page.waitForTimeout(420);
+  await shot(page, "45-cloudmane-arrives");
+  await page.waitForTimeout(900);
+  // east along the highway (world +x runs down-right along the screen's 2:1 diagonal), the joystick pushed all the way
+  await page.evaluate(() => window.__pixelop!.game.setStick(0.894, 0.447));
+  await page.waitForTimeout(1100);
+  await shot(page, "46-gallop-highway");
+  await page.evaluate(() => window.__pixelop!.game.setStick(0, 0));
+
+  // riding among the wild herd on the highland pastures
+  await page.evaluate(() => {
+    const g = window.__pixelop!.game;
+    const c = g.world.actor("horse-highlands-0")!;
+    g.debugGoto(c.x - 2.5, c.y + 2.5);
+    g.world.hero.dir = 3;
+  });
+  await page.keyboard.press("KeyR");
+  await settle(2200);
+  await shot(page, "47-wild-horses");
+
+  // festival lanterns and a kite over Willow Creek's square, and the temple bell
+  await teleport(page, "village", 17.5, 14.5);
+  await settle(2000);
+  await shot(page, "48-village-lanterns-kite");
+  await visit(page, "49-temple-bell", -72.5, 172.5);
+
+  // the doubled world on the map
+  await teleport(page, "sect", 15.5, 45.5);
+  await settle(600);
+  await page.keyboard.press("KeyM");
+  await page.waitForTimeout(1500);
+  await shot(page, "50-world-map-doubled");
+  await page.keyboard.press("Escape");
+});
+
+async function visit(page: Page, name: string, x: number, y: number, wait = 1600): Promise<void> {
+  await teleport(page, "sect", x, y);
+  await page.waitForTimeout(wait);
+  if ((await mode(page)) === "scene") await skipScene(page);
+  await shot(page, name);
+}

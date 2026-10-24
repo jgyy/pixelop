@@ -20,3 +20,33 @@ export const battle = (page: Page, enemy: EnemyId) => page.evaluate((e) => windo
 export const state = (page: Page) => page.evaluate(() => window.__pixelop!.game.state);
 export const mode = (page: Page) => page.evaluate(() => window.__pixelop!.game.mode);
 export const skipScene = (page: Page) => page.evaluate(() => window.__pixelop!.game.skipScene());
+
+/** Jump to a point of the open world, in world tiles. */
+export const goto = (page: Page, x: number, y: number) => page.evaluate(([x, y]) => window.__pixelop!.game.debugGoto(x, y), [x, y] as const);
+
+/** Stand on open ground right beside something in the current map (an NPC, a door, a chest…), found by its key. */
+export const standBy = (page: Page, key: string) =>
+  page.evaluate((key) => {
+    const g = window.__pixelop!.game;
+    const d = g.world.def;
+    const x = [...d.npcs, ...d.enemies, ...d.interacts].find((n) => n.key === key);
+    if (!x) throw new Error(`no ${key} here`);
+    for (const [di, dj] of [
+      [1, 0],
+      [0, 1],
+      [-1, 0],
+      [0, -1],
+      [1, 1],
+      [-1, 1],
+    ])
+      if (d.map.standable(x.i + di, x.j + dj)) return g.debugGoto(x.i + di + 0.5, x.j + dj + 0.5);
+    throw new Error(`nowhere to stand by ${key}`);
+  }, key);
+
+/** Where something of the current map is, by its key. */
+export const tileOf = (page: Page, key: string) =>
+  page.evaluate((key) => {
+    const d = window.__pixelop!.game.world.def;
+    const x = [...d.npcs, ...d.enemies, ...d.interacts].find((n) => n.key === key)!;
+    return [x.i, x.j] as [number, number];
+  }, key);
