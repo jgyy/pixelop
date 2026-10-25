@@ -72,7 +72,13 @@ export type AnimId =
   | "hammer"
   | "write"
   | "float"
-  | "lantern";
+  | "lantern"
+  | "hoe"
+  | "chop"
+  | "carry"
+  | "kick"
+  | "umbrella"
+  | "taichi";
 
 export interface Anim {
   fps: number;
@@ -540,6 +546,77 @@ const human: Partial<Record<AnimId, AnimSpec<HumanPose>>> = {
     loop: true,
     pose: (i, n) => ({ t: ph(i, n), held: "lantern", handR: [3.6, 2.4, 15.4 + Math.sin(ph(i, n)) * 0.6], bob: i % 3 === 1 ? 0.3 : 0, eyes: i === 4 ? "blink" : "open", mouth: "smile", wind: [Math.sin(ph(i, n)) * 0.3, -0.3, 0] }),
   },
+  // working the soil: the hoe swings up over the shoulder and bites down into the earth
+  hoe: {
+    n: 8,
+    fps: 6,
+    loop: true,
+    pose: (i) => {
+      const up = [0, 0.3, 0.7, 1, 1, 0.6, 0.15, 0][i];
+      const L = (a: V3, b: V3): V3 => [a[0] + (b[0] - a[0]) * up, a[1] + (b[1] - a[1]) * up, a[2] + (b[2] - a[2]) * up];
+      return { t: i, held: "hoe", lean: 0.18 - up * 0.14, handR: L([2.6, 2.4, 13], [2.6, 1.6, 16]), handL: L([1, 5.6, 9], [1.2, 3.4, 21]), footR: [1.7, 1.4, 0], eyes: up > 0.9 ? "fierce" : "open", mouth: up < 0.1 ? "open" : "neutral", wind: [0, -0.3, 0] };
+    },
+  },
+  // splitting firewood: the axe goes high overhead and comes down hard
+  chop: {
+    n: 8,
+    fps: 7,
+    loop: true,
+    pose: (i) => {
+      const up = [0.1, 0.5, 0.9, 1, 1, 0.5, 0, 0][i];
+      return { t: i, held: "axe", lean: 0.16 - up * 0.2, handR: [1.4, 6 - up * 6, 11 + up * 13], handL: [-0.4, 5.6 - up * 6, 10.4 + up * 13], footL: [-2.2, 0, 0], footR: [2.2, 0.6, 0], eyes: up < 0.05 ? "closed" : "fierce", mouth: up < 0.05 ? "open" : "neutral", wind: [0, -0.3, 0] };
+    },
+  },
+  // walking with a carrying pole on the shoulders, baskets swinging in time with the steps
+  carry: {
+    n: 8,
+    fps: 9,
+    loop: true,
+    pose: (i, n) => {
+      const a = ph(i, n);
+      const s = Math.sin(a);
+      return { t: a * 2, held: "pole", bob: Math.abs(Math.cos(a)) * 0.7, footL: [-1.7, s * 2.6, Math.max(0, Math.cos(a)) * 1.1], footR: [1.7, -s * 2.6, Math.max(0, -Math.cos(a)) * 1.1], handL: [-4.2, 0.2, 18.6], handR: [4.2, 0.2, 18.6], lean: 0.08, mouth: "smile", wind: [0, -0.6, 0] };
+    },
+  },
+  // keeping a feathered shuttlecock in the air with the side of the foot
+  kick: {
+    n: 8,
+    fps: 8,
+    loop: true,
+    pose: (i) => {
+      const kicking = i === 7 || i === 0;
+      return { t: i, held: "shuttlecock", toss: [3.4, 5.6, [7, 16, 25, 30, 25, 16, 9, 6][i]], footR: kicking ? [2.2, 2.4, 3.4] : [1.7, 0, 0], handL: [-5.6, 1, 13.6], handR: [5.6, 1, 13.6], lift: kicking ? 0.4 : 0, lean: kicking ? -0.06 : 0, eyes: "open", mouth: kicking ? "grin" : "smile", wind: [0, -0.3, 0] };
+    },
+  },
+  // strolling under an oiled-paper umbrella, twirling it now and then
+  umbrella: {
+    n: 6,
+    fps: 4,
+    loop: true,
+    pose: (i, n) => ({ t: ph(i, n), held: "umbrella", handR: [2.4, 2.6, 14.6], handL: [-1.4, 3.6, 12.6], bob: i % 3 === 1 ? 0.3 : 0, eyes: i === 4 ? "blink" : "open", mouth: "smile", wind: [Math.sin(ph(i, n)) * 0.3, -0.3, 0] }),
+  },
+  // the slow, flowing forms of taiji: arms circling as the weight shifts from foot to foot
+  taichi: {
+    n: 12,
+    fps: 4,
+    loop: true,
+    pose: (i, n) => {
+      const a = ph(i, n);
+      const w = Math.sin(a);
+      return {
+        t: a,
+        lean: 0.04,
+        bob: -0.6 - Math.abs(Math.cos(a)) * 0.4,
+        footL: [-2.8, 0.6, 0],
+        footR: [2.8, -0.4, 0],
+        handL: [-3.6 + Math.sin(a) * 2.4, 3.4 + Math.cos(a) * 2, 14.6 + Math.sin(a) * 3.4],
+        handR: [3.6 + Math.sin(a + Math.PI) * 2.4, 3.4 + Math.cos(a + Math.PI) * 2, 14.6 + Math.sin(a + Math.PI) * 3.4],
+        eyes: "closed",
+        mouth: "neutral",
+        wind: [w * 0.5, -0.3, 0],
+      };
+    },
+  },
 };
 
 // ----------------------------------------------------------------------------- beast poses
@@ -616,6 +693,23 @@ export const STYLES = {
   smith: s({ robe: ramp("#5a4a3a"), inner: PAL.white, trim: PAL.red, sash: PAL.red, hair: PAL.hairGrey, beard: PAL.hairGrey, hairStyle: "short", skin: PAL.skinTan, shawl: ramp("#3a2a26"), hunch: 0.04, flare: 4.4, hem: 4.6, shoes: PAL.brown, eye: "#3a2a1a" }),
   ghost: s({ robe: ramp("#c8d8f0", { lo: "#4a5a8a" }), inner: PAL.white, trim: PAL.navy, sash: PAL.navy, skin: PAL.skinPale, hair: PAL.hairBlack, hairStyle: "long", hat: "scholar", hatRamp: PAL.black, eye: "#4a6a9a", flare: 5.4, hem: 1.6 }),
   orchardist: s({ robe: ramp("#e88aa0"), inner: PAL.white, trim: PAL.green, sash: PAL.green, hair: PAL.hairBrown, hairStyle: "bun", female: true, hat: "straw", hatRamp: PAL.straw, skin: PAL.skinTan, eye: "#3a2a1a", flare: 5, hem: 3.6, shoes: PAL.brown }),
+  villagerM: s({ robe: ramp("#6a8a6a"), inner: PAL.paper, trim: PAL.brown, sash: PAL.brown, hair: PAL.hairBlack, hairStyle: "short", skin: PAL.skinTan, flare: 4.4, hem: 4.4, shoes: PAL.brown }),
+  villagerF: s({ robe: ramp("#c87a5a"), inner: PAL.white, trim: PAL.paper, sash: PAL.green, hair: PAL.hairBlack, hairStyle: "bun", female: true, eye: "#3a2a1a", flare: 5, hem: 3.6, shoes: PAL.brown }),
+  boy: s({ robe: ramp("#4a7ac8"), inner: PAL.white, trim: PAL.white, sash: PAL.red, hairStyle: "topknot", scale: 0.68, eye: "#3a2a1a", hem: 4.6, flare: 4 }),
+  woodcutter: s({ robe: ramp("#6a5a3a"), inner: PAL.paper, trim: PAL.brown, sash: PAL.red, hair: PAL.hairBrown, beard: PAL.hairBrown, hairStyle: "wild", skin: PAL.skinTan, flare: 4.2, hem: 4.8, shoes: PAL.brown }),
+  porter: s({ robe: ramp("#8a9aaa"), inner: PAL.white, trim: PAL.navy, sash: PAL.navy, hairStyle: "short", hat: "straw", hatRamp: PAL.straw, skin: PAL.skinTan, flare: 4.2, hem: 4.8, shoes: PAL.brown }),
+  lady: s({ robe: ramp("#b88ad8", { lo: "#4a2a6a" }), inner: PAL.white, trim: PAL.gold, sash: PAL.rose, hair: PAL.hairBlack, hairStyle: "long", female: true, shawl: ramp("#f8d8f0"), eye: "#3a2a4a", flare: 6 }),
+  guard: s({ robe: ramp("#3a4a6a", { lo: "#10182a" }), inner: PAL.red, trim: PAL.steel, sash: PAL.red, hairStyle: "topknot", hat: "hood", hatRamp: PAL.black, weapon: "saber", weaponRamp: PAL.steel, flare: 4.6, hem: 4.2 }),
+  fishwife: s({ robe: ramp("#4a8aa0"), inner: PAL.white, trim: PAL.white, sash: PAL.orange, hair: PAL.hairBrown, hairStyle: "bun", female: true, skin: PAL.skinTan, eye: "#3a2a1a", flare: 5, hem: 3.6, shoes: PAL.brown }),
+  captain: s({ robe: ramp("#2a4a7a"), inner: PAL.white, trim: PAL.gold, sash: PAL.gold, hair: PAL.hairGrey, beard: PAL.hairGrey, hairStyle: "wild", hat: "straw", hatRamp: ramp("#3a3a4a"), skin: PAL.skinTan, cape: ramp("#8a2a2a"), flare: 4.8, hem: 4 }),
+  abbot: s({ robe: ramp("#e8c050", { lo: "#7a4a20" }), inner: PAL.crimson, trim: PAL.crimson, sash: PAL.crimson, skin: PAL.skinTan, hairStyle: "bald", beard: PAL.hairWhite, weapon: "staff", weaponRamp: PAL.gold, shawl: ramp("#a8282a"), hunch: 0.06, flare: 5.6 }),
+  novice: s({ robe: ramp("#c8a070", { lo: "#5a3a2a" }), inner: PAL.paper, trim: PAL.brown, sash: PAL.brown, skin: PAL.skinTan, hairStyle: "bald", scale: 0.78, flare: 4.6 }),
+  nomad: s({ robe: ramp("#c06a3a", { lo: "#4a1a20" }), inner: PAL.gold, trim: PAL.gold, sash: PAL.navy, hair: PAL.hairBlack, hairStyle: "long", hat: "hood", hatRamp: ramp("#e8d8b0"), skin: PAL.skinTan, weapon: "saber", flare: 4.8, hem: 3.8, shoes: PAL.brown }),
+  marshwitch: s({ robe: ramp("#4a6a4a", { lo: "#102a1a" }), inner: PAL.paper, trim: PAL.purple, sash: PAL.purple, hair: PAL.hairWhite, hairStyle: "wild", female: true, hunch: 0.18, scale: 0.9, weapon: "staff", eye: "#8a4ab0", shawl: ramp("#6a5a8a") }),
+  teapicker: s({ robe: ramp("#7aa86a"), inner: PAL.white, trim: PAL.white, sash: PAL.rose, hair: PAL.hairBlack, hairStyle: "twin", female: true, hat: "straw", hatRamp: PAL.straw, skin: PAL.skinTan, eye: "#3a2a1a", flare: 4.8, hem: 3.8, shoes: PAL.brown }),
+  teamaster: s({ robe: ramp("#5a7a5a", { lo: "#1a2a2a" }), inner: PAL.paper, trim: PAL.paper, sash: PAL.gold, hair: PAL.hairWhite, beard: PAL.hairWhite, hairStyle: "topknot", hat: "scholar", hatRamp: PAL.black, weapon: "fan", hunch: 0.08, flare: 5.6 }),
+  cook: s({ robe: PAL.white, inner: PAL.white, trim: PAL.red, sash: PAL.red, hair: PAL.hairBlack, hairStyle: "short", hat: "hood", hatRamp: PAL.white, skin: PAL.skinTan, scale: 1.04, flare: 5.8, hem: 3.8, shoes: PAL.black }),
+  taiji: s({ robe: PAL.white, inner: PAL.black, trim: PAL.black, sash: PAL.black, hair: PAL.hairWhite, beard: PAL.hairWhite, hairStyle: "topknot", hat: "crown", hatRamp: PAL.black, weapon: "whisk", flare: 5.8 }),
   patriarch: s({ robe: PAL.crimson, inner: PAL.black, trim: PAL.gold, sash: PAL.black, hair: PAL.hairSilver, hairStyle: "long", hat: "crown", hatRamp: PAL.black, cape: PAL.black, weapon: "saber", scale: 1.3, glowEyes: "#ff2040", flare: 6.2 }),
 } satisfies Record<string, HumanStyle>;
 
@@ -634,6 +728,7 @@ export const OUTFITS: Partial<Record<HumanId, Record<string, Partial<HumanStyle>
     cloudsilk: { robe: ramp("#e8ecf8", { lo: "#5a6a9a" }), inner: PAL.azure, trim: PAL.azure, sash: PAL.navy, shoes: PAL.navy, hat: "veil", hatRamp: ramp("#e8f0ff"), shawl: ramp("#c8e0ff"), flare: 5.6 },
     mail: { robe: ramp("#4a4a5e", { lo: "#141428" }), inner: PAL.crimson, trim: PAL.steel, sash: PAL.crimson, shoes: PAL.black, shawl: undefined, cape: PAL.crimson, hem: 4.2, flare: 4.4 },
     festival: { robe: PAL.red, inner: PAL.gold, trim: PAL.gold, sash: PAL.gold, shawl: FESTIVAL_SHAWL, shoes: PAL.red },
+    seafarer: { robe: ramp("#2a5a8a", { lo: "#0a1a3a" }), inner: PAL.white, trim: PAL.gold, sash: PAL.red, shoes: PAL.brown, shawl: undefined, cape: ramp("#c8483a", { lo: "#3a0a1a" }), hat: "straw", hatRamp: ramp("#3a3a4a"), hem: 3.6, flare: 4.8 },
     celestial: { robe: PAL.white, inner: PAL.gold, trim: PAL.gold, sash: PAL.gold, shoes: PAL.gold, hat: "crown", hatRamp: PAL.gold, shawl: ramp("#fff0a0", { lo: "#a87a30" }), flare: 6 },
   },
   zhou: { festival: { robe: PAL.red, inner: PAL.gold, trim: PAL.gold, sash: PAL.gold, hatRamp: PAL.red } },
@@ -641,6 +736,9 @@ export const OUTFITS: Partial<Record<HumanId, Record<string, Partial<HumanStyle>
   child: { festival: { robe: ramp("#f39bc0"), inner: PAL.white, trim: PAL.gold, sash: PAL.red, shawl: FESTIVAL_SHAWL } },
   farmer: { festival: { robe: ramp("#c8603a"), inner: PAL.gold, trim: PAL.gold, sash: PAL.red, hat: "none" } },
   weaver: { festival: { robe: ramp("#d84a4a"), inner: PAL.white, trim: PAL.gold, sash: PAL.gold, shawl: FESTIVAL_SHAWL } },
+  villagerM: { festival: { robe: ramp("#c8483a"), inner: PAL.gold, trim: PAL.gold, sash: PAL.gold } },
+  villagerF: { festival: { robe: ramp("#e86a8a"), inner: PAL.gold, trim: PAL.gold, sash: PAL.red, shawl: FESTIVAL_SHAWL } },
+  boy: { festival: { robe: PAL.red, inner: PAL.gold, trim: PAL.gold, sash: PAL.gold } },
 };
 
 /** A character's style in one of their outfits (their everyday clothes when it is unknown). */
@@ -654,25 +752,25 @@ export type MountId = "rider";
 export type CharId = HumanId | BeastId | MountId;
 
 const HUMAN_ANIMS: Record<HumanId, AnimId[]> = {
-  heroine: ["idle", "walk", "run", "talk", "attack", "cast", "hurt", "meditate", "fly", "victory", "defeat", "bow", "gather", "stretch", "look", "wave", "drink", "cheer", "point", "nod", "read", "sit", "pray", "clap", "laugh", "flute", "salute", "twirl", "write"],
-  elder: ["idle", "walk", "talk", "cast", "bow", "wave", "nod", "read", "salute", "write"],
+  heroine: ["idle", "walk", "run", "talk", "attack", "cast", "hurt", "meditate", "fly", "victory", "defeat", "bow", "gather", "stretch", "look", "wave", "drink", "cheer", "point", "nod", "read", "sit", "pray", "clap", "laugh", "flute", "salute", "twirl", "write", "taichi", "kick", "umbrella", "eat"],
+  elder: ["idle", "walk", "talk", "cast", "bow", "wave", "nod", "read", "salute", "write", "taichi"],
   qing: ["idle", "walk", "talk", "bow", "wave", "nod", "cheer", "clap", "pour", "salute"],
-  abao: ["idle", "walk", "run", "talk", "practice", "wave", "cheer", "laugh", "clap", "juggle", "salute"],
-  discipleM: ["idle", "walk", "practice", "bow", "nod", "clap", "salute"],
-  discipleF: ["idle", "walk", "practice", "bow", "wave", "clap", "salute"],
+  abao: ["idle", "walk", "run", "talk", "practice", "wave", "cheer", "laugh", "clap", "juggle", "salute", "kick"],
+  discipleM: ["idle", "walk", "practice", "bow", "nod", "clap", "salute", "taichi", "kick"],
+  discipleF: ["idle", "walk", "practice", "bow", "wave", "clap", "salute", "taichi"],
   zhou: ["idle", "walk", "talk", "wave", "nod", "point", "laugh", "fan", "lantern"],
   hua: ["idle", "walk", "talk", "wave", "drink", "nod", "pour", "laugh", "lantern"],
-  farmer: ["idle", "walk", "talk", "gather", "wave", "nod", "stretch", "laugh", "eat", "lantern"],
-  child: ["idle", "walk", "run", "talk", "wave", "dance", "cheer", "clap", "laugh", "juggle", "twirl", "lantern"],
+  farmer: ["idle", "walk", "talk", "gather", "wave", "nod", "stretch", "laugh", "eat", "lantern", "hoe"],
+  child: ["idle", "walk", "run", "talk", "wave", "dance", "cheer", "clap", "laugh", "juggle", "twirl", "lantern", "kick"],
   huli: ["idle", "walk", "talk", "cast", "bow", "wave", "dance", "flute", "twirl"],
   wen: ["idle", "talk", "fish", "cast", "wave", "sleep", "flute"],
-  monk: ["idle", "walk", "talk", "sweep", "bow", "nod", "wave", "meditate", "pray", "eat"],
+  monk: ["idle", "walk", "talk", "sweep", "bow", "nod", "wave", "meditate", "pray", "eat", "taichi"],
   teawoman: ["idle", "walk", "talk", "wave", "drink", "nod", "bow", "pour", "laugh"],
   miller: ["idle", "walk", "talk", "gather", "wave", "nod", "point", "stretch", "laugh", "eat"],
   hermit: ["idle", "talk", "meditate", "cast", "nod", "bow", "flute"],
   swordsman: ["idle", "walk", "talk", "practice", "sleep", "attack", "cast", "hurt", "defeat", "drink", "nod", "wave", "laugh", "flute", "salute"],
   bandit: ["idle", "walk", "run", "attack", "hurt", "point", "cheer", "eat"],
-  peddler: ["idle", "walk", "talk", "wave", "look", "nod", "point", "laugh", "clap", "juggle", "eat"],
+  peddler: ["idle", "walk", "talk", "wave", "look", "nod", "point", "laugh", "clap", "juggle", "eat", "carry"],
   archivist: ["idle", "walk", "talk", "read", "nod", "bow", "point"],
   storyteller: ["idle", "talk", "tell", "sit", "laugh", "clap", "nod", "drink", "fan"],
   weaver: ["idle", "walk", "talk", "weave", "nod", "wave", "laugh", "lantern", "twirl"],
@@ -682,6 +780,23 @@ const HUMAN_ANIMS: Record<HumanId, AnimId[]> = {
   smith: ["idle", "walk", "talk", "hammer", "nod", "wave", "laugh", "drink", "salute"],
   ghost: ["float", "talk", "write", "bow", "nod"],
   orchardist: ["idle", "walk", "talk", "gather", "wave", "nod", "laugh", "eat", "pour", "cheer"],
+  villagerM: ["idle", "walk", "talk", "wave", "nod", "gather", "carry", "hoe", "chop", "eat", "laugh", "stretch", "lantern"],
+  villagerF: ["idle", "walk", "talk", "wave", "nod", "gather", "pour", "laugh", "carry", "umbrella", "dance", "clap", "lantern"],
+  boy: ["idle", "walk", "run", "talk", "wave", "kick", "cheer", "laugh", "juggle", "clap"],
+  woodcutter: ["idle", "walk", "talk", "chop", "carry", "wave", "nod", "stretch", "drink", "laugh"],
+  porter: ["idle", "walk", "talk", "carry", "wave", "nod", "stretch", "eat", "drink"],
+  lady: ["idle", "walk", "talk", "umbrella", "fan", "bow", "nod", "laugh", "twirl", "flute"],
+  guard: ["idle", "walk", "talk", "salute", "practice", "nod", "point", "stretch"],
+  fishwife: ["idle", "walk", "talk", "gather", "wave", "laugh", "point", "carry", "pour"],
+  captain: ["idle", "walk", "talk", "point", "wave", "laugh", "drink", "nod", "look"],
+  abbot: ["idle", "talk", "taichi", "meditate", "pray", "bow", "nod", "cast"],
+  novice: ["idle", "walk", "talk", "sweep", "kick", "bow", "pray", "laugh", "taichi"],
+  nomad: ["idle", "walk", "talk", "wave", "point", "drink", "laugh", "flute", "look"],
+  marshwitch: ["idle", "walk", "talk", "cast", "gather", "laugh", "nod", "pour"],
+  teapicker: ["idle", "walk", "talk", "gather", "carry", "wave", "laugh", "dance", "cheer"],
+  teamaster: ["idle", "talk", "pour", "drink", "nod", "fan", "bow", "taichi"],
+  cook: ["idle", "walk", "talk", "pour", "eat", "laugh", "nod", "wave"],
+  taiji: ["idle", "walk", "talk", "taichi", "bow", "nod", "cast", "salute"],
   cultist: ["idle", "walk", "attack", "hurt"],
   jiangshi: ["idle", "hop", "attack", "hurt"],
   patriarch: ["idle", "walk", "attack", "cast", "hurt", "defeat", "talk"],
@@ -718,6 +833,23 @@ const NAMES: Record<CharId, [string, string]> = {
   bandit: ["Mountain Bandit", "Highland Outlaw"],
   cultist: ["Blood Moon Cultist", "Demonic Sect Acolyte"],
   jiangshi: ["Jiangshi", "Hopping Corpse"],
+  villagerM: ["Villager", "Folk of the Jianghu"],
+  villagerF: ["Villager", "Folk of the Jianghu"],
+  boy: ["Little Shun", "Willow Creek"],
+  woodcutter: ["Woodcutter Ba", "Willow Creek Woodlot"],
+  porter: ["Porter Niu", "Carrier of the Roads"],
+  lady: ["Lady Su", "A Traveller from the Capital"],
+  guard: ["Gate Guard", "Watchman"],
+  fishwife: ["Fishwife Ah Lan", "Wavecrest Harbour"],
+  captain: ["Captain Hai", "Master of the Junk Sea-Swallow"],
+  abbot: ["Abbot Xuan", "Frostveil Monastery"],
+  novice: ["Novice Tuo", "Frostveil Monastery"],
+  nomad: ["Batu", "Rider of the Yellow Sands"],
+  marshwitch: ["Granny Ye", "Wise Woman of the Mistmarsh"],
+  teapicker: ["Picker Cui", "Cloudmist Tea Terraces"],
+  teamaster: ["Tea Master Lu", "Cloudmist Tea Terraces"],
+  cook: ["Cook Pang", "Kitchens of the Azure Cloud"],
+  taiji: ["Elder Qiu", "Master of the Taiji Yard"],
   patriarch: ["Patriarch Xue", "Lord of the Blood Moon Sect"],
   fox: ["Fox Spirit", "Corrupted Beast"],
   wolf: ["Shadowflame Wolf", "Corrupted Beast"],

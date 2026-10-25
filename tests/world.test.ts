@@ -10,13 +10,23 @@ import { getInterior, INTERIOR_IDS } from "@/game/world/interiors";
 import type { TileMap } from "@/game/world/tilemap";
 
 /** Tiles reachable on foot from a start tile (steps of at most one level). */
-function reachable(id: (typeof AREA_IDS)[number] | TileMap, from: [number, number], flying = false): Set<string> {
+interface Reach {
+  has: (k: string) => boolean;
+  size: number;
+}
+
+function reachable(id: (typeof AREA_IDS)[number] | TileMap, from: [number, number], flying = false): Reach {
   const map = typeof id === "string" ? getArea(id).map : id;
-  const seen = new Set<string>();
+  const seen = new Uint8Array(map.w * map.h);
+  const at = (k: string) => {
+    const [i, j] = k.split(",").map(Number);
+    return map.inside(i, j) ? j * map.w + i : -1;
+  };
   const q: [number, number][] = [[Math.floor(from[0]), Math.floor(from[1])]];
-  seen.add(q[0].join(","));
-  while (q.length) {
-    const [i, j] = q.shift()!;
+  seen[at(q[0].join(","))] = 1;
+  let size = 1;
+  for (let n = 0; n < q.length; n++) {
+    const [i, j] = q[n];
     for (const [di, dj] of [
       [1, 0],
       [-1, 0],
@@ -25,17 +35,17 @@ function reachable(id: (typeof AREA_IDS)[number] | TileMap, from: [number, numbe
     ]) {
       const ni = i + di;
       const nj = j + dj;
-      const k = `${ni},${nj}`;
-      if (seen.has(k) || !map.standable(ni, nj, flying)) continue;
+      if (!map.standable(ni, nj, flying) || seen[nj * map.w + ni]) continue;
       if (Math.abs(map.height(ni, nj) - map.height(i, j)) > (flying ? 2 : 1)) continue;
-      seen.add(k);
+      seen[nj * map.w + ni] = 1;
+      size++;
       q.push([ni, nj]);
     }
   }
-  return seen;
+  return { has: (k: string) => at(k) >= 0 && seen[at(k)] === 1, size };
 }
 
-const adjacentReachable = (r: Set<string>, i: number, j: number, reach = 1) => {
+const adjacentReachable = (r: Reach, i: number, j: number, reach = 1) => {
   for (let dj = -reach; dj <= reach; dj++) for (let di = -reach; di <= reach; di++) if (r.has(`${i + di},${j + dj}`)) return true;
   return false;
 };
@@ -77,8 +87,8 @@ describe("the continuous world", () => {
     const [sx, sy] = w.waypoints.sect;
     const q = [Math.floor(sy) * m.w + Math.floor(sx)];
     seen.add(q[0]);
-    while (q.length) {
-      const idx = q.shift()!;
+    for (let qi = 0; qi < q.length; qi++) {
+      const idx = q[qi];
       const i = idx % m.w;
       const j = Math.floor(idx / m.w);
       for (const [di, dj] of [
@@ -163,11 +173,11 @@ describe("the continuous world", () => {
     expect(falls).toBeGreaterThan(0);
   });
 
-  it("is twice the size of the version 4 world (four times the version 3 one), with its landmarks on open land", () => {
-    expect(WORLD_W).toBe(324 * 2);
-    expect(WORLD_H).toBe(232 * 2);
-    expect(walkable.size).toBeGreaterThan(120000);
-    expect(w.landmarks.length).toBeGreaterThanOrEqual(8);
+  it("is twice the size of the version 5 world in each direction (four times the version 4 one), with its landmarks on open land", () => {
+    expect(WORLD_W).toBe(324 * 4);
+    expect(WORLD_H).toBe(232 * 4);
+    expect(walkable.size).toBeGreaterThan(600000);
+    expect(w.landmarks.length).toBeGreaterThanOrEqual(18);
     for (const l of w.landmarks) {
       expect(m.kind(Math.floor(l.x), Math.floor(l.y)), l.name).not.toBe("void");
       let open = false;
@@ -180,6 +190,33 @@ describe("the continuous world", () => {
     expect(w.interacts.filter((i) => i.kind === "chest").length).toBeGreaterThanOrEqual(14);
     expect(w.interacts.filter((i) => i.kind === "shrine").length).toBeGreaterThanOrEqual(8);
     for (const id of ["waterwheel", "pagoda", "teahouse", "campfire", "tent", "karst", "scarecrow", "ruin", "steam"]) expect(w.props.some((p) => p.id === id), id).toBe(true);
+  });
+
+  it("grew new lands to the south and east, each region holding its own country", () => {
+    // the old mainland is the north-west quarter; the new regions lie beyond it
+    for (const id of ["marsh", "terraces", "desert", "harbor", "frost"] as const) {
+      const [x, y] = w.waypoints[id];
+      expect(x > 324 * 2 || y > 232 * 2, id).toBe(true);
+    }
+    // the Rainbow Bridge spans the gorge the great waterfall falls into
+    const bridge = w.landmarks.find((l) => l.key === "rainbow");
+    expect(bridge).toBeDefined();
+    expect(walkable.has(Math.floor(bridge!.y) * m.w + Math.floor(bridge!.x))).toBe(true);
+    expect(m.kind(Math.floor(bridge!.x), Math.floor(bridge!.y) - 8)).toBe("void");
+    // the steppe and the coast answer to the harbour, the snowfields to the monastery
+    expect(regionAt(w, 460 * 2, 192 * 2)).toBe("harbor");
+    expect(regionAt(w, 560 * 2, 100 * 2)).toBe("frost");
+    expect(regionAt(w, 40 * 2, 400 * 2)).toBe("marsh");
+    // and the new folk, the town and the sect are busier
+    for (const key of ["ye", "luyu", "batu", "hai", "xuan", "qiu", "pang", "ba", "marketporter", "herder", "yan", "innkeeper"]) expect(w.npcs.some((n) => n.key === key), key).toBe(true);
+    const inRegion = (id: string) => w.npcs.filter((n) => regionAt(w, n.i, n.j) === id).length;
+    expect(inRegion("village")).toBeGreaterThanOrEqual(14);
+    expect(inRegion("sect")).toBeGreaterThanOrEqual(16);
+    expect(inRegion("harbor")).toBeGreaterThanOrEqual(10);
+    const houses = (id: string) => w.props.filter((p) => (p.id === "house" || p.id === "pagoda") && regionAt(w, p.i, p.j) === id).length;
+    expect(houses("village")).toBeGreaterThanOrEqual(15);
+    expect(houses("sect")).toBeGreaterThanOrEqual(4);
+    for (const id of ["ship", "lighthouse", "stupa", "stilthouse", "teabush", "palm", "snowpine", "koi", "butterflies", "fountain", "noodlecart", "censer", "target", "drum"]) expect(w.props.some((p) => p.id === id), id).toBe(true);
   });
 
   it("never stands props in rivers, on the highway or over the void", () => {

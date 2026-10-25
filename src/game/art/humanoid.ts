@@ -71,8 +71,10 @@ export interface HumanPose {
   wind?: V3;
   /** Extra light-blue tint (qi casting) or white (hit flash) applied after. */
   flash?: number;
-  /** Something held in the hands: a bamboo dizi flute, a rice bowl and chopsticks, juggling balls, a smith's hammer, a writing brush or a paper lantern. */
-  held?: "flute" | "bowl" | "balls" | "hammer" | "brush" | "lantern";
+  /** Something held in the hands: a bamboo dizi flute, a rice bowl and chopsticks, juggling balls, a smith's hammer, a writing brush, a paper lantern, a hoe, a woodsman's axe, a carrying pole with two baskets, a shuttlecock or an oiled-paper umbrella. */
+  held?: "flute" | "bowl" | "balls" | "hammer" | "brush" | "lantern" | "hoe" | "axe" | "pole" | "shuttlecock" | "umbrella";
+  /** Where a tossed thing (the shuttlecock) is, in pose space. */
+  toss?: V3;
 }
 
 export const HUMAN_W = 56;
@@ -406,6 +408,49 @@ export function paintHuman(st: HumanStyle, p: HumanPose, facing: number, o: Rend
     const c = add(top, [Math.sin(t) * 0.6 * S, 0.4 * S, -2.6 * S]);
     r.sweep([top, c], Rr(0.15), mat(PAL.black, 9));
     r.ellipsoid(c, [Rr(1.8), Rr(1.8), Rr(2.1)], mat(ramp4("#fff0b0", "#ff6a3a", "#c02a2a", "#6a0a1a"), 9, { shader: (s, tone) => (Math.abs(s.n[2]) > 0.8 ? tone(PAL.gold) : tone(ramp4("#fff0b0", "#ff6a3a", "#c02a2a", "#6a0a1a"), s.n[0] > 0.3 ? -1 : 0)) }));
+  }
+
+  else if (p.held === "hoe") {
+    // a farmer's hoe gripped in both hands, its iron blade biting down at the far end
+    const a = U(handR);
+    const b = U(p.handL ?? REST_HAND_L);
+    const d = sub(b, a);
+    const end = add(b, scale3(d, 1.4));
+    r.sweep([sub(a, scale3(d, 0.3)), end], Rr(0.4), mat(PAL.wood, 9));
+    r.sweep([end, add(end, [0, 1.4 * S, -2.8 * S])], [Rr(1.4), Rr(1.1)], mat(ramp4("#c8c8d8", "#7a7a8a", "#4a4a5a", "#22222e"), 9));
+  } else if (p.held === "axe") {
+    // a woodsman's axe: a long haft and a broad wedge of a head
+    const grip = U(handR);
+    const head = add(grip, [0.2 * S, 2.6 * S, 6.4 * S]);
+    r.sweep([sub(grip, [0, 0.6 * S, 1.6 * S]), head], Rr(0.45), mat(PAL.wood, 9));
+    r.sweep([head, add(head, [0, 2.6 * S, -0.4 * S])], [Rr(1.5), Rr(0.3)], mat(ramp4("#e8eef8", "#9aa8bc", "#5a6a7e", "#2a3242"), 9));
+  } else if (p.held === "pole") {
+    // a carrying pole across the shoulders, a basket swinging from each end
+    const sw = Math.sin(t) * 0.8;
+    const l = U([-9, -0.4, 18.4]);
+    const rr = U([9, -0.4, 18.4]);
+    r.sweep([l, U([0, -0.8, 19]), rr], Rr(0.45), mat(PAL.straw, 9));
+    for (const [e, k] of [
+      [l, -1],
+      [rr, 1],
+    ] as const) {
+      const bk = add(e, [0, sw * k * S, -8 * S]);
+      for (const o of [-1.2, 1.2]) r.sweep([e, add(bk, [o * S, 0, 2.6 * S])], Rr(0.12), mat(PAL.black, 9));
+      r.cone(bk[0], bk[1], Rr(2.6), bk[2] - Rr(2), Rr(3), bk[2] + Rr(2.6), 8, mat(PAL.straw, 9, { shader: strawShader(PAL.straw) }));
+      r.sphere(add(bk, [0, 0, 2.6 * S]), Rr(1.8), mat(k < 0 ? PAL.green : PAL.orange, 9));
+    }
+  } else if (p.held === "shuttlecock") {
+    // a feathered jianzi kicked high into the air
+    const c = U(p.toss ?? [2, 4, 30]);
+    r.sphere(c, Math.max(1.1, Rr(1.2)), mat(PAL.gold, 9));
+    for (let f = 0; f < 3; f++) r.sweep([c, add(c, [(f - 1) * 1.2, 0, 3.6])], [0.9, 0.4], mat([PAL.red, PAL.white, PAL.jade][f], 9));
+  } else if (p.held === "umbrella") {
+    // an oiled-paper umbrella held overhead, its painted ribs turning slowly
+    const grip = U(handR);
+    const top = add(grip, [-0.6 * S, -0.4 * S, 18 * S]);
+    r.sweep([grip, top], Rr(0.3), mat(PAL.woodDark, 9));
+    const paper = ramp4("#ffe0e8", "#e86a7a", "#a83a5a", "#5a1a3a");
+    r.cone(top[0], top[1], Rr(11), top[2] - Rr(4.4), Rr(0.6), top[2] + Rr(0.6), 16, mat(paper, 10, { shader: (s, tone) => (Math.sin(Math.atan2(s.p[1] - top[1], s.p[0] - top[0]) * 8 + t * 2) > 0.85 ? tone(PAL.woodDark) : tone(paper, s.n[2] > 0.6 ? -1 : 0)) }));
   }
 
   // ------------------------------------------------------------------ shawl, cape, tails, beard

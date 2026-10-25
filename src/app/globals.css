@@ -458,21 +458,27 @@ button {
 }
 .worldmap {
   position: absolute;
-  top: 10px;
+  /* below the spirit-stone counter in the corner */
+  top: 52px;
   right: 10px;
   bottom: 10px;
   width: min(300px, 40vw);
   display: flex;
   flex-direction: column;
   gap: 8px;
-  overflow: auto;
+  overflow: hidden;
 }
+/* the destinations scroll; the hint and the close button stay in view */
 .worldmap ul {
   list-style: none;
   margin: 0;
-  padding: 0;
+  padding: 0 4px 0 0;
   display: grid;
   gap: 6px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  align-content: start;
 }
 .worldmap li .btn {
   width: 100%;
