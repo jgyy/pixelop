@@ -6,10 +6,10 @@ import { LIQUID } from "./tilemap";
 
 /**
  * The world map: a miniature of the real continuous world (one map cell per
- * 6×6 tiles), with each region's landmark marked as a sword-flight destination.
+ * 9×9 tiles), with each region's landmark marked as a sword-flight destination.
  */
 
-export const MAP_SCALE = 3 * WORLD_SCALE;
+export const MAP_SCALE = (9 * WORLD_SCALE) / 2;
 export const MAP_W = Math.ceil(WORLD_W / MAP_SCALE);
 export const MAP_H = Math.ceil(WORLD_H / MAP_SCALE);
 
@@ -24,7 +24,7 @@ export interface MapNode {
 }
 
 /** Each region's landmark (region-local tile), where its icon stands on the map. */
-const LANDMARK: Record<AreaId, [number, number]> = { sect: [15, 8], village: [16, 10], bamboo: [16, 4], lake: [15, 12], valley: [25, 5], peak: [12, 10] };
+const LANDMARK: Record<AreaId, [number, number]> = { sect: [15, 8], village: [16, 10], bamboo: [16, 4], lake: [15, 12], valley: [25, 5], peak: [12, 10], marsh: [16, 15], terraces: [16, 4], desert: [18, 18], harbor: [25, 6], frost: [16, 6] };
 
 const node = (id: AreaId, icon: PropId, extra: MapNode["extra"]): MapNode => ({
   id,
@@ -41,6 +41,11 @@ export const NODES: Record<AreaId, MapNode> = {
   lake: node("lake", "pavilion", [{ icon: "willow", dx: 2, dy: 1 }]),
   valley: node("valley", "bloodaltar", [{ icon: "spikes", dx: 1.6, dy: 1 }, { icon: "deadtree", dx: -1.5, dy: 1.2 }]),
   peak: node("peak", "dais", [{ icon: "crystal", dx: 1.4, dy: -1 }, { icon: "crystal", dx: -1.2, dy: 1.2 }]),
+  marsh: node("marsh", "stilthouse", [{ icon: "willow", dx: 1.6, dy: 0.8 }, { icon: "reeds", dx: -1.4, dy: 1.2 }]),
+  terraces: node("terraces", "pavilion", [{ icon: "teabush", dx: 1.4, dy: 1.2 }, { icon: "teabush", dx: -1.2, dy: 1.6 }, { icon: "cherry", dx: -1.8, dy: -0.6 }]),
+  desert: node("desert", "palm", [{ icon: "tent", dx: -1.6, dy: 0.6 }, { icon: "stupa", dx: 1.8, dy: -1.4 }]),
+  harbor: node("harbor", "lighthouse", [{ icon: "ship", dx: 1.4, dy: 1.6 }, { icon: "house", dx: -1.8, dy: 1 }]),
+  frost: node("frost", "hall", [{ icon: "snowpine", dx: -1.8, dy: 1 }, { icon: "stupa", dx: 1.6, dy: 0.6 }]),
 };
 
 /** Landmarks out in the wilds, in map cells (not flight destinations). */
@@ -158,6 +163,9 @@ export function mapTerrain(): MapCell[] {
           biome = bamboo.has(c) ? "bamboo" : trees.has(c) ? "forest" : "plain";
       }
       if (wet && biome !== "road" && (counts.get("water") ?? 0) >= (MAP_SCALE * MAP_SCALE) / 3) biome = "river";
+      // roads are narrower than a map cell: a cell with a good stripe of road through it shows the road, so they read unbroken
+      const paved = (counts.get("dirt") ?? 0) + (counts.get("plaza") ?? 0) + (counts.get("wood") ?? 0) + (counts.get("stairs") ?? 0);
+      if (biome !== "river" && biome !== "lake" && paved >= MAP_SCALE * MAP_SCALE * 0.22) biome = "road";
       cells.push({ biome, h: Math.round(h * 1.5) + (sky ? 7 : 0), sky });
     }
   terrain = cells;

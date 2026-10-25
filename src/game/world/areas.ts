@@ -2,7 +2,7 @@ import { hash2, fbm } from "../pixel/noise";
 import type { AnimId, HumanId } from "../art/characters";
 import { footTiles, propDef, type PropId } from "../art/props";
 import type { EnemyId } from "../engine/enemies";
-import { TileMap, type TileKind } from "./tilemap";
+import { LIQUID, TileMap, type TileKind } from "./tilemap";
 
 /**
  * The six explorable regions. Each is built procedurally from a few shape
@@ -38,6 +38,8 @@ export function placementTiles(p: PropPlacement): [number, number, number, numbe
 
 export interface NpcPlacement {
   key: string;
+  /** What she calls them, when they wear a look several folk share (otherwise the character's own name). */
+  name?: string;
   char: HumanId;
   i: number;
   j: number;
@@ -179,6 +181,8 @@ function buildSect(): AreaDef {
     P("lotus", 22, 15),
     P("lotus", 23, 18),
     P("lotus", 21, 17),
+    P("koi", 24, 17),
+    P("censer", 15, 13),
     P("stele", 12, 20),
     P("cherry", 8, 10),
     P("cherry", 21, 21),
@@ -213,6 +217,8 @@ function buildSect(): AreaDef {
       { key: "abao", char: "abao", i: 13, j: 15, dir: 2, wander: 2 },
       { key: "feng", char: "discipleM", i: 7, j: 21, dir: 12, anim: "practice" },
       { key: "lan", char: "discipleF", i: 8, j: 22, dir: 12, anim: "practice" },
+      { key: "guo", name: "Disciple Guo", char: "discipleM", i: 13, j: 25, dir: 2 },
+      { key: "ning", name: "Disciple Ning", char: "discipleF", i: 18, j: 17, dir: 4, anim: "taichi" },
     ],
     enemies: [],
     critters: [
@@ -282,7 +288,15 @@ function buildVillage(): AreaDef {
     P("house", 24, 10),
     P("house", 9, 20),
     P("house", 22, 26),
+    P("house", 26, 16),
+    P("house", 2, 18),
+    P("house", 12, 23),
     P("well", 14, 9),
+    P("noodlecart", 13, 11),
+    P("cart", 21, 8),
+    P("fishrack", 4, 21),
+    P("butterflies", 26, 28),
+    P("koi", 24, 21),
     P("laundry", 9, 5),
     P("stall", 18, 9),
     P("stall", 18, 11),
@@ -293,7 +307,7 @@ function buildVillage(): AreaDef {
     P("redlantern", 15, 25),
     P("sign", 17, 28),
     P("maple", 5, 12),
-    P("maple", 27, 14),
+    P("maple", 29, 13),
     P("maple", 12, 27),
     P("willow", 4, 15),
     P("willow", 22, 17),
@@ -331,6 +345,10 @@ function buildVillage(): AreaDef {
       { key: "hua", char: "hua", i: 10, j: 6, dir: 1, outfit: festive },
       { key: "liu", char: "farmer", i: 5, j: 24, dir: 2, wander: 1.5, outfit: festive },
       { key: "mei", char: "child", i: 19, j: 15, dir: 0, wander: 2.5, outfit: festive },
+      { key: "shunpal", name: "Little Hu", char: "boy", i: 11, j: 9, dir: 2, anim: "kick", outfit: festive },
+      { key: "chun", name: "Auntie Chun", char: "villagerF", i: 11, j: 26, dir: 12, anim: "gather", outfit: festive },
+      { key: "dikehoe", name: "Farmer Liu Er", char: "farmer", i: 5, j: 27, dir: 0, anim: "hoe", outfit: festive },
+      { key: "yu", name: "Old Yu", char: "villagerM", i: 18, j: 13, dir: 2, wander: 1.2, outfit: festive },
     ],
     enemies: [
       { key: "village-fox", enemy: "fox", i: 16, j: 22, range: 1.5, when: (f) => !!f.metElder && !f.villageSaved },
@@ -643,7 +661,541 @@ function buildPeak(): AreaDef {
   };
 }
 
-const BUILDERS: Record<AreaId, () => AreaDef> = { sect: buildSect, village: buildVillage, bamboo: buildBamboo, lake: buildLake, valley: buildValley, peak: buildPeak };
+// ----------------------------------------------------------------------------- the Mistmarsh
+function buildMarsh(): AreaDef {
+  const m = new TileMap(32, 32, "moss", 1);
+  m.each((i, j) => {
+    if (hash2(i, j, 81) > 0.78) m.set(i, j, "grass");
+  });
+  // black pools among the reeds, deep at their hearts
+  for (const [x, y, r, seed] of [
+    [6, 8, 3.6, 82],
+    [25, 7, 3.2, 83],
+    [7, 24, 4, 84],
+    [25, 24, 3.8, 85],
+    [16, 26, 2.4, 86],
+  ] as [number, number, number, number][]) {
+    m.disc(x, y, r, "water", 0, 1, seed);
+    m.disc(x, y, r * 0.45, "deep", 0, 0.4, seed + 1);
+  }
+  // the raised village mound and the boardwalks that join it to the world
+  m.disc(16, 15, 6.4, "grass", 1, 0.8, 87);
+  m.rect(14, 13, 18, 17, "plaza", 1);
+  m.path(
+    [
+      [16, 0],
+      [16, 13],
+    ],
+    2,
+    "dirt",
+    1,
+  );
+  m.path(
+    [
+      [18, 15],
+      [31, 15],
+    ],
+    1.6,
+    "dirt",
+    1,
+  );
+  m.path(
+    [
+      [14, 16],
+      [9, 20],
+      [7, 20],
+    ],
+    1.6,
+    "dirt",
+    1,
+  );
+  // boardwalks over the water
+  m.each((i, j) => {
+    if (m.kind(i, j) !== "dirt") return;
+    if ([-1, 0, 1].some((a) => [-1, 0, 1].some((b) => LIQUID[m.kind(i + a, j + b)]))) m.set(i, j, "wood", 1);
+  });
+  const props: PropPlacement[] = [
+    P("stilthouse", 11, 10),
+    P("stilthouse", 19, 10),
+    P("stilthouse", 19, 18),
+    P("stilthouse", 10, 17),
+    P("fishrack", 14, 12),
+    P("lantern", 14, 18),
+    P("lantern", 18, 12),
+    P("redlantern", 17, 2),
+    P("shrine", 22, 14),
+    P("boat", 6, 23),
+    P("boat", 25, 8),
+    P("wisps", 7, 13),
+    P("wisps", 25, 20),
+    P("wisps", 13, 27),
+    P("grave", 4, 14),
+    P("herb", 28, 12),
+    P("chest", 3, 29),
+    P("stele", 15, 3),
+    P("koi", 16, 26),
+    P("butterflies", 21, 4),
+    P("campfire", 16, 15),
+  ];
+  for (const [i, j] of [
+    [5, 7],
+    [7, 9],
+    [24, 6],
+    [8, 25],
+    [6, 23],
+    [26, 25],
+    [24, 23],
+    [17, 26],
+  ] as [number, number][])
+    if (LIQUID[m.kind(i, j)] && !props.some((p) => p.i === i && p.j === j)) props.push(P("lotus", i, j));
+  const clear: [number, number][] = [
+    [16, 15],
+    [22, 14],
+    [28, 12],
+    [3, 29],
+    [12, 22],
+    [21, 21],
+    [23, 11],
+    [15, 3],
+    [9, 4],
+  ];
+  scatter(m, props, ["willow", "deadtree", "reeds", "reeds", "tallgrass"], 0.24, 88, (i, j) => (m.kind(i, j) === "moss" || m.kind(i, j) === "grass") && notNear(clear, 2.6)(i, j) && Math.hypot(i - 16, j - 15) > 7);
+  scatter(m, props, "reeds", 0.18, 89, (i, j) => m.kind(i, j) === "water" && [-1, 0, 1].some((a) => !LIQUID[m.kind(i + a, j)]));
+  return {
+    id: "marsh",
+    name: "The Mistmarsh",
+    hanzi: "雾泽",
+    subtitle: "Stilt houses, will-o'-wisps and a wise woman who knows every frog by name",
+    map: m,
+    base: -1,
+    floating: false,
+    sky: "forest",
+    weather: "fireflies",
+    night: 0.45,
+    tint: "#4a8a6a",
+    arrive: [16.5, 1.5],
+    props,
+    npcs: [
+      { key: "ye", char: "marshwitch", i: 15, j: 16, dir: 2, wander: 1 },
+      { key: "reedcutter", name: "Reed-cutter Mo", char: "villagerM", i: 13, j: 19, dir: 4, anim: "gather" },
+      { key: "netmaker", name: "Net-mender Ping", char: "villagerF", i: 17, j: 14, dir: 14, anim: "pour" },
+      { key: "pip", name: "Pip", char: "boy", i: 18, j: 16, dir: 2, anim: "kick" },
+    ],
+    enemies: [
+      { key: "marsh-jiangshi-1", enemy: "jiangshi", i: 9, j: 4, range: 2 },
+      { key: "marsh-jiangshi-2", enemy: "jiangshi", i: 23, j: 11, range: 2 },
+      { key: "marsh-serpent-1", enemy: "serpent", i: 12, j: 22, range: 1.5 },
+      { key: "marsh-serpent-2", enemy: "serpent", i: 21, j: 21, range: 1.5 },
+    ],
+    critters: [
+      { key: "crane-m1", char: "crane", i: 28, j: 18 },
+      { key: "crane-m2", char: "crane", i: 3, j: 18 },
+    ],
+    interacts: [
+      { key: "marsh-exit", kind: "exit", i: 16, j: 0 },
+      { key: "marsh-shrine", kind: "shrine", i: 22, j: 14 },
+      { key: "marsh-herb", kind: "herb", i: 28, j: 12 },
+      { key: "marsh-chest", kind: "chest", i: 3, j: 29 },
+      { key: "marsh-stele", kind: "sign", i: 15, j: 3, text: "A post sunk deep in the mud, carved with frogs: “The Mistmarsh. Keep to the boards. The water remembers everyone who fell in, and it is lonely.”" },
+    ],
+  };
+}
+
+// ----------------------------------------------------------------------------- the Cloudmist Tea Terraces
+/** Terrace level at a row of the tea hills (1 at the foot by the road in, 6 at the top). */
+const terraceLevel = (j: number) => Math.min(5, Math.floor(j / 5)) + 1;
+
+function buildTerraces(): AreaDef {
+  const m = new TileMap(32, 32, "meadow", 1);
+  m.each((i, j) => m.set(i, j, hash2(i, j, 91) > 0.85 ? "grass" : "meadow", terraceLevel(j)));
+  // stone steps straight up the hill, and a path along each terrace
+  m.each((i, j) => {
+    if (i >= 15 && i <= 17) m.set(i, j, "stairs");
+    else if (j % 5 === 0) m.set(i, j, "dirt");
+  });
+  m.rect(11, 26, 21, 30, "plaza");
+  // a spring feeds a little pond on the second terrace
+  m.disc(25, 7, 2.2, "water", 1, 0.3, 92);
+  const props: PropPlacement[] = [
+    P("pavilion", 15, 29),
+    P("house", 5, 8),
+    P("house", 24, 19),
+    P("house", 6, 25),
+    P("bell", 20, 29),
+    P("censer", 13, 27),
+    P("lantern", 14, 25),
+    P("lantern", 18, 25),
+    P("lantern", 14, 5),
+    P("lantern", 18, 5),
+    P("shrine", 27, 28),
+    P("cherry", 3, 29),
+    P("cherry", 28, 23),
+    P("cherry", 2, 17),
+    P("sacks", 9, 3),
+    P("cart", 11, 3),
+    P("herb", 29, 2),
+    P("chest", 2, 22),
+    P("stele", 19, 2),
+    P("koi", 25, 7),
+    P("butterflies", 11, 14),
+    P("butterflies", 22, 10),
+  ];
+  // rows of tea along each terrace, with gaps to walk through
+  m.each((i, j) => {
+    if (i >= 14 && i <= 18) return;
+    const row = j % 5;
+    if ((row !== 2 && row !== 4) || i % 6 === 0 || i === 1 || i === 31 || j > 25) return;
+    if (m.kind(i, j) !== "meadow" && m.kind(i, j) !== "grass") return;
+    if (props.some((p) => Math.abs(p.i - i) <= 2 && Math.abs(p.j - j) <= 2)) return;
+    props.push(P("teabush", i, j));
+  });
+  return {
+    id: "terraces",
+    name: "Cloudmist Tea Terraces",
+    hanzi: "云雾茶山",
+    subtitle: "Where the sect's tea is picked, one bud and two leaves at a time",
+    map: m,
+    base: -1,
+    floating: false,
+    sky: "day",
+    weather: "petals",
+    night: 0,
+    arrive: [16.5, 1.5],
+    props,
+    npcs: [
+      { key: "luyu", char: "teamaster", i: 17, j: 27, dir: 2, anim: "pour" },
+      { key: "cui", name: "Picker Cui", char: "teapicker", i: 10, j: 11, dir: 4, anim: "gather" },
+      { key: "cui2", name: "Picker Hong", char: "teapicker", i: 23, j: 16, dir: 12, anim: "gather" },
+      { key: "niu", char: "porter", i: 16, j: 7, dir: 0, anim: "carry", route: [[16.5, 2.5], [16.5, 22.5]] },
+      { key: "terrace-kid", name: "Little Bo", char: "boy", i: 12, j: 20, dir: 2, wander: 2 },
+    ],
+    enemies: [{ key: "terrace-wolf", enemy: "wolf", i: 3, j: 13, range: 1.5 }],
+    critters: [
+      { key: "crane-t1", char: "crane", i: 27, j: 6 },
+      { key: "crane-t2", char: "crane", i: 4, j: 21 },
+    ],
+    interacts: [
+      { key: "terraces-exit", kind: "exit", i: 16, j: 0 },
+      { key: "terraces-shrine", kind: "shrine", i: 27, j: 28 },
+      { key: "terraces-herb", kind: "herb", i: 29, j: 2 },
+      { key: "terraces-chest", kind: "chest", i: 2, j: 22 },
+      { key: "terraces-stele", kind: "sign", i: 19, j: 2, text: "Cloudmist Tea Terraces. “Picked at dawn, while the cloud still sits on the leaf. Rolled by hand, dried over pine. Sent up to the sect on the backs of porters, who are not thanked enough.”" },
+    ],
+  };
+}
+
+// ----------------------------------------------------------------------------- the Yellow Sands
+function buildDesert(): AreaDef {
+  const m = new TileMap(32, 32, "sand", 1);
+  m.each((i, j) => m.set(i, j, fbm(i * 0.22, j * 0.22, 101) > 0.64 ? "redrock" : "sand", 1 + Math.round(Math.max(0, fbm(i * 0.1, j * 0.1, 102) - 0.42) * 4)));
+  // the oasis: a spring-fed pool ringed with grass
+  m.disc(18, 18, 6.2, "grass", 1, 0.8, 103);
+  m.disc(19, 19, 3.2, "water", 0, 0.6, 104);
+  m.disc(19, 19, 1.4, "deep", 0, 0.2, 105);
+  m.path(
+    [
+      [16, 0],
+      [15, 10],
+      [14, 16],
+    ],
+    2,
+    "dirt",
+    1,
+  );
+  m.path(
+    [
+      [22, 12],
+      [27, 7],
+    ],
+    1.6,
+    "dirt",
+    1,
+  );
+  m.disc(27, 6, 3.4, "plaza", 1, 0.4, 106);
+  m.disc(7, 25, 3.2, "dirt", 1, 0.6, 107);
+  const props: PropPlacement[] = [
+    P("palm", 15, 20),
+    P("palm", 23, 16),
+    P("palm", 21, 23),
+    P("palm", 14, 15),
+    P("palm", 24, 21),
+    P("tent", 10, 13),
+    P("tent", 9, 18),
+    P("tent", 12, 22),
+    P("campfire", 12, 17),
+    P("cart", 18, 12),
+    P("barrels", 16, 12),
+    P("stupa", 27, 5),
+    P("ruin", 24, 3),
+    P("ruin", 30, 4),
+    P("ruin", 29, 9),
+    P("prayerflags", 25, 8),
+    P("banner", 8, 15),
+    P("bones", 5, 6),
+    P("bones", 27, 27),
+    P("deadtree", 4, 10),
+    P("butterflies", 17, 22),
+    P("herb", 22, 19),
+    P("chest", 6, 25),
+    P("shrine", 25, 6),
+    P("stele", 17, 3),
+  ];
+  scatter(m, props, ["boulder", "karst", "rock", "bones", "deadtree"], 0.07, 108, (i, j) => (m.kind(i, j) === "sand" || m.kind(i, j) === "redrock") && notNear([[16, 1], [27, 6], [7, 25], [18, 18], [26, 25], [4, 20], [30, 18], [17, 3]], 4.4)(i, j));
+  return {
+    id: "desert",
+    name: "The Yellow Sands",
+    hanzi: "黄沙海",
+    subtitle: "An oasis, a caravan camp and a stupa older than the sect",
+    map: m,
+    base: -1,
+    floating: false,
+    sky: "dusk",
+    weather: "none",
+    night: 0.1,
+    tint: "#ffb060",
+    arrive: [16.5, 1.5],
+    props,
+    npcs: [
+      { key: "batu", char: "nomad", i: 13, j: 18, dir: 4, anim: "flute" },
+      { key: "saran", name: "Saran", char: "villagerF", i: 11, j: 16, dir: 2, anim: "pour" },
+      { key: "temur", name: "Temur", char: "boy", i: 16, j: 16, dir: 6, wander: 2 },
+      { key: "caravaneer", name: "Caravaneer Kuo", char: "porter", i: 17, j: 14, dir: 1 },
+    ],
+    enemies: [
+      { key: "sand-bandit-1", enemy: "bandit", i: 26, j: 25, range: 2 },
+      { key: "sand-bandit-2", enemy: "bandit", i: 4, j: 20, range: 2 },
+      { key: "sand-jiangshi", enemy: "jiangshi", i: 28, j: 7, range: 1.5 },
+      { key: "sand-serpent", enemy: "serpent", i: 30, j: 18, range: 2 },
+    ],
+    critters: [{ key: "horse-sands-0", char: "horse", i: 20, j: 14 }, { key: "horse-sands-1", char: "horse", i: 22, j: 13 }],
+    interacts: [
+      { key: "desert-exit", kind: "exit", i: 16, j: 0 },
+      { key: "desert-shrine", kind: "shrine", i: 25, j: 6 },
+      { key: "desert-herb", kind: "herb", i: 22, j: 19 },
+      { key: "desert-chest", kind: "chest", i: 6, j: 25 },
+      { key: "desert-stele", kind: "sign", i: 17, j: 3, text: "Half buried in the sand, a caravan marker: “Seven days to the western kingdoms. Three to the next well. One to the oasis — if the sands are kind, and they are not.”" },
+    ],
+  };
+}
+
+// ----------------------------------------------------------------------------- Wavecrest Harbour
+function buildHarbor(): AreaDef {
+  const m = new TileMap(32, 32, "grass", 1);
+  // the bay opens east, off the edge of the world
+  m.each((i, j) => {
+    const shore = 21 + Math.round(Math.sin(j * 0.45) * 1.4);
+    if (i > shore + 1) m.set(i, j, i > shore + 4 ? "deep" : "water", 0);
+    else if (i > shore - 1) m.set(i, j, "sand", 1);
+  });
+  // a rocky point to the north-east with the lighthouse on it
+  m.disc(27, 3, 3.6, "grass", 1, 0.5, 111);
+  m.disc(27, 3, 1.6, "plaza", 1, 0, 1);
+  // streets: the west road in, the market square and the quay
+  m.path(
+    [
+      [0, 16],
+      [21, 16],
+    ],
+    2.4,
+    "plaza",
+    1,
+  );
+  m.path(
+    [
+      [11, 4],
+      [11, 28],
+    ],
+    2,
+    "plaza",
+    1,
+  );
+  m.rect(13, 8, 19, 12, "plaza", 1);
+  m.path(
+    [
+      [20, 4],
+      [20, 28],
+    ],
+    2,
+    "wood",
+    1,
+  );
+  // piers out into the bay
+  for (const y of [8, 16, 24]) m.rect(21, y - 1, 28, y, "wood", 1);
+  m.path(
+    [
+      [20, 5],
+      [25, 4],
+    ],
+    1.6,
+    "wood",
+    1,
+  );
+  const props: PropPlacement[] = [
+    P("house", 3, 4),
+    P("house", 7, 4),
+    P("house", 3, 9),
+    P("house", 14, 4),
+    P("house", 3, 19),
+    P("house", 7, 19),
+    P("house", 14, 19),
+    P("house", 3, 24),
+    P("house", 14, 25),
+    P("teahouse", 7, 24),
+    P("lighthouse", 27, 3),
+    P("ship", 26, 11),
+    P("ship", 25, 20),
+    P("boat", 23, 27),
+    P("boat", 29, 14),
+    P("stall", 14, 9),
+    P("stall", 14, 11),
+    P("stall", 18, 9),
+    P("noodlecart", 18, 12),
+    P("fishrack", 17, 14),
+    P("fishrack", 18, 22),
+    P("barrels", 19, 6),
+    P("barrels", 19, 18),
+    P("barrels", 22, 25),
+    P("well", 9, 13),
+    P("lanterns", 16, 15),
+    P("redlantern", 10, 8),
+    P("redlantern", 10, 22),
+    P("redlantern", 19, 14),
+    P("redlantern", 19, 26),
+    P("shrine", 8, 11),
+    P("censer", 6, 13),
+    P("drum", 17, 18),
+    P("laundry", 5, 15),
+    P("herb", 26, 1),
+    P("chest", 1, 28),
+    P("sign", 2, 14),
+    P("cart", 1, 18),
+  ];
+  scatter(m, props, ["pine", "tallgrass", "rock"], 0.2, 112, (i, j) => m.kind(i, j) === "grass" && (j < 2 || j > 29 || i < 1) && notNear([[1, 28], [0, 16], [26, 1]], 2)(i, j));
+  return {
+    id: "harbor",
+    name: "Wavecrest Harbour",
+    hanzi: "浪花港",
+    subtitle: "Junks from the eastern isles, fish, gossip and the lighthouse",
+    map: m,
+    base: -1,
+    floating: false,
+    sky: "day",
+    weather: "none",
+    night: 0.05,
+    arrive: [1.5, 16.5],
+    props,
+    npcs: [
+      { key: "hai", char: "captain", i: 22, j: 8, dir: 4, anim: "look" },
+      { key: "alan", char: "fishwife", i: 16, j: 14, dir: 2, anim: "gather" },
+      { key: "dockporter", name: "Dock Porter Gang", char: "porter", i: 20, j: 10, dir: 0, anim: "carry", route: [[20.5, 6.5], [20.5, 26.5]] },
+      { key: "harborguard", name: "Harbour Watchman", char: "guard", i: 2, j: 17, dir: 4 },
+      { key: "su", char: "lady", i: 12, j: 10, dir: 2, anim: "umbrella" },
+      { key: "dockhand", name: "Dockhand Lei", char: "villagerM", i: 22, j: 17, dir: 6, wander: 1.5 },
+      { key: "netmender", name: "Net-mender Wu", char: "villagerF", i: 16, j: 22, dir: 2, anim: "gather" },
+      { key: "gullboy", name: "Haizi", char: "boy", i: 12, j: 18, dir: 2, wander: 2.5 },
+      { key: "noodles", name: "Noodle Seller Hu", char: "cook", i: 17, j: 12, dir: 4 },
+      { key: "harbor-elder", name: "Old Salt Fang", char: "storyteller", i: 9, j: 16, dir: 2, anim: "tell" },
+    ],
+    enemies: [],
+    critters: [
+      { key: "crane-h1", char: "crane", i: 23, j: 30 },
+      { key: "crane-h2", char: "crane", i: 29, j: 6 },
+    ],
+    interacts: [
+      { key: "harbor-exit", kind: "exit", i: 0, j: 16 },
+      { key: "harbor-shrine", kind: "shrine", i: 8, j: 11 },
+      { key: "harbor-herb", kind: "herb", i: 26, j: 1 },
+      { key: "harbor-chest", kind: "chest", i: 1, j: 28 },
+      { key: "harbor-sign", kind: "sign", i: 2, j: 14, text: "Wavecrest Harbour. “Ships to the eastern isles when the wind allows. The lighthouse is lit every night by order of the harbourmaster, who is also the lighthouse keeper, who is also Captain Hai's sister.”" },
+    ],
+  };
+}
+
+// ----------------------------------------------------------------------------- Frostveil Monastery
+function buildFrost(): AreaDef {
+  const m = new TileMap(32, 32, "snow", 2);
+  m.each((i, j) => m.set(i, j, undefined, 2 + Math.max(0, Math.min(3, Math.floor((24 - j) / 5)))));
+  m.each((i, j) => {
+    if (hash2(i, j, 121) > 0.9) m.set(i, j, "marble");
+  });
+  // the monastery court at the top of the climb
+  m.rect(8, 2, 24, 11, "marble", 5);
+  m.rect(10, 12, 22, 13, "stairs", 5);
+  m.path(
+    [
+      [16, 31],
+      [16, 12],
+    ],
+    2.4,
+    "stairs",
+  );
+  m.path(
+    [
+      [16, 24],
+      [6, 24],
+    ],
+    1.6,
+    "marble",
+  );
+  m.disc(25, 22, 2.2, "water", 3, 0.3, 122);
+  const props: PropPlacement[] = [
+    P("hall", 16, 5),
+    P("stupa", 9, 4),
+    P("stupa", 23, 4),
+    P("bell", 22, 9),
+    P("drum", 10, 9),
+    P("censer", 16, 10),
+    P("prayerflags", 12, 13),
+    P("prayerflags", 20, 13),
+    P("lantern", 14, 14),
+    P("lantern", 18, 14),
+    P("lantern", 14, 22),
+    P("lantern", 18, 22),
+    P("shrine", 5, 24),
+    P("stele", 18, 28),
+    P("crystal", 28, 14),
+    P("crystal", 3, 12),
+    P("herb", 28, 26),
+    P("chest", 3, 3),
+  ];
+  scatter(m, props, ["snowpine", "snowpine", "rock", "crystal"], 0.2, 123, (i, j) => (m.kind(i, j) === "snow" || m.kind(i, j) === "marble") && (i < 7 || i > 25 || j > 15) && notNear([[16, 30], [5, 24], [28, 26], [3, 3], [25, 22], [6, 18], [27, 18], [18, 28]], 2.4)(i, j) && Math.abs(i - 16) > 2);
+  return {
+    id: "frost",
+    name: "Frostveil Monastery",
+    hanzi: "霜幕寺",
+    subtitle: "Monks practise taiji in the snow above the clouds of the east",
+    map: m,
+    base: -1,
+    floating: false,
+    sky: "day",
+    weather: "snow",
+    night: 0.2,
+    tint: "#a8c8ff",
+    arrive: [16.5, 29.5],
+    props,
+    npcs: [
+      { key: "xuan", char: "abbot", i: 16, j: 9, dir: 0, anim: "taichi" },
+      { key: "tuo", char: "novice", i: 13, j: 11, dir: 2, anim: "sweep" },
+      { key: "novice-1", name: "Novice Ji", char: "novice", i: 12, j: 7, dir: 0, anim: "taichi" },
+      { key: "novice-2", name: "Novice Hui", char: "novice", i: 20, j: 7, dir: 0, anim: "taichi" },
+      { key: "novice-3", name: "Novice Pu", char: "novice", i: 19, j: 11, dir: 2, anim: "kick" },
+    ],
+    enemies: [
+      { key: "frost-wolf-1", enemy: "wolf", i: 6, j: 18, range: 2 },
+      { key: "frost-wolf-2", enemy: "wolf", i: 27, j: 18, range: 2 },
+    ],
+    critters: [{ key: "crane-fr", char: "crane", i: 26, j: 24 }],
+    interacts: [
+      { key: "frost-exit", kind: "exit", i: 16, j: 31 },
+      { key: "frost-shrine", kind: "shrine", i: 5, j: 24 },
+      { key: "frost-herb", kind: "herb", i: 28, j: 26 },
+      { key: "frost-chest", kind: "chest", i: 3, j: 3 },
+      { key: "frost-stele", kind: "sign", i: 18, j: 28, text: "Frostveil Monastery. “The cold is a teacher. It asks one question, again and again: how much of you is necessary?”" },
+    ],
+  };
+}
+
+const BUILDERS: Record<AreaId, () => AreaDef> = { sect: buildSect, village: buildVillage, bamboo: buildBamboo, lake: buildLake, valley: buildValley, peak: buildPeak, marsh: buildMarsh, terraces: buildTerraces, desert: buildDesert, harbor: buildHarbor, frost: buildFrost };
 const cache = new Map<AreaId, AreaDef>();
 
 /** Build (once) and return an area, with prop footprints marked as blocked. */

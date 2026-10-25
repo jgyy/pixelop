@@ -110,7 +110,7 @@ export class WorldMap {
   at: AreaId;
   pos: [number, number];
   dir = 2;
-  private legs: { to: AreaId; path: [number, number][]; k: number }[] = [];
+  private legs: { to: AreaId; path: [number, number][]; k: number; speed: number }[] = [];
   camX = 0;
   camY = 0;
   private camInit = false;
@@ -133,7 +133,10 @@ export class WorldMap {
   /** Begin a sword flight to an unlocked region. Returns false if it is sealed (or we're already there). */
   travelTo(target: AreaId, unlocked: (id: AreaId) => boolean): boolean {
     if (this.travelling || target === this.at || !unlocked(target)) return false;
-    this.legs.push({ to: target, path: flightPath(this.pos, [NODES[target].x, NODES[target].y]), k: 0 });
+    const path = flightPath(this.pos, [NODES[target].x, NODES[target].y]);
+    // the jianghu is wide now: long flights go faster, so none takes much more than four seconds
+    const length = path.reduce((l, p, k) => (k ? l + Math.hypot(p[0] - path[k - 1][0], p[1] - path[k - 1][1]) : 0), 0);
+    this.legs.push({ to: target, path, k: 0, speed: Math.max(14, length / 4) });
     return true;
   }
 
@@ -165,7 +168,7 @@ export class WorldMap {
   update(dt: number): AreaId | null {
     const leg = this.legs[0];
     if (!leg) return null;
-    let move = dt * 14;
+    let move = dt * leg.speed;
     while (move > 0 && leg.k < leg.path.length - 1) {
       const [tx, ty] = leg.path[leg.k + 1];
       const dx = tx - this.pos[0];

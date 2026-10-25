@@ -10,7 +10,7 @@ import { drawSky } from "../art/sky";
 import { foamOverlay, LIQUID_FRAMES, liquidFrame, paintTile, type TileBuffer } from "../art/tiles";
 import { AREA_IDS, placementTiles, type AreaDef, type AreaId, type Interactable, type PropPlacement, type SkyId, type Weather } from "../world/areas";
 import { isWorldDef, regionAt, type WorldDef } from "../world/continent";
-import { rectDistance, WORLD_SCALE } from "../world/layout";
+import { regionDistance, WORLD_SCALE } from "../world/layout";
 import { LIQUID, type TileMap } from "../world/tilemap";
 import { ENEMIES, type EnemyId } from "../engine/enemies";
 import { Effects } from "./particles";
@@ -59,6 +59,10 @@ export interface Actor {
   fidgetAt?: number;
   /** The outfit a person (or the heroine on horseback) is wearing. */
   outfit?: string;
+  /** Walks with a carrying pole on the shoulders (porters, tea pickers). */
+  carrier?: boolean;
+  /** Their own name, when they share a look with other folk. */
+  name?: string;
 }
 
 interface PropInst {
@@ -97,9 +101,9 @@ export const DAY_LENGTH = 360;
 const ACTIVE_RANGE = 26;
 const RESPAWN_AFTER = 60;
 /** Idle fidgets an NPC may break into, when its character has the animation. */
-const NPC_FIDGETS: AnimId[] = ["nod", "look", "stretch", "drink", "point", "dance", "cheer", "gather", "pour", "clap", "laugh", "flute", "eat", "juggle", "fan", "salute", "twirl"];
+const NPC_FIDGETS: AnimId[] = ["nod", "look", "stretch", "drink", "point", "dance", "cheer", "gather", "pour", "clap", "laugh", "flute", "eat", "juggle", "fan", "salute", "twirl", "kick"];
 /** Idles that absorb an NPC (fishing, reading, weaving…): they neither turn to greet nor fidget. */
-const ABSORBED = new Set<AnimId>(["fish", "practice", "meditate", "read", "weave", "tell", "pray", "sit", "hammer", "write"]);
+const ABSORBED = new Set<AnimId>(["fish", "practice", "meditate", "read", "weave", "tell", "pray", "sit", "hammer", "write", "hoe", "chop", "taichi", "kick", "umbrella"]);
 /** …and the ones a roaming beast may (sleeping takes a while). */
 const BEAST_FIDGETS: AnimId[] = ["sniff", "howl", "sniff", "sleep"];
 
@@ -113,7 +117,7 @@ const keyHash = (key: string) => {
 /** Painted terrain columns are shared between every World built on the same map. */
 const tileCache = new WeakMap<TileMap, { tiles: (TileBuffer | null | undefined)[]; foams: (PixelBuffer | null | undefined)[] }>();
 
-const SEAL_COLOUR: Record<AreaId, string> = { sect: "#ffffff", village: "#f4f8ff", bamboo: "#ffd27a", lake: "#c8d8ff", valley: "#ff3050", peak: "#d8c8ff" };
+const SEAL_COLOUR: Record<AreaId, string> = { sect: "#ffffff", village: "#f4f8ff", bamboo: "#ffd27a", lake: "#c8d8ff", valley: "#ff3050", peak: "#d8c8ff", marsh: "#b8ffd8", terraces: "#f8fff0", desert: "#ffe0a0", harbor: "#d8f0ff", frost: "#e8f4ff" };
 
 /** 0 at dawn (t = 0), 1 at midnight. */
 export const duskAt = (t: number) => (1 - Math.cos((t / DAY_LENGTH) * Math.PI * 2)) / 2;
@@ -131,13 +135,13 @@ export class World {
   readonly fx = new Effects();
   private readonly cache: { tiles: (TileBuffer | null | undefined)[]; foams: (PixelBuffer | null | undefined)[] };
   private props: PropInst[] = [];
-  /** Props that emit particles or cast light (looked at every frame). */
-  private emitters: PropInst[] = [];
-  private lights: PropInst[] = [];
+  /** Props that emit particles or cast light, bucketed by patch of screen so a frame only looks at those near the view. */
+  private emitters = new Map<number, PropInst[]>();
+  private lights = new Map<number, PropInst[]>();
   private bucketProps: PropInst[][] = [];
   private maxH = 0;
-  /** Boundary tiles between regions, where a sealed region's mist wall stands. */
-  private border: { i: number; j: number; region: AreaId }[] = [];
+  /** Boundary tiles between regions, where a sealed region's mist wall stands, by diagonal (i + j). */
+  private border: { i: number; j: number; region: AreaId }[][] = [];
   /** Interactables currently "consumed" (taken chests/herbs). */
   taken = new Set<string>();
   /** Enemy spawn keys beaten, with the clock time of their defeat. */
@@ -181,6 +185,7 @@ export class World {
     for (const t of taken) this.taken.add(t);
     if (this.world) {
       const w = this.world;
+      this.border = Array.from({ length: m.w + m.h }, () => []);
       m.each((i, j) => {
         if (m.kind(i, j) === "void") return;
         const r = w.regionOf[j * m.w + i];
@@ -191,7 +196,7 @@ export class World {
           [0, -1],
         ])
           if (m.kind(i + di, j + dj) !== "void" && w.regionOf[(j + dj) * m.w + i + di] !== r) {
-            this.border.push({ i, j, region: AREA_IDS[r] });
+            this.border[i + j].push({ i, j, region: AREA_IDS[r] });
             break;
           }
       });
@@ -224,7 +229,11 @@ export class World {
         if (a) this.dress(a, n.outfit(flags), n.anim);
       }
       if (want && !present.has(n.key)) {
-        const a = this.makeActor(n.key, "npc", n.char, n.i + 0.5, n.j + 0.5, n.dir, n.anim ?? "idle");
+        // a carrier stands about normally and shoulders the pole when walking
+        const carrier = n.anim === "carry";
+        const a = this.makeActor(n.key, "npc", n.char, n.i + 0.5, n.j + 0.5, n.dir, carrier ? "idle" : (n.anim ?? "idle"));
+        a.carrier = carrier;
+        a.name = n.name;
         if (n.outfit) this.dress(a, n.outfit(flags), n.anim);
         a.wander = n.wander ?? 0;
         a.speed = n.route ? 1.3 : 1.1;
@@ -286,8 +295,8 @@ export class World {
     const z = this.def.map.height(Math.floor(x), Math.floor(y));
     const inst: PropInst = { id, i, j, k: p.k ?? 1, foot, ax: isoX(x, y), ay: isoY(x, y, z), flat: !!def.flat, phase: hash2(i, j, 5) * 10, when: p.when };
     this.props.push(inst);
-    if (def.emit) this.emitters.push(inst);
-    if (def.light) this.lights.push(inst);
+    if (def.emit) gridAdd(this.emitters, inst);
+    if (def.light) gridAdd(this.lights, inst);
   }
 
   /** Depth buckets for a prop's screen columns: each 16 px strip sorts with the footprint tile it covers. */
@@ -440,6 +449,7 @@ export class World {
 
   private moveAnim(a: Actor): AnimId {
     if (a.flying) return "fly";
+    if (a.carrier) return "carry";
     return a.running && charDef(a.char).anims.includes("run") ? "run" : "walk";
   }
 
@@ -752,7 +762,7 @@ export class World {
     const w = this.world;
     const base = (d: AreaDef) => d.night + (1 - d.night) * 0.48 * dusk;
     if (!w) return { sky: this.def.sky, sky2: null, k: 0, weather: [[this.def.weather, 1]], night: base(this.def), tint: this.def.tint ?? "#1a1440", dusk };
-    const near = AREA_IDS.map((id) => ({ id, d: rectDistance(id, x, y) })).sort((p, q) => p.d - q.d);
+    const near = AREA_IDS.map((id) => ({ id, d: regionDistance(id, x, y) })).sort((p, q) => p.d - q.d);
     const A = w.regions[near[0].id];
     const B = w.regions[near[1].id];
     const k = Math.max(0, 0.5 - (near[1].d - near[0].d) / (7 * WORLD_SCALE));
@@ -765,8 +775,14 @@ export class World {
     return { sky: A.sky, sky2: k > 0.02 && B.sky !== A.sky ? B.sky : null, k, weather, night: base(A) * (1 - k) + base(B) * k, tint: mix(tintA, tintB, k), dusk };
   }
 
+  /** Take sky and light from this world point instead of the view's centre (a picture of the whole world painted in patches). */
+  envPoint: [number, number] | null = null;
+  /** A flat colour behind everything instead of the sky (same reason). */
+  backdrop: string | null = null;
+
   /** The environment at the centre of the view. */
   viewEnv(s: Surface, t: number): Env {
+    if (this.envPoint) return this.envAt(...this.envPoint, t);
     const [x, y] = screenToWorld(s.width / 2 - this.camX, s.height / 2 - 12 - this.camY, this.hero.z);
     return this.envAt(x, y, t);
   }
@@ -790,9 +806,12 @@ export class World {
     const cy = Math.round(this.camY);
     const m = this.def.map;
     const env = this.viewEnv(s, t);
-    drawSky(s, env.sky, t, cx, cy);
-    if (env.sky2) drawSky(fadedSurface(s, env.k), env.sky2, t, cx, cy);
-    if (env.dusk > 0.35 && !this.interior) this.drawNightSky(s, t, env.dusk);
+    if (this.backdrop) s.rect(0, 0, s.width, s.height, this.backdrop);
+    else {
+      drawSky(s, env.sky, t, cx, cy);
+      if (env.sky2) drawSky(fadedSurface(s, env.k), env.sky2, t, cx, cy);
+      if (env.dusk > 0.35 && !this.interior) this.drawNightSky(s, t, env.dusk);
+    }
     const W = s.width;
     const H = s.height;
     const visible = (x: number, y: number, w: number, h: number) => x + w >= 0 && y + h >= 0 && x < W && y < H;
@@ -822,16 +841,15 @@ export class World {
       arr.push(f);
     }
     const seals = new Map<number, { i: number; j: number; region: AreaId }[]>();
-    for (const e of this.border) {
-      if (!this.sealed(e.region)) continue;
-      const b = e.i + e.j;
-      if (b < bMin || b > bTiles) continue;
-      const d = e.i - e.j;
-      if (d < dMin || d > dMax) continue;
-      let arr = seals.get(b);
-      if (!arr) seals.set(b, (arr = []));
-      arr.push(e);
-    }
+    for (let b = bMin; b <= Math.min(bTiles, this.border.length - 1); b++)
+      for (const e of this.border[b]) {
+        if (!this.sealed(e.region)) continue;
+        const d = e.i - e.j;
+        if (d < dMin || d > dMax) continue;
+        let arr = seals.get(b);
+        if (!arr) seals.set(b, (arr = []));
+        arr.push(e);
+      }
     const lf = Math.floor(t * 6) % LIQUID_FRAMES;
 
     for (let b = bMin; b <= bMax; b++) {
@@ -1208,7 +1226,7 @@ export class World {
   }
 
   private drawEmitters(s: Surface, t: number, cx: number, cy: number): void {
-    for (const p of this.emitters) {
+    for (const p of gridNear(this.emitters, cx, cy, s.width, s.height)) {
       const def = propDef(p.id);
       if (!def.emit || (p.when && !p.when(this.flags))) continue;
       const x0 = p.ax + cx;
@@ -1333,7 +1351,7 @@ export class World {
     if (night <= 0.01) return;
     s.rect(0, 0, s.width, s.height, alpha(env.tint, night * 0.35));
     s.rect(0, 0, s.width, s.height, alpha("#0a0618", night * 0.32));
-    for (const p of this.lights) {
+    for (const p of gridNear(this.lights, cx, cy, s.width, s.height)) {
       const L = propDef(p.id).light;
       if (!L || (p.when && !p.when(this.flags))) continue;
       const x = p.ax + cx;
@@ -1348,6 +1366,23 @@ export class World {
     const hg = glowSprite("#c8fff0", 26);
     s.sprite(hg, hx - hg.width / 2, hy - 18 - hg.height / 2, false, night * 0.8);
   }
+}
+
+/** Side of a square patch of screen space (px) that emitting and glowing props are bucketed by. */
+const GRID = 256;
+const gridKey = (gx: number, gy: number) => (gx + 32768) * 65536 + (gy + 32768);
+
+function gridAdd(grid: Map<number, PropInst[]>, p: PropInst): void {
+  const k = gridKey(Math.floor(p.ax / GRID), Math.floor(p.ay / GRID));
+  let arr = grid.get(k);
+  if (!arr) grid.set(k, (arr = []));
+  arr.push(p);
+}
+
+/** The props of a grid anchored within reach of the view (smoke, sparks and glows spill a few hundred px past their anchor). */
+function* gridNear(grid: Map<number, PropInst[]>, cx: number, cy: number, w: number, h: number, margin = 400): Generator<PropInst> {
+  for (let gx = Math.floor((-cx - margin) / GRID); gx <= Math.floor((w - cx + margin) / GRID); gx++)
+    for (let gy = Math.floor((-cy - margin) / GRID); gy <= Math.floor((h - cy + margin) / GRID); gy++) yield* grid.get(gridKey(gx, gy)) ?? [];
 }
 
 export function dirFrom(dx: number, dy: number): number {

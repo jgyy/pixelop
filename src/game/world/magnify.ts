@@ -32,10 +32,14 @@ export const STRUCTURE_SCALE: Partial<Record<PropId, number>> = {
   house: 3,
   lanterns: 2,
   bell: 2,
+  stupa: 2,
+  lighthouse: 2,
+  ship: 2,
+  stilthouse: 3,
 };
 
 /** Props of the wild that are scattered more thickly once the land doubles (a second one shares the tile block). */
-const NATURE = new Set<PropId>(["pine", "cherry", "maple", "bamboo", "willow", "deadtree", "rock", "boulder", "tallgrass", "reeds", "bones", "spikes", "crystal", "karst", "haystack", "peachtree"]);
+const NATURE = new Set<PropId>(["pine", "cherry", "maple", "bamboo", "willow", "deadtree", "rock", "boulder", "tallgrass", "reeds", "bones", "spikes", "crystal", "karst", "haystack", "peachtree", "teabush", "snowpine", "palm"]);
 /** What may spring up beside each kind of nature prop. */
 const COMPANION: Partial<Record<PropId, PropId[]>> = {
   pine: ["pine", "rock", "tallgrass"],
@@ -49,6 +53,9 @@ const COMPANION: Partial<Record<PropId, PropId[]>> = {
   crystal: ["rock"],
   karst: ["rock", "tallgrass"],
   haystack: ["tallgrass"],
+  teabush: ["teabush", "teabush", "tallgrass"],
+  snowpine: ["snowpine", "rock"],
+  palm: ["palm", "tallgrass", "rock"],
 };
 
 /** The world tile blocks an authoring tile turns into: [top-left, top-right, bottom-left, bottom-right]. */
@@ -68,43 +75,43 @@ const SUB: [number, number][] = [
  */
 export function magnifyMap(m: TileMap, protect?: (i: number, j: number) => boolean): TileMap {
   const out = new TileMap(m.w * S, m.h * S, "void", 0);
-  const key = (i: number, j: number) => (m.inside(i, j) ? m.kinds[j * m.w + i] * 256 + (m.heights[j * m.w + i] + 64) : -1);
+  // each tile's kind and height packed into one key, so neighbours compare in one go
+  const keys = new Int32Array(m.w * m.h);
+  for (let n = 0; n < keys.length; n++) keys[n] = m.kinds[n] * 256 + (m.heights[n] + 64);
   const VOID = TILE_KINDS.indexOf("void");
-  m.each((i, j) => {
-    const idx = j * m.w + i;
-    const P = key(i, j);
-    const hP = m.heights[idx];
-    const nb = (ni: number, nj: number) => (m.inside(ni, nj) ? key(ni, nj) : P);
-    const A = nb(i, j - 1);
-    const B = nb(i + 1, j);
-    const C = nb(i - 1, j);
-    const D = nb(i, j + 1);
-    const guarded = protect?.(i, j) ?? false;
-    const ok = (v: number) => {
-      if (v === P) return true;
-      const kind = (v / 256) | 0;
-      const h = (v % 256) - 64;
-      if (Math.abs(h - hP) > 1) return false;
-      if (guarded && (kind === VOID || LIQUID[TILE_KINDS[kind]])) return false;
-      return true;
-    };
-    const pick = (cond: boolean, v: number) => (cond && ok(v) ? v : P);
-    const e = [
-      pick(C === A && C !== D && A !== B, A),
-      pick(A === B && A !== C && B !== D, B),
-      pick(D === C && D !== B && C !== A, C),
-      pick(B === D && B !== A && D !== C, D),
-    ];
-    // Scale2x only does 2×; larger scales repeat the corner quadrants
-    for (let dj = 0; dj < S; dj++)
-      for (let di = 0; di < S; di++) {
-        const q = (dj < S / 2 ? 0 : 2) + (di < S / 2 ? 0 : 1);
-        const v = e[q];
-        const o = (j * S + dj) * out.w + i * S + di;
-        out.kinds[o] = (v / 256) | 0;
-        out.heights[o] = (v % 256) - 64;
-      }
-  });
+  const wet = TILE_KINDS.map((k) => k === "void" || !!LIQUID[k]);
+  for (let j = 0; j < m.h; j++)
+    for (let i = 0; i < m.w; i++) {
+      const idx = j * m.w + i;
+      const P = keys[idx];
+      const hP = m.heights[idx];
+      const A = j > 0 ? keys[idx - m.w] : P;
+      const B = i + 1 < m.w ? keys[idx + 1] : P;
+      const C = i > 0 ? keys[idx - 1] : P;
+      const D = j + 1 < m.h ? keys[idx + m.w] : P;
+      const guarded = protect?.(i, j) ?? false;
+      const ok = (v: number) => {
+        if (v === P) return true;
+        const kind = (v / 256) | 0;
+        const h = (v % 256) - 64;
+        if (Math.abs(h - hP) > 1) return false;
+        if (guarded && (kind === VOID || wet[kind])) return false;
+        return true;
+      };
+      const pick = (cond: boolean, v: number) => (cond && ok(v) ? v : P);
+      const e0 = pick(C === A && C !== D && A !== B, A);
+      const e1 = pick(A === B && A !== C && B !== D, B);
+      const e2 = pick(D === C && D !== B && C !== A, C);
+      const e3 = pick(B === D && B !== A && D !== C, D);
+      // Scale2x only does 2×; larger scales repeat the corner quadrants
+      for (let dj = 0; dj < S; dj++)
+        for (let di = 0; di < S; di++) {
+          const v = dj < S / 2 ? (di < S / 2 ? e0 : e1) : di < S / 2 ? e2 : e3;
+          const o = (j * S + dj) * out.w + i * S + di;
+          out.kinds[o] = (v / 256) | 0;
+          out.heights[o] = (v % 256) - 64;
+        }
+    }
   return out;
 }
 

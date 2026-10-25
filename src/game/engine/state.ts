@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AREA_IDS as AREAS, type AreaId } from "../world/ids";
+import { AREA_IDS as AREAS, OLD_AREA_IDS, type AreaId, type OldAreaId } from "../world/ids";
 import { LEGACY_REGION_ORIGIN, TEMPLATE_SIZE, toWorld, WORLD_H, WORLD_SCALE, WORLD_W } from "../world/layout";
 import { addCultivation, breakthrough, statsFor, type Stats } from "./realms";
 
@@ -50,9 +50,9 @@ const local = (area: AreaId, x: number, y: number): [number, number] => {
  * spot is no longer walkable.
  */
 function fromLegacyWorld(x: number, y: number): { area: AreaId; x: number; y: number } {
-  let best: AreaId = "sect";
+  let best: OldAreaId = "sect";
   let bd = Infinity;
-  for (const id of AREAS) {
+  for (const id of OLD_AREA_IDS) {
     const [ox, oy] = LEGACY_REGION_ORIGIN[id];
     const n = TEMPLATE_SIZE[id];
     const d = Math.hypot(Math.max(ox - x, 0, x - ox - n), Math.max(oy - y, 0, y - oy - n));
