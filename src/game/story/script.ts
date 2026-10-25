@@ -29,6 +29,21 @@ export type Step =
   | { mutate: (g: GameState) => GameState }
   | { shop: true }
   | { meditate: true }
-  | { travel: true };
+  | { travel: true }
+  /** Lay the story's changes to the land down at once (with dust and a tremor if she can see them). */
+  | { reshape: true }
+  | { choose: Choice[]; prompt?: string };
+
+/**
+ * One answer to a question put to the heroine. Picking it runs its steps in
+ * place, before whatever followed the question; the choice itself is
+ * remembered through the flags its steps set.
+ */
+export interface Choice {
+  label: string;
+  /** A short note on what it will cost or bring (shown under the label). */
+  hint?: string;
+  then: Step[];
+}
 
 export const say = (who: Speaker, text: string): Step => ({ say: who, text });

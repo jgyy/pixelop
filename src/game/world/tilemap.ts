@@ -23,6 +23,11 @@ export const TILE_KINDS = [
   "wall",
   "window",
   "rug",
+  // underground: cave floors, the rock face behind them, mine tracks and frozen pools
+  "cave",
+  "rockwall",
+  "rails",
+  "ice",
 ] as const;
 export type TileKind = (typeof TILE_KINDS)[number];
 
@@ -74,7 +79,7 @@ export class TileMap {
   /** Can a walker stand on this tile? (Flyers may also cross liquids.) */
   standable(i: number, j: number, flying = false): boolean {
     const k = this.kind(i, j);
-    if (k === "void" || k === "wall" || k === "window") return false;
+    if (k === "void" || k === "wall" || k === "window" || k === "rockwall") return false;
     if (this.isBlocked(i, j)) return false;
     if (LIQUID[k] && !flying) return false;
     return true;

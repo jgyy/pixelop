@@ -4,6 +4,7 @@ import { festive, placementTiles, type AreaDef, type Interactable, type NpcPlace
 import { toCoarse } from "./layout";
 import { buildingTiles, magnifyBuilding } from "./magnify";
 import { TileMap, type TileKind } from "./tilemap";
+import type { CaveId } from "./caves";
 
 /**
  * The buildings the heroine can step inside. Each interior is a small
@@ -21,7 +22,7 @@ export const INTERIOR_IDS = ["hall", "cottage", "teahouse", "mill", "pagoda"] as
 export type InteriorId = (typeof INTERIOR_IDS)[number];
 
 export interface InteriorDef extends AreaDef {
-  key: InteriorId;
+  key: InteriorId | CaveId;
   /** The building in the open world (its footprint is the room's map). */
   building: PropPlacement;
   /** The same building where it stands on the authoring grid. */
@@ -154,6 +155,7 @@ function buildHall(): InteriorDef {
       { key: "hall-war", kind: "sign", i: 1, j: 3, text: "A war record, its corners burned: “Year 812. The Blood Moon Sect descended on the stone forest and fed the Temple of Still Water to the flames. Our elders drove them into the western valley and sealed it with their own lives. Nine went down the mountain. Two came home.”" },
       { key: "hall-register", kind: "sign", i: 1, j: 7, text: "A register of outer disciples. One line has been struck through in red: “Xue Ming. Age nine. Willow Creek. A gifted boy, hungry for the sky. Expelled at seventeen for stealing the Heart's light in a jar from the shrine. He wept and did not deny it.”" },
       { key: "hall-bridge", kind: "sign", i: 8, j: 1, text: "A builder's ledger for the sky bridges: “Each plank is laid with a talisman beneath it. Should the sect ever fall, the bridges will fall with it, so that no thief can climb to an empty shrine.”" },
+      { key: "hall-oath", kind: "sign", i: 1, j: 6, text: "The Oath of the Dragonspine, copied in three hands: “The Scarlet Phoenix, Hundred Herb Valley and the Sword Sea swear that none shall dig for the Dragon Vein, nor drink from it, nor give it away, until all three agree.” A note in the margin, in Elder Mo's hand: “They have not agreed on anything since.”" },
       { key: "hall-chest", kind: "chest", i: 2, j: 8 },
     ],
   });

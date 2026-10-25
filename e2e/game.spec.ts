@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { CHAR_IDS } from "../src/game/art/characters";
 import { battle, goto, mode, patch, standBy, startNewGame, state, teleport, tileOf } from "./helpers";
 
 async function finishDialogue(page: Page, timeout = 20_000): Promise<void> {
@@ -186,8 +187,9 @@ test.describe("Jade Lotus Ascension", () => {
     test.setTimeout(120_000);
     await page.goto("/gallery");
     await expect(page.getByRole("heading", { name: "Pixel Art Gallery" })).toBeVisible();
-    await expect(page.locator("[data-testid^=sheet-]")).toHaveCount(40);
-    await expect(page.getByTestId("scene")).toHaveCount(17);
+    // a sheet for every character, and one for the wardrobe
+    await expect(page.locator("[data-testid^=sheet-]")).toHaveCount(CHAR_IDS.length + 1);
+    await expect(page.getByTestId("scene")).toHaveCount(20);
     expect(await page.getByTestId("prop").count()).toBeGreaterThanOrEqual(50);
     expect(await page.getByTestId("anim").count()).toBeGreaterThanOrEqual(80);
     await page.waitForTimeout(1500);
@@ -199,6 +201,41 @@ test.describe("Jade Lotus Ascension", () => {
       return n / (c.width * c.height);
     });
     expect(painted).toBeGreaterThan(0.99);
+  });
+
+  test("the Scarlet Phoenix: a choice on the mesa, the journal, and down into the Ember Mine", async ({ page }) => {
+    await startNewGame(page);
+    await patch(page, { flags: { metElder: true, villageSaved: true, villageArrived: true, metZhou: true, desertArrived: true }, realm: 1 });
+    await standBy(page, "yanhuo");
+    await expect(page.getByTestId("prompt")).toContainText("Yan Huo");
+    await page.keyboard.press("KeyE");
+    // talk until Yan Huo asks how Lin Yue will answer
+    const end = Date.now() + 20_000;
+    while (Date.now() < end && !(await page.getByTestId("choice").isVisible())) {
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(80);
+    }
+    await expect(page.getByTestId("choice")).toContainText("Sect Mistress");
+    await page.getByTestId("choice-2").click();
+    await finishDialogue(page);
+    expect((await state(page)).flags.phxPaid).toBe(true);
+    await expect(page.getByTestId("sect-quest")).toContainText("Ember Mine");
+    await page.keyboard.press("KeyJ");
+    await expect(page.getByTestId("journal")).toContainText("Embers Beneath the Mesa");
+    await expect(page.getByTestId("standing-phoenix")).toContainText("Neutral");
+    await page.keyboard.press("KeyJ");
+    await expect(page.getByTestId("journal")).toHaveCount(0);
+    // walk in through the mine's mouth
+    const [i, j] = await page.evaluate(() => {
+      const d = window.__pixelop!.game.world.def.interacts.find((x) => x.key === "door-emberMine")!;
+      return [d.i, d.j];
+    });
+    await goto(page, i + 0.5, j + 0.5);
+    await page.keyboard.press("KeyE");
+    await expect.poll(() => page.evaluate(() => window.__pixelop!.game.inside)).toBe("emberMine");
+    await expect(page.getByTestId("place")).toContainText("Ember Mine");
+    await finishDialogue(page);
+    expect(await page.evaluate(() => window.__pixelop!.game.world.hero.idleAnim)).toBe("torch");
   });
 
   test("the doubled world: fly east to Wavecrest Harbour and take on Captain Hai's errand", async ({ page }) => {

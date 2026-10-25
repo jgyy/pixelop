@@ -7,7 +7,9 @@ import { World } from "@/game/runtime/world";
 import { WorldMap } from "@/game/runtime/worldmap";
 import { AREA_IDS, getArea, type AreaId } from "@/game/world/areas";
 import { getWorld } from "@/game/world/continent";
-import { getInterior, INTERIOR_IDS, type InteriorId } from "@/game/world/interiors";
+import { INTERIOR_IDS } from "@/game/world/interiors";
+import { CAVE_IDS } from "@/game/world/caves";
+import { getRoom, type RoomId } from "@/game/world/rooms";
 import { toWorld } from "@/game/world/layout";
 import { useCanvasLoop } from "./useCanvasLoop";
 
@@ -21,8 +23,12 @@ const GROUPS: { label: string; ids: CharId[] }[] = [
   { label: "Folk Indoors", ids: ["archivist", "weaver", "storyteller", "scholar", "millhand", "lampkeeper"] },
   { label: "The Sword Tomb, the Pavilion & the Orchard", ids: ["smith", "ghost", "orchardist"] },
   { label: "Cloudmane & the Wild Herds", ids: ["rider", "horse"] },
+  { label: "The Three Sects & the Dragon Vein", ids: ["yanhuo", "phoenix", "miner", "baizhi", "herbalist", "poisoner", "lingfeng", "swordsea", "dragon"] },
+  { label: "Beasts of the Deep", ids: ["emberwyrm", "stonehound"] },
   { label: "Blood Moon Sect, Bandits & Demonic Beasts", ids: ["patriarch", "cultist", "jiangshi", "bandit", "fox", "wolf", "serpent", "serpentKing", "crane", "bat"] },
 ];
+// everyone else who walks the jianghu (the gallery shows every character, even ones added without a group)
+GROUPS.splice(GROUPS.length - 1, 0, { label: "Folk of the Wider Jianghu", ids: CHAR_IDS.filter((id) => !GROUPS.some((g) => g.ids.includes(id))) });
 
 function AnimCanvas({ id, anim, dir, outfit, label }: { id: CharId; anim: AnimId; dir: number; outfit?: string; label?: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -140,15 +146,17 @@ function AreaCanvas({ id }: { id: AreaId }) {
   );
 }
 
-function InteriorCanvas({ id }: { id: InteriorId }) {
+function InteriorCanvas({ id }: { id: RoomId }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const world = useRef<World | null>(null);
-  const def = getInterior(id);
+  const def = getRoom(id);
   useCanvasLoop(ref, (s, t) => {
     if (!world.current) world.current = new World(def, { x: def.arrive[0], y: def.arrive[1], dir: 10 }, { metElder: true }, []);
     const w = world.current;
     w.update(1 / 60, t, true);
-    w.updateCamera(s.width, s.height, 0, [def.map.w / 2 + Math.sin(t * 0.2), def.map.h / 2, 1]);
+    // a cave is far bigger than a room: look in from just inside its mouth
+    const focus: [number, number, number] = w.cave ? [def.arrive[0] - 8 + Math.sin(t * 0.2) * 2, def.arrive[1] - 4, 2] : [def.map.w / 2 + Math.sin(t * 0.2), def.map.h / 2, 1];
+    w.updateCamera(s.width, s.height, 0, focus);
     w.render(s, t + 30);
   });
   return (
@@ -227,6 +235,12 @@ export function SpriteGallery() {
       <h2>Indoors</h2>
       <div className="scenes">
         {INTERIOR_IDS.map((id) => (
+          <InteriorCanvas key={id} id={id} />
+        ))}
+      </div>
+      <h2>Underground</h2>
+      <div className="scenes">
+        {CAVE_IDS.map((id) => (
           <InteriorCanvas key={id} id={id} />
         ))}
       </div>

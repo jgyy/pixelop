@@ -1,10 +1,13 @@
 import { fbm, hash2 } from "../pixel/noise";
 import { propDef, type PropId } from "../art/props";
 import { AREA_IDS, festive, getArea, placementTiles, type AreaDef, type AreaId, type Critter, type EnemySpawn, type Interactable, type NpcPlacement, type PropPlacement } from "./areas";
-import { getInterior, INTERIOR_IDS, interiorDoors } from "./interiors";
+import { getInterior, INTERIOR_IDS } from "./interiors";
+import { roomDoors } from "./rooms";
 import { COARSE_H, COARSE_ORIGIN, COARSE_W, DOMAIN, regionRect, toCoarse, toWorld, WORLD_H, WORLD_SCALE, WORLD_W } from "./layout";
 import { companionOf, magnifyMap, magnifyProp, pointTile } from "./magnify";
 import { LIQUID, TileMap, type TileKind } from "./tilemap";
+import { CAVE_IDS, CAVE_MOUTH } from "./caves";
+import { PatchPainter, type TerrainPatch } from "./terrain";
 
 /**
  * The jianghu as one continuous map. The six hand-built regions are stamped
@@ -222,6 +225,37 @@ const mainlandMask = (i: number, j: number) => {
   return old || south || east;
 };
 
+/**
+ * Mountain ranges thrown up over the wilds (authoring grid): the land rises
+ * toward each range's heart (or, with `ring`, toward a rim around a sheltered
+ * valley) by up to `peak` levels, broken into ridges by noise. Roads, regions
+ * and rivers stay where they are; the slopes ease down to meet them.
+ */
+const RANGES: { key: string; c: [number, number]; r: number; peak: number; seed: number; ring?: number }[] = [
+  { key: "dragonspine", c: [244, 250], r: 20, peak: 11, seed: 501 },
+  { key: "herbrim", c: [48, 392], r: 19, peak: 7, seed: 502, ring: 11 },
+  { key: "frostpeaks", c: [560, 96], r: 30, peak: 10, seed: 503 },
+  { key: "redmesas", c: [606, 408], r: 24, peak: 6, seed: 504 },
+  { key: "highcrags", c: [272, 202], r: 20, peak: 4, seed: 505 },
+  { key: "autumnridge", c: [420, 268], r: 24, peak: 4, seed: 506 },
+  { key: "plumhills", c: [182, 372], r: 22, peak: 4, seed: 507 },
+  { key: "westwood", c: [60, 140], r: 18, peak: 3, seed: 508 },
+];
+
+/** How many levels the ranges lift a wild tile. */
+function uplift(i: number, j: number): number {
+  let up = 0;
+  for (const g of RANGES) {
+    const d = Math.hypot(i - g.c[0], j - g.c[1]);
+    if (d >= g.r) continue;
+    const k = g.ring !== undefined ? Math.max(0, 1 - Math.abs(d - g.ring) / Math.max(1, g.r - g.ring)) * (d < g.ring ? Math.min(1, (d / g.ring) * 1.4) : 1) : 1 - d / g.r;
+    const ridge = 1 - Math.abs(fbm(i * 0.09, j * 0.09, g.seed) * 2 - 1);
+    // steep near the crest, easing out at the foot
+    up = Math.max(up, Math.round(g.peak * Math.pow(k, 0.85) * (0.4 + 0.8 * ridge)));
+  }
+  return up;
+}
+
 /** Floating isles in the sky: [centre x, centre y, radius, height]. */
 const ISLES: { key: string; c: [number, number]; r: number; h: number }[] = [
   { key: "cloudrest", c: [192, 77], r: 4.4, h: 2 },
@@ -311,7 +345,7 @@ function buildWorld(): WorldDef {
     wildOf[j * COARSE_W + i] = r + 1;
     const st = WILD[WILD_IDS[r]];
     const hills = 1 + Math.round((fbm(i * 0.07, j * 0.07, 31) - 0.45) * st.hills);
-    m.set(i, j, st.ground(i, j), Math.max(0, Math.min(5, hills + st.lift)));
+    m.set(i, j, st.ground(i, j), Math.max(0, Math.min(5, hills + st.lift)) + uplift(i, j));
   });
   const ashen = (i: number, j: number) => {
     const r = wildOf[j * COARSE_W + i];
@@ -387,6 +421,22 @@ function buildWorld(): WorldDef {
   site([524, 400], 6, "sand", 1, 1); // the red cliff hideout
   site([352, 166], 3.4, "plaza", 1, 0.3); // the eastern bridgehead
   site([110, 300], 4.4, "grass", 1, 0.8); // the ferry landing by the southern road
+  // the Scarlet Phoenix Sect on its mesa: a ring of red flats at the foot, sheer cliffs, the sect on top
+  site([586, 372], 10.5, "sand", 2, 0.8);
+  site([586, 372], 7, "redrock", 7, 0.5);
+  site([586, 372], 3.6, "plaza", 7, 0);
+  site([586, 372], 1.4, "lava", 7, 0);
+  site([573, 381], 3.4, "redrock", 2, 0.4); // the Ember Mine's mouth
+  // Hundred Herb Valley, sheltered in a ring of hills in the far south-west
+  site([48, 392], 8.4, "meadow", 1, 0.8);
+  site([48, 392], 3, "plaza", 1, 0);
+  // the Sword Sea Pavilion on its crag above the eastern snows, and the ledge below it
+  site([600, 116], 9.5, "snow", 3, 0.8);
+  site([600, 116], 6, "marble", 10, 0.4);
+  site([600, 116], 3, "plaza", 10, 0);
+  site([615, 127], 3, "plaza", 5, 0.3);
+  // the foot of the Dragonspine, where the Dragon Vein comes nearest the surface
+  site([222, 262], 3.6, "dirt", 2, 0.6);
   // Willow Creek's market road: the village spills south along the road down to the highway
   site([192, 146], 11, "grass", 1, 0.5);
   // paddies among the fields, edged by dikes
@@ -454,6 +504,45 @@ function buildWorld(): WorldDef {
   });
   const [, valleyY] = toCoarse("valley", 0, 31);
   for (const b of BRANCHES) road(b.pts, 2.2, (i, j) => (b.valley && j <= valleyY + 2 ? 2 : 1));
+  // roads up onto the heights, climbing a level every few tiles (stone steps on the steep parts)
+  const ramp = (pts: [number, number][], width: number, h0: number, h1: number) => {
+    let total = 0;
+    for (let p = 1; p < pts.length; p++) total += Math.hypot(pts[p][0] - pts[p - 1][0], pts[p][1] - pts[p - 1][1]);
+    const seen = new Set<number>();
+    let run = 0;
+    for (let p = 1; p < pts.length; p++) {
+      const [x0, y0] = pts[p - 1];
+      const [x1, y1] = pts[p];
+      const len = Math.hypot(x1 - x0, y1 - y0);
+      const steps = Math.ceil(len * 4);
+      for (let st = 0; st <= steps; st++) {
+        const cx = x0 + ((x1 - x0) * st) / steps;
+        const cy = y0 + ((y1 - y0) * st) / steps;
+        const h = Math.round(h0 + ((h1 - h0) * (run + (len * st) / steps)) / total);
+        for (let j = Math.floor(cy - width); j <= Math.ceil(cy + width); j++)
+          for (let i = Math.floor(cx - width); i <= Math.ceil(cx + width); i++) {
+            if (Math.hypot(i - cx, j - cy) > width / 2 + 0.2 || seen.has(j * COARSE_W + i) || m.kind(i, j) === "void") continue;
+            seen.add(j * COARSE_W + i);
+            m.set(i, j, h0 === h1 ? (ashen(i, j) ? "redrock" : "dirt") : "stairs", h);
+            fix(i, j, 2);
+          }
+      }
+      run += len;
+    }
+  };
+  // to the Scarlet Phoenix: along the red flats to the mine, and up the mesa's western stair
+  road([[512, 372], [540, 375], [560, 379], [571, 381]], 2.2, () => 2);
+  ramp([[558, 364], [568, 366], [580, 369]], 2.2, 2, 7);
+  road([[548, 376], [556, 366], [558, 364]], 2.2, () => 2);
+  // into Hundred Herb Valley from the southern road
+  road([[72, 315], [72, 340], [64, 366], [54, 384]], 2.2, () => 1);
+  // out from Frostveil to the Sword Sea Pavilion, then the long stair up its crag
+  road([[494, 97], [520, 104], [548, 110], [570, 112]], 2.2, () => 3);
+  ramp([[570, 112], [582, 113], [594, 115]], 2.2, 3, 10);
+  // the old stair down the crag to the ledge of the Sword Sea
+  ramp([[605, 120], [609, 123], [613, 126]], 2, 10, 5);
+  // a track from the south road to the foot of the Dragonspine
+  road([[195, 258], [208, 260], [220, 262]], 2.2, () => 1);
   // the village's north road runs on to the mainland's edge…
   const [gx, gy] = toCoarse("sect", 15, 27);
   const [, vy] = toCoarse("village", 0, 4);
@@ -530,9 +619,15 @@ function buildWorld(): WorldDef {
     const h = m.height(i, j);
     m.set(i, j, undefined, Math.round(Math.max(lo[idx], Math.min(hi[idx], h))));
   });
-  // snow only caps the higher highland hills
+  // snow only caps the higher highland hills, and the tall peaks of the ranges wear it too (or bare red rock in the dry lands)
   m.each((i, j) => {
-    if (!fixed[j * COARSE_W + i] && m.kind(i, j) === "snow" && m.height(i, j) < 3) m.set(i, j, "grass");
+    const idx = j * COARSE_W + i;
+    if (fixed[idx]) return;
+    const k = m.kind(i, j);
+    const h = m.height(i, j);
+    if (k === "snow" && h < 3) m.set(i, j, "grass");
+    else if (h >= 7 && !LIQUID[k] && k !== "void" && (fbm(i * 0.4, j * 0.4, 77) > 0.35 || h >= 8)) m.set(i, j, ashen(i, j) ? "redrock" : "snow");
+    else if (h >= 6 && (k === "grass" || k === "meadow" || k === "leaf") && fbm(i * 0.3, j * 0.3, 78) > 0.55) m.set(i, j, "moss");
   });
 
   // 8. the landmarks: their buildings, keepers, beasts and treasures
@@ -910,6 +1005,109 @@ function buildWorld(): WorldDef {
     npcs.push({ key: "innkeeper", name: "Innkeeper Zhao", char: "villagerF", i: x, j: y + 1, dir: 2, wander: 1 }, { key: "restporter", name: "Porter Lao", char: "porter", i: x + 3, j: y, dir: 6, anim: "eat" });
     mark("inn", "Wayside Inn", "客栈", "house", x, y);
   }
+  // the Scarlet Phoenix Sect on its mesa in the red badlands
+  {
+    const [x, y] = [586, 372];
+    P("hall", x + 1, y - 5);
+    P("phoenixstatue", x - 3, y - 1);
+    P("phoenixstatue", x + 3, y - 1);
+    P("phoenixbanner", x - 4, y + 3);
+    P("phoenixbanner", x + 4, y + 3);
+    P("brazier", x - 2, y + 2);
+    P("brazier", x + 2, y + 2);
+    P("tent", x - 5, y - 2);
+    P("dummy", x + 5, y - 1);
+    P("torch", x - 1, y + 5);
+    P("torch", x + 1, y + 5);
+    npcs.push(
+      { key: "yanhuo", char: "yanhuo", i: x, j: y + 4, dir: 0 },
+      { key: "zhuque", name: "Disciple Zhu Que", char: "phoenix", i: x - 3, j: y + 4, dir: 2, anim: "flame", when: (f) => !f["phx:fed"] },
+      { key: "phxchi", name: "Disciple Chi Yan", char: "phoenix", i: x + 4, j: y + 1, dir: 6, anim: "practice" },
+      { key: "phxluo", name: "Disciple Luo Huo", char: "phoenix", i: x - 4, j: y, dir: 2, anim: "torch" },
+      // the miners, once she has led them out of the mine
+      { key: "tie2", name: "Old Tie", char: "miner", i: 575, j: 383, dir: 14, anim: "drink", when: (f) => !!f.minersOut },
+      { key: "ahshi2", name: "Miner Ah Shi", char: "miner", i: 574, j: 384, dir: 12, anim: "eat", when: (f) => !!f.minersOut },
+      { key: "minerWei", name: "Miner Wei", char: "villagerM", i: 569, j: 383, dir: 2, anim: "mine" },
+    );
+    it("phx-stele", "sign", x + 3, y + 5, "The Scarlet Phoenix Sect. “Our founder flew down from the sun's road and landed on this mesa in a shower of sparks. The sparks are still in the rock. We dig them out and call them fire-jade.”");
+    it("phx-shrine", "shrine", x - 5, y + 2);
+    it("phx-chest", "chest", x - 2, y - 3);
+    it("mine-sign", "sign", 575, 379, "THE EMBER MINE. “Helmets on. Water skins full. If the rock sings, run.”");
+    enemies.push({ key: "phx-hound-1", enemy: "wolf", i: 552, j: 392, range: 2.5 }, { key: "phx-raider", enemy: "bandit", i: 600, j: 394, range: 2.5 });
+    mark("phoenix", "Scarlet Phoenix Sect", "赤凰门", "phoenixstatue", x, y);
+  }
+  // Hundred Herb Valley, sheltered among its hills in the far south-west
+  {
+    const [x, y] = [48, 392];
+    const healed = (f: Record<string, boolean>) => !!f.herbDone;
+    P("furnace", x, y);
+    P("house", x + 3, y - 6);
+    P("house", x + 5, y - 1);
+    P("herbrack", x - 2, y - 3);
+    P("well", x - 4, y + 1);
+    P("lantern", x - 2, y + 4);
+    P("lantern", x + 2, y + 4);
+    for (const [dx2, dy2] of [
+      [-4, 4],
+      [-2, 6],
+      [1, 6],
+      [3, 4],
+      [5, 5],
+      [-5, 6],
+    ] as [number, number][]) {
+      props.push({ id: "herbbed", i: x + dx2, j: y + dy2, when: healed });
+      props.push({ id: "witheredbed", i: x + dx2, j: y + dy2, when: (f) => !healed(f) });
+    }
+    npcs.push(
+      { key: "baizhi", char: "baizhi", i: x, j: y + 2, dir: 0, anim: "brew" },
+      { key: "linger", char: "herbalist", i: x - 3, j: y + 3, dir: 2, anim: "gather" },
+      { key: "herbHan", name: "Herbalist Han", char: "villagerM", i: x + 3, j: y + 2, dir: 6, wander: 1 },
+    );
+    it("herb-stele", "sign", x + 2, y - 3, "Hundred Herb Valley. “Every herb has a poison in it, and every poison a cure. Our sect only argues about which comes first.”");
+    it("herb-shrine", "shrine", x - 5, y - 3);
+    it("herb-chest", "chest", x + 6, y + 2);
+    it("herb-herb", "herb", x - 6, y + 2);
+    mark("herbvalley", "Hundred Herb Valley", "百草谷", "furnace", x, y);
+  }
+  // the Sword Sea Pavilion on its crag, and the ledge of the Sword Sea below it
+  {
+    const [x, y] = [600, 116];
+    const mercy = (f: Record<string, boolean>) => !!f["swd:mercy"];
+    P("pavilion", x, y - 3);
+    P("banner", x - 4, y + 2);
+    P("banner", x + 4, y - 1);
+    P("swordrack", x - 3, y - 3);
+    P("dummy", x + 3, y + 3);
+    P("bell", x - 4, y - 1);
+    P("lantern", x - 2, y + 4);
+    P("lantern", x + 2, y + 4);
+    P("swordspire", 617, 128);
+    npcs.push(
+      { key: "lingfeng", char: "lingfeng", i: x, j: y + 2, dir: 0 },
+      { key: "wuyou", name: "Jian Wuyou", char: "swordsea", i: x - 3, j: y + 2, dir: 2, anim: "practice", when: (f) => !f.swdDone },
+      { key: "wuyouSweep", name: "Jian Wuyou", char: "swordsea", i: 606, j: 121, dir: 4, anim: "sweep", when: mercy },
+      { key: "tangyu", name: "Disciple Tang Yu", char: "swordsea", i: x + 3, j: y + 1, dir: 6, anim: "practice" },
+      { key: "rubing", name: "Disciple Ru Bing", char: "discipleF", i: x - 1, j: y + 4, dir: 2, anim: "sweep" },
+      // the exposed thief goes home to the harbour to mend nets beside his mother
+      { key: "wuyouHarbor", name: "Jian Wuyou", char: "swordsea", ...xy(toCoarse("harbor", 17, 15)), dir: 2, anim: "gather", when: (f) => !!f["swd:exposed"] },
+    );
+    it("sword-clue", "sign", 604, 119, "Fresh scuff marks at the top of the old stair, and a scrap of oiled paper caught on a nail: the corner of a sword manual's wrapping, stamped with the Pavilion's seal.");
+    it("sword-stele", "sign", x - 2, y - 5, "The Sword Sea Pavilion. “Ten thousand swords rest in the sea below the crag. A disciple who brings one up has learned nothing. A disciple who leaves it there has begun.”");
+    it("sword-shrine", "shrine", 614, 125);
+    it("sword-chest", "chest", 616, 129);
+    enemies.push({ key: "sword-traitor", enemy: "traitor", i: 588, j: 113, range: 2, when: (f) => !!f["swd:bribed"] && !f.traitorBeaten });
+    mark("swordsea", "Sword Sea Pavilion", "剑海阁", "pavilion", x, y);
+  }
+  // the foot of the Dragonspine, where the Dragon Vein runs nearest the surface
+  {
+    const [x, y] = [222, 262];
+    npcs.push({ key: "dong", name: "Prospector Dong", char: "miner", i: x + 2, j: y + 3, dir: 14, anim: "mine" });
+    it("vein-sign", "sign", x + 3, y + 1, "A boundary stone half sunk in the scree: “The Dragonspine. Beneath it sleeps the Dragon Vein. Three sects swore here never to dig for it. Read the oath again before you lift a pick.”");
+    mark("dragonspine", "Dragonspine", "龙脊山", "cavemouth", x + 4, y - 6);
+  }
+  // a wandering herbalist at the inn, if she let Ku Shen go
+  npcs.push({ key: "kushen2", name: "Herbalist Ku", char: "poisoner", i: 113, j: 302, dir: 6, anim: "brew", when: (f) => !!f.kuSpared });
+
   // treasure, beasts and birds out in the new lands
   for (const [k, i, j] of [
     [10, 40, 250],
@@ -1076,7 +1274,7 @@ function buildWorld(): WorldDef {
   const pt = (i: number, j: number) => pointTile(coarse, fine, i, j);
   const fnpcs: NpcPlacement[] = npcs.map((n) => ({ ...n, ...xy(pt(n.i, n.j)), wander: n.wander && n.wander * 1.5, route: n.route?.map(([x, y]) => [x * S, y * S] as [number, number]) }));
   const fenemies: EnemySpawn[] = enemies.map((e) => ({ ...e, ...xy(pt(e.i, e.j)), range: e.range * 1.5 }));
-  const finteracts: Interactable[] = [...interacts.map((x) => ({ ...x, ...xy(pt(x.i, x.j)) })), ...interiorDoors()];
+  const finteracts: Interactable[] = [...interacts.map((x) => ({ ...x, ...xy(pt(x.i, x.j)) })), ...roomDoors()];
   const fcritters: Critter[] = critters.map((c) => ({ ...c, ...xy(pt(c.i, c.j)) }));
   const busy = new Set<number>();
   for (const x of [...fnpcs, ...fenemies, ...finteracts, ...fcritters]) for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) busy.add((x.j + dj) * WORLD_W + x.i + di);
@@ -1117,6 +1315,121 @@ function buildWorld(): WorldDef {
     if (!propDef(p.id).blocks || p.when) continue;
     const [i0, j0, i1, j1] = placementTiles(p);
     for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) fine.block(i, j);
+  }
+
+  // 12b. the cave mouths, and the rock that buries the Dragon Vein's until the earth shakes it loose
+  for (const id of CAVE_IDS) {
+    const { at, prop } = CAVE_MOUTH[id];
+    const p: PropPlacement = { id: prop, i: at[0] * S, j: at[1] * S };
+    kept.push(p);
+    const [i0, j0, i1, j1] = placementTiles(p);
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) fine.block(i, j);
+  }
+  const [mx, my] = [CAVE_MOUTH.vein.at[0] * S, CAVE_MOUTH.vein.at[1] * S];
+  const buried = (f: Record<string, boolean>) => !f.veinOpened;
+  for (const [dx2, dy2] of [
+    [1, 0],
+    [2, -1],
+    [2, 1],
+    [3, 0],
+    [1, 2],
+    [1, -2],
+  ] as [number, number][])
+    kept.push({ id: "rubble", i: mx + dx2, j: my + dy2, when: buried });
+
+  // 12c. the story's marks on the land (see world/terrain.ts)
+  const patches: TerrainPatch[] = [];
+  const F = (v: number) => v * S;
+  const at = (pts: [number, number][]): [number, number][] => pts.map(([a, b]) => [F(a), F(b)]);
+  // the story never pours lava or water over someone standing about, or over something to pick up
+  const occupied = new Set<number>();
+  for (const x of [...fnpcs, ...fenemies, ...finteracts]) for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) occupied.add((x.j + dj) * WORLD_W + x.i + di);
+  const free = (i: number, j: number) => !fine.isBlocked(i, j) && !occupied.has(j * WORLD_W + i);
+  {
+    // the Dragon Vein's mouth lies under a rockfall until the conclave is called
+    const p = new PatchPainter(fine);
+    p.disc(mx + 2, my, 3.4, (i, j) => (i > mx ? { kind: "dirt", height: fine.height(i, j) + 1, block: true } : undefined), 0.6, 9);
+    patches.push(p.build("vein-rockfall", buried));
+  }
+  {
+    // the Patriarch's lava pool cools to stone and a clean spring wells up through it
+    const [cx, cy] = toCoarse("valley", 34, 8);
+    const p = new PatchPainter(fine);
+    p.disc(F(cx), F(cy), 5.6, (i, j) => (LIQUID[fine.kind(i, j)] === "lava" ? { kind: "water" } : fine.kind(i, j) === "ash" ? { kind: "moss" } : undefined), 1, 31);
+    patches.push(p.build("valley-spring", (f) => !!f.patriarchDefeated));
+  }
+  {
+    // the fire in the mesa's crown: fed, it bursts out down the eastern cliffs; sealed, it goes out
+    const fed = new PatchPainter(fine);
+    // it wells up in a crack at the eastern rim, then runs down the cliffs and away across the flats
+    fed.path(at([[591, 375], [594, 378], [598, 384], [603, 394], [610, 408], [616, 420]]), 2.6, (i, j) => (free(i, j) && fine.kind(i, j) !== "plaza" && fine.kind(i, j) !== "stairs" ? { kind: "lava" } : undefined));
+    fed.disc(F(586), F(372), 6, (i, j) => (fine.kind(i, j) === "redrock" && fbm(i * 0.3, j * 0.3, 41) > 0.62 && free(i, j) ? { kind: "ash" } : undefined));
+    patches.push(fed.build("phoenix-fed", (f) => !!f["phx:fed"]));
+    const sealed = new PatchPainter(fine);
+    sealed.disc(F(586), F(372), 3.4, (i, j) => (LIQUID[fine.kind(i, j)] === "lava" ? { kind: "redrock" } : undefined));
+    patches.push(sealed.build("phoenix-sealed", (f) => !!f["phx:sealed"]));
+  }
+  {
+    // the valley withers until its spring runs clean; the marsh pools drain if she chooses so
+    const withered = new PatchPainter(fine);
+    withered.disc(F(48), F(392), 17, (i, j) => {
+      const k = fine.kind(i, j);
+      if (k === "meadow" || k === "grass") return { kind: fbm(i * 0.2, j * 0.2, 51) > 0.5 ? "dirt" : "leaf" };
+      return undefined;
+    }, 1.4, 52);
+    patches.push(withered.build("herb-withered", (f) => !f.herbDone));
+    const drained = new PatchPainter(fine);
+    drained.disc(F(36), F(402), 52, (i, j) => (LIQUID[fine.kind(i, j)] === "water" && fine.height(i, j) <= 0 ? { kind: fbm(i * 0.3, j * 0.3, 53) > 0.5 ? "paddy" : "meadow", height: 0 } : undefined));
+    patches.push(drained.build("herb-drained", (f) => !!f["herb:drained"]));
+  }
+  {
+    // the stair down to the Sword Sea is heaped with fallen rock until Ling Feng orders it cleared
+    const p = new PatchPainter(fine);
+    p.path(at([[605, 120], [609, 123], [613, 126]]), 4, (i, j) => (fine.kind(i, j) === "stairs" ? { block: true } : undefined));
+    patches.push(p.build("sword-stair", (f) => !f.swordStair));
+    for (const [a, b] of [
+      [607, 121],
+      [610, 124],
+    ] as [number, number][])
+      kept.push({ id: "rubble", i: F(a), j: F(b), when: (f) => !f.swordStair });
+  }
+  {
+    // what the conclave's choice does to the Dragonspine
+    const [cx, cy] = [F(228), F(256)];
+    const bloom = new PatchPainter(fine);
+    bloom.disc(cx, cy, 22, (i, j) => {
+      const k = fine.kind(i, j);
+      return k === "snow" || k === "dirt" || k === "grass" || k === "moss" || k === "leaf" ? (free(i, j) || k !== "dirt" ? { kind: hash2(i, j, 61) > 0.5 ? "meadow" : "grass" } : undefined) : undefined;
+    }, 3, 62);
+    patches.push(bloom.build("spine-bloom", (f) => !!f["vein:herb"]));
+    const crater = new PatchPainter(fine);
+    crater.disc(F(246), F(248), 3.2, () => ({ kind: "lava" }), 1, 63);
+    crater.disc(F(246), F(248), 6, (i, j) => (fine.kind(i, j) !== "void" && !LIQUID[fine.kind(i, j)] ? { kind: "ash" } : undefined), 1.6, 64);
+    patches.push(crater.build("spine-crater", (f) => !!f["vein:phoenix"]));
+    const spring = new PatchPainter(fine);
+    spring.disc(F(228), F(254), 2.2, () => ({ kind: "water" }), 0.6, 65);
+    spring.path(at([[228, 254], [220, 250], [212, 248], [205, 247]]), 1.6, (i, j) => (free(i, j) ? { kind: "water" } : undefined));
+    spring.disc(F(204), F(247), 2.6, (i, j) => (free(i, j) ? { kind: "water" } : undefined), 0.6, 66);
+    patches.push(spring.build("spine-spring", (f) => !!f["vein:shared"]));
+    const blight = new PatchPainter(fine);
+    blight.disc(cx, cy, 18, (i, j) => (fine.kind(i, j) !== "void" && !LIQUID[fine.kind(i, j)] && fine.kind(i, j) !== "dirt" ? { kind: fbm(i * 0.3, j * 0.3, 67) > 0.55 ? "redrock" : "ash" } : undefined), 3, 68);
+    patches.push(blight.build("spine-blight", (f) => !!f["vein:taken"]));
+    const steel = new PatchPainter(fine);
+    steel.disc(F(234), F(252), 2.4, () => ({ kind: "plaza" }), 0, 1);
+    patches.push(steel.build("spine-steel", (f) => !!f["vein:sword"]));
+    kept.push(
+      { id: "swordspire", i: F(234), j: F(252), when: (f) => !!f["vein:sword"] },
+      { id: "brazier", i: F(243), j: F(252), when: (f) => !!f["vein:phoenix"] },
+      { id: "peachtree", i: F(232), j: F(262), when: (f) => !!f["vein:herb"] },
+      { id: "peachtree", i: F(217), j: F(254), when: (f) => !!f["vein:herb"] },
+      { id: "butterflies", i: F(226), j: F(266), when: (f) => !!f["vein:herb"] },
+      { id: "lotus", i: F(204), j: F(247), when: (f) => !!f["vein:shared"] },
+      { id: "deadtree", i: F(230), j: F(266), when: (f) => !!f["vein:taken"] },
+      { id: "deadtree", i: F(215), j: F(255), when: (f) => !!f["vein:taken"] },
+      { id: "steam", i: F(586) + 4, j: F(372) + 1, when: (f) => !!f["phx:sealed"] },
+      { id: "lotus", i: F(22), j: F(410), when: (f) => !!f["herb:purified"] },
+      { id: "lotus", i: F(104), j: F(352), when: (f) => !!f["herb:purified"] },
+    );
   }
 
   // 13. which region owns each tile
@@ -1163,6 +1476,7 @@ function buildWorld(): WorldDef {
     regions,
     waypoints,
     landmarks: landmarks.map((l) => ({ ...l, x: l.x * S + (S - 1) / 2, y: l.y * S + (S - 1) / 2 })),
+    patches,
   };
 }
 

@@ -7,6 +7,8 @@ import { toWorld } from "../world/layout";
 import type { HumanId } from "../art/characters";
 import { say, type Step } from "./script";
 import { giveAttire } from "./wardrobe";
+import { sectHasNews, sectNpcScript, sectPreBattle, sectVictory, veinEpilogue } from "./sects";
+import { veinFate } from "../world/caves";
 
 /**
  * The tale of the Jade Lotus Ascension: quest log, region gating, every
@@ -185,7 +187,7 @@ export function hasNews(key: string, g: GameState): boolean {
     case "mei":
       return !!f.heartReturned && !f[`attire:festival`];
     default:
-      return false;
+      return sectHasNews(key, g) ?? false;
   }
 }
 
@@ -786,7 +788,7 @@ export function npcScript(key: string, g: GameState): Step[] {
     case "restporter":
       return [named("porter", "Porter Lao", pick(g, ["Eating. Talking costs breath, and breath costs noodles.", "From the terraces to the sands with tea, from the sands to the harbour with salt. Then home to sleep for a week.", "My pole's older than me. My father's. Same shoulders, too."])), { anim: "restporter", name: "eat" }];
     default:
-      return [say("narrator", "…")];
+      return sectNpcScript(key, g) ?? [say("narrator", "…")];
   }
 }
 
@@ -932,6 +934,13 @@ function elderScript(g: GameState): Step[] {
       { toast: "Received 200 spirit stones and 6 pills · The sky bridge behind the Hall of Clouds opens" },
     ];
   if (f.ascended) return [say("elder", "The sect's founder was the last to ascend, a thousand years ago. Now there are two names on the stele. I am proud of you.")];
+  const fate = veinFate(f);
+  if (fate && !f.elderVein)
+    return [
+      say("elder", fate === "taken" ? "I felt the Dragonspine go dark from here, Lin Yue. I felt what you drank." : "Word has come from the south. The Dragon Vein, the three sects, and you in the middle of them."),
+      say("elder", { phoenix: "Fire for the Phoenix. Yan Huo will be insufferable, and loyal to you till the stars burn out.", herb: "The vein to the soil. Bai Zhi wrote to me. She has never written to me in sixty years.", sword: "The Pavilion guards it. Ling Feng will guard it from everyone, even himself. Wise, perhaps.", shared: "To no one, and so to everyone. That is the founder's answer. I wish I had thought of it.", taken: "Xue began with one stolen jar of light. Be careful, child. Be very careful what you become." }[fate]),
+      { mutate: (s) => setFlag(s, "elderVein") },
+    ];
   if (!f.villageSaved) return [say("elder", "Willow Creek lies below the clouds. Go out through the sect gate and down the sky bridge.")];
   if (f.patriarchDefeated) return [say("elder", "Heavenly Tribulation Peak awaits.")];
   if (g.realm >= 1 && f.serpentKingDefeated) return [say("elder", "Foundation Establishment already… Then go. Xue waits in his valley. Do not hesitate when the moment comes.")];
@@ -991,9 +1000,27 @@ export function preBattleScript(enemy: EnemyId, key: string): Step[] | null {
       say("patriarch", "Mo sends a child to fetch his flower? How very like him."),
       say("heroine", "Return the Jade Lotus Heart, Patriarch Xue."),
       say("patriarch", "That 'flower' lets heaven decide who may ascend. I merely… remove heaven's veto."),
+      {
+        choose: [
+          {
+            label: "Offer him a way back",
+            hint: "He was once a boy from Willow Creek",
+            then: [
+              say("heroine", "Smith Ou still keeps your sword on his hill. Elder Mo still calls you brother. Give back the Heart and come home, Xue Ming."),
+              { emote: key, icon: "..." },
+              say("patriarch", "…Nobody has called me that in forty years. Too late, little lotus. Far too late."),
+              { mutate: (s) => setFlag(s, "xueOffered") },
+            ],
+          },
+          { label: "Draw your sword", hint: "There is nothing left to say", then: [{ anim: "hero", name: "salute", wait: true }, say("heroine", "Then let it be decided.")] },
+        ],
+        prompt: "Patriarch Xue waits, the blood moon behind him.",
+      },
       { shake: 0.6 },
       say("patriarch", "Come then, little lotus! Let the blood moon judge us!"),
     ];
+  const sect = sectPreBattle(enemy);
+  if (sect) return sect;
   if (enemy === "serpentKing") return [{ shake: 0.4 }, say("heroine", "The Serpent King… its scales are veined with Xue's crimson qi. Forgive me — I'll purge it!")];
   return null;
 }
@@ -1001,6 +1028,8 @@ export function preBattleScript(enemy: EnemyId, key: string): Step[] | null {
 /** Story consequences of winning a fight. */
 export function victoryScript(enemy: EnemyId, key: string, area: AreaId, g: GameState, won = true): Step[] {
   const steps: Step[] = [];
+  const sect = sectVictory(enemy, key, g, won);
+  if (sect) return sect;
   if (enemy === "swordsman")
     return won
       ? [
@@ -1038,7 +1067,9 @@ export function victoryScript(enemy: EnemyId, key: string, area: AreaId, g: Game
     steps.push(
       { mutate: (s) => setFlag({ ...s, bossDefeated: true }, "patriarchDefeated") },
       say("patriarch", "Impossible… heaven chose… a child of Foundation…"),
-      say("patriarch", "Mo… you were right about the Dao… after all…"),
+      ...(g.flags.xueOffered
+        ? [say("patriarch", "You offered… you actually offered. Tell Ou… I never drew it. Tell Mo… his brother came home… a little."), { mutate: (s: GameState) => setFlag(s, "xueForgiven") }]
+        : [say("patriarch", "Mo… you were right about the Dao… after all…")]),
       { flash: "#ff2040" },
       { shake: 0.8 },
       say("narrator", "Patriarch Xue dissolves into crimson mist. Upon the altar, a lotus of pure jade light opens its petals."),
@@ -1058,7 +1089,9 @@ export function altarScript(g: GameState): Step[] {
   return [say("narrator", `The taiji dais hums. Meditating here gathers qi three times faster. (${realmLabel(g.realm, g.stage)} — the final tribulation requires the peak of Spirit Severing.)`), { meditate: true }];
 }
 
-export function endingScript(): Step[] {
+export function endingScript(g?: GameState): Step[] {
+  const f = g?.flags ?? {};
+  const vein = veinEpilogue(f);
   return [
     { mutate: (s) => setFlag(giveAttire(s, "celestial"), "ascended") },
     {
@@ -1066,6 +1099,8 @@ export function endingScript(): Step[] {
         "Nine bolts fell upon Heavenly Tribulation Peak, and nine times Lin Yue stood.",
         "The storm parted. A stair of white light descended from the ninth heaven.",
         "Below, the spirit veins sang. Rice grew green in Willow Creek; fox kits played in the bamboo; an old man on a lake caught a fish made of moonlight.",
+        ...(vein ? [vein] : []),
+        ...(f.xueForgiven ? ["On a hill in the westwood, beside a sword that was never drawn, someone left a cup of tea for Xue Ming. It was still warm."] : []),
         "So ends the tale of the Jade Lotus Ascension — and so begins the tale of an immortal.",
       ],
     },
