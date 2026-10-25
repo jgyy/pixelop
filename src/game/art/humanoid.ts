@@ -72,7 +72,7 @@ export interface HumanPose {
   /** Extra light-blue tint (qi casting) or white (hit flash) applied after. */
   flash?: number;
   /** Something held in the hands: a bamboo dizi flute, a rice bowl and chopsticks, juggling balls, a smith's hammer, a writing brush, a paper lantern, a hoe, a woodsman's axe, a carrying pole with two baskets, a shuttlecock or an oiled-paper umbrella. */
-  held?: "flute" | "bowl" | "balls" | "hammer" | "brush" | "lantern" | "hoe" | "axe" | "pole" | "shuttlecock" | "umbrella";
+  held?: "flute" | "bowl" | "balls" | "hammer" | "brush" | "lantern" | "hoe" | "axe" | "pole" | "shuttlecock" | "umbrella" | "pickaxe" | "torch" | "ladle" | "fireball";
   /** Where a tossed thing (the shuttlecock) is, in pose space. */
   toss?: V3;
 }
@@ -451,6 +451,36 @@ export function paintHuman(st: HumanStyle, p: HumanPose, facing: number, o: Rend
     r.sweep([grip, top], Rr(0.3), mat(PAL.woodDark, 9));
     const paper = ramp4("#ffe0e8", "#e86a7a", "#a83a5a", "#5a1a3a");
     r.cone(top[0], top[1], Rr(11), top[2] - Rr(4.4), Rr(0.6), top[2] + Rr(0.6), 16, mat(paper, 10, { shader: (s, tone) => (Math.sin(Math.atan2(s.p[1] - top[1], s.p[0] - top[0]) * 8 + t * 2) > 0.85 ? tone(PAL.woodDark) : tone(paper, s.n[2] > 0.6 ? -1 : 0)) }));
+  }
+
+  if (p.held === "pickaxe") {
+    // a miner's pick: a long haft and a curved iron head pointed at both ends
+    const grip = U(handR);
+    const head = add(grip, [0.2 * S, 4 * S, 7.4 * S]);
+    r.sweep([sub(grip, [0, 0.6 * S, 1.6 * S]), head], Rr(0.6), mat(PAL.wood, 9));
+    r.sweep([add(head, [0, -4 * S, -1.4 * S]), head, add(head, [0, 4 * S, -2 * S])], [Rr(0.4), Rr(1.3), Rr(0.4)], mat(ramp4("#d8dce8", "#8a90a8", "#4a5068", "#22263a"), 9));
+  } else if (p.held === "torch") {
+    // a pitch torch held high, its flame leaning with the wind
+    const grip = U(handR);
+    const top = add(grip, [0.6 * S, 1.2 * S, 8 * S]);
+    r.sweep([sub(grip, [0, 0, 2 * S]), top], [Rr(0.55), Rr(0.8)], mat(PAL.woodDark, 9));
+    const fire = ramp4("#fff6c0", "#ffb040", "#f0601e", "#a81a10");
+    for (let k = 0; k < 3; k++) r.sweep([add(top, [Math.cos(k * 2.1) * 0.4 * S, 0, 0]), add(top, [wind[0] * 0.8 * S + Math.sin(t * 3 + k) * 0.6 * S, wind[1] * 0.6 * S, (4.4 + k * 0.8 + Math.sin(t * 2 + k)) * S])], [Rr(1.7), Rr(0.2)], mat(fire, 9, { outline: undefined, shader: (s, tone) => tone(fire, s.u > 0.6 ? 1 : s.u < 0.3 ? -1 : 0) }));
+  } else if (p.held === "ladle") {
+    // a long wooden ladle dipped into the brew
+    const a = U(handL);
+    const b = U(handR);
+    const d = sub(b, a);
+    const bowl = add(b, scale3(d, 1.6));
+    r.sweep([a, bowl], Rr(0.55), mat(PAL.wood, 9));
+    r.sphere(add(bowl, [0, 0, -0.6 * S]), Rr(1.6), mat(PAL.woodDark, 9));
+  } else if (p.held === "fireball") {
+    // a ball of qi-fire cupped between the palms, flaring as it is thrust out
+    const c = scale3(add(U(handL), U(handR)), 0.5);
+    const ball = add(c, [0, 1.6 * S, 0.4 * S]);
+    const fire = ramp4("#ffffff", "#fff0a0", "#ffb040", "#f0601e");
+    r.sphere(ball, Math.max(1.4, Rr(2 + Math.sin(t * 3) * 0.3)), mat(fire, 9, { outline: undefined }));
+    for (let k = 0; k < 4; k++) r.sweep([ball, add(ball, [Math.cos(t * 2 + k * 1.6) * 2.4 * S, Math.sin(t * 2 + k * 1.6) * 1.4 * S, (2.6 + Math.sin(t * 3 + k)) * S])], [Rr(0.9), Rr(0.1)], mat(ramp4("#fff6c0", "#ffb040", "#f0601e", "#a81a10"), 9, { outline: undefined }));
   }
 
   // ------------------------------------------------------------------ shawl, cape, tails, beard

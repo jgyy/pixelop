@@ -1935,6 +1935,337 @@ const PROPS = {
       }
     },
   },
+  // ---------------------------------------------------------------- underground and the sects
+  // a cave mouth in a mound of mossy boulders, cold mist breathing out of the dark arch on its east face
+  cavemouth: {
+    foot: [-1, -1, 0, 0],
+    blocks: true,
+    frames: 6,
+    fps: 4,
+    emit: "mist",
+    paint: (r, f, n) => {
+      const ph = (f / n) * TAU;
+      const rock = md(PAL.stone, 1, { shader: (s, tone) => (s.n[2] > 0.45 && fbm(s.p[0] * 0.25, s.p[1] * 0.25, 3) > 0.5 ? tone(PAL.moss) : tone(PAL.stone)) });
+      r.ellipsoid([-T * 0.5, -T * 0.5, 0], [T * 1.05, T * 1.05, 30], rock);
+      r.ellipsoid([-T * 0.9, -T * 0.2, 18], [12, 12, 16], rock);
+      r.ellipsoid([-T * 0.2, -T * 1.0, 14], [12, 12, 14], rock);
+      // the arch: a dark hollow cut into the east face, deepening to black
+      const dark = tones("#3a3448", "#1e1a28", "#120e1a", "#06040a");
+      r.ellipsoid([T * 0.42, -2, 0], [4, 9, 17], m(dark, 2, { outline: undefined, shader: (s, tone) => tone(dark, s.p[2] > 12 ? 0 : s.p[2] > 6 ? 1 : 2) }));
+      // a lintel stone and a rope of paper charms swinging in the draught
+      r.sweep([[T * 0.42, -11, 17], [T * 0.42, 7, 17]], 2.2, m(PAL.stone, 3));
+      for (let k = 0; k < 4; k++) {
+        const y = -7 + k * 4.4;
+        const sw = Math.sin(ph + k) * 1.2;
+        r.sweep([[T * 0.46, y, 16], [T * 0.46 + sw * 0.5, y, 11]], [0.8, 0.6], m(PAL.paper, 4, { shader: (s, tone) => (s.u > 0.4 && s.u < 0.6 ? tone(PAL.red) : tone(PAL.paper)) }));
+      }
+    },
+  },
+  // a timber-framed mine adit driven into a red rock mound, a lantern swinging by the entrance and rails running in
+  minemouth: {
+    foot: [-1, -1, 0, 0],
+    blocks: true,
+    frames: 6,
+    fps: 5,
+    light: { color: "#ffb060", radius: 32, dy: 24 },
+    paint: (r, f, n) => {
+      const ph = (f / n) * TAU;
+      const red = ramp("#a8543a", { lo: "#3a1018" });
+      const rock = md(red, 1, { shader: (s, tone) => tone(red, Math.sin(s.p[2] * 0.6 + fbm(s.p[0] * 0.2, s.p[1] * 0.2, 4) * 4) > 0.6 ? 1 : 0) });
+      r.ellipsoid([-T * 0.5, -T * 0.5, 0], [T * 1.15, T * 1.15, 22], rock);
+      r.ellipsoid([-T * 1.0, -T * 0.4, 10], [12, 13, 16], rock);
+      r.ellipsoid([-T * 0.3, -T * 1.1, 8], [11, 10, 13], rock);
+      const dark = tones("#3a2a28", "#1e1418", "#120a10", "#060306");
+      r.box([T * 0.3, -7, 0], [T * 0.5, 7, 16], m(dark, 2, { outline: undefined }));
+      // the timber frame: two posts and a cap beam
+      for (const y of [-8, 8]) r.box([T * 0.44, y - 1.2, 0], [T * 0.54, y + 1.2, 18], m(PAL.wood, 3));
+      r.box([T * 0.42, -10, 17], [T * 0.56, 10, 19.6], m(PAL.woodDark, 3));
+      // a lantern on a bracket, swinging
+      r.sweep([[T * 0.56, 9, 17], [T * 0.56 + 4, 9, 17]], 0.5, m(PAL.black, 4));
+      const c: V3 = [T * 0.56 + 4 + Math.sin(ph) * 0.8, 9, 12.5];
+      r.sweep([[T * 0.56 + 4, 9, 17], add(c, [0, 0, 2])], 0.2, m(PAL.black, 4));
+      r.box(add(c, [-1.4, -1.4, -2]), add(c, [1.4, 1.4, 2]), m(tones("#fff6c0", "#ffd070", "#c08a30", "#6a3a10"), 5, { shader: (s, tone) => (Math.abs(s.n[2]) < 0.5 ? (f % 3 === 0 ? "#fff6c0" : "#ffd070") : tone(PAL.black)) }));
+    },
+  },
+  // a heap of fallen rock: rubble from a landslide or a cave-in
+  rubble: {
+    foot: [0, 0, 0, 0],
+    blocks: false,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      const st = md(PAL.stone, 1);
+      for (let k = 0; k < 9; k++) {
+        const a = k * 2.4;
+        const d = (k % 4) * 3;
+        r.ellipsoid([Math.cos(a) * d, Math.sin(a) * d, 3 + (3 - (k % 4)) * 2.4], [4.4 - (k % 3), 4 - (k % 2), 3.6 - (k % 3) * 0.6], k % 3 ? st : md(ramp("#8a6a5a", { lo: "#3a2a2a" }), 2));
+      }
+    },
+  },
+  // a cluster of stalagmites, beaded with water; now and then a drop falls from the dark above and splashes on the tallest
+  stalagmite: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 8,
+    fps: 6,
+    paint: (r, f, n) => {
+      const st = md(ramp("#6a6478", { lo: "#1a1622" }), 1, { shader: (s, tone) => tone(ramp("#6a6478", { lo: "#1a1622" }), Math.sin(s.p[2] * 1.2) > 0.7 ? -1 : 0) });
+      r.cone(0, 0, 5, 0, 0.4, 30, 7, st);
+      r.cone(5, -3, 3.4, 0, 0.3, 17, 6, st, 0.5);
+      r.cone(-4, 3, 3, 0, 0.3, 13, 6, st, 1);
+      r.cone(2, 5, 2.2, 0, 0.2, 8, 5, st, 0.2);
+      const u = f / (n - 2);
+      const drop = tones("#ffffff", "#c8e8ff", "#7ab0e0", "#3a6aa8");
+      if (f < n - 2) r.sphere([0, 0, 60 - u * 29], 0.9, m(drop, 2, { outline: undefined }));
+      else for (let k = 0; k < 4; k++) r.sphere([Math.cos(k * 1.6) * (2 + (f - n + 2) * 2), Math.sin(k * 1.6) * (2 + (f - n + 2) * 2), 31 - (f - n + 2) * 1.5], 0.5, m(drop, 2, { outline: undefined }));
+    },
+  },
+  // glowing mushrooms in the dark, their caps breathing light in and out
+  glowshroom: {
+    foot: [0, 0, 0, 0],
+    blocks: false,
+    frames: 8,
+    fps: 4,
+    light: { color: "#7affd8", radius: 30, dy: 8 },
+    emit: "sparkle",
+    paint: (r, f, n) => {
+      const pulse = 0.5 + 0.5 * Math.sin((f / n) * TAU);
+      const cap = tones("#ffffff", mix("#5ae8c8", "#c8fff0", pulse), "#2a9a9a", "#1a4a6a");
+      const cap2 = tones("#ffffff", mix("#a88aff", "#e8d8ff", pulse), "#6a4ac8", "#2a1a6a");
+      const shrooms: [number, number, number, number][] = [
+        [0, 0, 9, 4],
+        [5, -2, 6, 3],
+        [-4, 3, 7, 3.2],
+        [3, 5, 4, 2.2],
+        [-5, -4, 4.4, 2.4],
+      ];
+      shrooms.forEach(([x, y, hgt, rad], k) => {
+        r.sweep([[x, y, 0], [x + Math.sin(k) * 0.6, y, hgt]], [rad * 0.3, rad * 0.22], m(tones("#ffffff", "#e8eef8", "#9aa8c8", "#4a5a7a"), 1 + k));
+        r.ellipsoid([x + Math.sin(k) * 0.6, y, hgt + rad * 0.2], [rad, rad, rad * 0.55], m(k % 2 ? cap2 : cap, 1 + k, { outline: undefined, shader: (s, tone) => (s.n[2] > 0.6 && hash2(Math.floor(s.p[0] * 2), Math.floor(s.p[1] * 2), k) > 0.8 ? "#ffffff" : tone(k % 2 ? cap2 : cap)) }));
+      });
+    },
+  },
+  // a mine cart on its rails, heaped with ore that glints as it rocks on its axles
+  minecart: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 4,
+    fps: 4,
+    paint: (r, f) => {
+      const rock = Math.sin((f / 4) * TAU) * 0.4;
+      const iron = ramp("#6a6a7a", { lo: "#1a1a26" });
+      for (const x of [-5, 5]) for (const y of [-6, 6]) r.sweep([[x, y - 1, 3], [x, y + 1, 3]], 3, m(PAL.black, 1));
+      r.box([-7, -9, 4 + rock], [7, 9, 13 + rock], m(iron, 2, { shader: (s, tone) => (Math.abs(s.p[2] - 8.5 - rock) < 0.7 ? tone(BRONZE) : tone(iron)) }));
+      const ore = tones("#ffe0c0", "#ff6a3a", "#a82a2a", "#4a0a1a");
+      for (let k = 0; k < 7; k++) {
+        const a = k * 2.3;
+        r.sphere([Math.cos(a) * 4, Math.sin(a) * 5, 14 + rock + (k % 3)], 2.6, md(k % 3 ? PAL.stone : ore, 3 + (k % 2), { shader: (s, tone) => ((k + f) % 4 === 0 && s.n[2] > 0.7 ? "#ffffff" : tone(k % 3 ? PAL.stone : ore)) }));
+      }
+    },
+  },
+  // an iron torch stand: a basket of burning pitch on a tall pole, spitting sparks
+  torch: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 6,
+    fps: 10,
+    light: { color: "#ff9a40", radius: 38, dy: 30 },
+    emit: "embers",
+    paint: (r, f, n) => {
+      r.sweep([[0, 0, 0], [0, 0, 26]], [1.4, 0.9], m(PAL.black, 1));
+      for (let k = 0; k < 3; k++) {
+        const a = (k / 3) * TAU;
+        r.sweep([[Math.cos(a) * 4, Math.sin(a) * 4, 0], [0, 0, 6]], 0.6, m(PAL.black, 1));
+      }
+      r.cone(0, 0, 1.6, 25, 3.6, 30, 6, m(PAL.black, 2));
+      for (let k = 0; k < 5; k++) {
+        const ph = (f / n) * TAU + k * 1.9;
+        const hgt = 5 + Math.sin(ph) * 2.4 + (k % 2) * 2;
+        const x = Math.cos(k * 2.4) * 1.6;
+        const y = Math.sin(k * 2.4) * 1.6;
+        r.sweep([[x, y, 30], [x * 0.3 + Math.sin(ph) * 0.8, y * 0.3, 30 + hgt]], [1.8, 0.2], m(FIRE, 3, { shader: (s, tone) => tone(FIRE, s.u > 0.6 ? 1 : s.u < 0.3 ? -1 : 0) }));
+      }
+    },
+  },
+  // fire-jade: red crystal shot through with a slow inner flame, the treasure of the Ember Mine
+  firejade: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 6,
+    fps: 5,
+    light: { color: "#ff6a4a", radius: 32, dy: 14 },
+    emit: "embers",
+    paint: (r, f, n) => {
+      const glow = Math.sin((f / n) * TAU) * 0.5 + 0.5;
+      const c = tones("#fff0d0", mix("#ff5a3a", "#ffb080", glow), "#a82030", "#4a0a20");
+      const shards: [number, number, number, number, number][] = [
+        [0, 0, 24, 4, 0.3],
+        [5, -3, 15, 3, 0.9],
+        [-4, 2, 18, 3.2, 1.4],
+        [2, 5, 11, 2.4, 0.1],
+        [-3, -4, 9, 2, 0.6],
+      ];
+      shards.forEach(([x, y, hgt, rr, rot], k) => {
+        r.prism(x, y, rr, 0, hgt * 0.72, 6, m(c, k + 1), rot);
+        r.cone(x, y, rr, hgt * 0.72, 0.2, hgt, 6, m(c, k + 1), rot);
+      });
+    },
+  },
+  // the Dragon Vein's heart: a knot of jade and gold light hanging over a cracked stone basin, three rings of script turning round it
+  veinheart: {
+    foot: [-1, -1, 1, 1],
+    blocks: true,
+    frames: 12,
+    fps: 6,
+    light: { color: "#9ff5de", radius: 70, dy: 40 },
+    emit: "sparkle",
+    paint: (r, f, n) => {
+      const ph = (f / n) * TAU;
+      r.prism(0, 0, 20, 0, 6, 10, md(PAL.stone, 1, { shader: (s, tone) => (s.n[2] > 0.5 && Math.sin(Math.atan2(s.p[1], s.p[0]) * 7 + Math.hypot(s.p[0], s.p[1]) * 0.6) > 0.85 ? "#9ff5de" : tone(PAL.stone)) }));
+      r.prism(0, 0, 12, 6, 10, 10, md(PAL.stone, 2));
+      const bob = Math.sin(ph) * 2;
+      const core = tones("#ffffff", "#c8fff0", "#4ac8b0", "#1a7a7a");
+      r.sphere([0, 0, 28 + bob], 9, m(core, 3, { outline: undefined, shader: (s, tone) => (Math.sin(s.p[2] * 0.8 + ph * 2) > 0.6 ? tone(PAL.gold) : tone(core)) }));
+      for (let ring = 0; ring < 3; ring++) {
+        const tilt = 0.5 + ring * 0.5;
+        const rad = 14 + ring * 4;
+        const pts: V3[] = [];
+        for (let k = 0; k <= 24; k++) {
+          const a = (k / 24) * TAU + ph * (ring % 2 ? -1 : 1);
+          pts.push([Math.cos(a) * rad, Math.sin(a) * rad * Math.cos(tilt), 28 + bob + Math.sin(a) * rad * Math.sin(tilt) * 0.6]);
+        }
+        r.sweep(pts, 0.7, m(ring === 1 ? PAL.gold : PAL.qi, 4 + ring, { outline: undefined, shader: (s, tone) => (Math.sin(s.u * 60) > 0.4 ? tone(ring === 1 ? PAL.gold : PAL.qi) : null) }));
+      }
+    },
+  },
+  // the Scarlet Phoenix: a firebird of red bronze on a pillar, wings half spread, flames licking along its feathers
+  phoenixstatue: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 6,
+    fps: 8,
+    light: { color: "#ff7040", radius: 44, dy: 44 },
+    emit: "embers",
+    paint: (r, f, n) => {
+      const ph = (f / n) * TAU;
+      const bronze = ramp("#c8502a", { hi: "#ffe0a0", lo: "#3a0a1a" });
+      r.prism(0, 0, 6, 0, 4, 8, md(PAL.stone, 1));
+      r.prism(0, 0, 3.6, 4, 30, 8, m(PILLAR, 1));
+      r.prism(0, 0, 5, 30, 33, 8, m(PAL.gold, 2));
+      r.ellipsoid([0, 0, 39], [3.4, 4.4, 4.4], m(bronze, 3));
+      r.sweep([[0, 2.4, 41], [0, 4.6, 47], [0, 6.4, 46]], [1.6, 1.2, 0.5], m(bronze, 3));
+      for (const s of [-1, 1]) {
+        const lift = Math.sin(ph) * 2;
+        r.sweep([[s * 2.6, 0, 41], [s * 9, -2, 46 + lift], [s * 13, -5, 50 + lift * 1.4]], [2.4, 1.6, 0.4], m(bronze, 4, { shader: (sf, tone) => (Math.sin(sf.u * 24) > 0.5 ? tone(PAL.gold) : tone(bronze)) }));
+      }
+      r.sweep([[0, -3, 38], [0, -9, 32], [0, -12, 26]], [1.6, 1, 0.3], m(bronze, 4));
+      for (let k = 0; k < 6; k++) {
+        const a = ph * 1.5 + k * 1.1;
+        const z = 40 + (k % 3) * 3;
+        r.sweep([[Math.cos(k) * 4, Math.sin(k) * 3 - 2, z], [Math.cos(k) * 4 + Math.sin(a) * 1.4, Math.sin(k) * 3 - 2, z + 5 + Math.sin(a) * 2]], [1.4, 0.2], m(FIRE, 5, { outline: undefined, shader: (s, tone) => tone(FIRE, s.u > 0.6 ? 1 : s.u < 0.3 ? -1 : 0) }));
+      }
+    },
+  },
+  // a tall banner of the Scarlet Phoenix: crimson silk with a gold flame, cracking in the hot wind
+  phoenixbanner: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 6,
+    fps: 8,
+    paint: (r, f, n) => {
+      r.sweep([[0, 0, 0], [0, 0, 56]], 1, m(PAL.black, 1));
+      r.cone(0, 0, 1.6, 56, 0, 61, 5, m(PAL.gold, 1));
+      for (let k = 0; k < 6; k++) {
+        const z = 52 - k * 5;
+        const pts: V3[] = [];
+        for (let s = 0; s <= 6; s++) {
+          const w = Math.sin((f / n) * TAU - s * 1.1 + k * 0.25) * (s / 6) * 2.8;
+          pts.push([s * 2.2 + w * 0.5, -s * 2.2 + w * 0.5, z - s * 0.5 + w * 0.3]);
+        }
+        r.sweep(pts, 2.6, m(PAL.crimson, 2, { shader: (s, tone) => ((k === 2 || k === 3) && s.u > 0.3 && s.u < 0.7 ? tone(PAL.gold) : tone(k === 0 ? PAL.gold : PAL.crimson)) }));
+      }
+    },
+  },
+  // a raised bed of spirit herbs in a wooden frame, rows of leaves stirring and the odd flower nodding
+  herbbed: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 6,
+    fps: 4,
+    paint: (r, f, n) => {
+      r.box([-10, -10, 0], [10, 10, 4], m(PAL.wood, 1, { shader: (s, tone) => (s.n[2] > 0.5 && Math.abs(s.p[0]) < 9 && Math.abs(s.p[1]) < 9 ? tone(PAL.brown, 1) : tone(PAL.wood)) }));
+      const leaf = ramp("#5ab848", { lo: "#103a26" });
+      for (let row = 0; row < 3; row++)
+        for (let k = 0; k < 3; k++) {
+          const x = -6 + k * 6;
+          const y = -6 + row * 6;
+          const sw = swayAt(f + row + k, n, 10, 1);
+          r.ellipsoid(add([x, y, 7], sw), [2.6, 2.6, 3.4], md(leaf, 2 + row, { shader: leafShader(leaf, row * 3 + k) }));
+          if ((row + k) % 2 === 0) r.sphere(add([x, y, 10.6], sw), 1, m([PAL.rose, PAL.gold, PAL.white][(row + k) % 3], 2 + row));
+        }
+    },
+  },
+  // the same bed withered: dry brown stalks bent over grey earth
+  witheredbed: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      r.box([-10, -10, 0], [10, 10, 4], m(PAL.woodDark, 1, { shader: (s, tone) => (s.n[2] > 0.5 && Math.abs(s.p[0]) < 9 && Math.abs(s.p[1]) < 9 ? tone(PAL.grey, 1) : tone(PAL.woodDark)) }));
+      const dry = ramp("#8a6a3a", { lo: "#2a1a10" });
+      for (let row = 0; row < 3; row++)
+        for (let k = 0; k < 3; k++) {
+          const x = -6 + k * 6;
+          const y = -6 + row * 6;
+          r.sweep([[x, y, 4], [x + 1.4, y - 1, 8], [x + 3, y - 1.6, 7]], [0.7, 0.4, 0.2], m(dry, 2 + row));
+        }
+    },
+  },
+  // a great bronze alchemy furnace on three legs, fire roaring beneath it, smoke curling from its lid
+  furnace: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 6,
+    fps: 8,
+    light: { color: "#ff8040", radius: 40, dy: 10 },
+    emit: "smoke",
+    paint: (r, f, n) => {
+      for (let k = 0; k < 3; k++) {
+        const a = (k / 3) * TAU + 0.4;
+        r.sweep([[Math.cos(a) * 9, Math.sin(a) * 9, 0], [Math.cos(a) * 6, Math.sin(a) * 6, 10]], [1.6, 1.2], m(BRONZE, 1));
+      }
+      r.ellipsoid([0, 0, 20], [11, 11, 12], m(BRONZE, 2, { shader: (s, tone) => (Math.abs(s.p[2] - 20) < 1 || Math.sin(Math.atan2(s.p[1], s.p[0]) * 6) > 0.92 ? tone(PAL.gold) : tone(BRONZE)) }));
+      r.cone(0, 0, 8, 30, 3, 35, 10, m(BRONZE, 3));
+      r.sphere([0, 0, 36], 2.4, m(PAL.gold, 3));
+      for (const s of [-1, 1]) r.sweep([[s * 8, s * 8, 28], [s * 9.6, s * 9.6, 33], [s * 7, s * 7, 34]], 1, m(BRONZE, 3));
+      for (let k = 0; k < 7; k++) {
+        const ph = (f / n) * TAU + k * 1.7;
+        const x = Math.cos(k * 2.4) * 4;
+        const y = Math.sin(k * 2.4) * 4;
+        r.sweep([[x, y, 2], [x * 0.5 + Math.sin(ph), y * 0.5, 9 + Math.sin(ph) * 2]], [2.2, 0.3], m(FIRE, 4, { outline: undefined, shader: (s, tone) => tone(FIRE, s.u > 0.6 ? 1 : s.u < 0.3 ? -1 : 0) }));
+      }
+    },
+  },
+  // a sword of stone ten men tall driven into the crag, a glint of light running up its blade
+  swordspire: {
+    foot: [-1, -1, 0, 0],
+    blocks: true,
+    frames: 8,
+    fps: 5,
+    emit: "sparkle",
+    paint: (r, f, n) => {
+      const base: V3 = [-T * 0.5, -T * 0.5, 0];
+      r.ellipsoid(base, [T, T, 12], md(PAL.stone, 1, { shader: (s, tone) => (fbm(s.p[0] * 0.3, s.p[1] * 0.3, 7) > 0.6 ? tone(PAL.moss) : tone(PAL.stone)) }));
+      const glint = 14 + (f / n) * 80;
+      const blade = (s: Parameters<Shader>[0], tone: Parameters<Shader>[1]) => (Math.abs(s.p[2] - glint) < 3 ? "#ffffff" : tone(PAL.steel, s.n[0] > 0.3 ? -1 : 0));
+      r.box([-T * 0.5 - 2.4, -T * 0.5 - 6, 10], [-T * 0.5 + 2.4, -T * 0.5 + 6, 96], m(PAL.steel, 2, { shader: blade }));
+      r.box([-T * 0.5 - 0.6, -T * 0.5 - 6.4, 10], [-T * 0.5 + 0.6, -T * 0.5 + 6.4, 96], m(PAL.steel, 2, { shader: (s, tone) => (Math.abs(s.p[2] - glint) < 3 ? "#ffffff" : tone(PAL.steel, 1)) }));
+      r.box([-T * 0.5 - 3.4, -T * 0.5 - 15, 96], [-T * 0.5 + 3.4, -T * 0.5 + 15, 102], m(BRONZE, 3));
+      r.sweep([[-T * 0.5, -T * 0.5, 102], [-T * 0.5, -T * 0.5, 122]], 3, m(PAL.woodDark, 4, { shader: (s, tone) => (Math.sin(s.u * 30) > 0.3 ? tone(PAL.red) : tone(PAL.woodDark)) }));
+      r.sphere([-T * 0.5, -T * 0.5, 125], 4, m(PAL.gold, 4));
+    },
+  },
 } satisfies Record<string, PropDef>;
 
 /** A bookcase backed against an interior wall: `sw` puts it on the wall along the other axis. */

@@ -56,6 +56,8 @@ export interface QuadStyle {
 }
 
 export const FOX_STYLE: QuadStyle = { fur: ramp("#f08a3a", { lo: "#8a2a40" }), belly: PAL.white, paws: PAL.black, eye: "#ff4060", tails: 3, tailTip: PAL.white, scale: 1, earInner: PAL.rose };
+/** A hound of living stone from the Dragon Vein's caverns, jade light glowing in its cracks. */
+export const STONEHOUND_STYLE: QuadStyle = { fur: ramp("#7a7688", { lo: "#1a1626" }), belly: ramp("#5a566a"), paws: PAL.black, eye: "#9ff5de", tails: 1, scale: 1.25, mane: ramp("#4ac8b0", { hi: "#c8fff0", lo: "#1a4a4a" }) };
 export const WOLF_STYLE: QuadStyle = { fur: ramp("#4a3a6a", { lo: "#120a24" }), belly: ramp("#6a5a8a"), paws: PAL.black, eye: "#c070ff", tails: 1, scale: 1.35, mane: ramp("#b070ff", { hi: "#f0d0ff", lo: "#4a1a8a" }) };
 
 export function paintQuad(st: QuadStyle, p: BeastPose, facing: number): PixelBuffer {
@@ -129,10 +131,24 @@ export function paintQuad(st: QuadStyle, p: BeastPose, facing: number): PixelBuf
   return out;
 }
 
-const SERPENT_SCALES = ramp("#3fbf8a", { lo: "#0a3a4a" });
-const SERPENT_BELLY = ramp("#e8e0a0");
+const JADE_SCALES = ramp("#3fbf8a", { lo: "#0a3a4a" });
+const JADE_BELLY = ramp("#e8e0a0");
 
-export function paintSerpent(p: BeastPose, facing: number, king = false): PixelBuffer {
+export interface SerpentStyle {
+  scales: Ramp;
+  belly: Ramp;
+  fin: Ramp;
+  eye: string;
+  /** A serpent that burns: flames run along its back. */
+  fire?: boolean;
+}
+
+/** The Ember Wyrm of the mine: magma-red scales, a belly of hot gold, and fire along its spine. */
+export const EMBER_WYRM: SerpentStyle = { scales: ramp("#d8502a", { hi: "#ffd070", lo: "#3a0a1a" }), belly: ramp("#ffc860", { lo: "#8a3a10" }), fin: ramp("#3a2a2a", { lo: "#0a0608" }), eye: "#fff060", fire: true };
+
+export function paintSerpent(p: BeastPose, facing: number, king = false, style?: SerpentStyle): PixelBuffer {
+  const SERPENT_SCALES = style?.scales ?? JADE_SCALES;
+  const SERPENT_BELLY = style?.belly ?? JADE_BELLY;
   const r = new Raster(BEAST_W, BEAST_H, BEAST_OX, BEAST_OY, facingBasis(facing));
   const S = king ? 1.35 : 1;
   const t = p.t;
@@ -161,7 +177,11 @@ export function paintSerpent(p: BeastPose, facing: number, king = false): PixelB
   // dorsal fins
   for (let i = 2; i < 10; i += 2) {
     const a = pts[i];
-    r.sweep([add(a, [0, 0, 1.8 * S]), add(a, [0, -1.6 * S, 3.6 * S])], [0.9 * S, 0.2 * S], m(PAL.gold, 2));
+    r.sweep([add(a, [0, 0, 1.8 * S]), add(a, [0, -1.6 * S, 3.6 * S])], [0.9 * S, 0.2 * S], m(style?.fin ?? PAL.gold, 2));
+    if (style?.fire) {
+      const fire = ramp("#ffb040", { hi: "#fff6c0", lo: "#a81a10" });
+      r.sweep([add(a, [0, -0.4 * S, 3 * S]), add(a, [Math.sin(t * 3 + i) * 0.8 * S, -1.2 * S, (5.6 + Math.sin(t * 2 + i)) * S])], [1.1 * S, 0.1 * S], m(fire, 2, { outline: undefined }));
+    }
   }
   const neck = pts[10];
   const head = add(neck, [0, 2.2 * S, 0.6 * S]);
@@ -171,7 +191,7 @@ export function paintSerpent(p: BeastPose, facing: number, king = false): PixelB
     r.sweep([add(head, [side * 1.3 * S, -1 * S, 1.3 * S]), add(head, [side * 2.4 * S, -4.6 * S, 3.4 * S])], [0.7 * S, 0.15 * S], m(king ? PAL.gold : PAL.white, 4));
   }
   if (king) r.sphere(add(head, [0, 0.5 * S, 2 * S]), 0.9 * S, m(PAL.qi, 4));
-  eyes(r, head, 2.4 * S, king ? "#ffe040" : "#ff3050", 0.62, 0.3);
+  eyes(r, head, 2.4 * S, style?.eye ?? (king ? "#ffe040" : "#ff3050"), 0.62, 0.3);
   let out = r.finish();
   if (p.flash) out = out.tinted("#ffffff", p.flash);
   return out;

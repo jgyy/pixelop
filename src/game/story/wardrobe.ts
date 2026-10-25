@@ -24,6 +24,9 @@ export const ATTIRE: Attire[] = [
   { id: "celestial", name: "Celestial Raiment", hanzi: "天衣", from: "Heaven itself" },
   // new outfits go on the end, so the attire counter in older saves still points at the same one
   { id: "seafarer", name: "Sea-Swallow Coat", hanzi: "海燕衣", from: "Captain Hai" },
+  { id: "phoenix", name: "Phoenix Plumage", hanzi: "凤羽衣", from: "Yan Huo of the Scarlet Phoenix" },
+  { id: "herbal", name: "Hundred Herb Robe", hanzi: "百草袍", from: "Bai Zhi of Hundred Herb Valley" },
+  { id: "swordsea", name: "Sword Sea Blues", hanzi: "剑海衫", from: "Ling Feng of the Sword Sea" },
 ];
 
 export const attireFlag = (id: string) => `attire:${id}`;

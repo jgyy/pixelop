@@ -246,9 +246,120 @@ flowchart LR
   hai1["Captain Hai: a peach for his mother"] --> rong["Auntie Rong's oldest tree"] --> hai2["Captain Hai"] --> coat(["Sea-Swallow Coat"])
 ```
 
+### Three sects, the deep, and choices that matter
+
+The south and east now belong to **three sects**, each with its own compound on its own heights, its own folk, its own trouble and its own cave beneath it. Lin Yue settles their troubles **her way**: conversations now put questions to her (pick with `1`–`5`, the arrow keys or a click), and every answer is remembered. Answers move each sect's **standing** with her (Hostile · Wary · Neutral · Friendly · Allied), decide who lives where, what she is given, how the tale ends, and **change the land itself**: lava breaks out of a mesa, a marsh drains into fields, a buried cave mouth shakes loose, a spring breaks from a mountain.
+
+- **赤凰门 The Scarlet Phoenix Sect** stands on a sheer red **mesa** (seven levels up a stone stair) with a lava pool in its crown. Sect Mistress Yan Huo's miners are trapped in the **Ember Mine** beneath it, where something made of fire is singing. Bow, provoke her into a sparring match, or name a price; lead the miners out first or leave them hidden while you hunt (they may not all come out whole); then **seal the burning vein** (the lava in the mine and the mesa's crown turns to stone) or **feed it to the Phoenix** (the crown boils over and a river of lava pours down the eastern cliffs).
+- **百草谷 Hundred Herb Valley** lies sheltered in a **ring of hills** south of the Mistmarsh, its garden withered to dirt and dead stalks. In the **Sunken Grotto** beneath it, Bai Zhi's expelled student Ku Shen is poisoning the spring: **fight him** or **let him go** (he turns up later at the Wayside Inn, selling honest pills), then **purify the spring with your own qi** (it drains you; lotuses bloom) or **drain the Mistmarsh's black pools** (they become fields, and a sunken chest surfaces in the grotto). Either way the valley turns green again.
+- **剑海阁 The Sword Sea Pavilion** sits on a **crag ten levels high** above the eastern snows. Someone is selling its sword manuals to the Blood Moon's leftovers. Gather the clues, confront the thief, then **expose him** (he is expelled and goes home to mend nets at the harbour), **make him confess himself** (he sweeps the ten thousand steps as penance) or **take his silver** (the Pavilion turns against you, and he comes back wearing a Blood Moon crescent). The heaped rock on the old stair down to the **Sword Sea** ledge is cleared only if justice is done.
+- **龙脉 The Dragon Vein.** Settle two sects' troubles and the **Dragonspine** shakes: the rockfall over its cave mouth slides away and the sects fly in from three directions. Deep in the **Dragon Vein Caverns**, at the glowing heart of the vein, the spirit **Old Long** makes her choose who gets it: the Phoenix (a smoking crater opens on the mountain), the Valley (the Dragonspine blooms green), the Pavilion (a stone sword rises from the summit), **no one** (a spring breaks out and runs down the mountain for everyone), or **herself** (her cultivation surges, the mountain turns to ash, and every sect turns against her). Elder Mo, the ending and the folk all remember what she chose.
+- **The old tale has choices too:** before the last fight, Lin Yue can offer Patriarch Xue a way home. He refuses, but his last words change, and so does the ending.
+
+| | |
+|---|---|
+| ![The Dragonspine, its cave mouth buried under rockfall](docs/screenshots/82-dragonspine-buried.png) | ![The Scarlet Phoenix on its mesa](docs/screenshots/83-phoenix-mesa.png) |
+| ![Yan Huo asks how she will answer](docs/screenshots/84-yan-huo-choice.png) | ![Down in the Ember Mine](docs/screenshots/85-ember-mine.png) |
+| ![The trapped miners: lead them out, or hunt first?](docs/screenshots/86-trapped-miners.png) | ![The Ember Wyrm, fought on a ledge in the dark](docs/screenshots/87-ember-wyrm-battle.png) |
+| ![The burning vein: seal it, or feed it?](docs/screenshots/88-burning-vein-choice.png) | ![Fed: the mesa's crown boils over down the cliffs](docs/screenshots/89-mesa-ablaze.png) |
+| ![Hundred Herb Valley, withered](docs/screenshots/90-herb-valley-withered.png) | ![The Sunken Grotto](docs/screenshots/91-sunken-grotto.png) |
+| ![Ku Shen at the poisoned spring](docs/screenshots/92-ku-shen-choice.png) | ![Purify the spring, or drain the marsh?](docs/screenshots/93-poisoned-spring-choice.png) |
+| ![The valley blooms again](docs/screenshots/94-herb-valley-blooms.png) | ![The Sword Sea Pavilion on its crag](docs/screenshots/95-sword-sea-pavilion.png) |
+| ![Jian Wuyou's confession](docs/screenshots/96-jian-wuyou-choice.png) | ![The stair to the Sword Sea, cleared](docs/screenshots/97-stair-to-the-sword-sea.png) |
+| ![The Dragon Vein Caverns](docs/screenshots/98-dragon-vein-caverns.png) | ![The conclave: who gets the vein?](docs/screenshots/99-the-conclave.png) |
+| ![Shared: a spring runs from the Dragonspine](docs/screenshots/100-dragonspine-spring.png) | ![The journal (J): quests, rumours and every sect's standing](docs/screenshots/101-journal.png) |
+
+| Ember Mine | Sunken Grotto | Dragon Vein Caverns |
+|---|---|---|
+| ![](docs/art/cave-emberMine.gif) | ![](docs/art/cave-grotto.gif) | ![](docs/art/cave-vein.gif) |
+
+| Scarlet Phoenix Sect | Hundred Herb Valley | Sword Sea Pavilion |
+|---|---|---|
+| ![](docs/art/site-phoenix.gif) | ![](docs/art/site-herbvalley.gif) | ![](docs/art/site-swordsea.gif) |
+
+| On the Dragonspine's summit, twelve levels up | Among the frost peaks |
+|---|---|
+| ![](docs/screenshots/103-dragonspine-summit.png) | ![](docs/screenshots/104-frost-peaks.png) |
+
+| New moves: the pick, the torch, the brew, fire palm, kowtow, sword dance, cowering; the Ember Wyrm and the Stone Hound | The mountains on the world map |
+|---|---|
+| ![](docs/art/deep-moves.gif) | ![](docs/screenshots/102-world-map-mountains.png) |
+
+```mermaid
+flowchart TD
+  subgraph phx["赤凰门 Embers Beneath the Mesa"]
+    y1{"Yan Huo: how do you answer?"} -- "bow (+1)" --> m1
+    y1 -- "provoke: spar with Zhu Que" --> m1
+    y1 -- "name a price (stones later)" --> m1
+    m1{"Trapped miners"} -- "lead them out first (+1)" --> w1
+    m1 -- "hide them, hunt now (Ah Shi is burned)" --> w1
+    w1(["Ember Wyrm"]) --> v1{"The burning vein"}
+    v1 -- "seal it" --> s1["mine and mesa crown turn to stone<br/>Phoenix ≤ 0 · Valley +1"]
+    v1 -- "feed it" --> f1["lava pours down the mesa<br/>Phoenix +2 · Valley −1 · Phoenix Plumage"]
+  end
+  subgraph herb["百草谷 The Withering Garden"]
+    k1{"Ku Shen at the spring"} -- "fight" --> c1["captured (+1)"]
+    k1 -- "let him go" --> c2["sells pills at the Wayside Inn"]
+    c1 & c2 --> sp{"The poisoned spring"}
+    sp -- "purify with your own qi" --> p1["HP/QI drained · lotuses (+2)"]
+    sp -- "drain the marsh" --> p2["black pools become fields<br/>a sunken chest surfaces (+1)"]
+    p1 & p2 --> bloom["the withered valley turns green · Hundred Herb Robe"]
+  end
+  subgraph swd["剑海阁 The Thief of Ten Thousand Swords"]
+    cl["2 clues: Tang Yu, the old stair"] --> j1{"Jian Wuyou"}
+    j1 -- "expose him (+2)" --> e1["expelled → mends nets at the harbour<br/>stair cleared"]
+    j1 -- "make him confess (+1)" --> e2["sweeps the ten thousand steps<br/>stair cleared"]
+    j1 -- "take his silver (−3)" --> e3["+120 stones · stair stays buried<br/>he returns as a Blood Moon swordsman"]
+  end
+  phx & herb & swd -- "any two settled" --> quake(["the Dragonspine shakes:<br/>the rockfall slides off the cave mouth"])
+  quake --> long{"Old Long: who gets the Dragon Vein?"}
+  long -- Phoenix --> o1["a crater smokes on the summit"]
+  long -- Valley --> o2["the Dragonspine blooms"]
+  long -- Pavilion --> o3["a stone sword rises"]
+  long -- "no one" --> o4["a spring for everyone · all +1"]
+  long -- herself --> o5["power · ash · every sect hostile"]
+  o1 & o2 & o3 & o4 & o5 --> ending(["Elder Mo and the ending remember"])
+  classDef c fill:#241a40,stroke:#f2c55c,color:#fff6dc;
+  class y1,m1,v1,k1,sp,j1,long c;
+```
+
+#### Terrain of many heights, and a land that answers the story
+
+The wilds are no longer gentle hills. Eight **mountain ranges** are thrown up over the world with ridged noise (the Dragonspine, the frost peaks, the red mesas, the herb valley's rim…), rising to **12 levels**, snow-capped (or bare red rock in the dry lands) at the top, and easing down to meet every road, river and region so the jianghu stays walkable. The sects stand on **plateaus with sheer cliffs** reached by long stone stairs that climb a level every few tiles.
+
+Every change the story makes to the land is a **terrain patch**: a recorded set of tile changes (ground, height, blocking) that holds while a condition on the story flags holds. Patches are laid over the shared tile map and taken back off when a different save is loaded, so the land always matches the story being played. When one changes in view the ground shakes, dust (or steam, or spray) rises over the changed tiles, and if the ground under her turns to lava or rock she is stepped out onto open ground.
+
+```mermaid
+flowchart LR
+  B["World generation<br/>(continent.ts, caves.ts)"] -- "PatchPainter: disc / path / set<br/>records kind · height · block per tile" --> P[("TerrainPatch<br/>key · when(flags) · tile diffs")]
+  F["Story flags in the save<br/>phx:fed · herb:drained · veinOpened · vein:shared…"] --> S
+  P --> S["syncTerrain(def, flags)<br/>applyPatches: undo all (newest first),<br/>re-apply those that hold, in order"]
+  S -- "changed tiles" --> C["throw away painted columns<br/>of each tile and its neighbours"]
+  S -- "changed in view" --> Q["quake · dust / steam / spray<br/>step her out of new lava or rock"]
+  S --> M["the shared TileMap<br/>(collision, rendering, world map)"]
+  G["Game: on load, every 0.5 s,<br/>a { reshape } step, entering a room"] --> S
+```
+
+#### Underground
+
+Three caves lie under the sects' lands, each a map of its own (like the rooms indoors, but up to 60 × 60 tiles) entered through a cave mouth in the open world. A cave is a **cutaway of living rock**: chambers and tunnels at many heights joined by climbing passages, a rock face behind them, and cliffs dropping into darkness in front, under a ceiling of stalactites that drip. Lava runs in channels, an underground lake spills off a ledge, mine rails cross the halls, and the only light is her torch (she holds it up whenever she stands still), the torches on the walls, glowing mushrooms, crystals and fire-jade. Fights underground are staged on a ledge in the dark.
+
+```mermaid
+flowchart LR
+  subgraph world["The open world"]
+    em(["minemouth at the mesa's foot"])
+    gm(["cave mouth in the herb valley"])
+    vm(["cave mouth on the Dragonspine<br/>buried until veinOpened"])
+  end
+  em --> E["炎晶矿 Ember Mine<br/>rails · minecarts · lava channels<br/>trapped miners · Ember Wyrm · the burning vein"]
+  gm --> G["沉渊洞 Sunken Grotto<br/>glowing mushrooms · an underground lake<br/>Ku Shen · the poisoned spring"]
+  vm --> V["龙脉窟 Dragon Vein Caverns<br/>crystal galleries · stone hounds · a river into the dark<br/>the vein's heart · the conclave"]
+  E & G & V -- "carve(): chambers + rising tunnels,<br/>rock walls behind, cliffs in front" --> R["a room of the World runtime<br/>(rooms.ts: buildings and caves)"]
+```
+
 ### Animated art
 
-| Lin Yue's 33 animations | All 16 facing directions |
+| Lin Yue's 37 animations | All 16 facing directions |
 |---|---|
 | ![Heroine move set](docs/art/heroine-moves.gif) | ![Heroine 16 directions](docs/art/heroine-16dir.gif) |
 
@@ -280,10 +391,12 @@ flowchart LR
 - **A living world:** a day/night cycle (stars come out, shooting stars streak past, lanterns glow), dragonflies over the shallows, fireflies rising from the grass after dusk, dandelion seeds on the wind, lava bubbles that swell and pop, birds and bats wheeling overhead, butterflies over meadow flowers, koi leaping in the water, cloud shadows drifting over the land, footprints in sand, snow and ash, cranes that take flight when you come close, NPCs who turn and wave as you pass, a peddler walking the highway with his shop, beasts that shout "!" and gallop after you (and give up with a "?"), and beaten beasts that come back once you've been away for a while.
 - **2.5D isometric world:** height-mapped tile maps with cliffs, stairs, raised platforms, floating islands with rocky undersides, animated water and lava with shore foam, depth-sorted props (sliced into screen columns so they occlude correctly), contact shadows, an x-ray silhouette when the heroine walks behind something, and parallax skies.
 - **Building interiors:** five cutaway rooms behind real doors in the world, each its own small map run by the same World runtime: back walls with timber frames, wainscots and lattice windows, raised floors with rugs, daylight shafts that follow the day/night cycle, and lamplit furniture. Walking into a door goes through it; walking out over the threshold mat steps back onto the street. Saves made indoors remember the step outside, so a reload lands in the open world. You can't ride your sword or open the world map under a roof.
-- **Procedural 3D pixel sprites:** 48 humanoid characters, 7 beasts and a rider on her horse, each built from roughly 20 ray-cast solids (bell skirts, sleeves, hair strands, shawls, tails, hats, weapons) with hue-shifted 4-tone shading, face decals and selective outlines. They render in 16 directions with up to 33 animations: idle, walk, run, talk, attack, cast, hurt, meditate, sword-flight, victory, defeat, bow, wave, gather (kneel and pick), drink, cheer, point and nod, stretch and look-around idle fidgets, plus hop, practice, fishing, sweeping, dancing and dozing, and the everyday ones: reading (with a page turn), sitting, kneeling in prayer, weaving at a loom, pouring tea, clapping, laughing, a seated storyteller's sweeping gestures, and four pastimes: playing the dizi flute (with a few notes over her head), eating a bowl of noodles, juggling three bright balls and cooling off with a folding fan; and the newest: the cultivator's fist-in-palm salute, a twirl on the spot that flares the skirts, a smith's hammer ringing on the anvil, kneeling to write with a brush, a restless shade drifting above the ground, and holding up a festival lantern; and the doubled world's: hoeing, chopping firewood, walking under a carrying pole, kicking a shuttlecock, strolling under an oiled-paper umbrella and slow taiji. People can change clothes: every humanoid can wear **outfits** (style overrides painted and cached per outfit, on foot, on horseback, in battle and in their portrait). Horses walk, gallop, graze and rear, and Lin Yue rides one: horse and rider are painted into one depth buffer so they occlude each other properly. Foxes and wolves gallop with a run cycle, sniff the ground and curl up asleep with their tails wrapped round them; wolves sit back and howl; cranes peck at the grass. Dialogue portraits are rendered from the same models at 3× scale, with blink and talk frames.
+- **Procedural 3D pixel sprites:** 57 humanoid characters, 9 beasts and a rider on her horse, each built from roughly 20 ray-cast solids (bell skirts, sleeves, hair strands, shawls, tails, hats, weapons) with hue-shifted 4-tone shading, face decals and selective outlines. They render in 16 directions with up to 33 animations: idle, walk, run, talk, attack, cast, hurt, meditate, sword-flight, victory, defeat, bow, wave, gather (kneel and pick), drink, cheer, point and nod, stretch and look-around idle fidgets, plus hop, practice, fishing, sweeping, dancing and dozing, and the everyday ones: reading (with a page turn), sitting, kneeling in prayer, weaving at a loom, pouring tea, clapping, laughing, a seated storyteller's sweeping gestures, and four pastimes: playing the dizi flute (with a few notes over her head), eating a bowl of noodles, juggling three bright balls and cooling off with a folding fan; and the newest: the cultivator's fist-in-palm salute, a twirl on the spot that flares the skirts, a smith's hammer ringing on the anvil, kneeling to write with a brush, a restless shade drifting above the ground, and holding up a festival lantern; and the doubled world's: hoeing, chopping firewood, walking under a carrying pole, kicking a shuttlecock, strolling under an oiled-paper umbrella and slow taiji. People can change clothes: every humanoid can wear **outfits** (style overrides painted and cached per outfit, on foot, on horseback, in battle and in their portrait). Horses walk, gallop, graze and rear, and Lin Yue rides one: horse and rider are painted into one depth buffer so they occlude each other properly. Foxes and wolves gallop with a run cycle, sniff the ground and curl up asleep with their tails wrapped round them; wolves sit back and howl; cranes peck at the grass. Dialogue portraits are rendered from the same models at 3× scale, with blink and talk frames.
 - **Idle life:** villagers and wayfarers break into nods, stretches, sips of tea, pours from the teapot, claps, laughs, little dances and cheers when nobody needs them; sleepers breathe with drifting "Z"s; roaming beasts stop to sniff, howl or nap (and leap up the moment they spot you); Lin Yue drinks her pills, reads the steles she stops at, bows in prayer at altars and, left alone, nods, points, claps and laughs as well as stretching, and in the end sits down where she stands until you move her again. Fish shadows glide in slow circles under the water, and washing flaps on a line in Willow Creek.
-- **98 props, 61 of them animated** (buildings grow with the world, drawn 2–4× their size and painted only when first seen): swaying pines, cherry and maple trees, bamboo groves, willows, a glowing spirit tree, the multi-tier Hall of Clouds, village houses with chimney smoke, a lake pavilion, flickering lanterns and braziers that cast soft glows at night, waving banners, a bubbling alchemy cauldron, bobbing lotuses and boats, a rotating taiji dais, a pulsing blood altar, a turning waterwheel that sheds water, crackling campfires, scarecrows flapping in the wind, a five-tier pagoda with swinging wind chimes, a teahouse with a fluttering tea flag, tents, fluttering prayer flags, steaming hot-spring rocks, karst spires, temple ruins, haystacks and benches; and indoors, bookcases, hanging scrolls that stir in the draught, a brick stove with a fire and a steaming wok, a loom, a millstone with its crown wheel, grain sacks, ancestral altars with incense and candles, a bronze tree of seven oil lamps, a jade founder's statue, folding screens, a bed, an herb-drying rack, porcelain vases, a sword rack, tea tables with steaming cups, cushions and a washing line; and new: strings of festival lanterns swinging over the village square and the crossroads, bronze temple bells that swing now and then in their bell-frames, and a paper kite riding the wind over Willow Creek; and newest: a village forge with breathing bellows and a red-hot blade on the anvil, the Sword Tomb bristling with glinting blades, peach trees in blossom and fruit that shed petals, straw beehives with bees looping round them, a lonely grave with a stick of incense, drifting will-o'-wisps, and festival fireworks that climb and burst over Willow Creek once the Heart is home (props can now appear only while a story condition holds); and for the doubled world: junks at anchor, a lighthouse with a turning beam, circling koi, butterflies, tea bushes, fan palms, snow pines, a fountain, a war drum, fish-drying racks, stupas, a noodle cart, a bronze censer, stilt houses, archery targets, handcarts and wine jars. Little dust devils (and whirls of ash and sand) spin along the roads.
+- **113 props, 74 of them animated** (buildings grow with the world, drawn 2–4× their size and painted only when first seen): swaying pines, cherry and maple trees, bamboo groves, willows, a glowing spirit tree, the multi-tier Hall of Clouds, village houses with chimney smoke, a lake pavilion, flickering lanterns and braziers that cast soft glows at night, waving banners, a bubbling alchemy cauldron, bobbing lotuses and boats, a rotating taiji dais, a pulsing blood altar, a turning waterwheel that sheds water, crackling campfires, scarecrows flapping in the wind, a five-tier pagoda with swinging wind chimes, a teahouse with a fluttering tea flag, tents, fluttering prayer flags, steaming hot-spring rocks, karst spires, temple ruins, haystacks and benches; and indoors, bookcases, hanging scrolls that stir in the draught, a brick stove with a fire and a steaming wok, a loom, a millstone with its crown wheel, grain sacks, ancestral altars with incense and candles, a bronze tree of seven oil lamps, a jade founder's statue, folding screens, a bed, an herb-drying rack, porcelain vases, a sword rack, tea tables with steaming cups, cushions and a washing line; and new: strings of festival lanterns swinging over the village square and the crossroads, bronze temple bells that swing now and then in their bell-frames, and a paper kite riding the wind over Willow Creek; and newest: a village forge with breathing bellows and a red-hot blade on the anvil, the Sword Tomb bristling with glinting blades, peach trees in blossom and fruit that shed petals, straw beehives with bees looping round them, a lonely grave with a stick of incense, drifting will-o'-wisps, and festival fireworks that climb and burst over Willow Creek once the Heart is home (props can now appear only while a story condition holds); and for the doubled world: junks at anchor, a lighthouse with a turning beam, circling koi, butterflies, tea bushes, fan palms, snow pines, a fountain, a war drum, fish-drying racks, stupas, a noodle cart, a bronze censer, stilt houses, archery targets, handcarts and wine jars. Little dust devils (and whirls of ash and sand) spin along the roads.
 - **Eleven regions plus a world map:** the five new ones of the doubled world (the Mistmarsh, the Cloudmist Tea Terraces, the Yellow Sands, Wavecrest Harbour and Frostveil Monastery), and the floating Azure Cloud Sect (day, falling petals), Willow Creek Village (dusk, autumn leaves), the Whispering Bamboo Forest (fireflies), the Moonlit Lotus Lake (night, stars and moon), the Crimson Demon Valley (blood moon, embers, lava) and Heavenly Tribulation Peak (snow, storm lightning). The miniature isometric continent has roads, rivers, sea, drifting clouds and their shadows, and animated landmarks. Regions unlock as the story advances.
+- **Choices that matter:** questions put to the heroine (a choice panel with hints), remembered as story flags; three sect quest lines and a five-way conclave over the Dragon Vein, standing with each sect (Hostile to Allied), and 21 terrain patches that change the world and the caves as the story goes (see [Three sects, the deep, and choices that matter](#three-sects-the-deep-and-choices-that-matter)).
+- **Underground:** three caves (Ember Mine, Sunken Grotto, Dragon Vein Caverns) carved as cutaways of living rock at many heights, with a cave sky of dripping stalactites, drips and glowing spores, a torch she holds up, and battles on a ledge in the dark.
 - **Narrative:** a prologue, five chapters and an epilogue, with a quest tracker, scripted cutscenes (walk, emote, camera, flash, shake, spawn), typed-out dialogue with animated portraits, full-screen narration, first-arrival scenes, pre-boss speeches and an ending; plus four side errands shown under the quest tracker (a ghost's unfinished letter, two quarrelling brothers, a sword brought home, a dead husband's cloak) and Willow Creek's lantern festival, each ending in a new outfit.
 - **Cultivation:** 6 realms × 4 stages. Battles, spirit herbs, chests and shrine meditation grow your cultivation. At a realm's peak you must survive a Heavenly Tribulation (3 bolts, or 9 for the final ascension).
 - **Turn-based battles** on themed isometric arenas, with five techniques (Azure Sword Strike, Jade Lotus Palm, Lotus Heart Sutra, Myriad Swords Return, Nine Heavens Thunder), pills and fleeing. Fighters dash in, recoil, throw qi orbs and foxfire, and call down lightning, with damage pop-ups, crits, screen shake and flashes.
@@ -317,6 +430,8 @@ Saves live in `$DATA_DIR/saves.json` (default `.data/`). Set `SAVE_STORE=memory`
 | `F` | Ride the flying sword (crosses water, enemies can't reach you) |
 | `R` | Whistle for Cloudmane, your spirit horse (`Shift` to gallop; `R` again to dismount) |
 | `C` | Change attire (once someone has given you something to wear) |
+| `J` | Journal: every quest and rumour, and how each sect regards you |
+| `1`–`5` / `↑` `↓` + `E` | Answer a question put to Lin Yue (or click an answer) |
 | `E` / `Space` / `Enter` | Talk · meditate at shrines · open chests · gather herbs · read steles · enter and leave buildings · open the world map at a region's gate |
 | `M` | World map of the real world (arrows or clicks pick a region, the sword flies there, `E` lands at its waypoint) |
 | `B` | Face the Heavenly Tribulation (while meditating at a bottleneck) |
@@ -529,6 +644,13 @@ stateDiagram-v2
   Explore --> Indoors: walk into a door / E on its step (still explore mode, in a room)
   Indoors --> Explore: threshold mat (back on the step)
   Indoors --> Scene: talk · read a shelf · pray at an altar
+  Scene --> Choice: a question is put to her
+  Choice --> Scene: 1–5 / ↑↓ E / click (the answer's steps run, flags and standing change)
+  Scene --> Scene: { reshape } lays the story's terrain patches down (tremor, dust)
+  Explore --> Cave: walk into a cave mouth (torch up, battles on a ledge in the dark)
+  Cave --> Explore: back out through the mouth
+  Explore --> Journal: J (quests, rumours, sect standing)
+  Journal --> Explore: J / Esc / E
   Explore --> Explore: R mounts / dismounts Cloudmane (canter, Shift gallops)
   Explore --> Meditate: E at a shrine
   Meditate --> Tribulation: B at a bottleneck
