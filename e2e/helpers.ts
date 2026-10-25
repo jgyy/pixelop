@@ -39,7 +39,11 @@ export const standBy = (page: Page, key: string) =>
       [1, 1],
       [-1, 1],
     ])
-      if (d.map.standable(x.i + di, x.j + dj)) return g.debugGoto(x.i + di + 0.5, x.j + dj + 0.5);
+      if (d.map.standable(x.i + di, x.j + dj)) {
+        // inside a room or a cave, step across it rather than out to the open world
+        if (g.inside) return g.world.placeHero(x.i + di + 0.5, x.j + dj + 0.5, 8);
+        return g.debugGoto(x.i + di + 0.5, x.j + dj + 0.5);
+      }
     throw new Error(`nowhere to stand by ${key}`);
   }, key);
 

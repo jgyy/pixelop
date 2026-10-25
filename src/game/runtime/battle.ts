@@ -51,9 +51,12 @@ const ARENA: Record<AreaId, { ground: TileKind; ring: TileKind; edge: TileKind; 
   frost: { ground: "marble", ring: "snow", edge: "snow", props: ["snowpine", "crystal", "snowpine", "prayerflags"] },
 };
 
-function buildArena(area: AreaId): AreaDef {
+/** Fights underground are staged on a ledge of cave floor hanging in the dark. */
+const CAVE_ARENA = { ground: "cave" as TileKind, ring: "cave" as TileKind, edge: "rockwall" as TileKind, props: ["crystal", "torch", "glowshroom", "stalagmite"] as PropId[] };
+
+function buildArena(area: AreaId, underground = false): AreaDef {
   const base = getArea(area);
-  const th = ARENA[area];
+  const th = underground ? CAVE_ARENA : ARENA[area];
   const m = new TileMap(11, 9, th.edge, LIQUID[th.edge] ? 0 : 1);
   m.rect(1, 1, 9, 7, th.ring, 1);
   m.rect(2, 2, 8, 6, th.ground, 1);
@@ -65,6 +68,14 @@ function buildArena(area: AreaId): AreaDef {
     { id: th.props[0], i: 9, j: 5 },
     { id: th.props[2], i: 3, j: 1 },
   ];
+  if (underground) {
+    // rock behind, the drop into the dark in front
+    m.rect(0, 8, 10, 8, "void", 0);
+    m.rect(10, 0, 10, 8, "void", 0);
+    m.rect(0, 0, 9, 0, "rockwall", 6);
+    m.rect(0, 0, 0, 7, "rockwall", 6);
+    return { ...base, id: area, map: m, base: -4, floating: false, sky: "cave", weather: "drips", night: 0.6, tint: "#2a8a8a", props, npcs: [], enemies: [], interacts: [], critters: [] };
+  }
   return { ...base, id: area, map: m, base: -1, floating: false, props, npcs: [], enemies: [], interacts: [], critters: [] };
 }
 
@@ -102,8 +113,9 @@ export class BattleScene {
     readonly enemyKey: string,
     state: GameState,
     seed: number,
+    underground = false,
   ) {
-    this.world = new World(buildArena(area), { x: HERO_POS[0] - 2.5, y: HERO_POS[1] + 1.5, dir: 3 }, {}, []);
+    this.world = new World(buildArena(area, underground), { x: HERO_POS[0] - 2.5, y: HERO_POS[1] + 1.5, dir: 3 }, {}, []);
     this.hero = this.world.hero;
     this.hero.speed = 5;
     const def = ENEMIES[enemy];

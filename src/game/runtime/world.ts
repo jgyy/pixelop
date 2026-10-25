@@ -12,6 +12,7 @@ import { AREA_IDS, placementTiles, type AreaDef, type AreaId, type Interactable,
 import { isWorldDef, regionAt, type WorldDef } from "../world/continent";
 import { regionDistance, WORLD_SCALE } from "../world/layout";
 import { LIQUID, type TileMap } from "../world/tilemap";
+import { applyPatches, patchMaxHeight } from "../world/terrain";
 import { ENEMIES, type EnemyId } from "../engine/enemies";
 import { Effects } from "./particles";
 
@@ -101,7 +102,7 @@ export const DAY_LENGTH = 360;
 const ACTIVE_RANGE = 26;
 const RESPAWN_AFTER = 60;
 /** Idle fidgets an NPC may break into, when its character has the animation. */
-const NPC_FIDGETS: AnimId[] = ["nod", "look", "stretch", "drink", "point", "dance", "cheer", "gather", "pour", "clap", "laugh", "flute", "eat", "juggle", "fan", "salute", "twirl", "kick"];
+const NPC_FIDGETS: AnimId[] = ["nod", "look", "stretch", "drink", "point", "dance", "cheer", "gather", "pour", "clap", "laugh", "flute", "eat", "juggle", "fan", "salute", "twirl", "kick", "sworddance", "flame"];
 /** Idles that absorb an NPC (fishing, reading, weaving…): they neither turn to greet nor fidget. */
 const ABSORBED = new Set<AnimId>(["fish", "practice", "meditate", "read", "weave", "tell", "pray", "sit", "hammer", "write", "hoe", "chop", "taichi", "kick", "umbrella"]);
 /** …and the ones a roaming beast may (sleeping takes a while). */
@@ -118,6 +119,31 @@ const keyHash = (key: string) => {
 const tileCache = new WeakMap<TileMap, { tiles: (TileBuffer | null | undefined)[]; foams: (PixelBuffer | null | undefined)[] }>();
 
 const SEAL_COLOUR: Record<AreaId, string> = { sect: "#ffffff", village: "#f4f8ff", bamboo: "#ffd27a", lake: "#c8d8ff", valley: "#ff3050", peak: "#d8c8ff", marsh: "#b8ffd8", terraces: "#f8fff0", desert: "#ffe0a0", harbor: "#d8f0ff", frost: "#e8f4ff" };
+
+/**
+ * Lay the story's changes to the land over a map (or take them back off),
+ * and throw away the painted columns of every tile that changed and of the
+ * tiles beside it (whose walls and shore foam depend on it). Returns the
+ * changed tiles.
+ */
+export function syncTerrain(def: AreaDef, flags: Record<string, boolean>): number[] {
+  const m = def.map;
+  const changed = applyPatches(m, def.patches, flags);
+  const c = tileCache.get(m);
+  if (c && changed.length)
+    for (const idx of changed) {
+      const i = idx % m.w;
+      const j = (idx - i) / m.w;
+      for (let dj = -1; dj <= 1; dj++)
+        for (let di = -1; di <= 1; di++) {
+          if (!m.inside(i + di, j + dj)) continue;
+          const n = (j + dj) * m.w + i + di;
+          c.tiles[n] = undefined;
+          c.foams[n] = undefined;
+        }
+    }
+  return changed;
+}
 
 /** 0 at dawn (t = 0), 1 at midnight. */
 export const duskAt = (t: number) => (1 - Math.cos((t / DAY_LENGTH) * Math.PI * 2)) / 2;
@@ -154,6 +180,8 @@ export class World {
   dayNight: boolean;
   /** A building's cutaway room rather than open sky. */
   readonly interior: boolean;
+  /** A cave under the mountains: no day or night, only the light she and the crystals bring. */
+  readonly cave: boolean;
   /** Interior wall tiles with lattice windows, which let the daylight in. */
   private windows: { i: number; j: number }[] = [];
   private flags: Record<string, boolean>;
@@ -171,6 +199,7 @@ export class World {
     this.world = isWorldDef(def) ? def : null;
     this.id = this.world ? regionAt(this.world, hero.x, hero.y) : def.id;
     this.interior = def.sky === "interior";
+    this.cave = def.sky === "cave";
     // rooms follow the day outside their windows too
     this.dayNight = !!this.world || this.interior;
     this.flags = flags;
@@ -179,6 +208,7 @@ export class World {
     if (!c) tileCache.set(m, (c = { tiles: new Array(m.w * m.h), foams: new Array(m.w * m.h) }));
     this.cache = c;
     for (let k = 0; k < m.heights.length; k++) this.maxH = Math.max(this.maxH, m.heights[k]);
+    this.maxH = Math.max(this.maxH, patchMaxHeight(def.patches));
     if (this.interior) m.each((i, j) => m.kind(i, j) === "window" && this.windows.push({ i, j }));
     this.bucketProps = Array.from({ length: m.w + m.h }, () => []);
     for (const p of def.props) this.addProp(p);
@@ -219,6 +249,7 @@ export class World {
    */
   syncPopulation(flags: Record<string, boolean>, initial = false): void {
     this.flags = flags;
+    this.reshape(flags, initial);
     const present = new Set(this.actors.map((a) => a.key));
     const h = this.hero;
     for (const n of this.def.npcs) {
@@ -269,6 +300,48 @@ export class World {
       }
   }
 
+  /** Clock time the land last changed in view (the game shakes the screen for it). */
+  quakeAt = -99;
+
+  /**
+   * The story changes the land: lay its patches over the map, and if the
+   * heroine can see it happen, raise dust (or steam off cooling lava, or
+   * sparkles off new water) over the tiles that changed.
+   */
+  private reshape(flags: Record<string, boolean>, initial: boolean): void {
+    const changed = syncTerrain(this.def, flags);
+    if (initial || !changed.length) return;
+    const m = this.def.map;
+    const h = this.hero;
+    // the ground she stood on may have turned to lava or rock: step her out onto the nearest open tile
+    if (!h.flying && !this.canStand(h.x, h.y, m.height(Math.floor(h.x), Math.floor(h.y)), false)) {
+      search: for (let r = 1; r <= 8; r++)
+        for (let dj = -r; dj <= r; dj++)
+          for (let di = -r; di <= r; di++) {
+            const [x, y] = [Math.floor(h.x) + di + 0.5, Math.floor(h.y) + dj + 0.5];
+            if (Math.max(Math.abs(di), Math.abs(dj)) === r && this.canStand(x, y, m.height(Math.floor(x), Math.floor(y)), false)) {
+              h.x = x;
+              h.y = y;
+              h.target = null;
+              break search;
+            }
+          }
+    }
+    let seen = 0;
+    for (let k = 0; k < changed.length; k += 3) {
+      const idx = changed[k];
+      const i = idx % m.w;
+      const j = (idx - i) / m.w;
+      if (Math.abs(i - h.x) + Math.abs(j - h.y) > 30) continue;
+      seen++;
+      if (seen > 160) break;
+      const kind = m.kind(i, j);
+      const col = LIQUID[kind] === "water" ? ["#e8f6ff", "#9ad0ff"] : LIQUID[kind] === "lava" ? ["#ffb040", "#ff6030"] : kind === "redrock" || kind === "ash" ? ["#d8d4e4", "#8a8090"] : ["#d8c49a", "#a8885a"];
+      this.fx.burst(isoX(i + 0.5, j + 0.5), isoY(i + 0.5, j + 0.5, m.height(i, j)) - 2, 3, col, 26);
+    }
+    if (seen) this.quakeAt = this.clock;
+  }
+
   /** Put an NPC into an outfit; at the festival, folk who can hold up a lantern do so while they stand about. */
   private dress(a: Actor, outfit: string | undefined, anim: AnimId | undefined): void {
     if (a.outfit === outfit) return;
@@ -292,7 +365,7 @@ export class World {
     const def = propDef(id);
     const [x, y] = p.at ?? [i + 0.5, j + 0.5];
     const foot = placementTiles(p);
-    const z = this.def.map.height(Math.floor(x), Math.floor(y));
+    const z = p.z ?? this.def.map.height(Math.floor(x), Math.floor(y));
     const inst: PropInst = { id, i, j, k: p.k ?? 1, foot, ax: isoX(x, y), ay: isoY(x, y, z), flat: !!def.flat, phase: hash2(i, j, 5) * 10, when: p.when };
     this.props.push(inst);
     if (def.emit) gridAdd(this.emitters, inst);
@@ -428,6 +501,7 @@ export class World {
     for (const it of this.def.interacts) {
       if (Math.abs(it.i - h.x) > 6 || Math.abs(it.j - h.y) > 6) continue;
       if ((it.kind === "chest" || it.kind === "herb") && this.taken.has(it.key)) continue;
+      if (it.when && !it.when(this.flags)) continue;
       const d = Math.hypot(it.i + 0.5 - h.x, it.j + 0.5 - h.y);
       // the taiji dais grows with the world, so its edge is further from its heart
       const reach = it.kind === "exit" || it.kind === "door" ? 1.6 : it.kind === "altar" ? 2.4 * WORLD_SCALE : 1.45;
@@ -794,7 +868,7 @@ export class World {
       const m = this.def.map;
       const i = idx % m.w;
       const j = Math.floor(idx / m.w);
-      tb = this.cache.tiles[idx] = m.kind(i, j) === "void" ? null : paintTile(m, i, j, this.def.base, 8, this.def.floating);
+      tb = this.cache.tiles[idx] = m.kind(i, j) === "void" ? null : paintTile(m, i, j, this.def.base, 8, this.def.floating, this.cave);
       this.cache.foams[idx] = tb ? foamOverlay(m, i, j) : null;
     }
     return tb;
@@ -1151,7 +1225,7 @@ export class World {
       }
     // birds (or bats under a blood moon) crossing the sky
     const sky = env.sky;
-    if (sky !== "forest") {
+    if (sky !== "forest" && sky !== "cave") {
       const bats = sky === "blood";
       const c = bats ? "#1a0610" : sky === "night" || sky === "storm" ? "#c8d0e8" : "#2a2040";
       for (let f = 0; f < 2; f++) {
@@ -1305,7 +1379,7 @@ export class World {
     if (w === "none" || density <= 0.02) return;
     const W = s.width;
     const H = s.height;
-    const n = Math.floor(((W * H) / (w === "snow" ? 1800 : 3200)) * density);
+    const n = Math.floor(((W * H) / (w === "snow" ? 1800 : w === "drips" ? 9000 : 3200)) * density);
     for (let k = 0; k < n; k++) {
       const r1 = hash2(k, 1, 11);
       const r2 = hash2(k, 2, 11);
@@ -1336,6 +1410,30 @@ export class World {
           s.px(x, y, alpha(k % 2 ? "#ff8040" : "#ffd060", 0.5 + r3 * 0.5));
           break;
         }
+        case "drips": {
+          // water dripping from the cave roof: a short streak, then a splash ring
+          const period = 2.4 + r3 * 3;
+          const age = ((t + r1 * 17) % period) / period;
+          const x = wrap(r1 * W + cx * 0.6, W);
+          const yEnd = wrap(r2 * H + cy * 0.6, H);
+          if (age < 0.7) {
+            const y = yEnd - (1 - age / 0.7) * 60;
+            s.rect(x, y, 1, 3, alpha("#a8d8ff", 0.7));
+          } else {
+            const u = (age - 0.7) / 0.3;
+            s.px(x - 1 - u * 3, yEnd, alpha("#c8e8ff", 0.6 * (1 - u)));
+            s.px(x + 1 + u * 3, yEnd, alpha("#c8e8ff", 0.6 * (1 - u)));
+          }
+          break;
+        }
+        case "spores": {
+          // glowing spores drifting up from fungus beds, pulsing softly
+          const x = wrap(r1 * W + Math.sin(t * 0.4 + k) * 16 + cx * 0.4, W);
+          const y = wrap(r2 * H - t * (4 + r3 * 6) + cy * 0.4, H);
+          const glow = 0.5 + 0.5 * Math.sin(t * 2 + k);
+          s.px(x, y, alpha(k % 3 ? "#9ff5de" : "#c8a8ff", 0.35 + glow * 0.55));
+          break;
+        }
         case "snow": {
           const x = wrap(r1 * W + Math.sin(t * 0.8 + k) * 12 + t * 6 + cx * 0.3, W);
           const y = wrap(r2 * H + t * (10 + r3 * 16) + cy * 0.3, H);
@@ -1363,8 +1461,9 @@ export class World {
       s.sprite(g, x - g.width / 2, y - g.height / 2, false, Math.min(1, 0.5 + night));
     }
     const [hx, hy] = this.heroScreen();
-    const hg = glowSprite("#c8fff0", 26);
-    s.sprite(hg, hx - hg.width / 2, hy - 18 - hg.height / 2, false, night * 0.8);
+    // underground she carries a torch's worth of light with her
+    const hg = this.cave ? glowSprite("#ffd8a0", 48) : glowSprite("#c8fff0", 26);
+    s.sprite(hg, hx - hg.width / 2, hy - 18 - hg.height / 2, false, this.cave ? 0.95 : night * 0.8);
   }
 }
 

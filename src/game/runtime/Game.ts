@@ -9,7 +9,8 @@ import { atBottleneck, cultivationNeeded, FINAL_REALM, levelIndex, realmLabel, R
 import { applyBreakthrough, buyPill, consumePill, gainCultivation, heal, stats, type GameState, type SkillId } from "../engine/state";
 import { getArea, type AreaId } from "../world/areas";
 import { getWorld } from "../world/continent";
-import { getInterior, isInteriorId, type InteriorDef, type InteriorId } from "../world/interiors";
+import type { InteriorDef } from "../world/interiors";
+import { getRoom, isRoomId, roomOpen, type RoomId } from "../world/rooms";
 import { AREA_IDS } from "../world/ids";
 import { toWorld, WORLD_SCALE } from "../world/layout";
 import { NODES } from "../world/overworld";
@@ -17,8 +18,9 @@ import type { Step } from "../story/script";
 import { currentAttire, nextAttire, ownedAttire } from "../story/wardrobe";
 import { altarScript, areaUnlocked, arrivalScript, endingScript, errand, hasNews, introScript, lockReason, npcScript, preBattleScript, questLog, victoryScript, type Quest } from "../story/story";
 import { BattleScene } from "./battle";
-import { dirFrom, World, type Actor } from "./world";
+import { dirFrom, syncTerrain, World, type Actor } from "./world";
 import { WorldMap } from "./worldmap";
+import { caveArrival, repOf, SECT_IDS, SECTS, sectJournal, sectObjective, signScript, standing, type JournalEntry, type SectId } from "../story/sects";
 
 export type Mode = "explore" | "scene" | "battle" | "worldmap" | "shop" | "meditate" | "tribulation";
 
@@ -38,16 +40,22 @@ export interface UiSnapshot {
   quest: Quest;
   /** A side errand someone in the jianghu has asked of her, if any. */
   errand: string | null;
+  /** The most pressing of the sects' troubles she has taken on. */
+  sectQuest: string | null;
+  /** Every quest she knows of (the journal, J), and how the sects regard her. */
+  journal: { main: Quest; errands: string[]; sects: JournalEntry[]; standing: { id: SectId; name: string; hanzi: string; rep: number; label: string }[] } | null;
   /** The outfit she has on, and how many she owns. */
   attire: { id: string; name: string; owned: number };
   dialog: { speaker: string; portrait: HumanId | null; outfit?: string; text: string; seq: number } | null;
+  /** A question put to the heroine, waiting for her answer. */
+  choice: { prompt: string | null; options: { label: string; hint?: string }[]; selected: number; seq: number } | null;
   narration: { text: string; index: number; total: number } | null;
   battle: { enemy: EnemyId; enemyName: string; enemyHp: number; enemyMax: number; heroHp: number; heroQi: number; busy: boolean; log: string[]; boss: boolean; skills: SkillId[] } | null;
   worldmap: { at: AreaId; travelling: boolean; heading: AreaId; nodes: { id: AreaId; name: string; hanzi: string; subtitle: string; locked: string | null }[] } | null;
   tribulation: string | null;
   banner: { title: string; hanzi: string; subtitle: string; seq: number } | null;
   /** The building she is inside, if any. */
-  interior: { id: InteriorId; name: string; hanzi: string } | null;
+  interior: { id: RoomId; name: string; hanzi: string; cave: boolean } | null;
   toasts: { id: number; text: string }[];
   canSkip: boolean;
 }
@@ -65,7 +73,7 @@ const MOVE_KEYS: Record<string, [number, number]> = {
 
 const CONFIRM = new Set(["KeyE", "Enter", "Space", "NumpadEnter"]);
 /** One-shot animations that walking away interrupts. */
-const IDLE_FIDGETS = new Set<AnimId>(["stretch", "look", "gather", "nod", "point", "cheer", "drink", "read", "pray", "clap", "laugh", "rear", "flute", "salute", "twirl", "taichi", "kick"]);
+const IDLE_FIDGETS = new Set<AnimId>(["stretch", "look", "gather", "nod", "point", "cheer", "drink", "read", "pray", "clap", "laugh", "rear", "flute", "salute", "twirl", "taichi", "kick", "sworddance", "flame"]);
 /** Seated or absorbed idles that a speaker keeps while talking instead of standing up. */
 const SEATED = new Set<AnimId>(["fish", "sit", "tell", "weave", "pray"]);
 const RUN_KEYS = ["ShiftLeft", "ShiftRight"];
@@ -85,6 +93,8 @@ interface Runner {
   waitActor?: Actor;
   waitAnim?: boolean;
   waitInput: boolean;
+  /** Waiting for the player to answer a question. */
+  waitChoice?: boolean;
   narrIndex: number;
 }
 
@@ -111,6 +121,7 @@ export class Game {
   private runner: Runner | null = null;
   private queue: Step[][] = [];
   private dialog: UiSnapshot["dialog"] = null;
+  private choice: UiSnapshot["choice"] = null;
   private narration: UiSnapshot["narration"] = null;
   private banner: UiSnapshot["banner"] = null;
   private bannerUntil = 0;
@@ -139,6 +150,8 @@ export class Game {
   constructor(state: GameState, opts: { intro?: boolean; seed?: number } = {}) {
     this.state = state;
     this.seed = opts.seed ?? Date.now();
+    // the land as this save left it, before looking for open ground to stand on
+    syncTerrain(getWorld(), state.flags);
     this.world = this.makeWorld(Game.openGround([state.x, state.y], state.area), state.dir);
     this.state = { ...this.state, x: this.world.hero.x, y: this.world.hero.y, area: this.world.regionAt(this.world.hero.x, this.world.hero.y) };
     this.showBanner();
@@ -347,7 +360,7 @@ export class Game {
   /** Advance dialogue / narration (E, Enter, Space, click). */
   advance(): void {
     const r = this.runner;
-    if (this.mode !== "scene" || !r || !r.waitInput) return;
+    if (this.mode !== "scene" || !r || !r.waitInput || r.waitChoice) return;
     const step = r.steps[r.i];
     if (step && "narrate" in step && r.narrIndex < step.narrate.length - 1) {
       r.narrIndex++;
@@ -362,13 +375,38 @@ export class Game {
     this.markDirty();
   }
 
+  /** Answer the question on screen with option `k` (its steps run next). */
+  choose(k: number): void {
+    const r = this.runner;
+    const step = r?.steps[r.i];
+    if (this.mode !== "scene" || !r || !r.waitChoice || !step || !("choose" in step)) return;
+    const opt = step.choose[k];
+    if (!opt) return;
+    r.steps = [...r.steps.slice(0, r.i + 1), ...opt.then, ...r.steps.slice(r.i + 1)];
+    r.waitChoice = false;
+    this.choice = null;
+    r.i++;
+    this.markDirty();
+    this.runSteps(0);
+  }
+
+  /** Move the highlight between the answers (arrow keys). */
+  private nudgeChoice(by: number): void {
+    const c = this.choice;
+    if (!c) return;
+    c.selected = (c.selected + by + c.options.length) % c.options.length;
+    c.seq = ++this.seq;
+    this.markDirty();
+  }
+
   /** Fast-forward the current cutscene, applying its effects but skipping talk and waits. */
   skipScene(): void {
     let guard = 0;
     while (this.mode === "scene" && this.runner && guard++ < 500) {
       const r = this.runner;
       const step = r.steps[r.i];
-      if (step && "battle" in step) break;
+      // a battle, or a question only the player can answer, stops the skip
+      if (step && ("battle" in step || "choose" in step)) break;
       if (r.waitInput) {
         r.waitInput = false;
         this.dialog = null;
@@ -458,6 +496,7 @@ export class Game {
     this.runner = null;
     this.queue = [];
     this.dialog = null;
+    this.choice = null;
     this.narration = null;
     this.battle = null;
     this.dropInterior();
@@ -473,16 +512,18 @@ export class Game {
   }
 
   /** Walk straight into a building (tests and screenshots). */
-  debugEnter(id: InteriorId): void {
+  debugEnter(id: RoomId): void {
     this.runner = null;
     this.queue = [];
+    this.choice = null;
+    this.dialog = null;
     this.mode = "explore";
     this.dropInterior();
     this.enterInterior(id);
     this.fade = 0;
   }
 
-  get inside(): InteriorId | null {
+  get inside(): RoomId | null {
     return this.interior?.def.key ?? null;
   }
 
@@ -506,18 +547,20 @@ export class Game {
   }
 
   /** Step through a door into one of the jianghu's buildings. */
-  private enterInterior(id: InteriorId): void {
+  private enterInterior(id: RoomId): void {
     if (this.interior) return;
     const outdoor = this.world;
     if (outdoor.hero.flying) return this.toast("Step down from your sword first.");
     // Cloudmane waits in the clouds while she is indoors
     this.dismount();
-    const base = getInterior(id);
+    const base = getRoom(id);
     // the room belongs to the region its door stands in
     const def: InteriorDef = { ...base, id: this.state.area };
     outdoor.placeHero(def.outside[0], def.outside[1], dirFrom(-def.inward[0], -def.inward[1]));
     outdoor.setAnim(outdoor.hero, "idle", this.clock);
     const w = new World(def, { x: def.arrive[0], y: def.arrive[1], dir: dirFrom(def.inward[0], def.inward[1]) }, this.state.flags, this.state.taken);
+    // underground she lights a torch and holds it up while she stands
+    if (w.cave) w.hero.idleAnim = "torch";
     w.updateCamera(480, 270, 0);
     w.recenter();
     this.world = w;
@@ -528,6 +571,8 @@ export class Game {
     this.fadeTarget = 0;
     this.banner = { title: def.name, hanzi: def.hanzi, subtitle: def.subtitle, seq: ++this.seq };
     this.bannerUntil = this.clock + 3;
+    const first = caveArrival(id, this.state);
+    if (first) this.play(first);
     this.markDirty();
   }
 
@@ -571,7 +616,7 @@ export class Game {
       // only once she is up against the wall (or the room's open edge)
       if (w.canStand(h.x + d.dir[0] * 0.45, h.y + d.dir[1] * 0.45, w.def.map.height(Math.floor(h.x), Math.floor(h.y)), false)) continue;
       if (d.to === "out") this.exitInterior();
-      else if (isInteriorId(d.to)) this.enterInterior(d.to);
+      else if (isRoomId(d.to) && roomOpen(d.to, this.state.flags)) this.enterInterior(d.to);
       return this.world !== w;
     }
     return false;
@@ -580,8 +625,8 @@ export class Game {
   private static doorCache: { i: number; j: number; dir: number[]; to: string }[] | null = null;
   private static doors() {
     return (Game.doorCache ??= getWorld()
-      .interacts.filter((it) => it.kind === "door" && isInteriorId(it.to))
-      .map((it) => ({ i: it.i, j: it.j, dir: getInterior(it.to as InteriorId).inward, to: it.to! })));
+      .interacts.filter((it) => it.kind === "door" && isRoomId(it.to))
+      .map((it) => ({ i: it.i, j: it.j, dir: getRoom(it.to as RoomId).inward, to: it.to! })));
   }
 
   /** Crossing into another region: new banner, and its first-arrival scene. */
@@ -630,6 +675,7 @@ export class Game {
   /** Queue a script; it starts immediately if nothing else is running. */
   play(steps: Step[]): void {
     if (steps.length === 0) return;
+    this.journalOpen = false;
     // she swings down from the saddle to talk, read or watch
     this.dismount();
     if (this.runner) {
@@ -650,6 +696,7 @@ export class Game {
   private endRunner(): void {
     this.runner = null;
     this.dialog = null;
+    this.choice = null;
     this.narration = null;
     this.cameraFocus = null;
     if (this.mode === "scene") this.mode = this.returnMode === "meditate" ? "meditate" : "explore";
@@ -671,7 +718,7 @@ export class Game {
     const r = this.runner;
     if (!r) return;
     for (let guard = 0; guard < 200; guard++) {
-      if (r.waitInput) return;
+      if (r.waitInput || r.waitChoice) return;
       if (r.wait > 0) {
         r.wait -= dt;
         if (r.wait > 0) return;
@@ -710,6 +757,12 @@ export class Game {
           const back = actor;
           setTimeoutish(this, 2.2, () => back.anim === "talk" && this.world.setAnim(back, back.idleAnim, this.clock));
         }
+        return;
+      }
+      if ("choose" in step) {
+        r.waitChoice = true;
+        this.dialog = null;
+        this.choice = { prompt: step.prompt ?? null, options: step.choose.map(({ label, hint }) => ({ label, ...(hint && { hint }) })), selected: 0, seq: ++this.seq };
         return;
       }
       if ("narrate" in step) {
@@ -832,6 +885,11 @@ export class Game {
         this.beginMeditation();
         return;
       }
+      if ("reshape" in step) {
+        this.world.syncPopulation(this.state.flags);
+        r.i++;
+        continue;
+      }
       if ("travel" in step) {
         r.i = r.steps.length;
         this.endRunner();
@@ -860,7 +918,7 @@ export class Game {
   private startBattle(enemy: EnemyId, key: string): void {
     this.land();
     this.dismount();
-    this.battle = new BattleScene(this.state.area, enemy, key, this.state, (this.seed + Math.floor(this.clock * 1000)) >>> 0);
+    this.battle = new BattleScene(this.state.area, enemy, key, this.state, (this.seed + Math.floor(this.clock * 1000)) >>> 0, this.interior?.def.sky === "cave");
     this.battle.hero.outfit = currentAttire(this.state).id;
     this.mode = "battle";
     this.dialog = null;
@@ -890,6 +948,9 @@ export class Game {
       this.dropInterior();
       this.state = reviveAtSect(this.state);
       this.world.placeHero(this.state.x, this.state.y, 0);
+      // she wakes at the sect: forget where she was walking to, and let the sect's folk be who they should be
+      this.tapTarget = null;
+      this.world.syncPopulation(this.state.flags);
       this.fade = 1;
       this.showBanner();
       this.toast("You awaken beside the lotus shrine of the Azure Cloud Sect.");
@@ -1007,7 +1068,7 @@ export class Game {
       this.tribText = null;
       this.mode = "explore";
       this.world.setAnim(h, "idle", this.clock);
-      if (tr.final) this.play(endingScript());
+      if (tr.final) this.play(endingScript(this.state));
       this.markDirty();
     }
   }
@@ -1081,7 +1142,7 @@ export class Game {
       } else if (!h.flying && !riding && this.idleTime > 8) {
         this.idleTime = -4;
         // first a stretch or a glance around; left alone longer, she hums, nods off or practises a pointing form
-        const pool: AnimId[] = this.fidgets++ < 1 ? ["look", "stretch"] : ["stretch", "look", "nod", "point", "cheer", "clap", "laugh", "flute", "salute", "twirl", "taichi", "kick"];
+        const pool: AnimId[] = this.fidgets++ < 1 ? ["look", "stretch"] : ["stretch", "look", "nod", "point", "cheer", "clap", "laugh", "flute", "salute", "twirl", "taichi", "kick", "sworddance", ...(this.state.flags.phxDone ? (["flame"] as AnimId[]) : [])];
         // left alone long enough, she sits down where she stands until she moves again
         if (this.fidgets > 4 && h.idleAnim === "idle") h.idleAnim = "sit";
         else {
@@ -1175,14 +1236,15 @@ export class Game {
       case "exit":
         this.openMap();
         break;
-      case "sign":
+      case "sign": {
         h.dir = dirFrom(it.i + 0.5 - h.x, it.j + 0.5 - h.y);
         if (!h.flying) this.world.setAnim(h, it.anim ?? "read", this.clock, true);
-        this.play([{ say: "narrator", text: it.text ?? "" }]);
+        this.play(signScript(it.key, this.state) ?? [{ say: "narrator", text: it.text ?? "" }]);
         break;
+      }
       case "door":
         if (it.to === "out") this.exitInterior();
-        else if (isInteriorId(it.to)) this.enterInterior(it.to);
+        else if (isRoomId(it.to)) this.enterInterior(it.to);
         break;
       case "herb": {
         h.dir = dirFrom(it.i + 0.5 - h.x, it.j + 0.5 - h.y);
@@ -1217,6 +1279,14 @@ export class Game {
   private onPress(code: string): void {
     switch (this.mode) {
       case "scene":
+        if (this.choice) {
+          const n = /^(?:Digit|Numpad)([1-9])$/.exec(code);
+          if (n) this.choose(Number(n[1]) - 1);
+          else if (code === "ArrowUp" || code === "KeyW") this.nudgeChoice(-1);
+          else if (code === "ArrowDown" || code === "KeyS") this.nudgeChoice(1);
+          else if (CONFIRM.has(code)) this.choose(this.choice.selected);
+          return;
+        }
         if (CONFIRM.has(code)) this.advance();
         else if (code === "Escape") this.skipScene();
         return;
@@ -1257,6 +1327,8 @@ export class Game {
         return;
       }
       case "explore":
+        if (code === "KeyJ") return this.toggleJournal();
+        if (this.journalOpen && (code === "Escape" || CONFIRM.has(code))) return this.toggleJournal();
         if (CONFIRM.has(code)) this.interact();
         else if (code === "KeyF") this.toggleFly();
         else if (code === "KeyR") this.toggleRide();
@@ -1325,6 +1397,10 @@ export class Game {
         break;
       }
     }
+    if (this.world.quakeAt > this.quakeSeen) {
+      this.quakeSeen = this.world.quakeAt;
+      this.shake = Math.max(this.shake, 0.7);
+    }
     for (const a of this.world.actors) if (a.kind === "npc") a.marker = this.mode === "explore" && hasNews(a.key, this.state);
     if (this.world.hero.outfit !== currentAttire(this.state).id) this.dressHero();
     if (this.dirty) {
@@ -1334,6 +1410,16 @@ export class Game {
     }
   }
 
+  private quakeSeen = -99;
+  /** The journal of quests and sect standing is open over the world. */
+  private journalOpen = false;
+
+  /** Open or close the journal (J). */
+  toggleJournal(): void {
+    if (!this.journalOpen && this.mode !== "explore" && this.mode !== "meditate") return;
+    this.journalOpen = !this.journalOpen;
+    this.markDirty();
+  }
   private timers: { at: number; fn: () => void }[] = [];
   /** @internal used by script helpers */
   schedule(delay: number, fn: () => void): void {
@@ -1438,8 +1524,18 @@ export class Game {
       riding: this.riding,
       quest: questLog(this.state),
       errand: errand(this.state),
+      sectQuest: sectObjective(this.state),
+      journal: this.journalOpen
+        ? {
+            main: questLog(this.state),
+            errands: [errand(this.state)].filter((e): e is string => !!e),
+            sects: sectJournal(this.state),
+            standing: SECT_IDS.map((id) => ({ id, name: SECTS[id].name, hanzi: SECTS[id].hanzi, rep: repOf(this.state, id), label: standing(repOf(this.state, id)) })),
+          }
+        : null,
       attire: { id: currentAttire(this.state).id, name: currentAttire(this.state).name, owned: ownedAttire(this.state).length },
       dialog: this.mode === "scene" ? this.dialog : null,
+      choice: this.mode === "scene" && this.choice ? { ...this.choice, options: this.choice.options.map((o) => ({ ...o })) } : null,
       narration: this.mode === "scene" ? this.narration : null,
       battle: b
         ? {
@@ -1468,7 +1564,7 @@ export class Game {
         : null,
       tribulation: this.mode === "tribulation" ? this.tribText : null,
       banner: this.mode === "explore" || this.mode === "scene" ? this.banner : null,
-      interior: this.interior ? { id: this.interior.def.key, name: this.interior.def.name, hanzi: this.interior.def.hanzi } : null,
+      interior: this.interior ? { id: this.interior.def.key, name: this.interior.def.name, hanzi: this.interior.def.hanzi, cave: this.interior.def.sky === "cave" } : null,
       toasts: this.toasts.map(({ id, text }) => ({ id, text })),
       canSkip: this.mode === "scene",
     };
@@ -1477,8 +1573,8 @@ export class Game {
 
 /** "the Hall of Clouds", but "Granny Hua's Cottage". */
 function doorName(to: string | undefined): string {
-  if (!isInteriorId(to)) return "";
-  const name = getInterior(to).name;
+  if (!isRoomId(to)) return "";
+  const name = getRoom(to).name;
   return /^\S+ \S+'s /.test(name) ? name : `the ${name}`;
 }
 

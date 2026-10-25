@@ -17,6 +17,7 @@ import { renderTitle } from "../src/game/runtime/title";
 import { AREA_IDS, getArea } from "../src/game/world/areas";
 import { getWorld } from "../src/game/world/continent";
 import { getInterior, INTERIOR_IDS } from "../src/game/world/interiors";
+import { CAVE_IDS, getCave } from "../src/game/world/caves";
 import { toWorld, WORLD_H, WORLD_SCALE, WORLD_W } from "../src/game/world/layout";
 import { isoX, isoY } from "../src/game/iso/projection";
 import { writePng } from "./lib";
@@ -165,6 +166,29 @@ const jianghu: [CharId, AnimId][] = [
   ["heroine", "taichi"],
 ];
 writeGif("jianghu-moves.gif", showcase(jianghu.map(([id, anim]): Cell => ({ id, anim, dir: 1, label: `${charDef(id).name.split(" ").pop()} ${anim}` })), 6, 2, seconds), 12);
+
+// the deep and the three sects: the pick, the torch, the brew, a fire palm, a kowtow, a sword dance and cowering
+const deep: [CharId, AnimId][] = [
+  ["miner", "mine"],
+  ["villagerM", "mine"],
+  ["heroine", "torch"],
+  ["phoenix", "torch"],
+  ["baizhi", "brew"],
+  ["poisoner", "brew"],
+  ["yanhuo", "flame"],
+  ["heroine", "flame"],
+  ["heroine", "kowtow"],
+  ["herbalist", "kowtow"],
+  ["lingfeng", "sworddance"],
+  ["heroine", "sworddance"],
+  ["miner", "cower"],
+  ["dragon", "float"],
+  ["emberwyrm", "attack"],
+  ["stonehound", "run"],
+  ["swordsea", "practice"],
+  ["heroine", "idle"],
+];
+writeGif("deep-moves.gif", showcase(deep.map(([id, anim], k): Cell => ({ id, anim, dir: 1, label: `${charDef(id).name.split(" ").pop()!.replace("'", "")} ${anim}`, outfit: k === 17 ? "phoenix" : undefined })), 6, 2, seconds), 12);
 
 // 2. Portraits
 const portraitIds = HUMAN_IDS.filter((id) => charDef(id).portrait);
@@ -339,6 +363,25 @@ for (const id of INTERIOR_IDS) {
   });
   writePng(frames[0].scaled(2), path.join(OUT, `room-${id}.png`));
   if (!QUICK) writeGif(`room-${id}.gif`, frames, 12);
+}
+
+// 4e. Underground: each cave, looking in from just inside its mouth (and the vein's heart)
+for (const id of CAVE_IDS) {
+  const def = { ...getCave(id), id: "sect" as const };
+  const world = new World(def, { x: def.arrive[0], y: def.arrive[1], dir: 10 }, { ...FLAGS, phxMine: true, herbAsk: true, veinOpened: true }, []);
+  world.hero.idleAnim = "torch";
+  const focus: [number, number, number] = id === "vein" ? [17, 26, 7] : [def.arrive[0] - 10, def.arrive[1] - 3, 2];
+  if (id === "vein") world.placeHero(18.5, 28.5, 12);
+  const frames = Array.from({ length: QUICK ? 2 : 36 }, (_, i) => {
+    const t = 30 + i / 12;
+    world.update(1 / 12, t, true);
+    world.updateCamera(W, H, 0, focus);
+    const b = new PixelBuffer(W, H);
+    world.render(new BufferSurface(b), t);
+    return b;
+  });
+  writePng(frames[0].scaled(2), path.join(OUT, `cave-${id}.png`));
+  if (!QUICK) writeGif(`cave-${id}.gif`, frames, 12);
 }
 
 // 5. World map
