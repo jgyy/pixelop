@@ -448,3 +448,87 @@ test("capture side errands, attire and new landmarks", async ({ page }) => {
   await quiet();
   await shot(page, "62-lantern-festival");
 });
+
+/** The world doubled again: the far south, the east over the Rainbow Bridge, and a busier town and sect. */
+test("capture the doubled world, its new regions and folk", async ({ page }) => {
+  test.setTimeout(300_000);
+  await startNewGame(page);
+  const flags = { metElder: true, villageSaved: true, villageArrived: true, metZhou: true, foxesCleared: true, bambooArrived: true, metHuli: true, lakeArrived: true, metWen: true, serpentKingDefeated: true, marshArrived: true, terracesArrived: true, desertArrived: true, harborArrived: true, frostArrived: true, rongGift: true };
+  await patch(page, { flags, realm: 1, stage: 2 });
+  const settle = async (ms = 1800) => {
+    await page.waitForTimeout(ms);
+    if ((await mode(page)) === "scene") await skipScene(page);
+  };
+  const quiet = () => page.evaluate(() => ((window.__pixelop!.game as unknown as { toasts: unknown[] }).toasts = []));
+  const timeOfDay = (k: number) => page.evaluate((k) => (window.__pixelop!.game.clock = k * 360), k);
+  const near = (key: string, dx: number, dy: number, dir = 3) =>
+    page.evaluate(
+      ([key, dx, dy, dir]) => {
+        const g = window.__pixelop!.game;
+        const n = g.world.def.npcs.find((x) => x.key === key)!;
+        g.debugGoto(n.i + 0.5 + (dx as number), n.j + 0.5 + (dy as number));
+        g.world.hero.dir = dir as number;
+      },
+      [key, dx, dy, dir] as const,
+    );
+  const talk = async (key: string, until: string, name: string) => {
+    await standBy(page, key);
+    await page.waitForTimeout(500);
+    await page.keyboard.press("KeyE");
+    await sayUntil(page, until);
+    await shot(page, name);
+    await skipScene(page);
+  };
+  const at = async (name: string, key: string, dx: number, dy: number, dir = 3, k = 0.15) => {
+    await timeOfDay(k);
+    await near(key, dx, dy, dir);
+    await settle();
+    await quiet();
+    await shot(page, name);
+  };
+
+  // the whole of the new map, from the Rainbow Bridge
+  await timeOfDay(0.1);
+  const bridge = await page.evaluate(() => {
+    const g = window.__pixelop!.game as unknown as { world: { world: { landmarks: { key: string; x: number; y: number }[] } } };
+    return g.world.world.landmarks.find((l) => l.key === "rainbow")!;
+  });
+  await goto(page, bridge.x + 6.5, bridge.y + 0.5);
+  await settle(2200);
+  await quiet();
+  await shot(page, "64-rainbow-bridge");
+  await page.keyboard.press("KeyM");
+  await page.waitForTimeout(1500);
+  await shot(page, "63-world-map-doubled-again");
+  await page.keyboard.press("Escape");
+
+  // Willow Creek's market road and the sect's terraces, busier than ever
+  await at("65-willow-creek-market", "marketporter", 3, 3, 10);
+  await at("66-sect-terraces", "pang", 3, 3.5, 10);
+  await at("67-taiji-yard", "qiu", 2, 4, 9);
+  await talk("qiu", "door that was never there", "68-elder-qiu-taiji");
+
+  // the far south: the Mistmarsh, the tea terraces, the Yellow Sands
+  await at("69-mistmarsh", "ye", 2.5, 3.5, 10, 0.32);
+  await talk("ye", "frog", "70-granny-ye");
+  await at("71-tea-terraces", "luyu", 2, -6, 2);
+  await talk("luyu", "I pour all three", "72-tea-master-lu");
+  await at("73-yellow-sands", "batu", 3, 2.5, 10, 0.24);
+
+  // the east: the herders' camp, the harbour, the monastery in the snows
+  await at("74-herders-camp", "herder", 3, 3, 10);
+  await at("75-wavecrest-harbour", "su", 3, 3.5, 10);
+  await talk("hai", "Sea-Swallow", "76-captain-hai");
+  await patch(page, { flags: { ...flags, haiMet: true, haiPeach: true } });
+  await talk("hai", "Sea-Swallow coat", "77-sea-swallow-coat");
+  await at("78-frostveil-monastery", "xuan", 2.5, 5, 9);
+  await talk("xuan", "let it go", "79-abbot-xuan");
+
+  // the plum blossom shrine and the red cliffs
+  await at("80-plum-blossom-shrine", "yan", 3, 3, 10);
+  await timeOfDay(0.42);
+  await goto(page, 524 * 2 + 4.5, 400 * 2 + 6.5);
+  await settle();
+  await quiet();
+  await shot(page, "81-red-cliff-hideout");
+});

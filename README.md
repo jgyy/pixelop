@@ -8,7 +8,7 @@ A **2.5D isometric pixel-art xianxia RPG** built as a full-stack **Next.js 16** 
 
 ### One world, no loading screens
 
-The whole jianghu is a single **648 × 464 tile map**: twice as wide and twice as deep as it used to be, with every region, road and river magnified with it. Whistle for **Cloudmane**, Lin Yue's spirit horse, to cover it at a gallop. You can walk from the sect gate down a long sky bridge that rests on Cloudrest Isle half way, along the old highway past the bamboo, and on to the waterfall where the Lotus Lake spills off the edge of the world. South of the highway lie the ashen wastes, a stone forest with a ruined temple, scarecrow fields under a seven-tier pagoda and the snowy highlands with a hot spring and a bandit camp. East of the sect, plank walkways lead out to the floating Cloudstep Isles. Sealed regions sit behind walls of mist, talismans, demonic qi or heaven's light until the story opens them.
+The whole jianghu is a single **1296 × 928 tile map**: twice as wide and twice as deep as it was, which was itself twice the world before. The old lands are now its north-western quarter, and **five new regions** lie beyond them (see [The world doubled again](#the-world-doubled-again)). Whistle for **Cloudmane**, Lin Yue's spirit horse, to cover it at a gallop. You can walk from the sect gate down a long sky bridge that rests on Cloudrest Isle half way, along the old highway past the bamboo, and on to the waterfall where the Lotus Lake spills off the edge of the world. South of the highway lie the ashen wastes, a stone forest with a ruined temple, scarecrow fields under a seven-tier pagoda and the snowy highlands with a hot spring and a bandit camp. East of the sect, plank walkways lead out to the floating Cloudstep Isles. Sealed regions sit behind walls of mist, talismans, demonic qi or heaven's light until the story opens them.
 
 ![The whole continuous world](docs/art/world-overview.png)
 
@@ -156,9 +156,99 @@ flowchart LR
   class fox,cloud,mail,cloak,dress,cel o;
 ```
 
+### The world doubled again
+
+The map grew to **1296 × 928 tiles** (four times the area), keeping every old road, landmark and save exactly where it was. The old mainland's southern shore now runs on into **the far south**, and the gorge the Lotus Lake's waterfall pours into is spanned by the **Rainbow Bridge**, which carries the old highway across to **the eastern lands**. Five new regions, each with its own name, sky, weather, light, folk, beasts, shrine and treasure, hold sway over the wilds around them:
+
+- **雾泽 The Mistmarsh** (south-west): stilt houses over black pools, boardwalks, will-o'-wisps, koi, hopping dead and Granny Ye, who knows every frog by name.
+- **云雾茶山 Cloudmist Tea Terraces** (south): six terraces climbing into the cloud, rows of tea bushes shivering in the wind, pickers, a porter carrying baskets up and down the steps, and Tea Master Lu, who sold Master Yun his tea brick.
+- **黄沙海 The Yellow Sands** (south-east): dunes and red rock, an oasis of fan palms, a caravan camp where Batu plays his flute by the fire, and a stupa older than the sect.
+- **浪花港 Wavecrest Harbour** (far east): a whole harbour town of houses, stalls, a noodle cart and a teahouse, junks riding at anchor, fish drying on racks, a lighthouse whose beam sweeps the bay, and the sea itself spilling off the edge of the world.
+- **霜幕寺 Frostveil Monastery** (north-east): snow pines and stupas, a great hall at the top of the climb, and monks practising taiji barefoot in the snow.
+
+New biomes fill the land between them (marshland, tea hills, plum blossom hills, sand seas, red badlands, maple woods, the eastern steppe, snowfields and the coast), with broad wandering borders and coastlines, and seven new landmarks: the **Rainbow Bridge**, the **Sect Terraces**, the **Herders' Camp** on the steppe, the **Woodcutters' Lodge**, the **Plum Blossom Shrine**, the **Red Cliff Hideout** of the desert raiders and the **Wayside Inn**. The south road runs on from the pagoda hill to the tea terraces, a stone bridge crosses the lava down into the Mistmarsh, and the southern road links the marsh, the inn, the tea road and the Yellow Sands.
+
+**A busier town and sect.** Willow Creek has three more houses and spills down its market road to the highway under a paifang arch: six more houses, stalls, a noodle cart, a fountain, a woodcutter splitting logs, a porter shouldering his pole, children kicking shuttlecocks and a watchman at the arch. The Azure Cloud Sect is moored to three new floating terraces: the **Disciples' Court** (dormitories, a library pagoda, the well and Cook Pang's noodle cart), the **Taiji Yard** where Elder Qiu leads the morning forms, and the **Sword Garden** with its archery targets. Willow Creek has 16 people now, and the sect 18.
+
+**New moves:** hoeing the dikes, chopping firewood, walking under a carrying pole with two swinging baskets, kicking a feathered shuttlecock, strolling under an oiled-paper umbrella, and slow, flowing taiji, which Lin Yue learns from Elder Qiu and practises by herself when left alone. **New animated props:** junks with stirring sails, a turning lighthouse beam, koi circling in ponds, butterflies over wildflowers, shivering tea bushes, fan palms, snow-laden pines, a fountain with a glittering spout, a war drum that booms and shivers, fish swinging on drying racks, stupas with fluttering prayer flags, a steaming noodle cart and a smoking bronze censer, plus stilt houses, archery targets, handcarts and stacks of wine jars. 17 new characters wear the jianghu's faces, from Captain Hai to Abbot Xuan, and a new side errand, **the Sea-Swallow's peach**, earns the **Sea-Swallow Coat**.
+
+| | |
+|---|---|
+| ![The doubled world on the map](docs/screenshots/63-world-map-doubled-again.png) | ![The Rainbow Bridge over the waterfall's gorge](docs/screenshots/64-rainbow-bridge.png) |
+| ![Willow Creek's market road](docs/screenshots/65-willow-creek-market.png) | ![The Disciples' Court on the sect's terraces](docs/screenshots/66-sect-terraces.png) |
+| ![Morning forms in the Taiji Yard](docs/screenshots/67-taiji-yard.png) | ![Elder Qiu teaches taiji](docs/screenshots/68-elder-qiu-taiji.png) |
+| ![The Mistmarsh at dusk](docs/screenshots/69-mistmarsh.png) | ![Granny Ye and her frogs](docs/screenshots/70-granny-ye.png) |
+| ![The Cloudmist Tea Terraces](docs/screenshots/71-tea-terraces.png) | ![Tea Master Lu pours three steeps](docs/screenshots/72-tea-master-lu.png) |
+| ![The oasis in the Yellow Sands](docs/screenshots/73-yellow-sands.png) | ![The herders' camp on the steppe](docs/screenshots/74-herders-camp.png) |
+| ![Wavecrest Harbour](docs/screenshots/75-wavecrest-harbour.png) | ![Captain Hai and the Sea-Swallow](docs/screenshots/76-captain-hai.png) |
+| ![The Sea-Swallow Coat](docs/screenshots/77-sea-swallow-coat.png) | ![Frostveil Monastery in the snow](docs/screenshots/78-frostveil-monastery.png) |
+| ![Abbot Xuan's taiji](docs/screenshots/79-abbot-xuan.png) | ![The Plum Blossom Shrine](docs/screenshots/80-plum-blossom-shrine.png) |
+
+| Work and play: hoe, axe, carrying pole, shuttlecock, umbrella, taiji | Wavecrest Harbour | Frostveil Monastery |
+|---|---|---|
+| ![](docs/art/jianghu-moves.gif) | ![](docs/art/area-harbor.gif) | ![](docs/art/area-frost.gif) |
+
+| The Mistmarsh | Cloudmist Tea Terraces | The Yellow Sands |
+|---|---|---|
+| ![](docs/art/area-marsh.gif) | ![](docs/art/area-terraces.gif) | ![](docs/art/area-desert.gif) |
+
+```mermaid
+flowchart TB
+  subgraph old["The old lands (north-west quarter, unchanged)"]
+    sect["青云宗 Azure Cloud Sect<br/>+ Disciples' Court · Taiji Yard · Sword Garden"]
+    village["柳溪村 Willow Creek<br/>+ the market road"]
+    lake["月莲湖 Lotus Lake"]
+    pagoda["七灯塔 Pagoda hill"]
+    wastes["血月营 Ashen wastes"]
+  end
+  subgraph south["The far south"]
+    marsh["雾泽 Mistmarsh"]
+    inn["客栈 Wayside Inn"]
+    terr["云雾茶山 Tea Terraces"]
+    plum["梅花祠 Plum Blossom Shrine"]
+    sands["黄沙海 Yellow Sands"]
+  end
+  subgraph east["The eastern lands"]
+    bridge["虹桥 Rainbow Bridge"]
+    steppe["牧民营 Herders' Camp"]
+    lodge["伐木屋 Woodcutters' Lodge"]
+    frost["霜幕寺 Frostveil Monastery"]
+    cliff["赤崖寨 Red Cliff Hideout"]
+    harbor["浪花港 Wavecrest Harbour"]
+  end
+  village -- "market road" --> hw(["the old highway"])
+  hw -- "over the gorge" --> bridge --> steppe --> harbor
+  steppe -- "north into the snows · seal: Foundation" --> frost
+  steppe --> lodge --> cliff
+  lodge --> sands
+  pagoda -- "south road" --> terr
+  wastes -- "stone bridge over the lava" --> marsh
+  marsh -- "southern road" --> inn --> terr
+  inn --> plum
+  terr --> sands
+  lake -. "waterfall into the gorge" .-> bridge
+  harbor -. "the sea spills off the world's edge" .-> clouds((clouds))
+  classDef n fill:#241a40,stroke:#f2c55c,color:#fff6dc;
+  class marsh,terr,sands,harbor,frost n;
+```
+
+```mermaid
+flowchart LR
+  qiu["Elder Qiu · Taiji Yard"] -- "taiji: +30% of a stage" --> you((Lin Yue))
+  pang["Cook Pang · Disciples' Court"] -- "breakfast: full HP/QI + a Healing Pill" --> you
+  ye["Granny Ye · Mistmarsh"] -- "untangled qi: +30% + 2 Qi Pills" --> you
+  lu["Tea Master Lu · Tea Terraces"] -- "three steeps: full HP/QI, +35%" --> you
+  batu["Batu · Yellow Sands"] -- "a song: 30 spirit stones" --> you
+  xuan["Abbot Xuan · Frostveil"] -- "the Frostveil form: +60%" --> you
+  altan["Herder Altan · steppe"] -- "mare's milk: full HP/QI" --> you
+  alan["Fishwife Ah Lan · harbour"] --> shop[("pills for sale")]
+  zhao["Innkeeper Zhao · Wayside Inn"] -- "a night's rest" --> shop
+  hai1["Captain Hai: a peach for his mother"] --> rong["Auntie Rong's oldest tree"] --> hai2["Captain Hai"] --> coat(["Sea-Swallow Coat"])
+```
+
 ### Animated art
 
-| Lin Yue's 29 animations | All 16 facing directions |
+| Lin Yue's 33 animations | All 16 facing directions |
 |---|---|
 | ![Heroine move set](docs/art/heroine-moves.gif) | ![Heroine 16 directions](docs/art/heroine-16dir.gif) |
 
@@ -190,10 +280,10 @@ flowchart LR
 - **A living world:** a day/night cycle (stars come out, shooting stars streak past, lanterns glow), dragonflies over the shallows, fireflies rising from the grass after dusk, dandelion seeds on the wind, lava bubbles that swell and pop, birds and bats wheeling overhead, butterflies over meadow flowers, koi leaping in the water, cloud shadows drifting over the land, footprints in sand, snow and ash, cranes that take flight when you come close, NPCs who turn and wave as you pass, a peddler walking the highway with his shop, beasts that shout "!" and gallop after you (and give up with a "?"), and beaten beasts that come back once you've been away for a while.
 - **2.5D isometric world:** height-mapped tile maps with cliffs, stairs, raised platforms, floating islands with rocky undersides, animated water and lava with shore foam, depth-sorted props (sliced into screen columns so they occlude correctly), contact shadows, an x-ray silhouette when the heroine walks behind something, and parallax skies.
 - **Building interiors:** five cutaway rooms behind real doors in the world, each its own small map run by the same World runtime: back walls with timber frames, wainscots and lattice windows, raised floors with rugs, daylight shafts that follow the day/night cycle, and lamplit furniture. Walking into a door goes through it; walking out over the threshold mat steps back onto the street. Saves made indoors remember the step outside, so a reload lands in the open world. You can't ride your sword or open the world map under a roof.
-- **Procedural 3D pixel sprites:** 31 humanoid characters, 7 beasts and a rider on her horse, each built from roughly 20 ray-cast solids (bell skirts, sleeves, hair strands, shawls, tails, hats, weapons) with hue-shifted 4-tone shading, face decals and selective outlines. They render in 16 directions with up to 29 animations: idle, walk, run, talk, attack, cast, hurt, meditate, sword-flight, victory, defeat, bow, wave, gather (kneel and pick), drink, cheer, point and nod, stretch and look-around idle fidgets, plus hop, practice, fishing, sweeping, dancing and dozing, and the everyday ones: reading (with a page turn), sitting, kneeling in prayer, weaving at a loom, pouring tea, clapping, laughing, a seated storyteller's sweeping gestures, and four pastimes: playing the dizi flute (with a few notes over her head), eating a bowl of noodles, juggling three bright balls and cooling off with a folding fan; and the newest: the cultivator's fist-in-palm salute, a twirl on the spot that flares the skirts, a smith's hammer ringing on the anvil, kneeling to write with a brush, a restless shade drifting above the ground, and holding up a festival lantern. People can change clothes: every humanoid can wear **outfits** (style overrides painted and cached per outfit, on foot, on horseback, in battle and in their portrait). Horses walk, gallop, graze and rear, and Lin Yue rides one: horse and rider are painted into one depth buffer so they occlude each other properly. Foxes and wolves gallop with a run cycle, sniff the ground and curl up asleep with their tails wrapped round them; wolves sit back and howl; cranes peck at the grass. Dialogue portraits are rendered from the same models at 3× scale, with blink and talk frames.
+- **Procedural 3D pixel sprites:** 48 humanoid characters, 7 beasts and a rider on her horse, each built from roughly 20 ray-cast solids (bell skirts, sleeves, hair strands, shawls, tails, hats, weapons) with hue-shifted 4-tone shading, face decals and selective outlines. They render in 16 directions with up to 33 animations: idle, walk, run, talk, attack, cast, hurt, meditate, sword-flight, victory, defeat, bow, wave, gather (kneel and pick), drink, cheer, point and nod, stretch and look-around idle fidgets, plus hop, practice, fishing, sweeping, dancing and dozing, and the everyday ones: reading (with a page turn), sitting, kneeling in prayer, weaving at a loom, pouring tea, clapping, laughing, a seated storyteller's sweeping gestures, and four pastimes: playing the dizi flute (with a few notes over her head), eating a bowl of noodles, juggling three bright balls and cooling off with a folding fan; and the newest: the cultivator's fist-in-palm salute, a twirl on the spot that flares the skirts, a smith's hammer ringing on the anvil, kneeling to write with a brush, a restless shade drifting above the ground, and holding up a festival lantern; and the doubled world's: hoeing, chopping firewood, walking under a carrying pole, kicking a shuttlecock, strolling under an oiled-paper umbrella and slow taiji. People can change clothes: every humanoid can wear **outfits** (style overrides painted and cached per outfit, on foot, on horseback, in battle and in their portrait). Horses walk, gallop, graze and rear, and Lin Yue rides one: horse and rider are painted into one depth buffer so they occlude each other properly. Foxes and wolves gallop with a run cycle, sniff the ground and curl up asleep with their tails wrapped round them; wolves sit back and howl; cranes peck at the grass. Dialogue portraits are rendered from the same models at 3× scale, with blink and talk frames.
 - **Idle life:** villagers and wayfarers break into nods, stretches, sips of tea, pours from the teapot, claps, laughs, little dances and cheers when nobody needs them; sleepers breathe with drifting "Z"s; roaming beasts stop to sniff, howl or nap (and leap up the moment they spot you); Lin Yue drinks her pills, reads the steles she stops at, bows in prayer at altars and, left alone, nods, points, claps and laughs as well as stretching, and in the end sits down where she stands until you move her again. Fish shadows glide in slow circles under the water, and washing flaps on a line in Willow Creek.
-- **81 props, 49 of them animated** (buildings grow with the world, drawn 2–4× their size and painted only when first seen): swaying pines, cherry and maple trees, bamboo groves, willows, a glowing spirit tree, the multi-tier Hall of Clouds, village houses with chimney smoke, a lake pavilion, flickering lanterns and braziers that cast soft glows at night, waving banners, a bubbling alchemy cauldron, bobbing lotuses and boats, a rotating taiji dais, a pulsing blood altar, a turning waterwheel that sheds water, crackling campfires, scarecrows flapping in the wind, a five-tier pagoda with swinging wind chimes, a teahouse with a fluttering tea flag, tents, fluttering prayer flags, steaming hot-spring rocks, karst spires, temple ruins, haystacks and benches; and indoors, bookcases, hanging scrolls that stir in the draught, a brick stove with a fire and a steaming wok, a loom, a millstone with its crown wheel, grain sacks, ancestral altars with incense and candles, a bronze tree of seven oil lamps, a jade founder's statue, folding screens, a bed, an herb-drying rack, porcelain vases, a sword rack, tea tables with steaming cups, cushions and a washing line; and new: strings of festival lanterns swinging over the village square and the crossroads, bronze temple bells that swing now and then in their bell-frames, and a paper kite riding the wind over Willow Creek; and newest: a village forge with breathing bellows and a red-hot blade on the anvil, the Sword Tomb bristling with glinting blades, peach trees in blossom and fruit that shed petals, straw beehives with bees looping round them, a lonely grave with a stick of incense, drifting will-o'-wisps, and festival fireworks that climb and burst over Willow Creek once the Heart is home (props can now appear only while a story condition holds). Little dust devils (and whirls of ash and sand) spin along the roads.
-- **Six regions plus a world map:** the floating Azure Cloud Sect (day, falling petals), Willow Creek Village (dusk, autumn leaves), the Whispering Bamboo Forest (fireflies), the Moonlit Lotus Lake (night, stars and moon), the Crimson Demon Valley (blood moon, embers, lava) and Heavenly Tribulation Peak (snow, storm lightning). The miniature isometric continent has roads, rivers, sea, drifting clouds and their shadows, and animated landmarks. Regions unlock as the story advances.
+- **98 props, 61 of them animated** (buildings grow with the world, drawn 2–4× their size and painted only when first seen): swaying pines, cherry and maple trees, bamboo groves, willows, a glowing spirit tree, the multi-tier Hall of Clouds, village houses with chimney smoke, a lake pavilion, flickering lanterns and braziers that cast soft glows at night, waving banners, a bubbling alchemy cauldron, bobbing lotuses and boats, a rotating taiji dais, a pulsing blood altar, a turning waterwheel that sheds water, crackling campfires, scarecrows flapping in the wind, a five-tier pagoda with swinging wind chimes, a teahouse with a fluttering tea flag, tents, fluttering prayer flags, steaming hot-spring rocks, karst spires, temple ruins, haystacks and benches; and indoors, bookcases, hanging scrolls that stir in the draught, a brick stove with a fire and a steaming wok, a loom, a millstone with its crown wheel, grain sacks, ancestral altars with incense and candles, a bronze tree of seven oil lamps, a jade founder's statue, folding screens, a bed, an herb-drying rack, porcelain vases, a sword rack, tea tables with steaming cups, cushions and a washing line; and new: strings of festival lanterns swinging over the village square and the crossroads, bronze temple bells that swing now and then in their bell-frames, and a paper kite riding the wind over Willow Creek; and newest: a village forge with breathing bellows and a red-hot blade on the anvil, the Sword Tomb bristling with glinting blades, peach trees in blossom and fruit that shed petals, straw beehives with bees looping round them, a lonely grave with a stick of incense, drifting will-o'-wisps, and festival fireworks that climb and burst over Willow Creek once the Heart is home (props can now appear only while a story condition holds); and for the doubled world: junks at anchor, a lighthouse with a turning beam, circling koi, butterflies, tea bushes, fan palms, snow pines, a fountain, a war drum, fish-drying racks, stupas, a noodle cart, a bronze censer, stilt houses, archery targets, handcarts and wine jars. Little dust devils (and whirls of ash and sand) spin along the roads.
+- **Eleven regions plus a world map:** the five new ones of the doubled world (the Mistmarsh, the Cloudmist Tea Terraces, the Yellow Sands, Wavecrest Harbour and Frostveil Monastery), and the floating Azure Cloud Sect (day, falling petals), Willow Creek Village (dusk, autumn leaves), the Whispering Bamboo Forest (fireflies), the Moonlit Lotus Lake (night, stars and moon), the Crimson Demon Valley (blood moon, embers, lava) and Heavenly Tribulation Peak (snow, storm lightning). The miniature isometric continent has roads, rivers, sea, drifting clouds and their shadows, and animated landmarks. Regions unlock as the story advances.
 - **Narrative:** a prologue, five chapters and an epilogue, with a quest tracker, scripted cutscenes (walk, emote, camera, flash, shake, spawn), typed-out dialogue with animated portraits, full-screen narration, first-arrival scenes, pre-boss speeches and an ending; plus four side errands shown under the quest tracker (a ghost's unfinished letter, two quarrelling brothers, a sword brought home, a dead husband's cloak) and Willow Creek's lantern festival, each ending in a new outfit.
 - **Cultivation:** 6 realms × 4 stages. Battles, spirit herbs, chests and shrine meditation grow your cultivation. At a realm's peak you must survive a Heavenly Tribulation (3 bolts, or 9 for the final ascension).
 - **Turn-based battles** on themed isometric arenas, with five techniques (Azure Sword Strike, Jade Lotus Palm, Lotus Heart Sutra, Myriad Swords Return, Nine Heavens Thunder), pills and fleeing. Fighters dash in, recoil, throw qi orbs and foxfire, and call down lightning, with damage pop-ups, crits, screen shake and flashes.
@@ -214,9 +304,9 @@ npm run dev            # http://localhost:3000
 | `npm test` | Vitest unit tests (ray caster, art, areas, story, engine, runtime, API) |
 | `npm run test:e2e` | Playwright end-to-end tests (needs `npm run build` first; set `PW_CHROMIUM` to use a local Chromium) |
 | `npm run screenshots` | Re-captures `docs/screenshots/*` through Playwright |
-| `npm run assets` | Exports the animated GIF showcases and PNGs to `docs/art/` |
+| `npm run assets` | Exports the animated GIF showcases and PNGs to `docs/art/` (add `-- docs/art --overview` for the picture of the whole world) |
 
-Saves live in `$DATA_DIR/saves.json` (default `.data/`). Set `SAVE_STORE=memory` for an ephemeral in-memory store. Saves are version 5. Older saves are migrated on load: version 4 positions from the 324 × 232 world are doubled into the magnified world, version 3 positions from the smaller 162 × 116 world keep their place relative to their region, and a position that is no longer open ground (or a save made while flying over water) lands on the nearest open tile.
+Saves live in `$DATA_DIR/saves.json` (default `.data/`). Set `SAVE_STORE=memory` for an ephemeral in-memory store. Saves are version 5; the world doubled again around the old lands without moving them, so every version 5 position is still the same spot. Older saves are migrated on load: version 4 positions from the 324 × 232 world are doubled into the magnified world, version 3 positions from the smaller 162 × 116 world keep their place relative to their region, and a position that is no longer open ground (or a save made while flying over water) lands on the nearest open tile.
 
 ## Controls
 
@@ -251,7 +341,7 @@ flowchart TD
 
 ### The world and its seals
 
-Every tile belongs to the nearest region. A sealed region's border shows a wall of mist that the heroine can't cross, even on her sword, until the story lifts it.
+Every tile belongs to the nearest region; the five new regions also hold the wider country around them (the steppe and the coast answer to Wavecrest Harbour, the snowfields to Frostveil, the sand seas and badlands to the Yellow Sands). The Mistmarsh and the tea terraces open once Elder Mo has sent her down the mountain, the Yellow Sands and the harbour once Willow Creek is safe, and Frostveil's cold turns her back until Foundation Establishment. A sealed region's border shows a wall of mist that the heroine can't cross, even on her sword, until the story lifts it.
 
 ```mermaid
 flowchart TB
@@ -362,7 +452,7 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-  A["Six hand-built region layouts<br/>world/areas.ts"] --> S["Stamp at REGION_ORIGIN<br/>world/layout.ts"]
+  A["Eleven hand-built region layouts<br/>world/areas.ts"] --> S["Stamp at REGION_ORIGIN<br/>world/layout.ts"]
   N["Wilds: noise biomes blended by nearest<br/>region or southern zone (wastes, stone forest,<br/>fields, highlands)"] --> S
   S --> I["Floating isles &<br/>levelled landmark sites"]
   I --> C["Carve rivers, hot spring, lava pools,<br/>highway, branches, sky bridges & walkways"]
@@ -372,7 +462,7 @@ flowchart LR
   X --> R["Region of every tile → seals,<br/>sky / weather / light blend"]
   R --> W["WorldDef (one TileMap)<br/>world/continent.ts"]
   W --> RT["World runtime: lazy tile painting,<br/>visible-diagonal renderer"]
-  W --> M["World map: 6×6 downsample<br/>+ landmark icons<br/>world/overworld.ts"]
+  W --> M["World map: 9×9 downsample<br/>+ landmark icons<br/>world/overworld.ts"]
 ```
 
 ## Architecture

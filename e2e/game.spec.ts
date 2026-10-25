@@ -187,7 +187,7 @@ test.describe("Jade Lotus Ascension", () => {
     await page.goto("/gallery");
     await expect(page.getByRole("heading", { name: "Pixel Art Gallery" })).toBeVisible();
     await expect(page.locator("[data-testid^=sheet-]")).toHaveCount(40);
-    await expect(page.getByTestId("scene")).toHaveCount(12);
+    await expect(page.getByTestId("scene")).toHaveCount(17);
     expect(await page.getByTestId("prop").count()).toBeGreaterThanOrEqual(50);
     expect(await page.getByTestId("anim").count()).toBeGreaterThanOrEqual(80);
     await page.waitForTimeout(1500);
@@ -199,5 +199,24 @@ test.describe("Jade Lotus Ascension", () => {
       return n / (c.width * c.height);
     });
     expect(painted).toBeGreaterThan(0.99);
+  });
+
+  test("the doubled world: fly east to Wavecrest Harbour and take on Captain Hai's errand", async ({ page }) => {
+    await startNewGame(page);
+    await patch(page, { flags: { metElder: true, villageSaved: true, villageArrived: true, metZhou: true, harborArrived: true }, realm: 1 });
+    await page.keyboard.press("KeyM");
+    await expect(page.getByTestId("map-harbor")).toBeEnabled();
+    await expect(page.getByTestId("map-frost")).toBeEnabled();
+    await page.getByTestId("map-harbor").click();
+    await expect.poll(() => page.evaluate(() => window.__pixelop!.game.worldMap?.travelling ?? false), { timeout: 15_000 }).toBe(false);
+    await page.keyboard.press("Enter");
+    await expect.poll(() => mode(page)).toBe("explore");
+    await expect(page.getByTestId("place")).toContainText("Wavecrest Harbour");
+    await standBy(page, "hai");
+    await expect(page.getByTestId("prompt")).toContainText("Captain Hai");
+    await page.keyboard.press("KeyE");
+    await expect(page.getByTestId("dialog")).toContainText("Sea-Swallow");
+    await finishDialogue(page);
+    await expect(page.getByTestId("errand")).toContainText("peach");
   });
 });

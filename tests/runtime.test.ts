@@ -758,4 +758,75 @@ describe("Game runtime", () => {
     expect(game.world.hero.idleAnim).toBe("idle");
     expect(game.snapshot().toasts.some((t) => /Tribulation Peak/.test(t.text))).toBe(true);
   });
+
+  it("walking on starts her idle habits afresh, rather than sitting straight back down", () => {
+    const game = fresh();
+    // left alone long enough, she sits down
+    for (let k = 0; k < 6 && game.world.hero.idleAnim !== "sit"; k++) game.debugSkipTime(12.5);
+    expect(game.world.hero.idleAnim).toBe("sit");
+    game.keyDown("KeyD");
+    game.debugSkipTime(0.4);
+    game.keyUp("KeyD");
+    // the next time she is left alone, she glances about or stretches first
+    game.debugSkipTime(8.5);
+    expect(game.world.hero.idleAnim).toBe("idle");
+    expect(["stretch", "look"]).toContain(game.world.hero.anim);
+  });
+
+  it("names the folk who share a look by their own names", () => {
+    const game = fresh();
+    game.debugPatch({ flags: { metElder: true, villageArrived: true, villageSaved: true, metZhou: true } });
+    standBy(game, "wu");
+    game.debugSkipTime(0.3);
+    expect(game.snapshot().prompt).toBe("E · Talk to Farmer Wu");
+    standBy(game, "herder");
+    game.debugSkipTime(0.3);
+    expect(game.snapshot().prompt).toBe("E · Talk to Herder Altan");
+  });
+
+  it("crosses the Rainbow Bridge on foot into the eastern lands, which answer to Wavecrest Harbour", () => {
+    const game = fresh();
+    game.debugPatch({ flags: { metElder: true, villageArrived: true, villageSaved: true, metZhou: true, metHuli: true, harborArrived: true }, realm: 1 });
+    const bridge = getWorld().landmarks.find((l) => l.key === "rainbow")!;
+    game.debugGoto(bridge.x - 24, bridge.y + 0.5);
+    game.keyDown("ShiftLeft");
+    // right and down on screen is due east in the world
+    game.keyDown("KeyD");
+    game.keyDown("KeyS");
+    game.debugSkipTime(9);
+    game.keyUp("KeyD");
+    game.keyUp("KeyS");
+    game.keyUp("ShiftLeft");
+    expect(game.state.x).toBeGreaterThan(bridge.x + 20);
+    expect(game.state.area).toBe("harbor");
+  });
+
+  it("long flights across the doubled world map still take only a few seconds", () => {
+    const game = fresh();
+    game.debugPatch({ flags: { metElder: true, villageSaved: true, metZhou: true }, realm: 1 });
+    game.openMap();
+    game.mapSelect("harbor");
+    expect(game.worldMap?.travelling).toBe(true);
+    game.debugSkipTime(4.5);
+    expect(game.worldMap?.travelling).toBe(false);
+    expect(game.worldMap?.at).toBe("harbor");
+  });
+
+  it("Elder Qiu teaches taiji, and the folk of the new lands work, play and carry their loads", () => {
+    const game = fresh();
+    game.debugPatch({ flags: { metElder: true } });
+    talkTo(game, "qiu");
+    talkThrough(game);
+    expect(game.state.flags.qiuForm).toBe(true);
+    // the porter on the market road shoulders his pole as he walks
+    standBy(game, "marketporter");
+    game.debugSkipTime(6);
+    const porter = game.world.actor("marketporter")!;
+    expect(porter.carrier).toBe(true);
+    expect(["carry", "idle", "wave"]).toContain(porter.anim);
+    standBy(game, "ba");
+    game.debugSkipTime(0.5);
+    expect(game.world.actor("ba")!.anim).toBe("chop");
+    game.render(surface());
+  });
 });

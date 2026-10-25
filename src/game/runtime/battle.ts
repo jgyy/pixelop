@@ -9,7 +9,7 @@ import { resolveTurn, SKILLS, startBattle, type BattleAction, type BattleEvent, 
 import { realmLabel } from "../engine/realms";
 import { stats, type GameState } from "../engine/state";
 import { getArea, type AreaDef, type AreaId } from "../world/areas";
-import { TileMap, type TileKind } from "../world/tilemap";
+import { LIQUID, TileMap, type TileKind } from "../world/tilemap";
 import { World, type Actor } from "./world";
 
 /**
@@ -44,12 +44,17 @@ const ARENA: Record<AreaId, { ground: TileKind; ring: TileKind; edge: TileKind; 
   lake: { ground: "sand", ring: "grass", edge: "water", props: ["willow", "reeds", "lantern", "reeds"] },
   valley: { ground: "redrock", ring: "ash", edge: "lava", props: ["spikes", "brazier", "deadtree", "bones"] },
   peak: { ground: "marble", ring: "snow", edge: "snow", props: ["crystal", "pine", "crystal", "rock"] },
+  marsh: { ground: "moss", ring: "grass", edge: "water", props: ["willow", "reeds", "deadtree", "wisps"] },
+  terraces: { ground: "stairs", ring: "meadow", edge: "meadow", props: ["teabush", "cherry", "teabush", "lantern"] },
+  desert: { ground: "sand", ring: "redrock", edge: "sand", props: ["palm", "boulder", "bones", "karst"] },
+  harbor: { ground: "plaza", ring: "wood", edge: "water", props: ["barrels", "redlantern", "fishrack", "lantern"] },
+  frost: { ground: "marble", ring: "snow", edge: "snow", props: ["snowpine", "crystal", "snowpine", "prayerflags"] },
 };
 
 function buildArena(area: AreaId): AreaDef {
   const base = getArea(area);
   const th = ARENA[area];
-  const m = new TileMap(11, 9, th.edge, area === "lake" || area === "valley" ? 0 : 1);
+  const m = new TileMap(11, 9, th.edge, LIQUID[th.edge] ? 0 : 1);
   m.rect(1, 1, 9, 7, th.ring, 1);
   m.rect(2, 2, 8, 6, th.ground, 1);
   const props = [
