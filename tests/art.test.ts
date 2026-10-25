@@ -114,4 +114,28 @@ describe("terrain", () => {
       expect(b.opaqueCount()).toBe(160 * 90);
     }
   });
+
+  it("paints the new lands' props, and the folk's new work and play", () => {
+    for (const id of ["teabush", "koi", "butterflies", "ship", "lighthouse", "censer", "stilthouse", "fishrack", "snowpine", "stupa", "noodlecart", "target", "drum", "palm", "cart", "barrels", "fountain"] as const) {
+      expect(PROP_IDS, id).toContain(id);
+      const sheet = getProp(id);
+      expect(sheet.frames.length, id).toBe(propDef(id).frames);
+      expect(sheet.frames[0].opaqueCount(), id).toBeGreaterThan(20);
+      // animated ones really move
+      if (propDef(id).frames > 1) expect(Buffer.from(sheet.frames[0].data).equals(Buffer.from(sheet.frames[1].data)), id).toBe(false);
+    }
+    for (const [id, anim] of [
+      ["farmer", "hoe"],
+      ["woodcutter", "chop"],
+      ["porter", "carry"],
+      ["boy", "kick"],
+      ["lady", "umbrella"],
+      ["taiji", "taichi"],
+      ["heroine", "taichi"],
+    ] as const) {
+      expect(charDef(id).anims, `${id} ${anim}`).toContain(anim);
+      const a = getAnim(id, anim, 2);
+      expect(new Set(a.frames.map((f) => Buffer.from(f.data).toString("base64"))).size, `${id} ${anim}`).toBeGreaterThan(2);
+    }
+  });
 });

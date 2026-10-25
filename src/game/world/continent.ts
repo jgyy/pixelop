@@ -1,8 +1,8 @@
 import { fbm, hash2 } from "../pixel/noise";
 import { propDef, type PropId } from "../art/props";
-import { AREA_IDS, getArea, placementTiles, type AreaDef, type AreaId, type Critter, type EnemySpawn, type Interactable, type NpcPlacement, type PropPlacement } from "./areas";
+import { AREA_IDS, festive, getArea, placementTiles, type AreaDef, type AreaId, type Critter, type EnemySpawn, type Interactable, type NpcPlacement, type PropPlacement } from "./areas";
 import { getInterior, INTERIOR_IDS, interiorDoors } from "./interiors";
-import { COARSE_H, COARSE_ORIGIN, COARSE_W, rectDistance, regionRect, toCoarse, toWorld, WORLD_H, WORLD_SCALE, WORLD_W } from "./layout";
+import { COARSE_H, COARSE_ORIGIN, COARSE_W, DOMAIN, regionRect, toCoarse, toWorld, WORLD_H, WORLD_SCALE, WORLD_W } from "./layout";
 import { companionOf, magnifyMap, magnifyProp, pointTile } from "./magnify";
 import { LIQUID, TileMap, type TileKind } from "./tilemap";
 
@@ -40,10 +40,13 @@ export interface Landmark {
 
 type Mainland = "valley" | "bamboo" | "village" | "lake";
 const MAINLAND: Mainland[] = ["valley", "bamboo", "village", "lake"];
+/** Every region that stands on the ground (the sky islands float above). */
+type Ground = Mainland | "marsh" | "terraces" | "desert" | "harbor" | "frost";
+const GROUND: Ground[] = [...MAINLAND, "marsh", "terraces", "desert", "harbor", "frost"];
 const SKY: AreaId[] = ["sect", "peak"];
 
-/** Wild biomes: the four mainland regions' own, plus the southern lands below the highway. */
-type WildId = Mainland | "wastes" | "stoneforest" | "fields" | "highlands";
+/** Wild biomes: each ground region's own, the southern lands below the highway, and the far south and east the world grew into. */
+type WildId = Ground | "wastes" | "stoneforest" | "fields" | "highlands" | "marshland" | "terracehills" | "plum" | "sands" | "badlands" | "autumn" | "steppe" | "frostlands" | "coast";
 
 interface WildStyle {
   ground: (i: number, j: number) => TileKind;
@@ -60,7 +63,11 @@ interface WildStyle {
 
 const ash = (i: number, j: number): TileKind => (fbm(i * 0.3, j * 0.3, 5) > 0.58 ? "redrock" : "ash");
 
-const WILD: Record<WildId, WildStyle> = {
+function marshGround(i: number, j: number): TileKind {
+  return fbm(i * 0.2, j * 0.2, 140) > 0.6 ? "grass" : "moss";
+}
+
+const BIOME: Record<Exclude<WildId, "marsh" | "terraces" | "desert" | "harbor" | "frost">, WildStyle> = {
   valley: { ground: ash, lift: 1, hills: 3.2, trees: ["deadtree", "deadtree", "boulder"], treeP: 0.07, extras: ["bones", "spikes", "bones"], extraP: 0.05, ashen: true },
   bamboo: { ground: (i, j) => (fbm(i * 0.2, j * 0.2, 9) > 0.62 ? "moss" : "leaf"), lift: 0, hills: 3.2, trees: ["bamboo", "bamboo", "bamboo", "pine"], treeP: 0.2, extras: ["rock", "tallgrass", "reeds"], extraP: 0.05 },
   village: { ground: (i, j) => (hash2(i, j, 9) > 0.8 ? "meadow" : "grass"), lift: 0, hills: 3.2, trees: ["maple", "cherry", "pine", "maple"], treeP: 0.06, extras: ["tallgrass", "rock", "tallgrass"], extraP: 0.06 },
@@ -69,7 +76,18 @@ const WILD: Record<WildId, WildStyle> = {
   stoneforest: { ground: (i, j) => (fbm(i * 0.18, j * 0.18, 13) > 0.6 ? "moss" : hash2(i, j, 14) > 0.85 ? "meadow" : "grass"), lift: 0, hills: 2.6, trees: ["karst", "karst", "pine", "karst", "rock"], treeP: 0.1, extras: ["tallgrass", "rock", "tallgrass"], extraP: 0.06 },
   fields: { ground: (i, j) => (fbm(i * 0.15, j * 0.15, 17) > 0.6 ? "meadow" : hash2(i, j, 18) > 0.85 ? "meadow" : "grass"), lift: 0, hills: 1.8, trees: ["maple", "haystack", "cherry", "maple", "scarecrow"], treeP: 0.035, extras: ["tallgrass", "tallgrass", "rock"], extraP: 0.07 },
   highlands: { ground: (i, j) => (fbm(i * 0.09, j * 0.09, 31) > 0.66 ? "snow" : fbm(i * 0.25, j * 0.25, 19) > 0.64 ? "moss" : "grass"), lift: 1, hills: 4.4, trees: ["pine", "pine", "boulder", "pine", "rock"], treeP: 0.1, extras: ["rock", "tallgrass"], extraP: 0.05 },
+  marshland: { ground: marshGround, lift: 0, hills: 1.4, trees: ["willow", "deadtree", "willow", "reeds"], treeP: 0.08, extras: ["reeds", "tallgrass", "reeds", "butterflies"], extraP: 0.08 },
+  terracehills: { ground: (i, j) => (fbm(i * 0.2, j * 0.2, 141) > 0.62 ? "grass" : "meadow"), lift: 1, hills: 3.6, trees: ["teabush", "teabush", "cherry", "teabush", "pine"], treeP: 0.1, extras: ["tallgrass", "butterflies", "tallgrass"], extraP: 0.05 },
+  plum: { ground: (i, j) => (hash2(i, j, 142) > 0.7 ? "meadow" : "grass"), lift: 0, hills: 2.6, trees: ["cherry", "cherry", "peachtree", "pine"], treeP: 0.07, extras: ["tallgrass", "rock", "butterflies"], extraP: 0.05 },
+  sands: { ground: (i, j) => (fbm(i * 0.22, j * 0.22, 143) > 0.64 ? "redrock" : "sand"), lift: 0, hills: 2.4, trees: ["boulder", "karst", "deadtree", "palm", "bones"], treeP: 0.035, extras: ["bones", "rock"], extraP: 0.03, ashen: true },
+  badlands: { ground: (i, j) => (fbm(i * 0.18, j * 0.18, 144) > 0.55 ? "sand" : "redrock"), lift: 1, hills: 4, trees: ["karst", "boulder", "deadtree", "karst"], treeP: 0.06, extras: ["rock", "bones"], extraP: 0.04, ashen: true },
+  autumn: { ground: (i, j) => (fbm(i * 0.2, j * 0.2, 145) > 0.6 ? "grass" : "leaf"), lift: 0, hills: 3, trees: ["maple", "maple", "pine", "maple"], treeP: 0.13, extras: ["tallgrass", "rock", "butterflies"], extraP: 0.05 },
+  steppe: { ground: (i, j) => (fbm(i * 0.12, j * 0.12, 146) > 0.58 ? "meadow" : "grass"), lift: 0, hills: 1.6, trees: ["rock", "boulder", "haystack"], treeP: 0.012, extras: ["tallgrass", "tallgrass", "butterflies"], extraP: 0.06 },
+  frostlands: { ground: (i, j) => (fbm(i * 0.15, j * 0.15, 147) > 0.68 ? "marble" : fbm(i * 0.3, j * 0.3, 148) > 0.7 ? "grass" : "snow"), lift: 2, hills: 4, trees: ["snowpine", "snowpine", "rock", "crystal", "snowpine"], treeP: 0.1, extras: ["rock", "crystal"], extraP: 0.03 },
+  coast: { ground: (i, j) => (fbm(i * 0.2, j * 0.2, 149) > 0.6 ? "sand" : "grass"), lift: 0, hills: 1.8, trees: ["pine", "palm", "rock", "pine"], treeP: 0.05, extras: ["tallgrass", "reeds"], extraP: 0.04 },
 };
+// the new regions' own surroundings take after the lands they stand in
+const WILD: Record<WildId, WildStyle> = { ...BIOME, marsh: BIOME.marshland, terraces: BIOME.terracehills, desert: BIOME.sands, harbor: BIOME.coast, frost: BIOME.frostlands };
 
 /** The southern lands' biomes, as world rectangles [x0, y0, x1, y1]. */
 const ZONES: [WildId, [number, number, number, number]][] = [
@@ -77,6 +95,17 @@ const ZONES: [WildId, [number, number, number, number]][] = [
   ["stoneforest", [82, 184, 140, 228]],
   ["fields", [156, 180, 222, 228]],
   ["highlands", [238, 178, 320, 228]],
+  // the far south
+  ["marshland", [3, 236, 135, 452]],
+  ["terracehills", [140, 238, 280, 335]],
+  ["plum", [140, 340, 280, 452]],
+  ["sands", [290, 330, 470, 452]],
+  // and the east, across the Rainbow Bridge
+  ["badlands", [480, 330, 640, 452]],
+  ["autumn", [350, 240, 560, 325]],
+  ["steppe", [350, 150, 560, 235]],
+  ["frostlands", [350, 52, 640, 145]],
+  ["coast", [565, 150, 640, 330]],
 ];
 
 /** The old highway across the whole mainland, below the four regions. */
@@ -95,7 +124,22 @@ export const HIGHWAY: [number, number][] = [
   [274, 166],
   [296, 167],
   [312, 166],
+  // the Rainbow Bridge over the great waterfall's gorge, and on across the eastern steppe to the sea
+  [330, 166],
+  [350, 166],
+  [372, 168.5],
+  [400, 172],
+  [430, 180],
+  [460, 192],
+  [490, 205],
+  [520, 220],
+  [548, 236],
+  [572, 248],
+  [590, 252],
 ];
+
+/** The planks of the Rainbow Bridge span the gorge between these x (authoring tiles). */
+const GORGE: [number, number] = [314, 350];
 
 /** Branch roads from the highway: up to each region's exit, and down into the southern lands. */
 const BRANCHES: { pts: [number, number][]; valley?: boolean }[] = [
@@ -120,6 +164,24 @@ const BRANCHES: { pts: [number, number][]; valley?: boolean }[] = [
   { pts: [[175, 104], [164, 103], [155, 103]] },
   // east past the lake to the peach orchard
   { pts: [[300, 166.6], [301, 160], [303, 155]] },
+  // the south road: on from the pagoda hill to the Cloudmist Tea Terraces
+  { pts: [[190, 197], [192, 215], [194, 240], [196, 270], [196, 296]] },
+  // through the ashen wastes, over the lava on a stone bridge, and down into the Mistmarsh
+  { pts: [[50, 177], [56, 210], [58, 240], [56, 270], [56, 300]] },
+  // the southern road, from the Mistmarsh's east boardwalk past the plum hills to the tea road…
+  { pts: [[72, 315], [110, 300], [150, 285], [196, 270]] },
+  // …and on south-east into the Yellow Sands
+  { pts: [[196, 270], [240, 282], [290, 302], [330, 330], [350, 352]] },
+  // the shrine among the plum blossom
+  { pts: [[150, 285], [146, 330], [138, 372], [132, 396]] },
+  // north from the steppe up into the snows to Frostveil Monastery
+  { pts: [[400, 172], [430, 150], [462, 126], [494, 97]] },
+  // the herders' camp on the steppe
+  { pts: [[460, 192], [466, 178], [470, 168]] },
+  // down from the steppe through the maple woods to the Yellow Sands' east side
+  { pts: [[460, 192], [445, 240], [430, 278], [400, 318], [366, 366]] },
+  // into the red cliffs of the badlands
+  { pts: [[430, 278], [480, 330], [512, 372], [524, 396]] },
 ];
 
 const RIVERS: { pts: [number, number][]; kind: "water" | "lava"; width: number }[] = [
@@ -130,11 +192,13 @@ const RIVERS: { pts: [number, number][]; kind: "water" | "lava"; width: number }
   // …which spills over the eastern edge of the world as a waterfall.
   { kind: "water", width: 2.6, pts: [[280, 125], [296, 127], [310, 128], [324, 129]] },
   // The bamboo stream runs on west and south through the stone forest and off the southern cliffs.
-  { kind: "water", width: 2.6, pts: [[93, 132], [86, 138], [81, 148], [78, 160], [75, 176], [80, 192], [76, 208], [72, 220], [70, 232]] },
-  // A hot stream from the highland spring falls off the south edge too.
-  { kind: "water", width: 2.2, pts: [[252, 195], [257, 206], [255, 218], [258, 232]] },
-  // In the ashen wastes, lava wells up and pours off the world.
-  { kind: "lava", width: 2.4, pts: [[56, 192], [60, 204], [57, 216], [60, 232]] },
+  { kind: "water", width: 2.6, pts: [[93, 132], [86, 138], [81, 148], [78, 160], [75, 176], [80, 192], [76, 208], [72, 220], [70, 232], [74, 260], [80, 300], [84, 340], [80, 380], [84, 420], [82, 464]] },
+  // A hot stream from the highland spring winds south to the world's edge too.
+  { kind: "water", width: 2.2, pts: [[252, 195], [257, 206], [255, 218], [258, 232], [262, 260], [270, 290], [268, 330], [275, 380], [272, 420], [274, 464]] },
+  // The Jade River runs down out of the eastern snows and pours off the eastern edge into the sea of clouds.
+  { kind: "water", width: 3, pts: [[520, 108], [532, 130], [548, 152], [575, 172], [606, 186], [648, 194]] },
+  // In the ashen wastes, lava wells up and sinks back into a burning pool.
+  { kind: "lava", width: 2.4, pts: [[56, 192], [60, 204], [57, 216], [60, 230]] },
 ];
 
 const inRect = (id: AreaId, i: number, j: number) => {
@@ -142,9 +206,20 @@ const inRect = (id: AreaId, i: number, j: number) => {
   return i >= x0 && j >= y0 && i < x1 && j < y1;
 };
 
+/**
+ * The land below the clouds: the old mainland, the southern lands it grew
+ * into (joined to it all along its southern shore), and the eastern lands
+ * beyond the gorge, which meet the south below it. Wavecrest Harbour's bay
+ * is the world's eastern edge.
+ */
 const mainlandMask = (i: number, j: number) => {
   const n = (fbm(i * 0.06, j * 0.06, 41) - 0.5) * 9 + (fbm(i * 0.2, j * 0.2, 42) - 0.5) * 2;
-  return j >= 92 + n && j <= 226 + n && i >= 3 + n * 0.6 && i <= 320 + n * 0.6;
+  const old = j >= 92 + n && j <= 226 + n && i >= 3 + n * 0.6 && i <= 320 + n * 0.6;
+  // the new lands' outer shores wander in broad bays and headlands
+  const shore = (fbm(i * 0.018, j * 0.018, 43) - 0.5) * 44;
+  const south = j >= 200 + n && j <= 448 + n + shore && i >= 6 + n * 0.6 - shore && i <= 470 + n * 0.6;
+  const east = j >= 56 + n - shore && j <= 448 + n + shore && i >= 346 + n * 0.6 && (j > 222 && j < 282 ? i <= 621 : i <= 636 + n * 0.6 + shore);
+  return old || south || east;
 };
 
 /** Floating isles in the sky: [centre x, centre y, radius, height]. */
@@ -152,23 +227,45 @@ const ISLES: { key: string; c: [number, number]; r: number; h: number }[] = [
   { key: "cloudrest", c: [192, 77], r: 4.4, h: 2 },
   { key: "cloudstepA", c: [219, 49], r: 4.6, h: 2 },
   { key: "cloudstepB", c: [236, 41], r: 3.8, h: 2 },
+  // the sect's own terraces, moored about its rim: the disciples' court, the taiji yard and the sword garden
+  { key: "court", c: [163, 50], r: 7.6, h: 2 },
+  { key: "taiji", c: [167, 32], r: 5.6, h: 2 },
+  { key: "garden", c: [168, 67], r: 5.6, h: 2 },
 ];
 
 const rectDist = ([x0, y0, x1, y1]: [number, number, number, number], x: number, y: number) => Math.hypot(Math.max(x0 - x, 0, x - x1), Math.max(y0 - y, 0, y - y1));
 
-/** Nearest wild biome, with a noisy border so biomes interleave. */
-function wildRegion(i: number, j: number): WildId {
-  let best: WildId = "village";
+/** Every wild biome with the rectangle it grows from (authoring grid). */
+const BIOME_RECTS: [WildId, [number, number, number, number]][] = [...GROUND.map((id): [WildId, [number, number, number, number]] => [id, regionRect(id, 1)]), ...ZONES];
+const WILD_IDS = Object.keys(WILD) as WildId[];
+
+/** Nearest wild biome (an index into WILD_IDS), with a noisy border so biomes interleave. */
+const BIOME_INDEX = BIOME_RECTS.map(([id]) => WILD_IDS.indexOf(id));
+const BIOME_SEED = BIOME_RECTS.map(([id]) => 60 + id.length);
+const biomeDist = new Float64Array(BIOME_RECTS.length);
+function wildRegion(i: number, j: number): number {
+  const x = i + 0.5;
+  const y = j + 0.5;
+  let nearest = Infinity;
+  for (let k = 0; k < BIOME_RECTS.length; k++) {
+    biomeDist[k] = rectDist(BIOME_RECTS[k][1], x, y);
+    if (biomeDist[k] < nearest) nearest = biomeDist[k];
+  }
+  // the border noise (fine ripples on broad swells) moves a biome by at most 28.5 tiles, so only biomes about as near as the closest are worth the noise
+  let best = BIOME_INDEX[0];
   let bd = Infinity;
-  const consider = (id: WildId, d: number) => {
-    const dd = d + (fbm(i * 0.17, j * 0.17, 60 + id.length) - 0.5) * 7;
+  const noise = new Map<number, number>();
+  for (let k = 0; k < BIOME_RECTS.length; k++) {
+    if (biomeDist[k] > nearest + 57) continue;
+    const seed = BIOME_SEED[k];
+    let n = noise.get(seed);
+    if (n === undefined) noise.set(seed, (n = (fbm(i * 0.17, j * 0.17, seed) - 0.5) * 7 + (fbm(i * 0.035, j * 0.035, seed + 40) - 0.5) * 50));
+    const dd = biomeDist[k] + n;
     if (dd < bd) {
       bd = dd;
-      best = id;
+      best = BIOME_INDEX[k];
     }
-  };
-  for (const id of MAINLAND) consider(id, rectDistance(id, i + 0.5, j + 0.5, 1));
-  for (const [id, r] of ZONES) consider(id, rectDist(r, i + 0.5, j + 0.5));
+  }
   return best;
 }
 
@@ -195,29 +292,30 @@ function stroke(points: [number, number][], width: number, fn: (i: number, j: nu
 }
 
 /** Props that stand in water. */
-export const FLOATS = new Set<PropId>(["lotus", "boat", "reeds", "waterwheel"]);
+export const FLOATS = new Set<PropId>(["lotus", "boat", "reeds", "waterwheel", "koi", "ship"]);
 
 function buildWorld(): WorldDef {
   const m = new TileMap(COARSE_W, COARSE_H, "void", 0);
   /** 0 = wild, 1 = region template or landmark site, 2 = carved road/river/bridge (fixed height). */
   const fixed = new Uint8Array(COARSE_W * COARSE_H);
-  const wildOf = new Map<number, WildId>();
+  /** Each wild tile's biome, as 1 + its index into WILD_IDS (0 = not wild). */
+  const wildOf = new Uint8Array(COARSE_W * COARSE_H);
   const fix = (i: number, j: number, v: 1 | 2) => {
     if (m.inside(i, j)) fixed[j * COARSE_W + i] = v;
   };
 
   // 1. the mainland wilds
   m.each((i, j) => {
-    if (!mainlandMask(i, j) && !MAINLAND.some((id) => inRect(id, i, j))) return;
+    if (!mainlandMask(i, j) && !GROUND.some((id) => inRect(id, i, j))) return;
     const r = wildRegion(i, j);
-    wildOf.set(j * COARSE_W + i, r);
-    const st = WILD[r];
+    wildOf[j * COARSE_W + i] = r + 1;
+    const st = WILD[WILD_IDS[r]];
     const hills = 1 + Math.round((fbm(i * 0.07, j * 0.07, 31) - 0.45) * st.hills);
     m.set(i, j, st.ground(i, j), Math.max(0, Math.min(5, hills + st.lift)));
   });
   const ashen = (i: number, j: number) => {
-    const r = wildOf.get(j * COARSE_W + i);
-    return r ? !!WILD[r].ashen : inRect("valley", i, j);
+    const r = wildOf[j * COARSE_W + i];
+    return r ? !!WILD[WILD_IDS[r - 1]].ashen : inRect("valley", i, j);
   };
 
   // 2. stamp the hand-built regions
@@ -248,25 +346,30 @@ function buildWorld(): WorldDef {
   for (const isle of ISLES) {
     m.disc(isle.c[0], isle.c[1], isle.r, "grass", isle.h, 0.8, 80 + isle.r);
     m.disc(isle.c[0], isle.c[1], isle.r * 0.45, "plaza", isle.h, 0, 1);
-    m.each((i, j) => {
-      if (Math.hypot(i - isle.c[0], j - isle.c[1]) < isle.r + 2 && m.kind(i, j) !== "void") {
-        fix(i, j, 1);
-        if (m.kind(i, j) === "grass" && hash2(i, j, 9) > 0.78) m.set(i, j, "meadow");
+    const [cx, cy] = isle.c;
+    const rr = Math.ceil(isle.r + 3);
+    for (let j = cy - rr; j <= cy + rr; j++)
+      for (let i = cx - rr; i <= cx + rr; i++) {
+        if (Math.hypot(i - cx, j - cy) < isle.r + 2 && m.kind(i, j) !== "void") {
+          fix(i, j, 1);
+          if (m.kind(i, j) === "grass" && hash2(i, j, 9) > 0.78) m.set(i, j, "meadow");
+        }
       }
-    });
   }
 
   // 4. landmark sites in the wilds: levelled ground the roads lead to
   const site = (c: [number, number], r: number, kind: TileKind, h: number, rough = 0.6) => {
-    m.each((i, j) => {
-      const d = Math.hypot(i - c[0], j - c[1]);
-      if (d > r + 1.5 || m.kind(i, j) === "void") return;
-      const rr = r + (fbm(i * 0.35, j * 0.35, 90) - 0.5) * rough * 2;
-      if (d <= rr) {
-        m.set(i, j, kind, h);
-        fix(i, j, 1);
+    const n = Math.ceil(r + 2);
+    for (let j = Math.floor(c[1]) - n; j <= Math.ceil(c[1]) + n; j++)
+      for (let i = Math.floor(c[0]) - n; i <= Math.ceil(c[0]) + n; i++) {
+        const d = Math.hypot(i - c[0], j - c[1]);
+        if (d > r + 1.5 || m.kind(i, j) === "void") continue;
+        const rr = r + (fbm(i * 0.35, j * 0.35, 90) - 0.5) * rough * 2;
+        if (d <= rr) {
+          m.set(i, j, kind, h);
+          fix(i, j, 1);
+        }
       }
-    });
   };
   site([150, 171], 5, "plaza", 1); // teahouse crossroads
   site([233, 112], 4.5, "grass", 1); // watermill
@@ -278,6 +381,14 @@ function buildWorld(): WorldDef {
   site([83, 108], 6, "dirt", 1, 1); // sword tomb
   site([150, 101], 4.6, "grass", 1, 0.8); // moon-gazing pavilion
   site([304, 150], 6.4, "meadow", 1, 0.8); // peach orchard
+  site([470, 166], 6, "meadow", 1, 0.8); // the herders' camp on the steppe
+  site([430, 282], 5.4, "leaf", 1, 0.8); // the woodcutters' lodge in the maple woods
+  site([132, 400], 6, "meadow", 1, 0.8); // the plum blossom shrine
+  site([524, 400], 6, "sand", 1, 1); // the red cliff hideout
+  site([352, 166], 3.4, "plaza", 1, 0.3); // the eastern bridgehead
+  site([110, 300], 4.4, "grass", 1, 0.8); // the ferry landing by the southern road
+  // Willow Creek's market road: the village spills south along the road down to the highway
+  site([192, 146], 11, "grass", 1, 0.5);
   // paddies among the fields, edged by dikes
   for (const [x0, y0] of [
     [200, 175],
@@ -309,6 +420,16 @@ function buildWorld(): WorldDef {
   pool(...toCoarse("valley", 34, 8), 2.2, "lava", 71);
   pool(252, 192, 2.6, "water", 72);
   pool(56, 191, 2.4, "lava", 73);
+  pool(60, 231, 2.6, "lava", 74);
+  // still black pools out in the marshland, and the steppe's watering hole
+  for (const [x, y, r, seed] of [
+    [24, 262, 3, 75],
+    [104, 352, 3.4, 76],
+    [22, 410, 3.8, 77],
+    [112, 432, 2.8, 78],
+    [420, 204, 2.6, 79],
+  ] as [number, number, number, number][])
+    pool(x, y, r, "water", seed);
   // sandy banks along the wild stretches of the rivers
   m.each((i, j) => {
     if (fixed[j * COARSE_W + i] || LIQUID[m.kind(i, j)] || m.kind(i, j) === "void") return;
@@ -325,6 +446,12 @@ function buildWorld(): WorldDef {
       fix(i, j, 2);
     });
   road(HIGHWAY, 2.4, () => 1);
+  // the Rainbow Bridge: planks laid across the gorge the great waterfall pours into
+  stroke(HIGHWAY.filter(([x]) => x >= GORGE[0] - 4 && x <= GORGE[1] + 4), 2.4, (i, j) => {
+    if (i < GORGE[0] || i > GORGE[1] || m.kind(i, j) !== "void") return;
+    m.set(i, j, "wood", 1);
+    fix(i, j, 2);
+  });
   const [, valleyY] = toCoarse("valley", 0, 31);
   for (const b of BRANCHES) road(b.pts, 2.2, (i, j) => (b.valley && j <= valleyY + 2 ? 2 : 1));
   // the village's north road runs on to the mainland's edge…
@@ -356,6 +483,10 @@ function buildWorld(): WorldDef {
     });
   walkway([[dx, dy], [ISLES[1].c[0] - 2, ISLES[1].c[1] + 1]], 2.4);
   walkway([[ISLES[1].c[0] + 2, ISLES[1].c[1] - 2], [ISLES[2].c[0] - 1, ISLES[2].c[1] + 1]], 2.2);
+  // and out from the sect's rim to its terraces
+  walkway([toCoarse("sect", 4, 15), [ISLES[3].c[0] + 6, ISLES[3].c[1]]], 2.2);
+  walkway([toCoarse("sect", 7, 7), [ISLES[4].c[0] + 4, ISLES[4].c[1] + 2]], 2.2);
+  walkway([toCoarse("sect", 7, 24), [ISLES[5].c[0] + 4, ISLES[5].c[1] - 2]], 2.2);
 
   // 7. keep the wilds walkable: no tile rises or falls more than a level per
   // tile away from a region, road or river (multi-source distance fields)
@@ -504,7 +635,7 @@ function buildWorld(): WorldDef {
       [207, 186],
     ] as [number, number][])
       P("scarecrow", i, j);
-    npcs.push({ key: "wu", char: "farmer", i: 196, j: 186, dir: 3, wander: 1.5 });
+    npcs.push({ key: "wu", name: "Farmer Wu", char: "farmer", i: 196, j: 186, dir: 3, wander: 1.5 });
     critters.push({ key: "crane-f1", char: "crane", i: 203, j: 177 }, { key: "crane-f2", char: "crane", i: 211, j: 184 });
     mark("pagoda", "Pagoda of Seven Lamps", "七灯塔", "pagoda", x, y);
   }
@@ -618,6 +749,205 @@ function buildWorld(): WorldDef {
     critters.push({ key: "crane-or", char: "crane", i: x - 3, j: y + 7 });
     mark("orchard", "Peach Orchard", "桃园", "peachtree", x, y);
   }
+  // Willow Creek's market road: houses, stalls and folk all the way down to the highway, under a paifang arch
+  {
+    for (const [i, j] of [
+      [186, 136],
+      [186, 142],
+      [186, 149],
+      [196, 138],
+      [196, 146],
+      [196, 152],
+    ] as [number, number][])
+      P("house", i, j);
+    P("gate", 192, 158);
+    P("lanterns", 192, 134);
+    P("lanterns", 192, 151);
+    P("redlantern", 190, 147);
+    P("redlantern", 194, 141);
+    P("stall", 194, 134);
+    P("stall", 194, 135);
+    P("noodlecart", 189, 140);
+    P("well", 182, 146);
+    P("cart", 183, 140);
+    P("barrels", 194, 155);
+    P("laundry", 183, 152);
+    P("butterflies", 181, 150);
+    P("fountain", 189, 155);
+    npcs.push(
+      { key: "marketporter", name: "Porter Kang", char: "porter", i: 192, j: 145, dir: 0, anim: "carry", route: [[192.5, 132.5], [192.5, 161.5]] },
+      { key: "ba", char: "woodcutter", i: 183, j: 137, dir: 4, anim: "chop" },
+      { key: "shun", char: "boy", i: 189, j: 152, dir: 2, anim: "kick", outfit: festive },
+      { key: "lianhua", name: "Lianhua", char: "villagerF", i: 190, j: 144, dir: 2, wander: 1, outfit: festive },
+      { key: "hawker", name: "Hawker Sun", char: "villagerM", i: 194, j: 137, dir: 6 },
+      { key: "willowguard", name: "Watchman Tie", char: "guard", i: 190, j: 159, dir: 2 },
+      { key: "noodleseller", name: "Noodle Seller Ma", char: "cook", i: 189, j: 142, dir: 4 },
+    );
+    it("market-sign", "sign", 194, 160, "Willow Creek market road. “Noodles, firewood, gossip. Fresh every morning, except the gossip, which is fresh every hour.”");
+  }
+  // the Azure Cloud Sect's terraces: the disciples' court, the taiji yard and the sword garden
+  {
+    const [cx, cy] = ISLES[3].c;
+    P("house", cx - 4, cy - 4);
+    P("house", cx - 4, cy + 2);
+    P("house", cx + 1, cy + 5);
+    P("pagoda", cx + 3, cy - 5);
+    P("well", cx - 2, cy - 1);
+    P("noodlecart", cx + 4, cy + 3);
+    P("laundry", cx - 2, cy + 7);
+    P("lantern", cx + 5, cy - 2);
+    P("lantern", cx + 5, cy + 2);
+    P("cherry", cx - 7, cy);
+    npcs.push(
+      { key: "pang", char: "cook", i: cx + 3, j: cy + 2, dir: 2 },
+      { key: "chen", name: "Disciple Chen", char: "discipleM", i: cx + 1, j: cy - 3, dir: 2, anim: "kick" },
+      { key: "xiu", name: "Disciple Xiu", char: "discipleF", i: cx, j: cy + 1, dir: 6, wander: 1.5 },
+    );
+    it("court-stele", "sign", cx + 6, cy + 1, "The Disciples' Court. “Lights out at the second watch. No sword practice in the dormitories. No flying to breakfast.” Someone has added: “No kicking shuttlecocks at the cook.”");
+    const [tx, ty] = ISLES[4].c;
+    P("drum", tx - 4, ty - 3);
+    P("censer", tx, ty - 4);
+    P("fountain", tx + 4, ty - 2);
+    P("pine", tx - 5, ty + 2);
+    npcs.push(
+      { key: "qiu", char: "taiji", i: tx, j: ty - 1, dir: 2, anim: "taichi" },
+      { key: "wei", name: "Disciple Wei", char: "discipleM", i: tx - 2, j: ty + 2, dir: 2, anim: "taichi" },
+      { key: "rou", name: "Disciple Rou", char: "discipleF", i: tx + 2, j: ty + 2, dir: 2, anim: "taichi" },
+    );
+    const [sx, sy] = ISLES[5].c;
+    P("target", sx - 3, sy - 3);
+    P("target", sx, sy - 4);
+    P("target", sx + 3, sy - 3);
+    P("dummy", sx - 4, sy + 2);
+    P("bell", sx + 4, sy + 3);
+    P("banner", sx - 2, sy + 4);
+    npcs.push({ key: "jian", name: "Disciple Jian", char: "discipleM", i: sx - 1, j: sy, dir: 8, anim: "practice" }, { key: "su2", name: "Disciple Su", char: "discipleF", i: sx + 2, j: sy + 1, dir: 8, anim: "practice" });
+    it("garden-herb", "herb", sx + 1, sy + 4);
+    mark("terraces-sect", "Sect Terraces", "宗门台", "pagoda", cx, cy);
+  }
+  // the Rainbow Bridge over the gorge, with a paifang at its eastern end
+  {
+    P("gate", 353, 166);
+    P("lantern", 313, 163);
+    P("lantern", 313, 169);
+    P("lantern", 351, 163);
+    P("lantern", 351, 169);
+    it("bridge-stele", "sign", 310, 162, "The Rainbow Bridge. “When the great waterfall catches the morning sun, the bridge stands in a rainbow, and travellers who cross it then are said to have good fortune for a year.” → East: the steppe, Frostveil Monastery and Wavecrest Harbour.");
+    it("bridge-shrine", "shrine", 355, 162);
+    mark("rainbow", "Rainbow Bridge", "虹桥", "gate", 332, 166);
+  }
+  // the herders' camp on the eastern steppe
+  {
+    const [x, y] = [470, 166];
+    P("tent", x - 3, y - 3);
+    P("tent", x + 3, y - 3);
+    P("tent", x + 4, y + 3);
+    P("campfire", x, y);
+    P("banner", x - 4, y + 2);
+    P("fence", x - 5, y + 4);
+    P("fence", x - 4, y + 4);
+    npcs.push({ key: "herder", name: "Herder Altan", char: "villagerM", i: x - 2, j: y + 2, dir: 2, wander: 1 }, { key: "oyun", name: "Oyun", char: "villagerF", i: x + 2, j: y + 1, dir: 14, anim: "pour" });
+    it("steppe-chest", "chest", x + 6, y - 1);
+    critters.push(...([[480, 180], [483, 183], [478, 186], [486, 179]] as [number, number][]).map(([i, j], k): Critter => ({ key: `horse-steppe-${k}`, char: "horse", i, j })));
+    mark("steppe", "Herders' Camp", "牧民营", "tent", x, y);
+  }
+  // the woodcutters' lodge in the maple woods
+  {
+    const [x, y] = [430, 282];
+    P("house", x - 5, y - 3);
+    P("cart", x + 3, y - 2);
+    P("sacks", x + 4, y + 2);
+    P("campfire", x + 1, y + 3);
+    P("lantern", x - 1, y - 4);
+    npcs.push({ key: "gao", name: "Woodcutter Gao", char: "villagerM", i: x, j: y + 1, dir: 4, anim: "chop" });
+    it("lodge-herb", "herb", x - 4, y + 4);
+    mark("lodge", "Woodcutters' Lodge", "伐木屋", "house", x, y);
+  }
+  // the plum blossom shrine in the southern hills, where a poet comes to write
+  {
+    const [x, y] = [132, 400];
+    P("pavilion", x - 1, y - 2);
+    P("fountain", x + 4, y + 2);
+    P("butterflies", x - 4, y + 3);
+    P("lantern", x + 3, y - 3);
+    for (const [dx2, dy2] of [
+      [-5, -4],
+      [5, -5],
+      [-6, 1],
+      [6, 4],
+      [-2, 6],
+    ] as [number, number][])
+      P("cherry", x + dx2, y + dy2);
+    npcs.push({ key: "yan", name: "Poet Yan", char: "lady", i: x + 1, j: y + 2, dir: 2, anim: "umbrella" });
+    it("plum-shrine", "shrine", x - 4, y - 1);
+    it("plum-stele", "sign", x + 2, y - 4, "A poem brushed on a board under the eaves: “The plum does not wait for spring. It blooms in the snow, and spring comes running to catch up.”");
+    mark("plum", "Plum Blossom Shrine", "梅花祠", "cherry", x, y);
+  }
+  // the red cliff hideout in the badlands, where the desert raiders lie up
+  {
+    const [x, y] = [524, 400];
+    P("tent", x - 3, y - 3);
+    P("tent", x + 3, y - 3);
+    P("campfire", x, y);
+    P("banner", x + 4, y + 2);
+    P("barrels", x - 4, y + 2);
+    it("redcliff-chest", "chest", x + 1, y + 4);
+    enemies.push(
+      { key: "cliff-bandit-1", enemy: "bandit", i: x - 2, j: y + 2, range: 2 },
+      { key: "cliff-bandit-2", enemy: "bandit", i: x + 2, j: y - 1, range: 2 },
+      { key: "cliff-bandit-3", enemy: "bandit", i: x - 6, j: y - 5, range: 2.5 },
+    );
+    mark("redcliff", "Red Cliff Hideout", "赤崖寨", "tent", x, y);
+  }
+  // the wayside inn on the southern road
+  {
+    const [x, y] = [110, 300];
+    P("house", x - 4, y - 3);
+    P("bench", x + 3, y - 2);
+    P("noodlecart", x + 2, y + 2);
+    P("redlantern", x - 1, y + 2);
+    P("lanterns", x, y - 4);
+    npcs.push({ key: "innkeeper", name: "Innkeeper Zhao", char: "villagerF", i: x, j: y + 1, dir: 2, wander: 1 }, { key: "restporter", name: "Porter Lao", char: "porter", i: x + 3, j: y, dir: 6, anim: "eat" });
+    mark("inn", "Wayside Inn", "客栈", "house", x, y);
+  }
+  // treasure, beasts and birds out in the new lands
+  for (const [k, i, j] of [
+    [10, 40, 250],
+    [11, 160, 380],
+    [12, 300, 300],
+    [13, 400, 250],
+    [14, 520, 120],
+    [15, 600, 300],
+    [16, 380, 420],
+    [17, 240, 420],
+  ] as [number, number, number][])
+    it(`wild-herb-${k}`, "herb", i, j);
+  for (const [k, i, j] of [
+    [6, 20, 440],
+    [7, 250, 350],
+    [8, 460, 300],
+    [9, 620, 160],
+    [10, 560, 430],
+    [11, 380, 90],
+  ] as [number, number, number][])
+    it(`wild-chest-${k}`, "chest", i, j);
+  enemies.push(
+    { key: "wild-wolf-4", enemy: "wolf", i: 420, j: 296, range: 2 },
+    { key: "wild-wolf-5", enemy: "wolf", i: 540, j: 300, range: 2 },
+    { key: "wild-wolf-6", enemy: "wolf", i: 560, j: 100, range: 2 },
+    { key: "wild-fox-3", enemy: "fox", i: 170, j: 410, range: 2 },
+    { key: "wild-serpent-2", enemy: "serpent", i: 30, j: 330, range: 1.5 },
+    { key: "wild-jiangshi-1", enemy: "jiangshi", i: 100, j: 420, range: 2 },
+    { key: "wild-bandit-1", enemy: "bandit", i: 380, j: 186, range: 2 },
+    { key: "wild-cultist-2", enemy: "cultist", i: 62, j: 252, range: 2 },
+  );
+  critters.push(
+    { key: "crane-w4", char: "crane", i: 600, j: 210 },
+    { key: "crane-w5", char: "crane", i: 90, j: 360 },
+    { key: "crane-w6", char: "crane", i: 230, j: 400 },
+    { key: "bat-w4", char: "bat", i: 500, j: 420 },
+  );
+
   // Willow Creek's festival: fireworks over the square once the Heart is home
   {
     const homecoming = (f: Record<string, boolean>) => !!f.heartReturned;
@@ -636,7 +966,8 @@ function buildWorld(): WorldDef {
   P("lantern", nx - 3, vy - 6);
   P("lantern", nx + 3, vy - 6);
   P("lantern", gx - 2, gy + 1);
-  for (let x = 16; x < 310; x += 14) {
+  for (let x = 16; x < 586; x += 14) {
+    if (x > GORGE[0] - 4 && x < GORGE[1] + 4) continue;
     const [i, j] = [x, Math.round(roadY(x)) + (x % 28 === 2 ? -3 : 3)];
     P(x < 60 ? "brazier" : "lantern", i, j);
   }
@@ -717,7 +1048,7 @@ function buildWorld(): WorldDef {
   };
   m.each((i, j) => {
     const idx = j * COARSE_W + i;
-    const r = wildOf.get(idx);
+    const r = WILD_IDS[wildOf[idx] - 1];
     if (!r || fixed[idx] || taken.has(idx)) return;
     const k = m.kind(i, j);
     if (k === "void" || LIQUID[k] || k === "sand") return;
@@ -790,18 +1121,26 @@ function buildWorld(): WorldDef {
 
   // 13. which region owns each tile
   const regionOf = new Uint8Array(WORLD_W * WORLD_H);
-  fine.each((i, j) => {
-    let best = 0;
-    let bd = Infinity;
-    AREA_IDS.forEach((id, n) => {
-      const d = rectDistance(id, i + 0.5, j + 0.5);
-      if (d < bd - 1e-6) {
-        bd = d;
-        best = n;
+  // each region's template and wider lands as flat world rectangles, so the million tiles go quickly
+  const holds = AREA_IDS.flatMap((id, n) => [regionRect(id), ...(DOMAIN[id] ?? []).map((r) => r.map((v) => v * S))].map((r) => [n, ...r]));
+  for (let j = 0; j < WORLD_H; j++)
+    for (let i = 0; i < WORLD_W; i++) {
+      if (fine.kinds[j * WORLD_W + i] === 0) continue;
+      const x = i + 0.5;
+      const y = j + 0.5;
+      let best = 0;
+      let bd = Infinity;
+      for (const [n, x0, y0, x1, y1] of holds) {
+        const dx = Math.max(x0 - x, 0, x - x1);
+        const dy = Math.max(y0 - y, 0, y - y1);
+        const d = Math.sqrt(dx * dx + dy * dy);
+        if (d < bd - 1e-6) {
+          bd = d;
+          best = n;
+        }
       }
-    });
-    regionOf[j * WORLD_W + i] = best;
-  });
+      regionOf[j * WORLD_W + i] = best;
+    }
 
   const waypoints = {} as Record<AreaId, [number, number]>;
   for (const id of AREA_IDS) waypoints[id] = toWorld(id, ...regions[id].arrive);

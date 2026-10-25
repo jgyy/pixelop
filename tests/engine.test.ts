@@ -182,4 +182,11 @@ describe("battle", () => {
     const b = { ...startBattle("fox", 1), phase: "won" as const };
     expect(resolveTurn(newGame(), b, { type: "flee" }).events[0].kind).toBe("rejected");
   });
+
+  it("keeps version 5 saves where they were when the world doubled again, and accepts spots in the new lands", () => {
+    const old = GameStateSchema.parse({ ...newGame(), area: "village", x: (176 + 16.5) * 2, y: (98 + 10.5) * 2 });
+    expect([old.x, old.y]).toEqual(toWorld("village", 16.5, 10.5));
+    const harbour = GameStateSchema.safeParse({ ...newGame(), area: "harbor", ...Object.fromEntries(["x", "y"].map((k, n) => [k, toWorld("harbor", 10, 16)[n]])) });
+    expect(harbour.success).toBe(true);
+  });
 });

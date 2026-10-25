@@ -197,4 +197,56 @@ describe("story", () => {
     g = run(g, npcScript("ou", g));
     expect(g.flags.ouMail).toBe(true);
   });
+
+  it("opens the new lands as the tale moves on: the near south at once, the far roads after Willow Creek, the snows at Foundation", () => {
+    const g = { ...newGame(), flags: { metElder: true } };
+    expect(areaUnlocked("terraces", g)).toBe(true);
+    expect(areaUnlocked("marsh", g)).toBe(true);
+    expect(areaUnlocked("desert", g)).toBe(false);
+    expect(areaUnlocked("harbor", g)).toBe(false);
+    expect(lockReason("frost", g)).toMatch(/Foundation/);
+    const later = { ...g, realm: 1, flags: { ...g.flags, metZhou: true } };
+    for (const id of ["desert", "harbor", "frost"] as const) expect(areaUnlocked(id, later), id).toBe(true);
+    // and each greets her once
+    for (const id of ["marsh", "terraces", "desert", "harbor", "frost"] as const) {
+      const first = arrivalScript(id, later)!;
+      expect(first, id).not.toBeNull();
+      expect(arrivalScript(id, run(later, first)), id).toBeNull();
+    }
+  });
+
+  it("Captain Hai's errand: a peach from Rong's oldest tree earns the Sea-Swallow Coat", () => {
+    let g: GameState = { ...newGame(), flags: { metElder: true, rongGift: true } };
+    expect(hasNews("hai", g)).toBe(true);
+    g = run(g, npcScript("hai", g));
+    expect(errand(g)).toMatch(/peach/);
+    expect(hasNews("rong", g)).toBe(true);
+    g = run(g, npcScript("rong", g));
+    expect(g.flags.haiPeach).toBe(true);
+    expect(errand(g)).toMatch(/Captain Hai/);
+    g = run(g, npcScript("hai", g));
+    expect(g.flags.haiCoat).toBe(true);
+    expect(currentAttire(g).id).toBe("seafarer");
+    expect(hasNews("hai", g)).toBe(false);
+    // the coat went on the end of the wardrobe, so older saves' attire counters still mean what they did
+    expect(ATTIRE.findIndex((a) => a.id === "celestial")).toBe(6);
+  });
+
+  it("the new teachers and hosts give their gifts once", () => {
+    let g: GameState = { ...newGame(), flags: { metElder: true } };
+    for (const [key, flag] of [
+      ["qiu", "qiuForm"],
+      ["pang", "pangMeal"],
+      ["ye", "yeCharm"],
+      ["luyu", "luyuTea"],
+      ["batu", "batuSong"],
+      ["xuan", "xuanTaiji"],
+      ["herder", "herderMilk"],
+    ] as const) {
+      expect(hasNews(key, g), key).toBe(true);
+      g = run(g, npcScript(key, g));
+      expect(g.flags[flag], key).toBe(true);
+      expect(hasNews(key, g), key).toBe(false);
+    }
+  });
 });

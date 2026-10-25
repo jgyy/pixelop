@@ -1,6 +1,7 @@
 /**
  * Export the procedural art as PNG stills and animated GIF showcases into
- * docs/art (used by the README and PR). Run: `npm run assets [outDir]`.
+ * docs/art (used by the README and PR). Run: `npm run assets [outDir]`
+ * (add `--overview` for the picture of the whole world, `--quick` for short loops).
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -22,6 +23,8 @@ import { writePng } from "./lib";
 
 const OUT = path.resolve(process.argv[2] ?? "docs/art");
 const QUICK = process.argv.includes("--quick");
+/** The picture of the whole world paints every one of its million tiles, so it is only made when asked for. */
+const OVERVIEW = process.argv.includes("--overview");
 mkdirSync(OUT, { recursive: true });
 const BG = "#2a2048";
 const CELL_BG = "#241a40";
@@ -146,6 +149,22 @@ const newest: [CharId, AnimId][] = [
   ["orchardist", "gather"],
 ];
 writeGif("new-moves.gif", showcase(newest.map(([id, anim]): Cell => ({ id, anim, dir: 1, label: `${charDef(id).name.split(" ").pop()} ${anim}`, outfit: anim === "lantern" ? "festival" : undefined })), 6, 2, seconds), 12);
+// the doubled world's work and play: hoeing, chopping, the carrying pole, shuttlecock, the paper umbrella and taiji
+const jianghu: [CharId, AnimId][] = [
+  ["farmer", "hoe"],
+  ["villagerM", "hoe"],
+  ["woodcutter", "chop"],
+  ["porter", "carry"],
+  ["teapicker", "carry"],
+  ["boy", "kick"],
+  ["heroine", "kick"],
+  ["lady", "umbrella"],
+  ["heroine", "umbrella"],
+  ["taiji", "taichi"],
+  ["abbot", "taichi"],
+  ["heroine", "taichi"],
+];
+writeGif("jianghu-moves.gif", showcase(jianghu.map(([id, anim]): Cell => ({ id, anim, dir: 1, label: `${charDef(id).name.split(" ").pop()} ${anim}` })), 6, 2, seconds), 12);
 
 // 2. Portraits
 const portraitIds = HUMAN_IDS.filter((id) => charDef(id).portrait);
@@ -224,11 +243,34 @@ if (!QUICK) {
   const right = isoX(WORLD_W, 0) + 40;
   const top = isoY(0, 0, 12) - 40;
   const bottom = isoY(WORLD_W, WORLD_H) + 120;
-  const big = new PixelBuffer(right - left, bottom - top);
-  world.camX = -left;
-  world.camY = -top;
-  world.render(new BufferSurface(big), 2);
-  writePng(half(half(half(big))), path.join(OUT, "world-overview.png"));
+  // the whole world is far too big for one buffer: paint it a patch at a time and keep every 16th pixel
+  if (OVERVIEW) {
+    const K = 16;
+    const CHUNK = 2048;
+    const overview = new PixelBuffer(Math.ceil((right - left) / K), Math.ceil((bottom - top) / K));
+    const patch = new PixelBuffer(CHUNK, CHUNK);
+    // one sky for every patch: the village's
+    world.envPoint = toWorld("village", 16, 16);
+    world.backdrop = "#8ab4e8";
+    for (let y0 = 0; y0 < bottom - top; y0 += CHUNK)
+      for (let x0 = 0; x0 < right - left; x0 += CHUNK) {
+        patch.fill("#000000");
+        world.camX = -left - x0;
+        world.camY = -top - y0;
+        world.render(new BufferSurface(patch), 2);
+        for (let y = 0; y < CHUNK / K; y++)
+          for (let x = 0; x < CHUNK / K; x++) {
+            const ox = x0 / K + x;
+            const oy = y0 / K + y;
+            if (ox >= overview.width || oy >= overview.height) continue;
+            const i = (y * K * CHUNK + x * K) * 4;
+            overview.data.set(patch.data.subarray(i, i + 4), (oy * overview.width + ox) * 4);
+          }
+      }
+    writePng(overview, path.join(OUT, "world-overview.png"));
+    world.envPoint = null;
+    world.backdrop = null;
+  }
 
   const walk: PixelBuffer[] = [];
   for (let i = 0; i < 72; i++) {

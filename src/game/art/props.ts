@@ -1071,12 +1071,12 @@ const PROPS = {
       // the warp threads, with a tapestry growing up them
       r.convex(
         [
-          { n: [0, -1, 0], d: 6.3 },
-          { n: [0, 1, 0], d: -5.7 },
-          { n: [-1, 0, 0], d: 8 },
-          { n: [1, 0, 0], d: 8 },
-          { n: [0, 0, -1], d: -12 },
-          { n: [0, 0, 1], d: 22.5 },
+          { n: [0, -1, 0] as V3, d: 6.3 },
+          { n: [0, 1, 0] as V3, d: -5.7 },
+          { n: [-1, 0, 0] as V3, d: 8 },
+          { n: [1, 0, 0] as V3, d: 8 },
+          { n: [0, 0, -1] as V3, d: -12 },
+          { n: [0, 0, 1] as V3, d: 22.5 },
         ],
         [-8, -6.3, 12],
         [8, -5.7, 22.5],
@@ -1583,6 +1583,355 @@ const PROPS = {
         // the sparks thin out and wink as the burst fades
         if (k > 0.75 && (s + f) % 3 === 0) continue;
         r.sweep([tail, tip], [0.3, k > 0.8 ? 0.6 : 1.3], m(cols[s % cols.length], 3, { outline: undefined }));
+      }
+    },
+  },
+  // a clipped row of tea bushes on the terraces, shivering in the hill wind, new leaves bright at the tips
+  teabush: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 6,
+    fps: 4,
+    paint: (r, f, n) => {
+      const tea = ramp("#4a9a4a", { lo: "#103a26" });
+      for (let k = 0; k < 3; k++) {
+        const x = -7 + k * 7;
+        const sw = swayAt(f + k, n, 10, 0.9);
+        r.ellipsoid(add([x, -x * 0.2, 6], sw), [6, 6, 6.4], md(tea, 1 + k, { shader: (s, tone) => (s.n[2] > 0.55 && hash2(Math.floor(s.p[0] * 0.8), Math.floor(s.p[1] * 0.8), 7) > 0.6 ? tone(ramp("#a8e070", { lo: "#3a6a2a" })) : leafShader(tea, k + 11)(s, tone)) }));
+      }
+    },
+  },
+  // three koi circling just under the surface of a pond, flicking their tails
+  koi: {
+    foot: [0, 0, 0, 0],
+    blocks: false,
+    frames: 12,
+    fps: 6,
+    paint: (r, f, n) => {
+      const cols = [PAL.orange, PAL.white, PAL.gold];
+      for (let k = 0; k < 3; k++) {
+        const a = (f / n) * TAU + (k * TAU) / 3;
+        const rad = 6 + k * 1.6;
+        const c: V3 = [Math.cos(a) * rad, Math.sin(a) * rad, -1.2];
+        const d: V3 = [-Math.sin(a), Math.cos(a), 0];
+        const flick = Math.sin((f / n) * TAU * 4 + k) * 0.8;
+        const tail: V3 = [c[0] - d[0] * 4 + d[1] * flick, c[1] - d[1] * 4 - d[0] * flick, -1.2];
+        r.sweep([add(c, [d[0] * 2.6, d[1] * 2.6, 0]), c, tail], [1.3, 1.5, 0.4], m(cols[k], 1 + k, { outline: undefined, shader: (s, tone) => (k === 1 && hash2(Math.floor(s.p[0]), Math.floor(s.p[1]), 3) > 0.6 ? tone(PAL.red) : tone(cols[k])) }));
+        r.sweep([tail, add(tail, [-d[0] * 1.6 + d[1] * flick, -d[1] * 1.6 - d[0] * flick, 0])], [1.2, 0.2], m(cols[k], 1 + k, { outline: undefined }));
+      }
+    },
+  },
+  // butterflies dancing over a patch of wildflowers
+  butterflies: {
+    foot: [0, 0, 0, 0],
+    blocks: false,
+    frames: 8,
+    fps: 8,
+    paint: (r, f, n) => {
+      for (let k = 0; k < 6; k++) {
+        const a = k * 1.1;
+        r.sweep([[Math.cos(a) * 6, Math.sin(a) * 6, 0], [Math.cos(a) * 6, Math.sin(a) * 6, 3]], 0.3, m(PAL.green, 1));
+        r.sphere([Math.cos(a) * 6, Math.sin(a) * 6, 3.4], 1, m([PAL.rose, PAL.gold, PAL.white][k % 3], 1));
+      }
+      const wings = [PAL.gold, tones("#ffffff", "#c8e8ff", "#7aa8e8", "#3a5aa8"), PAL.rose];
+      for (let k = 0; k < 3; k++) {
+        const ph = (f / n) * TAU + k * 2.1;
+        const c: V3 = [Math.cos(ph) * (7 + k * 2), Math.sin(ph * 2) * 5, 10 + k * 4 + Math.sin(ph * 3) * 2.4];
+        const flap = f % 2 === k % 2 ? 2.4 : 0.6;
+        for (const s of [-1, 1]) r.ellipsoid(add(c, [s * 1.4, -s * 1.4, flap * 0.5]), [1.8, 1.8, flap], m(wings[k], 2 + k, { outline: undefined }));
+        r.sphere(c, 0.5, m(PAL.black, 2 + k, { outline: undefined }));
+      }
+    },
+  },
+  // a junk riding at anchor: battened sails stirring, a lantern at the stern, bobbing on the swell
+  ship: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 6,
+    fps: 3,
+    light: { color: "#ffb060", radius: 26, dy: 22 },
+    paint: (r, f, n) => {
+      const ph = (f / n) * TAU;
+      const bob = Math.sin(ph) * 0.8;
+      const roll = Math.sin(ph) * 0.06;
+      const hull = ramp("#8a4a2a", { lo: "#2a0a10" });
+      r.ellipsoid([0, 0, 2 + bob], [8, 22, 5], m(hull, 1, { shader: (s, tone) => (s.n[2] > 0.75 ? tone(PAL.wood) : Math.abs(s.p[2] - 3 - bob) < 0.6 ? tone(PAL.red) : tone(hull)) }));
+      r.box([-6, 10, 3 + bob], [6, 20, 11 + bob], m(PAL.woodDark, 2));
+      r.hipRoof(0, 15, 7, 6, 11 + bob, 4, 3, 15 + bob, m(ROOF_RED, 3));
+      for (const [y, h, w] of [
+        [-6, 46, 9],
+        [5, 38, 7],
+      ] as [number, number, number][]) {
+        const top: V3 = [roll * h, y, h + bob];
+        r.sweep([[0, y, 3 + bob], top], 0.8, m(PAL.woodDark, 4));
+        const billow = Math.sin(ph + y) * 1.2;
+        // a battened sail of red-brown matting
+        r.convex(
+          [
+            { n: [1, 0, 0] as V3, d: 0.8 + billow + roll * h },
+            { n: [-1, 0, 0] as V3, d: 0.8 - billow - roll * h },
+            { n: [0, 1, 0] as V3, d: y + w },
+            { n: [0, -1, 0] as V3, d: -(y - w) },
+            { n: [0, 0, 1] as V3, d: h - 1 + bob },
+            { n: [0, 0, -1] as V3, d: -(h * 0.35 + bob) },
+          ],
+          [-1 + billow + roll * h, y - w, h * 0.35 + bob],
+          [1 + billow + roll * h, y + w, h + bob],
+          m(ramp("#b0603a", { lo: "#3a1420" }), 5, { shader: (s, tone) => (Math.sin(s.p[2] * 1.1) > 0.85 ? tone(PAL.woodDark) : tone(ramp("#b0603a", { lo: "#3a1420" }))) }),
+        );
+      }
+      r.ellipsoid([0, 21, 15 + bob], [1.4, 1.4, 1.8], m(PAL.red, 6));
+    },
+  },
+  // a stone lighthouse on the harbour point: its lamp turns, throwing a beam over the sea
+  lighthouse: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 8,
+    fps: 4,
+    light: { color: "#fff0a0", radius: 56, dy: 70 },
+    paint: (r, f, n) => {
+      const tower = md(WALL, 1, { shader: (s, tone) => (Math.floor(s.p[2] / 12) % 2 ? tone(PAL.red) : tone(WALL)) });
+      r.prism(0, 0, 10, 0, 4, 8, m(PAL.stone, 1));
+      r.cone(0, 0, 8, 4, 5, 60, 10, tower);
+      r.prism(0, 0, 7, 60, 62, 8, m(PAL.woodDark, 2));
+      r.prism(0, 0, 4.4, 62, 70, 8, m(tones("#fffbe0", "#fff0a0", "#f2c55c", "#c08a30"), 3, { outline: undefined }));
+      r.cone(0, 0, 6.6, 70, 0.6, 77, 8, md(ROOF_RED, 4));
+      // the beam sweeps round, long when it points across the screen
+      const a = (f / n) * TAU;
+      const d: V3 = [Math.cos(a), Math.sin(a), 0];
+      r.sweep([[d[0] * 4, d[1] * 4, 66], [d[0] * 34, d[1] * 34, 64]], [1.6, 5], m(tones("#ffffff", "#fffbe0", "#fff0a0", "#f2c55c"), 5, { outline: undefined }));
+    },
+  },
+  // a great bronze incense burner on three legs, its smoke curling up
+  censer: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    emit: "incense",
+    paint: (r) => {
+      for (let k = 0; k < 3; k++) {
+        const a = (k / 3) * TAU + 0.4;
+        r.sweep([[Math.cos(a) * 5, Math.sin(a) * 5, 0], [Math.cos(a) * 4, Math.sin(a) * 4, 6]], [1.4, 1], m(BRONZE, 1));
+      }
+      r.ellipsoid([0, 0, 10], [8, 8, 5.6], md(BRONZE, 2, { shader: (s, tone) => (Math.abs(s.p[2] - 10) < 0.7 ? tone(PAL.gold) : tone(BRONZE)) }));
+      for (const s of [-1, 1]) r.sweep([[s * 7, -s * 7, 13], [s * 8.4, -s * 8.4, 17]], 0.9, m(BRONZE, 3));
+      r.cone(0, 0, 6, 15, 2.6, 21, 8, md(BRONZE, 4));
+      r.sphere([0, 0, 22], 1.6, m(PAL.gold, 5));
+      for (let k = 0; k < 3; k++) r.sweep([[-2 + k * 2, 0, 15], [-2 + k * 2, 0, 22]], 0.25, m(PAL.red, 6));
+    },
+  },
+  // a house raised on stilts over the marsh, with a ladder and a reed-thatched roof
+  stilthouse: {
+    foot: [0, 0, 1, 1],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    emit: "smoke",
+    paint: (r) => {
+      const cx = T / 2;
+      const cy = T / 2;
+      const W = T * 0.75;
+      for (const sx of [-1, 1]) for (const sy of [-1, 1]) r.sweep([[cx + sx * W, cy + sy * W, -2], [cx + sx * W, cy + sy * W, 12]], 1.3, m(PAL.woodDark, 1));
+      r.box([cx - W - 3, cy - W - 3, 11], [cx + W + 3, cy + W + 3, 13], m(PAL.wood, 2));
+      r.box([cx - W, cy - W, 13], [cx + W, cy + W, 30], md(ramp("#b08a5a", { lo: "#4a2a2a" }), 3, { shader: (s, tone) => {
+        const fx = Math.abs(s.n[0]) > 0.5;
+        const along = fx ? s.p[1] - cy : s.p[0] - cx;
+        if (fx && s.n[0] > 0 && Math.abs(along) < 3.6 && s.p[2] < 25) return tone(PAL.woodDark);
+        if (!fx && Math.abs(along) < 3 && Math.abs(s.p[2] - 22) < 2.4) return "#ffd890";
+        return Math.sin(along * 1.4) > 0.8 ? tone(ramp("#b08a5a"), 1) : tone(ramp("#b08a5a"));
+      } }));
+      r.hipRoof(cx, cy, W + 6, W + 6, 30, W * 0.2, W * 0.2, 46, md(PAL.straw, 4, { shader: strawShaderProp }));
+      // a ladder down to the water's edge by the door
+      for (const o of [-2.4, 2.4]) r.sweep([[cx + W + 3, cy + o, 12], [cx + W + 9, cy + o, -1]], 0.5, m(PAL.wood, 5));
+      for (let k = 1; k < 4; k++) r.sweep([[cx + W + 3 + k * 1.5, cy - 2.4, 12 - k * 3.2], [cx + W + 3 + k * 1.5, cy + 2.4, 12 - k * 3.2]], 0.35, m(PAL.wood, 5));
+    },
+  },
+  // a rack of fish drying in the sea wind, swinging on their strings
+  fishrack: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 6,
+    fps: 4,
+    paint: (r, f, n) => {
+      for (const s of [-1, 1]) r.sweep([[s * 9, -s * 9, 0], [s * 9, -s * 9, 20]], 0.8, m(PAL.woodDark, 1));
+      r.sweep([[-10, 10, 19], [10, -10, 19]], 0.6, m(PAL.wood, 2));
+      for (let k = 0; k < 5; k++) {
+        const u = -7 + k * 3.5;
+        const sw = Math.sin((f / n) * TAU + k * 1.2) * 1.2;
+        const top: V3 = [u, -u, 19];
+        const fish: V3 = [u + sw * 0.7, -u - sw * 0.7, 12];
+        r.sweep([top, add(fish, [0, 0, 3])], 0.15, m(PAL.black, 3 + k));
+        r.sweep([add(fish, [0, 0, 3]), fish, add(fish, [0, 0, -3])], [0.6, 1.4, 0.3], m(tones("#e8eef8", "#a8b8c8", "#6a7a8a", "#3a4a5a"), 3 + k));
+        r.sweep([add(fish, [0, 0, -3]), add(fish, [0.8, -0.8, -4.4])], [0.9, 0.2], m(tones("#e8eef8", "#a8b8c8", "#6a7a8a", "#3a4a5a"), 3 + k));
+      }
+    },
+  },
+  // a pine under a fresh fall of snow, swaying stiffly
+  snowpine: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 6,
+    fps: 3,
+    paint: (r, f, n) => {
+      r.sweep([[0, 0, 0], [0, 0, 26]], [2.4, 1.2], m(BARK, 1));
+      for (let i = 0; i < 4; i++) {
+        const z = 12 + i * 9;
+        const sw = swayAt(f, n, z, 1.2);
+        r.cone(sw[0], sw[1], 12 - i * 2.4, z, 1.6 - i * 0.3, z + 13, 9, md(PINE, 2 + i, { shader: (s, tone) => (s.n[2] > 0.55 ? tone(PAL.white, s.n[2] > 0.8 ? -1 : 0) : tone(PINE, 1)) }), i * 0.4);
+      }
+    },
+  },
+  // a whitewashed stupa with a gilded spire, prayer flags fluttering from its tip
+  stupa: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 4,
+    fps: 4,
+    paint: (r, f, n) => {
+      r.box([-11, -11, 0], [11, 11, 5], md(WALL, 1));
+      r.box([-8, -8, 5], [8, 8, 9], md(WALL, 1));
+      r.ellipsoid([0, 0, 9], [8, 8, 9], md(WALL, 2));
+      r.box([-3, -3, 17], [3, 3, 20], m(PAL.red, 3));
+      r.cone(0, 0, 2.6, 20, 0.6, 36, 8, m(PAL.gold, 4, { shader: (s, tone) => (Math.sin(s.p[2] * 1.6) > 0.6 ? tone(PAL.gold, 1) : tone(PAL.gold)) }));
+      const flags = [PAL.blue, PAL.white, PAL.red, PAL.green, PAL.gold];
+      for (const dir of [-1, 1]) {
+        const end: V3 = [dir * 18, dir * 2, 4];
+        for (let k = 0; k < 5; k++) {
+          const u = (k + 0.5) / 5;
+          const p: V3 = [end[0] * u, end[1] * u, 34 - (34 - end[2]) * u - Math.sin(u * Math.PI) * 4];
+          const flap = Math.sin((f / n) * TAU + k + dir) * 1.2;
+          r.box(add(p, [-1.2, -0.3, -3]), add(p, [1.2 + flap * 0.3, 0.3 + flap, 0]), m(flags[k], 5 + k, { outline: undefined }));
+        }
+        r.sweep([[0, 0, 34], end], 0.15, m(PAL.black, 5));
+      }
+    },
+  },
+  // a noodle cart with a bubbling pot, steam rising off the broth
+  noodlecart: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 4,
+    fps: 5,
+    emit: "steam",
+    light: { color: "#ffb060", radius: 22, dy: 18 },
+    paint: (r, f) => {
+      r.box([-8, -6, 4], [8, 6, 12], m(PAL.wood, 1, { shader: (s, tone) => (Math.abs(s.n[1]) > 0.5 && Math.abs(s.p[0]) < 5 && Math.abs(s.p[2] - 8) < 2 ? tone(PAL.red) : tone(PAL.wood)) }));
+      for (const x of [-6, 6]) r.prism(x, 7, 3.4, 1, 2.4, 10, m(PAL.woodDark, 2), Math.PI / 2);
+      r.prism(-3, 0, 4, 12, 16, 10, m(ramp("#4a4a5a", { lo: "#141420" }), 3, { shader: (s, tone) => (s.n[2] > 0.5 ? tone(f % 2 ? PAL.paper : PAL.straw) : tone(ramp("#4a4a5a"))) }));
+      for (const s of [-1, 1]) r.sweep([[s * 8, -6, 12], [s * 8, -6, 26]], 0.6, m(PAL.woodDark, 4));
+      r.box([-10, -8, 26], [10, 2, 27], m(PAL.red, 5));
+      r.ellipsoid([5, 0, 13], [2, 2, 1.2], m(PAL.white, 6));
+      r.ellipsoid([7, 3, 13], [1.6, 1.6, 1], m(PAL.white, 6));
+      r.ellipsoid([8, -6, 23], [1.6, 1.6, 2], m(PAL.red, 7));
+    },
+  },
+  // a straw archery butt on a stand, a couple of arrows still in it
+  target: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      for (const s of [-1, 1]) r.sweep([[s * 4, -4, 0], [s * 3, 0, 18]], 0.7, m(PAL.woodDark, 1));
+      r.sweep([[0, 4, 0], [0, 0.5, 16]], 0.7, m(PAL.woodDark, 1));
+      r.ellipsoid([0, 0, 16], [7.6, 1.6, 7.6], m(PAL.straw, 2, { shader: (s, tone) => {
+        const rr = Math.hypot(s.p[0], s.p[2] - 16);
+        if (s.n[1] < 0.6) return tone(PAL.straw);
+        return rr < 1.8 ? tone(PAL.gold) : rr < 3.6 ? tone(PAL.red) : rr < 5.2 ? tone(PAL.azure) : tone(PAL.white);
+      } }));
+      r.sweep([[1, 2, 17], [3, 9, 18]], 0.25, m(PAL.wood, 3));
+      r.sweep([[-2.4, 2, 14], [-3, 9, 13]], 0.25, m(PAL.wood, 3));
+    },
+  },
+  // a great war drum on a red stand; now and then it booms and shivers
+  drum: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 8,
+    fps: 6,
+    paint: (r, f) => {
+      for (const s of [-1, 1]) r.sweep([[s * 9, s * 2, 0], [s * 8, 0, 18]], 1, m(PILLAR, 1));
+      const shiver = f === 0 ? 0.6 : f === 1 ? -0.4 : 0;
+      r.ellipsoid([0, 0, 18 + shiver], [9.6, 6, 9.6], m(PILLAR, 2, { shader: (s, tone) => (Math.abs(s.n[1]) > 0.8 ? tone(ramp("#f4e2c0", { lo: "#8a6a4a" })) : Math.abs(Math.abs(s.p[1]) - 4.4) < 0.5 ? tone(PAL.gold) : tone(PILLAR)) }));
+      r.sweep([[0, 0, 28], [0, 0, 32]], 1.2, m(PAL.gold, 3));
+    },
+  },
+  // a fan palm over the oasis, fronds tossing
+  palm: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 6,
+    fps: 4,
+    paint: (r, f, n) => {
+      const top = add([3, -3, 34], swayAt(f, n, 34, 1.4));
+      r.sweep([[0, 0, 0], [2, -1, 14], [3, -2, 26], top], [2.4, 2, 1.7, 1.3], m(BARK, 1, { shader: (s, tone) => (Math.sin(s.u * 40) > 0.6 ? tone(BARK, 1) : tone(BARK)) }));
+      const frond = ramp("#5aa848", { lo: "#123a26" });
+      for (let k = 0; k < 7; k++) {
+        const a = (k / 7) * TAU + Math.sin((f / n) * TAU + k) * 0.08;
+        const mid = add(top, [Math.cos(a) * 8, Math.sin(a) * 8, 3]);
+        const tip = add(top, [Math.cos(a) * 15, Math.sin(a) * 15, -5 + Math.sin((f / n) * TAU + k) * 1.2]);
+        r.sweep([top, mid, tip], [1.8, 2.2, 0.4], md(frond, 2 + k));
+      }
+      for (let k = 0; k < 3; k++) r.sphere(add(top, [Math.cos(k * 2) * 1.6, Math.sin(k * 2) * 1.6, -2]), 1.2, m(PAL.brown, 9));
+    },
+  },
+  // a two-wheeled handcart loaded with sacks and a jar
+  cart: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      r.box([-6, -9, 6], [6, 7, 8], m(PAL.wood, 1));
+      for (const s of [-1, 1]) r.box([s * 6 - 0.6, -9, 8], [s * 6 + 0.6, 7, 12], m(PAL.wood, 1));
+      for (const s of [-1, 1]) r.prism(s * 7, 0, 6, -0.8, 0.8, 12, m(PAL.woodDark, 2, { shader: (sf, tone) => (Math.hypot(sf.p[1], sf.p[2] - 6) < 1.4 ? tone(PAL.black) : tone(PAL.woodDark)) }), 0);
+      for (const s of [-1, 1]) r.sweep([[s * 3, 7, 7], [s * 3, 18, 3]], 0.7, m(PAL.wood, 3));
+      r.ellipsoid([-2, -4, 11], [3.4, 3.4, 3.6], m(PAL.straw, 4));
+      r.ellipsoid([2.4, 1, 11], [3, 3, 3.2], m(PAL.straw, 4));
+      r.ellipsoid([0, -7, 12], [2.4, 2.4, 3.4], m(ramp("#6a4a3a"), 5));
+    },
+  },
+  // crates and wine jars stacked on the quay
+  barrels: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      r.box([-9, -8, 0], [1, 2, 9], m(PAL.wood, 1, { shader: (s, tone) => (Math.abs(s.p[2] - 4.5) < 0.5 || Math.abs(s.p[0] + 4) < 0.5 ? tone(PAL.woodDark) : tone(PAL.wood)) }));
+      r.box([-7, -6, 9], [0, 1, 15], m(PAL.wood, 2, { shader: (s, tone) => (Math.abs(s.p[2] - 12) < 0.5 ? tone(PAL.woodDark) : tone(PAL.wood)) }));
+      const jar = ramp("#7a4a3a", { lo: "#2a1020" });
+      for (const [x, y] of [
+        [5, 4],
+        [6, -4],
+        [-2, 7],
+      ] as [number, number][]) {
+        r.ellipsoid([x, y, 5], [3.6, 3.6, 5], md(jar, 3));
+        r.prism(x, y, 1.8, 9, 11, 8, m(PAL.red, 4));
+      }
+    },
+  },
+  // a stone fountain whose dragon spout throws a glittering arc into the basin
+  fountain: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 6,
+    fps: 8,
+    emit: "sparkle",
+    paint: (r, f, n) => {
+      r.prism(0, 0, 10, 0, 5, 12, md(PAL.stone, 1, { shader: (s, tone) => (s.n[2] > 0.5 && Math.hypot(s.p[0], s.p[1]) < 8.4 ? tone(tones("#c8f0ff", "#6ab0e8", "#3a7ac0", "#1a3a7a"), Math.sin(Math.hypot(s.p[0], s.p[1]) * 1.4 - (f / n) * TAU) > 0.6 ? -1 : 0) : tone(PAL.stone)) }));
+      r.prism(0, 0, 2.4, 5, 16, 8, md(PAL.stone, 2));
+      r.sphere([0, 0, 17], 2.6, m(BRONZE, 3));
+      const water = tones("#ffffff", "#c8f0ff", "#6ab0e8", "#3a7ac0");
+      for (let k = 0; k < 4; k++) {
+        const a = (k / 4) * TAU + Math.PI / 4;
+        const pts: V3[] = [];
+        for (let u = 0; u <= 1.001; u += 0.2) pts.push([Math.cos(a) * u * 7, Math.sin(a) * u * 7, 18 + u * 4 - u * u * 13]);
+        r.sweep(pts, [0.9, 0.7, 0.6, 0.6, 0.5, 0.4], m(water, 4 + k, { outline: undefined }));
+        const drop = ((f / n + k * 0.25) % 1) * 1;
+        r.sphere([Math.cos(a) * drop * 7, Math.sin(a) * drop * 7, 18 + drop * 4 - drop * drop * 13 + 1], 0.6, m(water, 8, { outline: undefined }));
       }
     },
   },

@@ -4,6 +4,7 @@ import { cultivationNeeded } from "../engine/realms";
 import type { EnemyId } from "../engine/enemies";
 import type { AreaId } from "../world/ids";
 import { toWorld } from "../world/layout";
+import type { HumanId } from "../art/characters";
 import { say, type Step } from "./script";
 import { giveAttire } from "./wardrobe";
 
@@ -55,6 +56,8 @@ export function errand(g: GameState): string | null {
   if (f.yunTea && !f.wenReply) return "The brothers' quarrel: take Master Yun's tea brick to Old Fisher Wen at the Lotus Lake.";
   if (f.wenReply && !f.brothersReconciled) return "The brothers' quarrel: carry Old Fisher Wen's answer back to Master Yun on the Cloudstep Isles.";
   if (f.ouMet && !hasDawnfrost(f)) return "Dawnfrost: Smith Ou asks you to look for the sword he forged for Xue Ming.";
+  if (f.haiMet && !f.haiPeach) return "The Sea-Swallow's errand: bring Captain Hai a peach from Auntie Rong's orchard, east of the Lotus Lake.";
+  if (f.haiPeach && !f.haiCoat) return "The Sea-Swallow's errand: take the peach to Captain Hai at Wavecrest Harbour, east over the Rainbow Bridge.";
   if (f.heartReturned && !f.festivalSeen) return "Willow Creek is lighting its lanterns. Go home to the village for the festival.";
   return null;
 }
@@ -77,6 +80,15 @@ export function lockReason(id: AreaId, g: GameState): string | null {
       return g.realm >= 1 ? null : "Demonic qi would tear you apart. Reach Foundation Establishment.";
     case "peak":
       return f.heartReturned ? null : "Only those the Heart chooses may climb.";
+    case "terraces":
+    case "marsh":
+      return f.metElder ? null : "Speak with Elder Mo first.";
+    case "desert":
+    case "harbor":
+      return f.metZhou ? null : "The far roads are closed until Willow Creek is safe. Speak with Village Head Zhou.";
+    case "frost":
+      if (!f.metElder) return "Speak with Elder Mo first.";
+      return g.realm >= 1 ? null : "Frostveil's cold would freeze your meridians. Reach Foundation Establishment.";
   }
 }
 
@@ -153,7 +165,23 @@ export function hasNews(key: string, g: GameState): boolean {
     case "pei":
       return !f.peiMet || !!f.huliLetter;
     case "rong":
-      return !f.rongGift;
+      return !f.rongGift || (!!f.haiMet && !f.haiPeach);
+    case "pang":
+      return !f.pangMeal;
+    case "qiu":
+      return !f.qiuForm;
+    case "ye":
+      return !f.yeCharm;
+    case "luyu":
+      return !f.luyuTea;
+    case "batu":
+      return !f.batuSong;
+    case "hai":
+      return !f.haiMet || (!!f.haiPeach && !f.haiCoat);
+    case "xuan":
+      return !f.xuanTaiji;
+    case "herder":
+      return !f.herderMilk;
     case "mei":
       return !!f.heartReturned && !f[`attire:festival`];
     default:
@@ -522,6 +550,14 @@ export function npcScript(key: string, g: GameState): Step[] {
     case "huliPav":
       return [say("huli", "He's still talking to the moon, isn't he? Speak to him, little sister. I… can't be the first.")];
     case "rong":
+      if (f.haiMet && !f.haiPeach)
+        return [
+          say("heroine", "Auntie Rong, a sea captain in Wavecrest Harbour asks for one of your peaches, for his mother. He said she planted a stone here once."),
+          { emote: "rong", icon: "!" },
+          say("orchardist", "Hai's mother! She left for the coast when I was a girl and took my grandmother's heart with her. The oldest tree is hers. Here — the ripest one. Wrap it in your sleeve, it bruises."),
+          { mutate: (s) => setFlag(s, "haiPeach") },
+          { toast: "Received a peach from the oldest tree, for Captain Hai" },
+        ];
       if (!f.rongGift)
         return [
           { anim: "rong", name: "wave" },
@@ -539,6 +575,216 @@ export function npcScript(key: string, g: GameState): Step[] {
         "Old Fisher Wen trades me fish for peaches. He always says the peaches are too sweet, and he always comes back.",
         "Bees are like cultivators: they work all their lives for something sweet, and they get very cross if you interrupt.",
       ])), { anim: "rong", name: "gather" }];
+    // ------------------------------------------------------------------ Willow Creek's busier streets
+    case "shunpal":
+    case "shun":
+      return [{ emote: key, icon: "note" }, named("boy", key === "shun" ? "Little Shun" : "Little Hu", pick(g, ["Watch! Forty-one kicks without dropping it! …Forty-one and a half.", "Mei says girls kick shuttlecocks better. Mei is WRONG.", f.heartReturned ? "There's a shuttlecock made of festival paper. It flies all wobbly. I love it." : "When I'm a cultivator I'll kick it all the way up to the sect.", "Do immortals play shuttlecock? With their feet? Or do they just float it?"]))];
+    case "chun":
+      return [named("villagerF", "Auntie Chun", pick(g, ["Liu's my husband. He talks to the rice. The rice doesn't answer, but it grows, so who am I to say.", "Picking water chestnuts. Mind your feet, the paddy is deeper than it looks.", "The foxes ate my best hen. A cultivator came and drove them off. Was that you? Then you're owed an egg."]))];
+    case "dikehoe":
+      return [named("farmer", "Farmer Liu Er", pick(g, ["Liu's younger brother. He farms, I farm. He talks, I hoe.", "Hoe the dike, keep the water in. That's the whole secret of rice.", "My cousin Wu down south swears his rice is taller. It isn't."]))];
+    case "yu":
+      return [named("villagerM", "Old Yu", pick(g, ["Sixty years in Willow Creek and I've never been up the sky bridge. Heights. Can't abide them.", "The market road was a goat track when I was a boy. Now there's noodles. Progress!", f.foxesCleared ? "The foxes are quiet. Even my knees feel better." : "Foxes on the bridge again last night. Bold as tax collectors."]))];
+    case "marketporter":
+      return [named("porter", "Porter Kang", pick(g, ["Firewood up, rice down. My shoulders know every stone of this road.", "The pole sings when the load's right. Hear it creak? That's a happy pole.", "Niu carries tea up the terraces in the south. I carry everything else."]))];
+    case "ba":
+      return [say("woodcutter", pick(g, ["Hah! — One more log for Granny Hua's stove. She pays in dumplings.", "Willow burns too fast. Maple burns sweet. Pine spits. Every tree has a temper.", "I saw a fox spirit once, in the woodlot. It bowed to me. I bowed back. We were both very polite."])), { anim: "ba", name: "chop" }];
+    case "lianhua":
+      return [named("villagerF", "Lianhua", pick(g, [f.heartReturned ? "Lanterns on every eave! I haven't seen the creek so bright since my wedding." : "Buying radishes, selling gossip. Did you hear the Head's nephew wants to join the sect?", "The noodle man came up from the harbour in the east. His broth tastes of the sea.", "If you're going south, the tea terraces are worth the walk. Bring a hat."]))];
+    case "hawker":
+      return [named("villagerM", "Hawker Sun", pick(g, ["Hairpins! Combs! Lucky knots! — Oh. A cultivator. Do cultivators need lucky knots? Everyone needs lucky knots.", "Radishes from the paddies, fans from the capital, and a mirror that only shows your good side. Very popular.", "Business is good since the road was mended. Even the bandits buy combs."]))];
+    case "willowguard":
+      return [{ anim: "willowguard", name: "salute" }, named("guard", "Watchman Tie", pick(g, ["The arch marks Willow Creek's land. Past it, the highway's the Emperor's problem.", "I guard the arch. Mostly from goats.", f.foxesCleared ? "Quiet nights since the foxes calmed. I've taken up whittling." : "Foxes again last night. I shouted at them very sternly."]))];
+    case "noodleseller":
+    case "noodles":
+      return [named("cook", key === "noodles" ? "Noodle Seller Hu" : "Noodle Seller Ma", pick(g, ["Hand-pulled, one long noodle per bowl — long life for whoever eats it without biting! Sit, sit.", "The broth's been simmering since my grandfather's time. We just keep adding to it.", "Cultivators eat less than mortals, they say. Not the ones I've fed."])), { anim: "hero", name: "eat", wait: true }, { mutate: (s) => heal(s, stats(s).maxHp * 0.3, 0) }, { toast: "A bowl of long-life noodles · Vitality restored a little" }];
+    // ------------------------------------------------------------------ the sect's terraces
+    case "guo":
+      return [{ anim: "guo", name: "salute" }, say("discipleM", pick(g, ["Gate watch, Senior Sister. Nobody gets past me. Except the cranes. And the wind.", "The Blood Moon came in over the walkways, not through the gate. I keep telling them.", "If you see Ah Bao, tell him the gate is not a racecourse."]))];
+    case "ning":
+      return [named("discipleF", "Disciple Ning", pick(g, ["Slowly… slowly… Elder Qiu says if you can't do it slowly, you can't do it.", "The koi in the pond are older than I am. One of them is older than Elder Mo.", "Taiji in the morning, swords in the afternoon, scrolls at night. And sleep? Sleep is for mortals, apparently."]))];
+    case "pang":
+      if (!f.pangMeal)
+        return [
+          say("cook", "Lin Yue! You're going down the mountain on an empty stomach? Not from MY kitchen you're not."),
+          say("cook", "Sit. Steamed buns with lotus paste, a bowl of congee, and one dumpling for luck. Then one more dumpling, because one is unlucky."),
+          { anim: "hero", name: "eat", wait: true },
+          { mutate: (s) => setFlag({ ...heal(s, 9999, 9999), pills: { ...s.pills, heal: Math.min(99, s.pills.heal + 1) } }, "pangMeal") },
+          { toast: "HP and QI fully restored · Received a Healing Pill (wrapped in a bun)" },
+          say("cook", "The bun's for later. Don't let the elders see you eating on the sword."),
+        ];
+      return [say("cook", pick(g, ["Cultivators who skip breakfast fall off their swords. I have seen it. Twice.", "Elder Mo likes his tea bitter and his congee plain. A man of no joy.", "Chen kicked a shuttlecock into my soup again. I put it back in his bowl."])), { mutate: (s) => heal(s, stats(s).maxHp * 0.25, 0) }];
+    case "chen":
+      return [{ emote: "chen", icon: "note" }, named("discipleM", "Disciple Chen", pick(g, ["Shuttlecock is footwork training. Elder Qiu said so. Probably.", "Forty kicks without touching the ground. Then the cook shouted at me and I lost count.", "Senior Sister, can you kick it with qi? Show me! …Oh. Right. The bells."]))];
+    case "xiu":
+      return [named("discipleF", "Disciple Xiu", pick(g, ["The dormitories are cold in winter. We sleep three to a bed and argue about the blanket.", "The library pagoda has a scroll on every beast in the jianghu. I'm on page four hundred.", "Did you know the sect's terraces are moored with chains of qi? If they snap, the court floats away. I check every morning."]))];
+    case "qiu":
+      if (!f.qiuForm)
+        return [
+          { anim: "qiu", name: "taichi" },
+          say("taiji", "Ah, Lin Yue. Always running, always flying. Stand still for one breath. Yes, like that."),
+          say("taiji", "Hands like holding a ball of water. Weight sinks into the heel. When the enemy pushes, become the door that was never there."),
+          { anim: "hero", name: "taichi", wait: true },
+          { flash: "#ffffff" },
+          { mutate: (s) => setFlag(gainCultivation(s, Math.round(cultivationNeeded(s.realm, s.stage) * 0.3)).state, "qiuForm") },
+          { toast: "Elder Qiu's taiji settles your qi · Cultivation rises · Left alone, you may practise it yourself" },
+          say("taiji", "Good. The slower you go, the further you get. Nobody believes me until they're old."),
+        ];
+      return [say("taiji", pick(g, ["Soft overcomes hard. Water overcomes stone. Breakfast overcomes everyone.", "Wei rushes the form. Rou rushes nothing. Between them they make one decent student.", "The Abbot of Frostveil in the east does this in the snow. Barefoot. Show-off."]))];
+    case "wei":
+    case "rou":
+      return [named(key === "wei" ? "discipleM" : "discipleF", key === "wei" ? "Disciple Wei" : "Disciple Rou", pick(g, ["Cloud hands… single whip… my legs are on fire.", "Elder Qiu says I breathe like a frightened goose.", "Slow is hard. Fast is easy. Who knew?"]))];
+    case "jian":
+    case "su2":
+      return [named(key === "jian" ? "discipleM" : "discipleF", key === "jian" ? "Disciple Jian" : "Disciple Su", pick(g, ["The targets are for archery, but we use them to practise flying sword strikes. The archers are very cross.", "One more thousand cuts before the bell. Then another thousand after it.", "The bell rings when someone hits the centre. It hasn't rung all week."]))];
+    // ------------------------------------------------------------------ the Mistmarsh
+    case "ye":
+      if (!f.yeCharm)
+        return [
+          { emote: "ye", icon: "..." },
+          say("marshwitch", "Mm. Jade robes, clean boots. The marsh will fix those. Come in, come in, mind the frog — that one's called Wen, after a fisherman I once knew. Very stubborn frog."),
+          say("marshwitch", "Everything in the Mistmarsh is drowned or drowning or only pretending. The wisps are lost souls looking for the road. I give them directions."),
+          say("marshwitch", "You've a tangle in your meridians, child. Hold still."),
+          { anim: "ye", name: "cast", wait: true },
+          { flash: "#b8ffd8" },
+          { mutate: (s) => setFlag({ ...gainCultivation(s, Math.round(cultivationNeeded(s.realm, s.stage) * 0.3)).state, pills: { ...s.pills, qi: Math.min(99, s.pills.qi + 2) } }, "yeCharm") },
+          { toast: "Granny Ye untangles your qi · Cultivation rises · Received 2 Qi Gathering Pills" },
+          say("marshwitch", "And if the hopping dead come for you on the boards, stand still. They can only see what moves. Like tax collectors."),
+        ];
+      return [say("marshwitch", pick(g, ["The mist is the marsh breathing out. At dawn it breathes in, and you can see all the way to the plum hills.", "Hua of Willow Creek and I were girls together. She got the herbs. I got the frogs. I think I won.", "Don't eat the glowing mushrooms. Or do. You'll have a very interesting week."]))];
+    case "reedcutter":
+      return [named("villagerM", "Reed-cutter Mo", pick(g, ["Reeds for roofs, reeds for mats, reeds for boats. The marsh gives, if you ask politely.", "The stilts keep the houses dry. Mostly. My grandfather's house swam away in the flood of '62.", "Granny Ye named every frog in the village. She's never wrong about which is which."]))];
+    case "netmaker":
+      return [named("villagerF", "Net-mender Ping", pick(g, ["Eel nets, frog nets, nets for catching nets that drifted off. Busy, busy.", "The wisps come close to the lanterns at night. I leave a light in the window for them.", "Pip, stop kicking that thing at the houses!"]))];
+    case "pip":
+      return [{ emote: "pip", icon: "note" }, named("boy", "Pip", pick(g, ["If it goes in the water I have to swim for it. I am a very good swimmer.", "The hopping dead can't hop on the boardwalks — too wobbly! I've seen them fall in.", "You're from the sect? Is it true you have a cook who makes buns as big as your head?"]))];
+    // ------------------------------------------------------------------ the Cloudmist Tea Terraces
+    case "luyu":
+      if (!f.luyuTea)
+        return [
+          { anim: "luyu", name: "pour" },
+          say("teamaster", "A cultivator, climbing my hill on foot? Good. Tea tastes better to tired legs. Sit."),
+          say("teamaster", "First steep is for the leaves to wake. Second is for the guest. Third is for the friendship. I pour all three; you decide which one you're drinking."),
+          { anim: "hero", name: "drink", wait: true },
+          { flash: "#c8ffb0" },
+          { mutate: (s) => setFlag(heal(gainCultivation(s, Math.round(cultivationNeeded(s.realm, s.stage) * 0.35)).state, 9999, 9999), "luyuTea") },
+          { toast: "Cloud-mist tea · HP and QI restored · Cultivation rises" },
+          say("teamaster", f.yunTea || f.brothersReconciled ? "You carried one of my bricks to the lake, I hear. Yun buys a brick every spring and drinks it alone. I'm glad it found its way to Wen at last." : "Every spring a hermit from the sky isles buys one brick of my best. He never says who it's for."),
+        ];
+      return [say("teamaster", pick(g, ["One bud, two leaves. More than that and it's salad.", "The cloud sits on the hill till noon. The tea drinks it. That's the whole trick.", "Porter Niu has carried tea up to the sect for thirty years. They should name a peak after him.", "The terraces were cut by the founder's own hand, they say. She liked her tea."])), { anim: "luyu", name: "pour" }];
+    case "cui":
+    case "cui2":
+      return [named("teapicker", key === "cui" ? "Picker Cui" : "Picker Hong", pick(g, ["One bud and two leaves, one bud and two leaves… I say it in my sleep.", "Sing while you pick and the tea tastes happier. Master Lu says that's nonsense. He hums anyway.", "The cherry trees bloom just as the first flush is ready. Then everyone sneezes."]))];
+    case "niu":
+      return [say("porter", pick(g, ["Up the steps with empty baskets, down with full. Or is it the other way round? Thirty years and I still forget.", "Nine hundred steps to the top of the sect's sky bridge. I've counted. Every day.", "The baskets weigh the same as my wife. Don't tell her I said so."]))];
+    case "terrace-kid":
+      return [named("boy", "Little Bo", pick(g, ["I'm guarding the tea from the wolf! …There's a wolf. Over there. Please go and fight it.", "Ma picks, Pa carries, I guard. It's the most important job.", "Can you fly me to the top? The steps are SO many."]))];
+    // ------------------------------------------------------------------ the Yellow Sands
+    case "batu":
+      if (!f.batuSong)
+        return [
+          { anim: "batu", name: "flute" },
+          say("nomad", "Sit by the fire, sky-sister. The sand is cold at night, even here at the spring."),
+          say("nomad", "We take caravans west, to kingdoms you've never heard of. Silk out, horses back. The horses you see on the steppe — half of them are cousins of mine. The horses, not the herders."),
+          say("nomad", "Here. A cultivator once paid me in stones for a song. I never spent them. Now you pay me with a listen."),
+          { anim: "batu", name: "flute" },
+          { wait: 1 },
+          { mutate: (s) => setFlag({ ...s, stones: s.stones + 30 }, "batuSong") },
+          { toast: "Received 30 spirit stones" },
+        ];
+      return [say("nomad", pick(g, ["The stupa was here before the oasis. The oasis came to keep it company.", "Raiders hide in the red cliffs to the east. They steal from caravans and sell to caravans. Clever, if you like that sort of thing.", "The sand sings when the wind is right. Sounds like this—", "Saran makes the best milk tea in the desert. Don't tell her I said 'in the desert' — she'd say 'in the world'."])), { anim: "batu", name: "flute" }];
+    case "saran":
+      return [named("villagerF", "Saran", pick(g, ["Milk tea, salted, with butter. You'll hate the first cup and need the second.", "Batu plays that flute every night. The camels used to complain. Now they sing along.", "The spring never runs dry. My grandmother said a dragon sleeps under it. I think it's just a very good spring."]))];
+    case "temur":
+      return [named("boy", "Temur", pick(g, ["I rode a horse before I could walk! …Well, I fell off a horse before I could walk.", "There are bones in the dunes from before the sect. Big ones. I'm not scared. I'm a little scared.", "Is it true there's a sea in the east? A lake so big you can't see across? That's silly."]))];
+    case "caravaneer":
+      return [named("porter", "Caravaneer Kuo", pick(g, ["Seven days to the west kingdoms, three to the next well. I count wells, not days.", "We rest at the oasis, trade at the harbour, pray at the stupa. In that order.", "The bandits in the red cliffs took my best mule. If you're passing… just a thought."]))];
+    // ------------------------------------------------------------------ Wavecrest Harbour
+    case "hai":
+      if (!f.haiMet)
+        return [
+          { anim: "hai", name: "point" },
+          say("captain", "Ahoy, sky-girl! See that junk? The Sea-Swallow. Fastest hull from here to the eastern isles. And she's mine."),
+          say("captain", "We sail with the turn of the season. Only my old mother up the coast wants one thing before I go: a peach from Rong's orchard, by the Lotus Lake. Says the sea air makes her forget the taste of home."),
+          say("captain", "It's a long walk west for an old sailor's knees. But you've got a sword to fly on, eh?"),
+          { mutate: (s) => setFlag(s, "haiMet") },
+          { toast: "Side errand: bring a peach from Auntie Rong's orchard to Captain Hai" },
+        ];
+      if (f.haiPeach && !f.haiCoat)
+        return [
+          say("heroine", "Captain Hai. A peach from Auntie Rong's orchard. She said to tell you it's from the oldest tree."),
+          { emote: "hai", icon: "heart" },
+          say("captain", "The oldest tree… my mother planted the stone it grew from, before she ever saw the sea. Ha! She'll cry. Then she'll pretend it's the salt."),
+          say("captain", "You're no sailor, but you've the legs for it. Here — a Sea-Swallow coat. Every hand on my junk gets one, and you've done more for her than most of 'em."),
+          { mutate: (s) => setFlag(giveAttire(s, "seafarer"), "haiCoat") },
+          { anim: "hero", name: "twirl", wait: true },
+          { toast: "Received the Sea-Swallow Coat · Press C to change your attire" },
+        ];
+      return [say("captain", pick(g, [f.haiCoat ? "The coat suits you! Next season, come east with us. The isles have mountains that float upside down." : "Rong's orchard is by the Lotus Lake, west over the Rainbow Bridge. Ask for the oldest tree.", "The lighthouse? My sister keeps it. She keeps everything. Including my debts.", "There's a sea of clouds past the bay's edge, and the water spills right off into it. Best view in the world, if you don't fall in.", "Fish, silk, tea and gossip. A harbour runs on all four."]))];
+    case "alan":
+      return [named("fishwife", "Fishwife Ah Lan", pick(g, ["Fresh mackerel! Dried squid! Healing pills, if you're the kind who needs those more than squid!", "My husband sails with Captain Hai. He says he misses my cooking. He means he misses eating.", "Qi pills from the sect, passed down the coast. Don't ask how. Fifteen stones."])), { shop: true }];
+    case "dockporter":
+      return [named("porter", "Dock Porter Gang", pick(g, ["Barrels off, crates on, mind your toes!", "Tea from the terraces, silk from the capital, salt fish from here. It all goes through my shoulders.", "Thirty barrels a day. Thirty-one when the cook's watching."]))];
+    case "harborguard":
+      return [{ anim: "harborguard", name: "salute" }, named("guard", "Harbour Watchman", pick(g, ["Welcome to Wavecrest. No duelling on the quay, no flying over the market, no feeding the gulls.", "Pirates? Not since the lighthouse was lit. They don't like being seen.", "The road west goes over the steppe and the Rainbow Bridge. Long way. Lovely bridge."]))];
+    case "su":
+    case "yan":
+      return [{ anim: key, name: "fan" }, named("lady", key === "su" ? "Lady Su" : "Poet Yan", key === "su" ? pick(g, ["I came from the capital to see the sea. It is much wetter than the poems suggest.", "The parasol is for the sun. And for the gulls. Mostly the gulls.", "A cultivator from the sky! In the capital they say your sect is a myth. I shall write and tell them they're wrong."]) : pick(g, ["The plum blooms in the snow. I come every winter to watch it be braver than me.", "I write a poem a day and burn it at dusk. The good ones, the smoke remembers.", "There is a scholar's shade by the Moon-Gazing Pavilion, they say, still writing. I envy him his patience."]))];
+    case "dockhand":
+      return [named("villagerM", "Dockhand Lei", pick(g, ["Rope burns, salt sores, sunburn. Best job in the world.", "The Sea-Swallow's hull is camphor wood. Smells like a grandmother's cupboard.", "If you want passage east, butter up the captain. He likes peaches."]))];
+    case "netmender":
+      return [named("villagerF", "Net-mender Wu", pick(g, ["Every hole tells a story. This one's a shark. This one's my nephew.", "The tide brings everything eventually. Once it brought a whole temple bell.", "Ah Lan sells the fish I catch. I'm the brains. She's the voice."]))];
+    case "gullboy":
+      return [{ emote: "gullboy", icon: "note" }, named("boy", "Haizi", pick(g, ["I chase the gulls and the gulls chase me. It's fair.", "When I'm big I'll be captain of the Sea-Swallow! Captain Hai says I can be cabin boy first. For twenty years.", "There's a crab under the pier as big as a dog. I named him General."]))];
+    case "harbor-elder":
+      return pick(g, [
+        [named("storyteller", "Old Salt Fang", "The tale of the sea at the world's edge! The water pours off into the clouds, and the clouds rain on the sky islands, and the sky islands' streams fall back into the sea. Round and round, since the founder floated her mountain.")],
+        [named("storyteller", "Old Salt Fang", "The tale of the lighthouse! It was lit by a fox who loved a fisherman, so he'd always find his way home. He did. She's still lighting it."), { emote: "hero", icon: "?" }],
+        [named("storyteller", "Old Salt Fang", "The tale of the Rainbow Bridge! A thousand planks, a thousand talismans, laid by the sect when the gorge cracked open. The waterfall's been trying to wash it away ever since.")],
+      ]);
+    // ------------------------------------------------------------------ Frostveil Monastery
+    case "xuan":
+      if (!f.xuanTaiji)
+        return [
+          { anim: "xuan", name: "bow" },
+          say("abbot", "Amituofo. A disciple of the Azure Cloud, so far east. Your elder Mo and I argued once about whether the Dao is a road or a river. He still owes me a cup of tea."),
+          say("abbot", "The cold here teaches one thing: what is not needed, let it go. Breathe out the warmth you are clinging to. Move with me."),
+          { anim: "hero", name: "taichi", wait: true },
+          { anim: "hero", name: "meditate" },
+          { wait: 1.2 },
+          { flash: "#e8f4ff" },
+          { mutate: (s) => setFlag(gainCultivation(s, Math.round(cultivationNeeded(s.realm, s.stage) * 0.6)).state, "xuanTaiji") },
+          { anim: "hero", name: "idle" },
+          { toast: "The Frostveil form · Cultivation rises greatly" },
+          say("abbot", "Good. Now you are a little lighter. Come back when you have more to let go of."),
+          { anim: "xuan", name: "taichi" },
+        ];
+      return [say("abbot", pick(g, ["Snow falls on the hall roof and on the beggar's hat alike.", "The novices complain of the cold. In twenty years they will complain of the warm.", "Tell Mo the Dao is a river. He will be very annoyed. That is my gift to him."])), { anim: "xuan", name: "taichi" }];
+    case "tuo":
+      return [say("novice", pick(g, ["Sweep, sweep. The snow falls, I sweep. The snow wins. The Abbot says that's the lesson.", "I kicked the shuttlecock onto the hall roof. The Abbot says I may retrieve it when I can fly.", "The bell is rung at dawn by the youngest novice. That's me. Every. Single. Dawn."])), { anim: "tuo", name: "sweep" }];
+    case "novice-1":
+    case "novice-2":
+    case "novice-3":
+      return [named("novice", key === "novice-1" ? "Novice Ji" : key === "novice-2" ? "Novice Hui" : "Novice Pu", pick(g, ["Cold hands… cold feet… warm heart, the Abbot says. My heart is also cold.", "Wave hands like clouds… my clouds are frozen.", "Have you come to join? You'd have to shave your head. It's very cold."]))];
+    // ------------------------------------------------------------------ the wilds
+    case "herder":
+      if (!f.herderMilk)
+        return [
+          named("villagerM", "Herder Altan", "A rider on the sky horse! The herd went mad when it saw yours. Sit, drink — mare's milk, fresh this morning. Warms you like a brazier."),
+          { anim: "hero", name: "drink", wait: true },
+          { mutate: (s) => setFlag(heal(s, 9999, 9999), "herderMilk") },
+          { toast: "HP and QI fully restored" },
+          named("villagerM", "Herder Altan", "The wild horses run from walkers but they'll let a rider among them. Even one on a horse made of cloud."),
+        ];
+      return [named("villagerM", "Herder Altan", pick(g, ["Grass from the bridge to the sea. Best pasture in the jianghu.", "We follow the grass. The grass follows the rain. The rain follows nobody.", "The road north climbs to Frostveil. Monks up there, barefoot in the snow. Mad as hares."]))];
+    case "oyun":
+      return [named("villagerF", "Oyun", pick(g, ["Milk tea for the traveller! Salt or sugar? We only have salt.", "The tents fold up in an hour. We could be gone by noon if the grass says so.", "Batu in the Yellow Sands is my brother. Tell him to write. He can't write. Tell him to visit."]))];
+    case "gao":
+      return [named("villagerM", "Woodcutter Gao", pick(g, ["Maple for the harbour's boats, pine for the monastery's stoves. Every tree here has an order on it.", "The leaves turn red in autumn and stay red all year in these woods. Something in the soil. Or someone.", "Wolves in the woods lately. Big grey ones. They don't like axes."])), { anim: "gao", name: "chop" }];
+    case "innkeeper":
+      return [named("villagerF", "Innkeeper Zhao", pick(g, ["Rooms upstairs, noodles downstairs, gossip everywhere. Rest a while.", "Porters, pilgrims and poets — that's my custom. You're the first cultivator this month.", "South-east to the sands, north to the tea, west to the marsh. Everything passes my door eventually."])), { mutate: (s) => heal(s, 9999, 9999) }, { toast: "A night's rest at the inn · HP and QI restored" }, { shop: true }];
+    case "restporter":
+      return [named("porter", "Porter Lao", pick(g, ["Eating. Talking costs breath, and breath costs noodles.", "From the terraces to the sands with tea, from the sands to the harbour with salt. Then home to sleep for a week.", "My pole's older than me. My father's. Same shoulders, too."])), { anim: "restporter", name: "eat" }];
     default:
       return [say("narrator", "…")];
   }
@@ -692,6 +938,9 @@ function elderScript(g: GameState): Step[] {
   return [say("elder", "Follow the corrupted qi. And do not neglect your cultivation — Xue's power is deep.")];
 }
 
+/** A line spoken by someone wearing another character's look (the folk of the jianghu share a few faces). */
+const named = (who: HumanId, name: string, text: string): Step => ({ say: who, name, text });
+
 /** Deterministic variety: rotate lines with play time. */
 function pick<T>(g: GameState, lines: T[]): T {
   return lines[Math.floor(g.playTime / 7 + g.kills) % lines.length];
@@ -717,6 +966,16 @@ export function arrivalScript(area: AreaId, g: GameState): Step[] | null {
     return [{ mutate: (s) => setFlag(s, "bambooArrived") }, say("heroine", "The wind in the bamboo sounds like whispering… and growling. The foxes are close."), { toast: `Calm ${FOXES_NEEDED} fox spirits` }];
   if (area === "lake" && !f.lakeArrived)
     return [{ mutate: (s) => setFlag(s, "lakeArrived") }, say("heroine", "The mist parts before the foxfire charm… Lanterns on the water. Someone is fishing at the pavilion.")];
+  if (area === "marsh" && !f.marshArrived)
+    return [{ mutate: (s) => setFlag(s, "marshArrived") }, say("heroine", "Mist to my knees, and lights drifting over the water… Those aren't lanterns. Keep to the boards, Lin Yue.")];
+  if (area === "terraces" && !f.terracesArrived)
+    return [{ mutate: (s) => setFlag(s, "terracesArrived") }, say("heroine", "Terraces of tea all the way up into the cloud. So this is where the sect's tea comes from. It smells like the morning.")];
+  if (area === "desert" && !f.desertArrived)
+    return [{ mutate: (s) => setFlag(s, "desertArrived") }, say("heroine", "Sand as far as the sky. And there — palms, tents, smoke. An oasis.")];
+  if (area === "harbor" && !f.harborArrived)
+    return [{ mutate: (s) => setFlag(s, "harborArrived") }, say("heroine", "Gulls, salt, sails… and past the bay the sea just pours off the edge of the world into the clouds. Hu Li would love this.")];
+  if (area === "frost" && !f.frostArrived)
+    return [{ mutate: (s) => setFlag(s, "frostArrived") }, say("heroine", "So cold my breath freezes… and still the monks are practising, barefoot in the snow.")];
   if (area === "valley" && !f.valleyArrived)
     return [{ mutate: (s) => setFlag(s, "valleyArrived") }, { shake: 0.5 }, say("heroine", "The air tastes of iron. Blood moon, lava rivers… Xue's altar must be at the far end."), { toast: "Find Patriarch Xue" }];
   if (area === "peak" && !f.peakArrived)

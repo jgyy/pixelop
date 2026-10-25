@@ -65,7 +65,7 @@ const MOVE_KEYS: Record<string, [number, number]> = {
 
 const CONFIRM = new Set(["KeyE", "Enter", "Space", "NumpadEnter"]);
 /** One-shot animations that walking away interrupts. */
-const IDLE_FIDGETS = new Set<AnimId>(["stretch", "look", "gather", "nod", "point", "cheer", "drink", "read", "pray", "clap", "laugh", "rear", "flute", "salute", "twirl"]);
+const IDLE_FIDGETS = new Set<AnimId>(["stretch", "look", "gather", "nod", "point", "cheer", "drink", "read", "pray", "clap", "laugh", "rear", "flute", "salute", "twirl", "taichi", "kick"]);
 /** Seated or absorbed idles that a speaker keeps while talking instead of standing up. */
 const SEATED = new Set<AnimId>(["fish", "sit", "tell", "weave", "pray"]);
 const RUN_KEYS = ["ShiftLeft", "ShiftRight"];
@@ -1056,6 +1056,8 @@ export class Game {
     const speed = h.flying ? FLY_SPEED : riding ? (run ? GALLOP_SPEED : CANTER_SPEED) : run ? RUN_SPEED : WALK_SPEED;
     if (dx || dy) {
       this.idleTime = 0;
+      // walking on starts her idle habits afresh: a glance and a stretch before she sits down again
+      this.fidgets = 0;
       h.dir = dirFrom(dx, dy);
       const [x0, y0] = [h.x, h.y];
       if (h.idleAnim === "sit") h.idleAnim = "idle";
@@ -1079,7 +1081,7 @@ export class Game {
       } else if (!h.flying && !riding && this.idleTime > 8) {
         this.idleTime = -4;
         // first a stretch or a glance around; left alone longer, she hums, nods off or practises a pointing form
-        const pool: AnimId[] = this.fidgets++ < 1 ? ["look", "stretch"] : ["stretch", "look", "nod", "point", "cheer", "clap", "laugh", "flute", "salute", "twirl"];
+        const pool: AnimId[] = this.fidgets++ < 1 ? ["look", "stretch"] : ["stretch", "look", "nod", "point", "cheer", "clap", "laugh", "flute", "salute", "twirl", "taichi", "kick"];
         // left alone long enough, she sits down where she stands until she moves again
         if (this.fidgets > 4 && h.idleAnim === "idle") h.idleAnim = "sit";
         else {
@@ -1128,7 +1130,7 @@ export class Game {
   private updatePrompt(): void {
     const near = this.world.nearestInteraction();
     let text: string | null = null;
-    if (near?.npc) text = `E · Talk to ${charDef(near.npc.char).name}`;
+    if (near?.npc) text = `E · Talk to ${near.npc.name ?? charDef(near.npc.char).name}`;
     else if (near?.it) {
       const it = near.it;
       text = {
