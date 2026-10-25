@@ -1,6 +1,6 @@
 import type { PixelBuffer } from "../pixel/PixelBuffer";
 import type { V3 } from "../iso/raster";
-import { BEAST_H, BEAST_OX, BEAST_OY, BEAST_W, FOX_STYLE, paintBat, paintCrane, paintQuad, paintSerpent, WOLF_STYLE, type BeastPose } from "./beasts";
+import { BEAST_H, BEAST_OX, BEAST_OY, BEAST_W, EMBER_WYRM, FOX_STYLE, paintBat, paintCrane, paintQuad, paintSerpent, STONEHOUND_STYLE, WOLF_STYLE, type BeastPose } from "./beasts";
 import { CLOUDMANE, gaitAt, HORSE_H, HORSE_OX, HORSE_OY, HORSE_W, paintHorse, paintRider, RIDER_H, RIDER_OX, RIDER_OY, RIDER_W, WILD_HORSE, type HorsePose } from "./horse";
 import { HUMAN_H, HUMAN_OX, HUMAN_OY, HUMAN_W, paintHuman, REST_HAND_L, REST_HAND_R, type HumanPose, type HumanStyle } from "./humanoid";
 import { PAL, ramp } from "./palette";
@@ -78,7 +78,14 @@ export type AnimId =
   | "carry"
   | "kick"
   | "umbrella"
-  | "taichi";
+  | "taichi"
+  | "mine"
+  | "torch"
+  | "brew"
+  | "flame"
+  | "kowtow"
+  | "sworddance"
+  | "cower";
 
 export interface Anim {
   fps: number;
@@ -617,6 +624,74 @@ const human: Partial<Record<AnimId, AnimSpec<HumanPose>>> = {
       };
     },
   },
+  // a miner's pick swung two-handed into the rock face, chips flying on the stroke
+  mine: {
+    n: 8,
+    fps: 8,
+    loop: true,
+    pose: (i) => {
+      const up = [0.2, 0.6, 1, 1, 0.7, 0.2, 0, 0][i];
+      return { t: i, held: "pickaxe", lean: 0.2 - up * 0.2, handR: [2.4, 6 - up * 2.6, 10.6 + up * 10], handL: [0.4, 5.4 - up * 2.6, 10 + up * 9], footL: [-2.2, -0.6, 0], footR: [2.2, 0.8, 0], eyes: up < 0.1 ? "closed" : "fierce", mouth: up < 0.1 ? "open" : "neutral", wind: [0, -0.3, 0] };
+    },
+  },
+  // holding a burning torch high to light the way, the flame bending and leaping
+  torch: {
+    n: 6,
+    fps: 8,
+    loop: true,
+    pose: (i, n) => ({ t: ph(i, n), held: "torch", handR: [4.6, 3, 19 + Math.sin(ph(i, n)) * 0.4], bob: i % 3 === 1 ? 0.3 : 0, eyes: i === 4 ? "blink" : "open", mouth: "neutral", wind: [Math.sin(ph(i, n)) * 0.3, -0.4, 0] }),
+  },
+  // stirring a cauldron with a long ladle, leaning in to sniff the brew
+  brew: {
+    n: 8,
+    fps: 6,
+    loop: true,
+    pose: (i, n) => {
+      const a = ph(i, n);
+      return { t: a, held: "ladle", lean: 0.16 + (i === 5 ? 0.1 : 0), handR: [1.6 + Math.cos(a) * 2.2, 6 + Math.sin(a) * 1.6, 12], handL: [1 + Math.cos(a) * 2.2, 5 + Math.sin(a) * 1.6, 15.4], eyes: i === 5 ? "closed" : "open", mouth: i === 5 ? "smile" : "neutral", wind: [0, -0.3, 0] };
+    },
+  },
+  // a fire palm: a ball of flame gathered between cupped hands, then thrust forward
+  flame: {
+    n: 8,
+    fps: 8,
+    loop: false,
+    pose: (i) => {
+      const push = [0, 0, 0.1, 0.2, 0.4, 1, 1, 0.5][i];
+      return { t: i, held: "fireball", lean: -0.04 + push * 0.12, handL: [-2.2, 3 + push * 4, 13.4], handR: [2.2, 3 + push * 4, 13.4], footL: [-2.4, -1.2, 0], footR: [2.4, 1.4, 0], eyes: push > 0.5 ? "fierce" : "closed", mouth: push > 0.5 ? "open" : "neutral", flash: i >= 5 ? 0.25 : 0, wind: [0, -0.8 - push, 0.2] };
+    },
+  },
+  // a kowtow: down on both knees, forehead to the ground, three times
+  kowtow: {
+    n: 8,
+    fps: 5,
+    loop: false,
+    pose: (i) => {
+      const down = [0.2, 0.9, 0.3, 0.9, 0.3, 0.9, 0.4, 0][i];
+      return { t: i, stance: "kneel", lean: down * 0.9, handL: [-2.4, 6 + down * 3, 4 + (1 - down) * 6], handR: [2.4, 6 + down * 3, 4 + (1 - down) * 6], eyes: "closed", mouth: "neutral", wind: [0, -0.2, 0] };
+    },
+  },
+  // a sword dance: the blade sweeps round in a circle of light as she spins and lunges
+  sworddance: {
+    n: 12,
+    fps: 10,
+    loop: false,
+    pose: (i, n) => {
+      const a = ph(i, n);
+      const out = Math.sin((i / (n - 1)) * Math.PI);
+      return { t: a * 2, lift: out * 0.8, lean: Math.sin(a) * 0.12, handR: [Math.cos(a) * 7, Math.sin(a) * 6 + 2, 15 + Math.sin(a * 2) * 4], handL: [-5, -1, 15 + out * 4], swordDir: [Math.cos(a), Math.sin(a), 0.3], footL: [-2.6, Math.sin(a) * 1.4, 0], footR: [2.6, -Math.sin(a) * 1.4, out], eyes: "fierce", mouth: "neutral", wind: [-Math.cos(a) * 1.2, -Math.sin(a) * 1.2, 0.4] };
+    },
+  },
+  // cowering: crouched low, arms over the head, trembling
+  cower: {
+    n: 6,
+    fps: 10,
+    loop: true,
+    pose: (i) => {
+      const shiver = i % 2 ? 0.4 : -0.4;
+      return { t: i, stance: "kneel", lean: 0.3, bob: -1, handL: [-2 + shiver * 0.3, 3.4, 22], handR: [2 + shiver * 0.3, 3.4, 22], eyes: "closed", mouth: "open", wind: [shiver, -0.2, 0] };
+    },
+  },
 };
 
 // ----------------------------------------------------------------------------- beast poses
@@ -710,6 +785,16 @@ export const STYLES = {
   teamaster: s({ robe: ramp("#5a7a5a", { lo: "#1a2a2a" }), inner: PAL.paper, trim: PAL.paper, sash: PAL.gold, hair: PAL.hairWhite, beard: PAL.hairWhite, hairStyle: "topknot", hat: "scholar", hatRamp: PAL.black, weapon: "fan", hunch: 0.08, flare: 5.6 }),
   cook: s({ robe: PAL.white, inner: PAL.white, trim: PAL.red, sash: PAL.red, hair: PAL.hairBlack, hairStyle: "short", hat: "hood", hatRamp: PAL.white, skin: PAL.skinTan, scale: 1.04, flare: 5.8, hem: 3.8, shoes: PAL.black }),
   taiji: s({ robe: PAL.white, inner: PAL.black, trim: PAL.black, sash: PAL.black, hair: PAL.hairWhite, beard: PAL.hairWhite, hairStyle: "topknot", hat: "crown", hatRamp: PAL.black, weapon: "whisk", flare: 5.8 }),
+  // the three sects of the south and east, and the spirit of the Dragon Vein
+  yanhuo: s({ robe: PAL.crimson, inner: PAL.gold, trim: PAL.gold, sash: PAL.gold, hair: PAL.hairAuburn, hairStyle: "long", female: true, hat: "crown", hatRamp: PAL.gold, cape: ramp("#f06a2a", { hi: "#ffe0a0", lo: "#5a0a10" }), weapon: "jian", weaponRamp: PAL.gold, eye: "#c84a1a", flare: 5.8 }),
+  phoenix: s({ robe: ramp("#c8402a", { lo: "#3a0a14" }), inner: PAL.gold, trim: PAL.gold, sash: PAL.black, hairStyle: "topknot", weapon: "saber", weaponRamp: PAL.gold, flare: 4.8, eye: "#5a1a1a" }),
+  miner: s({ robe: ramp("#7a6a5a", { lo: "#2a1a1a" }), inner: PAL.paper, trim: PAL.brown, sash: PAL.red, hair: PAL.hairBrown, beard: PAL.hairGrey, hairStyle: "short", hat: "straw", hatRamp: ramp("#6a6a7a"), skin: PAL.skinTan, flare: 4.2, hem: 4.8, shoes: PAL.brown, eye: "#3a2a1a" }),
+  baizhi: s({ robe: ramp("#e8f0d8", { lo: "#4a6a4a" }), inner: PAL.green, trim: PAL.green, sash: PAL.jade, hair: PAL.hairWhite, hairStyle: "bun", female: true, hunch: 0.06, weapon: "staff", weaponRamp: PAL.wood, shawl: ramp("#9ad08a", { lo: "#2a4a2a" }), eye: "#3a5a2a", flare: 5.6 }),
+  herbalist: s({ robe: ramp("#6aa85a", { lo: "#1a3a2a" }), inner: PAL.white, trim: PAL.white, sash: PAL.rose, hair: PAL.hairBrown, hairStyle: "twin", female: true, scale: 0.86, eye: "#3a2a1a", flare: 4.8, hem: 3.8, shoes: PAL.brown }),
+  poisoner: s({ robe: ramp("#4a5a3a", { lo: "#0a140a" }), inner: PAL.black, trim: PAL.purple, sash: PAL.purple, hair: PAL.hairBlack, hairStyle: "wild", hat: "hood", hatRamp: ramp("#2a3a2a"), skin: PAL.skinPale, weapon: "fan", weaponRamp: PAL.purple, eye: "#6ad04a", flare: 5 }),
+  lingfeng: s({ robe: ramp("#dfe8f4", { lo: "#3a4a6a" }), inner: PAL.navy, trim: PAL.steel, sash: PAL.navy, hair: PAL.hairSilver, beard: PAL.hairSilver, hairStyle: "long", hat: "crown", hatRamp: PAL.steel, cape: ramp("#3a5a8a", { lo: "#0a1a3a" }), weapon: "jian", eye: "#2a3a6a", flare: 5.2 }),
+  swordsea: s({ robe: ramp("#3a5a8a", { lo: "#0a1a3a" }), inner: PAL.white, trim: PAL.steel, sash: PAL.white, hairStyle: "topknot", weapon: "jian", flare: 4.6 }),
+  dragon: s({ robe: ramp("#9ff5de", { hi: "#ffffff", lo: "#1a5a6a" }), inner: PAL.gold, trim: PAL.gold, sash: PAL.gold, hair: ramp("#e8fff8", { lo: "#5a9a9a" }), beard: ramp("#e8fff8", { lo: "#5a9a9a" }), hairStyle: "long", hat: "crown", hatRamp: PAL.jade, weapon: "whisk", glowEyes: "#ffe040", scale: 1.12, hem: 1.6, flare: 6.4 }),
   patriarch: s({ robe: PAL.crimson, inner: PAL.black, trim: PAL.gold, sash: PAL.black, hair: PAL.hairSilver, hairStyle: "long", hat: "crown", hatRamp: PAL.black, cape: PAL.black, weapon: "saber", scale: 1.3, glowEyes: "#ff2040", flare: 6.2 }),
 } satisfies Record<string, HumanStyle>;
 
@@ -729,6 +814,9 @@ export const OUTFITS: Partial<Record<HumanId, Record<string, Partial<HumanStyle>
     mail: { robe: ramp("#4a4a5e", { lo: "#141428" }), inner: PAL.crimson, trim: PAL.steel, sash: PAL.crimson, shoes: PAL.black, shawl: undefined, cape: PAL.crimson, hem: 4.2, flare: 4.4 },
     festival: { robe: PAL.red, inner: PAL.gold, trim: PAL.gold, sash: PAL.gold, shawl: FESTIVAL_SHAWL, shoes: PAL.red },
     seafarer: { robe: ramp("#2a5a8a", { lo: "#0a1a3a" }), inner: PAL.white, trim: PAL.gold, sash: PAL.red, shoes: PAL.brown, shawl: undefined, cape: ramp("#c8483a", { lo: "#3a0a1a" }), hat: "straw", hatRamp: ramp("#3a3a4a"), hem: 3.6, flare: 4.8 },
+    phoenix: { robe: PAL.crimson, inner: PAL.gold, trim: PAL.gold, sash: PAL.gold, shoes: PAL.red, shawl: undefined, cape: ramp("#f06a2a", { hi: "#ffe0a0", lo: "#5a0a10" }), flare: 5.4 },
+    herbal: { robe: ramp("#e8f0d8", { lo: "#4a6a4a" }), inner: PAL.green, trim: PAL.green, sash: PAL.jade, shoes: PAL.brown, shawl: ramp("#9ad08a", { lo: "#2a4a2a" }), hat: "straw", hatRamp: PAL.straw, flare: 5 },
+    swordsea: { robe: ramp("#3a5a8a", { lo: "#0a1a3a" }), inner: PAL.white, trim: PAL.steel, sash: PAL.white, shoes: PAL.navy, shawl: undefined, cape: ramp("#dfe8f4", { lo: "#3a4a6a" }), hem: 3.8, flare: 4.6 },
     celestial: { robe: PAL.white, inner: PAL.gold, trim: PAL.gold, sash: PAL.gold, shoes: PAL.gold, hat: "crown", hatRamp: PAL.gold, shawl: ramp("#fff0a0", { lo: "#a87a30" }), flare: 6 },
   },
   zhou: { festival: { robe: PAL.red, inner: PAL.gold, trim: PAL.gold, sash: PAL.gold, hatRamp: PAL.red } },
@@ -746,25 +834,25 @@ export function styleOf(id: HumanId, outfit?: string): HumanStyle {
   const o = outfit ? OUTFITS[id]?.[outfit] : undefined;
   return o ? { ...STYLES[id], ...o } : STYLES[id];
 }
-export type BeastId = "fox" | "wolf" | "serpent" | "serpentKing" | "crane" | "bat" | "horse";
+export type BeastId = "fox" | "wolf" | "serpent" | "serpentKing" | "crane" | "bat" | "horse" | "emberwyrm" | "stonehound";
 /** Lin Yue on Cloudmane, her spirit horse. */
 export type MountId = "rider";
 export type CharId = HumanId | BeastId | MountId;
 
 const HUMAN_ANIMS: Record<HumanId, AnimId[]> = {
-  heroine: ["idle", "walk", "run", "talk", "attack", "cast", "hurt", "meditate", "fly", "victory", "defeat", "bow", "gather", "stretch", "look", "wave", "drink", "cheer", "point", "nod", "read", "sit", "pray", "clap", "laugh", "flute", "salute", "twirl", "write", "taichi", "kick", "umbrella", "eat"],
-  elder: ["idle", "walk", "talk", "cast", "bow", "wave", "nod", "read", "salute", "write", "taichi"],
+  heroine: ["idle", "walk", "run", "talk", "attack", "cast", "hurt", "meditate", "fly", "victory", "defeat", "bow", "gather", "stretch", "look", "wave", "drink", "cheer", "point", "nod", "read", "sit", "pray", "clap", "laugh", "flute", "salute", "twirl", "write", "taichi", "kick", "umbrella", "eat", "torch", "kowtow", "sworddance", "flame"],
+  elder: ["idle", "walk", "talk", "cast", "bow", "wave", "nod", "read", "salute", "write", "taichi", "sworddance"],
   qing: ["idle", "walk", "talk", "bow", "wave", "nod", "cheer", "clap", "pour", "salute"],
   abao: ["idle", "walk", "run", "talk", "practice", "wave", "cheer", "laugh", "clap", "juggle", "salute", "kick"],
-  discipleM: ["idle", "walk", "practice", "bow", "nod", "clap", "salute", "taichi", "kick"],
-  discipleF: ["idle", "walk", "practice", "bow", "wave", "clap", "salute", "taichi"],
+  discipleM: ["idle", "walk", "practice", "bow", "nod", "clap", "salute", "taichi", "kick", "sworddance"],
+  discipleF: ["idle", "walk", "practice", "bow", "wave", "clap", "salute", "taichi", "sworddance"],
   zhou: ["idle", "walk", "talk", "wave", "nod", "point", "laugh", "fan", "lantern"],
   hua: ["idle", "walk", "talk", "wave", "drink", "nod", "pour", "laugh", "lantern"],
   farmer: ["idle", "walk", "talk", "gather", "wave", "nod", "stretch", "laugh", "eat", "lantern", "hoe"],
   child: ["idle", "walk", "run", "talk", "wave", "dance", "cheer", "clap", "laugh", "juggle", "twirl", "lantern", "kick"],
   huli: ["idle", "walk", "talk", "cast", "bow", "wave", "dance", "flute", "twirl"],
   wen: ["idle", "talk", "fish", "cast", "wave", "sleep", "flute"],
-  monk: ["idle", "walk", "talk", "sweep", "bow", "nod", "wave", "meditate", "pray", "eat", "taichi"],
+  monk: ["idle", "walk", "talk", "sweep", "bow", "nod", "wave", "meditate", "pray", "eat", "taichi", "kowtow"],
   teawoman: ["idle", "walk", "talk", "wave", "drink", "nod", "bow", "pour", "laugh"],
   miller: ["idle", "walk", "talk", "gather", "wave", "nod", "point", "stretch", "laugh", "eat"],
   hermit: ["idle", "talk", "meditate", "cast", "nod", "bow", "flute"],
@@ -777,11 +865,11 @@ const HUMAN_ANIMS: Record<HumanId, AnimId[]> = {
   millhand: ["idle", "walk", "talk", "sweep", "wave", "cheer", "laugh", "eat"],
   lampkeeper: ["idle", "talk", "pray", "bow", "nod", "meditate"],
   scholar: ["idle", "talk", "read", "sit", "drink", "nod", "laugh", "clap", "fan", "write"],
-  smith: ["idle", "walk", "talk", "hammer", "nod", "wave", "laugh", "drink", "salute"],
+  smith: ["idle", "walk", "talk", "hammer", "nod", "wave", "laugh", "drink", "salute", "mine"],
   ghost: ["float", "talk", "write", "bow", "nod"],
   orchardist: ["idle", "walk", "talk", "gather", "wave", "nod", "laugh", "eat", "pour", "cheer"],
-  villagerM: ["idle", "walk", "talk", "wave", "nod", "gather", "carry", "hoe", "chop", "eat", "laugh", "stretch", "lantern"],
-  villagerF: ["idle", "walk", "talk", "wave", "nod", "gather", "pour", "laugh", "carry", "umbrella", "dance", "clap", "lantern"],
+  villagerM: ["idle", "walk", "talk", "wave", "nod", "gather", "carry", "hoe", "chop", "eat", "laugh", "stretch", "lantern", "mine", "torch"],
+  villagerF: ["idle", "walk", "talk", "wave", "nod", "gather", "pour", "laugh", "carry", "umbrella", "dance", "clap", "lantern", "kowtow"],
   boy: ["idle", "walk", "run", "talk", "wave", "kick", "cheer", "laugh", "juggle", "clap"],
   woodcutter: ["idle", "walk", "talk", "chop", "carry", "wave", "nod", "stretch", "drink", "laugh"],
   porter: ["idle", "walk", "talk", "carry", "wave", "nod", "stretch", "eat", "drink"],
@@ -792,7 +880,7 @@ const HUMAN_ANIMS: Record<HumanId, AnimId[]> = {
   abbot: ["idle", "talk", "taichi", "meditate", "pray", "bow", "nod", "cast"],
   novice: ["idle", "walk", "talk", "sweep", "kick", "bow", "pray", "laugh", "taichi"],
   nomad: ["idle", "walk", "talk", "wave", "point", "drink", "laugh", "flute", "look"],
-  marshwitch: ["idle", "walk", "talk", "cast", "gather", "laugh", "nod", "pour"],
+  marshwitch: ["idle", "walk", "talk", "cast", "gather", "laugh", "nod", "pour", "brew"],
   teapicker: ["idle", "walk", "talk", "gather", "carry", "wave", "laugh", "dance", "cheer"],
   teamaster: ["idle", "talk", "pour", "drink", "nod", "fan", "bow", "taichi"],
   cook: ["idle", "walk", "talk", "pour", "eat", "laugh", "nod", "wave"],
@@ -800,6 +888,15 @@ const HUMAN_ANIMS: Record<HumanId, AnimId[]> = {
   cultist: ["idle", "walk", "attack", "hurt"],
   jiangshi: ["idle", "hop", "attack", "hurt"],
   patriarch: ["idle", "walk", "attack", "cast", "hurt", "defeat", "talk"],
+  yanhuo: ["idle", "walk", "talk", "cast", "flame", "bow", "nod", "laugh", "salute", "point"],
+  phoenix: ["idle", "walk", "talk", "practice", "flame", "salute", "attack", "hurt", "nod", "cheer", "torch"],
+  miner: ["idle", "walk", "talk", "mine", "cower", "wave", "nod", "drink", "eat", "kowtow", "torch", "carry"],
+  baizhi: ["idle", "walk", "talk", "brew", "gather", "nod", "bow", "pour", "cast"],
+  herbalist: ["idle", "walk", "talk", "gather", "brew", "wave", "cheer", "laugh", "kowtow"],
+  poisoner: ["idle", "walk", "talk", "attack", "hurt", "cast", "laugh", "kowtow", "brew", "cower"],
+  lingfeng: ["idle", "walk", "talk", "sworddance", "practice", "salute", "nod", "bow", "cast"],
+  swordsea: ["idle", "walk", "talk", "practice", "sworddance", "salute", "bow", "sweep", "attack", "hurt", "kowtow", "nod"],
+  dragon: ["float", "talk", "cast", "nod", "bow"],
 };
 
 const NAMES: Record<CharId, [string, string]> = {
@@ -851,6 +948,15 @@ const NAMES: Record<CharId, [string, string]> = {
   cook: ["Cook Pang", "Kitchens of the Azure Cloud"],
   taiji: ["Elder Qiu", "Master of the Taiji Yard"],
   patriarch: ["Patriarch Xue", "Lord of the Blood Moon Sect"],
+  yanhuo: ["Yan Huo", "Sect Mistress of the Scarlet Phoenix"],
+  phoenix: ["Phoenix Disciple", "Scarlet Phoenix Sect"],
+  miner: ["Old Tie", "Foreman of the Ember Mine"],
+  baizhi: ["Bai Zhi", "Valley Master of Hundred Herbs"],
+  herbalist: ["Ling'er", "Apprentice of Hundred Herb Valley"],
+  poisoner: ["Ku Shen", "An Expelled Herbalist"],
+  lingfeng: ["Ling Feng", "Master of the Sword Sea Pavilion"],
+  swordsea: ["Sword Sea Disciple", "Sword Sea Pavilion"],
+  dragon: ["Old Long", "Spirit of the Dragon Vein"],
   fox: ["Fox Spirit", "Corrupted Beast"],
   wolf: ["Shadowflame Wolf", "Corrupted Beast"],
   serpent: ["Jade Serpent", "Lake Beast"],
@@ -858,6 +964,8 @@ const NAMES: Record<CharId, [string, string]> = {
   crane: ["Spirit Crane", "Messenger of the Sect"],
   bat: ["Blood Bat", "Valley Vermin"],
   horse: ["Wild Horse", "Highland Herd"],
+  emberwyrm: ["Ember Wyrm", "Fire in the Vein"],
+  stonehound: ["Stone Hound", "Guardian of the Dragon Vein"],
   rider: ["Lin Yue", "Riding Cloudmane"],
 };
 
@@ -869,6 +977,8 @@ const BEAST_ANIMS: Record<BeastId, AnimId[]> = {
   crane: ["idle", "fly", "peck"],
   bat: ["fly"],
   horse: ["idle", "walk", "run", "graze", "rear"],
+  emberwyrm: ["idle", "walk", "attack", "hurt"],
+  stonehound: ["idle", "walk", "run", "attack", "hurt", "howl", "sniff", "sleep"],
 };
 const RIDER_ANIMS: AnimId[] = ["idle", "walk", "run", "rear"];
 
@@ -912,7 +1022,7 @@ function paintFrame(id: CharId, anim: AnimId, i: number, dir: number, outfit?: s
     const def = charDef(id);
     // non-sword users keep the default resting hands for sword poses
     if (anim === "attack" && st.weapon !== "jian" && st.weapon !== "saber") pose.handR = pose.handR ?? REST_HAND_R;
-    if (anim === "attack" || anim === "practice") pose.sword = "hand";
+    if (anim === "attack" || anim === "practice" || anim === "sworddance") pose.sword = "hand";
     if (id === "jiangshi" && anim !== "hop") {
       pose.handL = [-2.6, 8.4, 17.6];
       pose.handR = [2.6, 8.4, 17.6];
@@ -937,6 +1047,10 @@ function paintFrame(id: CharId, anim: AnimId, i: number, dir: number, outfit?: s
     case "serpent":
     case "serpentKing":
       return paintSerpent({ ...pose, lunge: pose.lunge, stride: undefined }, a, id === "serpentKing");
+    case "emberwyrm":
+      return paintSerpent({ ...pose, lunge: pose.lunge, stride: undefined }, a, true, EMBER_WYRM);
+    case "stonehound":
+      return paintQuad(STONEHOUND_STYLE, pose, a);
     case "crane":
       return paintCrane(anim === "fly" ? pose : { t: pose.t, head: pose.head }, a);
     case "bat":

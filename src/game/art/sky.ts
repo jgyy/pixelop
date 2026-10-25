@@ -18,6 +18,8 @@ interface SkyStyle {
   stars?: boolean;
   moon?: { colour: string; glow: string; r: number; x: number; y: number };
   lightning?: boolean;
+  /** Stalactites hanging from a cave roof, in two parallax layers. */
+  ceiling?: boolean;
 }
 
 const SKIES: Record<SkyId, SkyStyle> = {
@@ -105,6 +107,16 @@ const SKIES: Record<SkyId, SkyStyle> = {
       [1, "#24161a"],
     ],
     ridges: [],
+  },
+  // deep underground: black rock fading into the faint glow of crystal and far-off water
+  cave: {
+    stops: [
+      [0, "#06050a"],
+      [0.55, "#0e0c16"],
+      [1, "#161a26"],
+    ],
+    ridges: [],
+    ceiling: true,
   },
 };
 
@@ -228,6 +240,30 @@ export function drawSky(s: Surface, id: SkyId, t: number, camX: number, camY: nu
         s.sprite(p, Math.round(x - 20), Math.round(y0 + Math.sin(k * 1.7 + layer) * 4));
       }
       if (y0 + 14 < H) s.rect(0, y0 + 14, W, H - y0 - 14, c);
+    }
+  }
+  if (st.ceiling) {
+    for (const [layer, colour, len, speed] of [
+      [0, "#0c0a14", 70, 0.05],
+      [1, "#14111e", 46, 0.12],
+    ] as const) {
+      const off = -camX * speed;
+      for (let x = -8; x < W + 8; x += 1) {
+        const wx = Math.floor(x - off);
+        const n = Math.floor(wx / 7);
+        const r = hash2(n, layer, 31);
+        const local = (((wx % 7) + 7) % 7) / 7;
+        // each fang tapers to a point; between them the roof sags a little
+        const fang = r > 0.45 ? (1 - Math.abs(local - 0.5) * 2) * len * (0.3 + r * 0.7) : 0;
+        const roof = 6 + Math.sin(wx * 0.05 + layer) * 4 - camY * speed * 0.3;
+        const y1 = Math.max(0, Math.round(roof + fang));
+        if (y1 > 0) s.rect(x, 0, 1, y1, colour);
+        // a drop of water gathers at the tip of a fang now and then and falls
+        if (r > 0.9 && local > 0.42 && local < 0.58) {
+          const age = (t * 0.6 + r * 9) % 1;
+          s.px(x, y1 + age * H * 0.4, alpha("#9ad0ff", 0.7 * (1 - age)));
+        }
+      }
     }
   }
   if (st.lightning) {

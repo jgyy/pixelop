@@ -137,6 +137,11 @@ export function GameView({ initial, intro, onQuit }: { initial: GameState; intro
                 ✦ {ui.errand}
               </div>
             )}
+            {ui.sectQuest && (
+              <div className="errand sect" data-testid="sect-quest">
+                ◈ {ui.sectQuest}
+              </div>
+            )}
           </div>
         )}
 
@@ -164,6 +169,9 @@ export function GameView({ initial, intro, onQuit }: { initial: GameState; intro
                   Attire <span className="kbd">C</span>
                 </button>
               )}
+              <button className="btn" onClick={() => game.toggleJournal()} data-testid="journal-button">
+                Journal <span className="kbd">J</span>
+              </button>
               <button className="btn" onClick={() => void save()} data-testid="save">
                 Save
               </button>
@@ -202,6 +210,26 @@ export function GameView({ initial, intro, onQuit }: { initial: GameState; intro
         </div>
 
         {ui.dialog && <Dialog key={ui.dialog.seq} dialog={ui.dialog} onAdvance={() => game.advance()} typingRef={typing} />}
+
+        {ui.choice && (
+          <div className="choice panel" key={ui.choice.seq} data-testid="choice">
+            {ui.choice.prompt && <div className="prompt-text">{ui.choice.prompt}</div>}
+            <ol>
+              {ui.choice.options.map((o, k) => (
+                <li key={o.label}>
+                  <button className={`btn${k === ui.choice!.selected ? " primary" : ""}`} onClick={() => game.choose(k)} data-testid={`choice-${k}`}>
+                    <span className="kbd">{k + 1}</span>
+                    {o.label}
+                    {o.hint && <small>{o.hint}</small>}
+                  </button>
+                </li>
+              ))}
+            </ol>
+            <span className="next">
+              <span className="kbd">1</span>–<span className="kbd">{ui.choice.options.length}</span> or ↑↓ · E · choose wisely, the jianghu remembers
+            </span>
+          </div>
+        )}
 
         {ui.narration && (
           <div className="narration" onClick={() => game.advance()} data-testid="narration">
@@ -249,6 +277,8 @@ export function GameView({ initial, intro, onQuit }: { initial: GameState; intro
 
         {ui.worldmap && <WorldMapPanel ui={ui} game={game} />}
 
+        {ui.journal && <JournalPanel journal={ui.journal} onClose={() => game.toggleJournal()} />}
+
         {ui.battle && <EnemyBar ui={ui} />}
         {ui.battle && <BattleMenu ui={ui} act={(a) => game.battleAction(a)} />}
 
@@ -281,6 +311,9 @@ function Dialog({ dialog, onAdvance, typingRef }: { dialog: NonNullable<UiSnapsh
   useEffect(() => {
     typingRef.current = { done, finish: () => setShown(total) };
   }, [done, total, typingRef]);
+  // once the line is gone (skipped, or the scene ended), nothing is being typed any more:
+  // a stale "still typing" would swallow the next Enter meant for a question or the next scene
+  useEffect(() => () => void (typingRef.current = { done: true, finish: () => undefined }), [typingRef]);
   return (
     <div className={`dialog panel${dialog.portrait ? " with-portrait" : ""}${dialog.speaker ? "" : " narrator"}`} onClick={() => (done ? onAdvance() : setShown(total))} data-testid="dialog">
       {dialog.portrait && <Portrait id={dialog.portrait} outfit={dialog.outfit} talking={!done} />}
@@ -319,6 +352,53 @@ function Portrait({ id, outfit, talking }: { id: HumanId; outfit?: string; talki
     return () => cancelAnimationFrame(raf);
   }, [id, outfit]);
   return <canvas ref={ref} className="portrait" width={PORTRAIT} height={PORTRAIT} data-testid="portrait" />;
+}
+
+/** The quest journal: the tale, the errands, the sects' troubles, and how each sect regards her. */
+function JournalPanel({ journal, onClose }: { journal: NonNullable<UiSnapshot["journal"]>; onClose: () => void }) {
+  return (
+    <div className="journal panel" data-testid="journal">
+      <h3>Journal · 江湖录</h3>
+      <section>
+        <h4>
+          {journal.main.chapter} · {journal.main.title}
+        </h4>
+        <p>{journal.main.objective}</p>
+        {journal.errands.map((e) => (
+          <p key={e} className="errand">
+            ✦ {e}
+          </p>
+        ))}
+      </section>
+      <section>
+        <h4>The Sects</h4>
+        <ul className="standing">
+          {journal.standing.map((s) => (
+            <li key={s.id} className={`rep-${s.label.toLowerCase()}`} data-testid={`standing-${s.id}`}>
+              <span className="cn">{s.hanzi}</span> {s.name} <b>{s.label}</b>
+              <i className="pips" aria-hidden>
+                {Array.from({ length: 7 }, (_, k) => (
+                  <span key={k} className={k - 3 === Math.max(-3, Math.min(3, s.rep)) ? "on" : k - 3 < 0 ? "neg" : "pos"} />
+                ))}
+              </i>
+            </li>
+          ))}
+        </ul>
+        {journal.sects.map((e) => (
+          <div key={e.title} className={`entry${e.done ? " done" : ""}${e.sect === "rumour" ? " rumour" : ""}`}>
+            <strong>
+              {e.done ? "✔ " : e.sect === "rumour" ? "? " : "◈ "}
+              {e.title}
+            </strong>
+            <p>{e.objective}</p>
+          </div>
+        ))}
+      </section>
+      <button className="btn primary" onClick={onClose} data-testid="journal-close">
+        Close <span className="kbd">J</span>
+      </button>
+    </div>
+  );
 }
 
 function WorldMapPanel({ ui, game }: { ui: UiSnapshot; game: Game }) {
@@ -465,6 +545,9 @@ function TouchControls({ game, typing }: { game: Game; typing: React.RefObject<{
         </button>
         <button className="btn" {...press("KeyC")} aria-label="Change attire">
           C
+        </button>
+        <button className="btn" {...press("KeyJ")} aria-label="Journal">
+          J
         </button>
         <button className="btn" {...press("KeyB")}>
           B

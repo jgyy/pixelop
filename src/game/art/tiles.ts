@@ -25,6 +25,8 @@ const MARBLE = ["#c8cce0", "#d8dcec", "#e6e8f4", "#f4f4fa"];
 const SNOW = ["#c8d4ec", "#dce4f4", "#eef2fa", "#ffffff"];
 const ASH = ["#241a2a", "#2e2234", "#3a2c40", "#46364c"];
 const RED = ["#5a2420", "#6e2e24", "#84382a", "#9a4630"];
+const CAVE = ["#2a2636", "#34303f", "#3e3a4a", "#4a4658"];
+const ICE = ["#8ab8e0", "#a8d0f0", "#c8e4fa", "#e8f6ff"];
 const FLOWERS = ["#ffffff", "#f6a6c9", "#ffe070", "#c8b5ea", "#ff8a8a"];
 
 function grass(wx: number, wy: number, seed: number): string {
@@ -118,6 +120,37 @@ const TEX: Record<Exclude<TileKind, "void" | "water" | "deep" | "paddy" | "lava"
     if (h > 0.985) return "#ffffff";
     return pick(SNOW, fbm(x * 1.8, y * 1.8, seed) * 0.9 + 0.1);
   },
+  // a cave floor: dark flagstones of living rock, wet in places, with glints of ore
+  cave: (seed) => (x, y) => {
+    const h = hash2(Math.floor(x * 16), Math.floor(y * 16), seed + 9);
+    if (h > 0.985) return "#9ff5de";
+    if (h > 0.97) return "#6a6478";
+    const wet = fbm(x * 0.9, y * 0.9, seed + 4) > 0.64;
+    const c = slabs(x, y, seed, CAVE, 1.5);
+    return wet ? mix(c, "#3a5a7a", 0.3) : c;
+  },
+  // the top of the rock behind a cave: rough, dark, crusted with lichen
+  rockwall: (seed) => (x, y) => {
+    const n = fbm(x * 2.2, y * 2.2, seed + 2);
+    if (n > 0.68) return "#3a4a3a";
+    return pick(["#14111c", "#1c1826", "#26212f", "#302a3a"], n);
+  },
+  // a mine track: sleepers across packed earth, two iron rails running along the tile
+  rails: (seed) => (x, y) => {
+    const fx = x - Math.floor(x);
+    const fy = y - Math.floor(y);
+    const across = Math.abs(fx - 0.5);
+    if (Math.abs(across - 0.28) < 0.04) return fy * 8 - Math.floor(fy * 8) < 0.2 ? "#d8dce8" : "#8a8ea0";
+    if ((fy * 4) % 1 < 0.3 && across < 0.42) return "#5a3a24";
+    return pick(DIRT, fbm(x * 2, y * 2, seed) * 0.8);
+  },
+  // a frozen pool: pale blue ice with white cracks
+  ice: (seed) => (x, y) => {
+    const n = fbm(x * 1.6, y * 1.6, seed + 6);
+    if (Math.abs(n - 0.5) < 0.012) return "#ffffff";
+    if (hash2(Math.floor(x * 16), Math.floor(y * 16), seed) > 0.985) return "#ffffff";
+    return pick(ICE, n * 0.9 + 0.08);
+  },
   // the top of an interior wall: dark roof beams seen from above
   wall: (seed) => (x, y) => beam(x, y, seed),
   window: (seed) => (x, y) => beam(x, y, seed),
@@ -177,6 +210,10 @@ const WALLS: Record<TileKind, WallStyle> = {
   wall: { body: PLASTER, plaster: true },
   window: { body: PLASTER, plaster: true, window: true },
   rug: { body: ["#5a1420", "#6a1a28", "#7a2030"] },
+  cave: { body: ["#1a1622", "#221d2c", "#2a2436"] },
+  rockwall: { lip: "#3a4a3a", body: ["#1a1622", "#221d2c", "#2a2436", "#2e2838"] },
+  rails: { body: ["#3a2a22", "#4a3426", "#5a402e"] },
+  ice: { lip: "#e8f6ff", body: ["#5a7aa8", "#6a8ab8", "#7a9ac8"] },
 };
 
 /** One pixel of a plastered interior wall face (`u` across the tile, `dy` down from the top, `len` the face height). */
@@ -210,7 +247,7 @@ export interface TileBuffer {
  * x = 16, y = 0 for the tile's height; walls extend down to `base` (and much
  * further, as rocky undersides, at the rim of floating islands).
  */
-export function paintTile(map: TileMap, i: number, j: number, base: number, seed: number, floating: boolean): TileBuffer {
+export function paintTile(map: TileMap, i: number, j: number, base: number, seed: number, floating: boolean, rocky = false): TileBuffer {
   const kind = map.kind(i, j);
   const h = map.height(i, j);
   const liquid = LIQUID[kind];
@@ -224,7 +261,8 @@ export function paintTile(map: TileMap, i: number, j: number, base: number, seed
   const wallPx = Math.max(0, (h - bottom) * LEVEL_H) + underside + 2;
   const buf = new PixelBuffer(TILE_W, TILE_H + wallPx + 1);
   const tex = liquid ? null : TEX[kind as keyof typeof TEX](seed);
-  const wall = WALLS[kind];
+  // underground every cliff is raw rock, whatever lies on top of it
+  const wall = rocky && !liquid && kind !== "rockwall" && kind !== "rails" ? WALLS.cave : WALLS[kind];
   const nH = (di: number, dj: number) => {
     const k = map.kind(i + di, j + dj);
     return k === "void" ? -99 : map.height(i + di, j + dj) - (LIQUID[k] ? 0.25 : 0);

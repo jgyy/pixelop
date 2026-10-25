@@ -3,6 +3,7 @@ import type { AnimId, HumanId } from "../art/characters";
 import { footTiles, propDef, type PropId } from "../art/props";
 import type { EnemyId } from "../engine/enemies";
 import { LIQUID, TileMap, type TileKind } from "./tilemap";
+import type { TerrainPatch } from "./terrain";
 
 /**
  * The six explorable regions. Each is built procedurally from a few shape
@@ -14,8 +15,8 @@ import type { AreaId } from "./ids";
 
 export { AREA_IDS, type AreaId } from "./ids";
 
-export type SkyId = "day" | "dusk" | "forest" | "night" | "blood" | "storm" | "interior";
-export type Weather = "petals" | "leaves" | "fireflies" | "embers" | "snow" | "none";
+export type SkyId = "day" | "dusk" | "forest" | "night" | "blood" | "storm" | "interior" | "cave";
+export type Weather = "petals" | "leaves" | "fireflies" | "embers" | "snow" | "drips" | "spores" | "none";
 
 export interface PropPlacement {
   id: PropId;
@@ -28,6 +29,8 @@ export interface PropPlacement {
   at?: [number, number];
   /** Only shown while this predicate on story flags holds (festival decorations). Never blocks. */
   when?: (flags: Record<string, boolean>) => boolean;
+  /** Ground height to stand at, when the tile beneath only rises to it once the story changes the land. */
+  z?: number;
 }
 
 /** The tiles [i0, j0, i1, j1] (inclusive) a placed prop covers. */
@@ -87,6 +90,8 @@ export interface Interactable {
   to?: string;
   /** Signs: how the heroine looks at it (she reads by default). */
   anim?: AnimId;
+  /** Only usable (and shown) while this predicate on story flags holds. */
+  when?: (flags: Record<string, boolean>) => boolean;
 }
 
 export interface AreaDef {
@@ -110,6 +115,8 @@ export interface AreaDef {
   enemies: EnemySpawn[];
   interacts: Interactable[];
   critters?: Critter[];
+  /** Changes the story makes to the land (see world/terrain.ts). */
+  patches?: TerrainPatch[];
 }
 
 const P = (id: PropId, i: number, j: number): PropPlacement => ({ id, i, j });

@@ -532,3 +532,170 @@ test("capture the doubled world, its new regions and folk", async ({ page }) => 
   await quiet();
   await shot(page, "81-red-cliff-hideout");
 });
+
+test("capture the three sects, the caves beneath them, and the choices that change the land", async ({ page }) => {
+  test.setTimeout(420_000);
+  await startNewGame(page);
+  let flags: Record<string, boolean> = { metElder: true, villageSaved: true, villageArrived: true, metZhou: true, foxesCleared: true, bambooArrived: true, metHuli: true, lakeArrived: true, metWen: true, serpentKingDefeated: true, marshArrived: true, terracesArrived: true, desertArrived: true, harborArrived: true, frostArrived: true, emberMineArrived: true, grottoArrived: true, veinArrived: true };
+  const setFlags = async (more: Record<string, boolean>, extra: Record<string, unknown> = {}) => {
+    flags = { ...flags, ...more };
+    await patch(page, { flags, realm: 2, stage: 1, hp: 600, qi: 300, skills: ["strike", "palm", "lotus", "swords", "thunder"], ...extra });
+  };
+  await setFlags({});
+  const settle = async (ms = 1800) => {
+    await page.waitForTimeout(ms);
+    if ((await mode(page)) === "scene") await skipScene(page);
+  };
+  const quiet = () => page.evaluate(() => ((window.__pixelop!.game as unknown as { toasts: unknown[] }).toasts = []));
+  const timeOfDay = (k: number) => page.evaluate((k) => (window.__pixelop!.game.clock = k * 360), k);
+  const near = (key: string, dx: number, dy: number, dir = 3) =>
+    page.evaluate(
+      ([key, dx, dy, dir]) => {
+        const g = window.__pixelop!.game;
+        const n = [...g.world.def.npcs, ...g.world.def.interacts].find((x) => x.key === key)!;
+        if (g.inside) g.world.placeHero(n.i + 0.5 + (dx as number), n.j + 0.5 + (dy as number), dir as number);
+        else g.debugGoto(n.i + 0.5 + (dx as number), n.j + 0.5 + (dy as number));
+        g.world.hero.dir = dir as number;
+      },
+      [key, dx, dy, dir] as const,
+    );
+  const at = async (name: string, key: string, dx: number, dy: number, dir = 3, k = 0.15) => {
+    await timeOfDay(k);
+    await near(key, dx, dy, dir);
+    await settle();
+    await quiet();
+    await shot(page, name);
+  };
+  /** Talk (or read) until a question is put to her, photograph it, then answer it. */
+  const ask = async (key: string, name: string, answer: number) => {
+    await standBy(page, key);
+    await page.waitForTimeout(500);
+    await page.keyboard.press("KeyE");
+    for (let i = 0; i < 40 && !(await page.getByTestId("choice").isVisible()); i++) {
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(90);
+    }
+    await page.waitForTimeout(600);
+    await shot(page, name);
+    await page.evaluate((k) => window.__pixelop!.game.choose(k), answer);
+    for (let i = 0; i < 6 && (await mode(page)) === "scene"; i++) {
+      await skipScene(page);
+      await page.waitForTimeout(150);
+      if (await page.getByTestId("choice").isVisible()) await page.evaluate(() => window.__pixelop!.game.choose(0));
+    }
+  };
+  const enter = async (id: string) => {
+    await page.evaluate((id) => window.__pixelop!.game.debugEnter(id as never), id);
+    await settle(1200);
+  };
+  const landmark = (key: string) =>
+    page.evaluate((key) => {
+      const g = window.__pixelop!.game as unknown as { world: { world: { landmarks: { key: string; x: number; y: number }[] } } };
+      return g.world.world.landmarks.find((l) => l.key === key)!;
+    }, key);
+
+  // the mountains, from the foot of the Dragonspine (its cave mouth still buried)
+  const spine = await landmark("dragonspine");
+  await timeOfDay(0.12);
+  await goto(page, spine.x - 8.5, spine.y + 14.5);
+  await settle();
+  await quiet();
+  await shot(page, "82-dragonspine-buried");
+
+  // the Scarlet Phoenix on its mesa: Yan Huo asks how she will answer
+  await at("83-phoenix-mesa", "yanhuo", 2.5, 4.5, 9, 0.2);
+  await ask("yanhuo", "84-yan-huo-choice", 0);
+  await setFlags({ phxMet: true, phxMine: true });
+  // down into the Ember Mine, where the miners cower and the wyrm sings
+  await enter("emberMine");
+  await at("85-ember-mine", "tie", 4, 4, 9);
+  await ask("tie", "86-trapped-miners", 1);
+  await battle(page, "emberwyrm");
+  await page.waitForTimeout(1300);
+  await page.getByTestId("skill-thunder").click();
+  await page.waitForTimeout(900);
+  await shot(page, "87-ember-wyrm-battle");
+  await page.evaluate(() => {
+    const g = window.__pixelop!.game as unknown as { battle: unknown; mode: string };
+    g.battle = null;
+    g.mode = "explore";
+  });
+  await setFlags({ minersFound: true, minersStay: true, wyrmDefeated: true, minersOut: true });
+  await enter("emberMine");
+  await ask("ember-vein", "88-burning-vein-choice", 1);
+  await page.evaluate(() => window.__pixelop!.game.debugGoto(0, 0));
+  // fed: the mesa's crown boils over and lava runs down the eastern cliffs
+  await setFlags({ "phx:fed": true });
+  const mesa = await landmark("phoenix");
+  await timeOfDay(0.36);
+  await goto(page, mesa.x + 8.5, mesa.y + 10.5);
+  await settle(2400);
+  await quiet();
+  await shot(page, "89-mesa-ablaze");
+
+  // Hundred Herb Valley, withered; the grotto beneath it; Ku Shen at the poisoned spring
+  await at("90-herb-valley-withered", "baizhi", 3, 4, 9, 0.18);
+  await setFlags({ herbAsk: true });
+  await enter("grotto");
+  await at("91-sunken-grotto", "kushen", 6, 4, 9);
+  await ask("kushen", "92-ku-shen-choice", 1);
+  await setFlags({ kuDealt: true, kuSpared: true });
+  await ask("grotto-spring", "93-poisoned-spring-choice", 0);
+  await setFlags({ "herb:purified": true, herbDone: true });
+  await page.evaluate(() => window.__pixelop!.game.debugGoto(0, 0));
+  await at("94-herb-valley-blooms", "baizhi", 3, 4, 9, 0.18);
+
+  // the Sword Sea Pavilion on its crag, the thief, and the stair to the Sword Sea
+  await at("95-sword-sea-pavilion", "lingfeng", 3, 5, 9, 0.1);
+  await setFlags({ swdMet: true, swdClueTang: true, swdClueStair: true });
+  await ask("wuyou", "96-jian-wuyou-choice", 1);
+  await setFlags({ "swd:mercy": true, swdDone: true, swordStair: true });
+  await at("97-stair-to-the-sword-sea", "wuyouSweep", 3, 3, 9, 0.1);
+
+  // the conclave over the Dragon Vein
+  await setFlags({ veinOpened: true });
+  await enter("vein");
+  await at("98-dragon-vein-caverns", "longlao", 3, 7, 9);
+  await ask("longlao", "99-the-conclave", 3);
+  await setFlags({ "vein:shared": true });
+  await page.evaluate(() => window.__pixelop!.game.debugGoto(0, 0));
+  // a spring now runs from the Dragonspine, for everyone
+  await timeOfDay(0.12);
+  await goto(page, spine.x + 6.5, spine.y + 2.5);
+  await settle(2400);
+  await quiet();
+  await shot(page, "100-dragonspine-spring");
+
+  // the new heights: up on the Dragonspine's summit, and among the frost peaks
+  const summit = (cx: number, cy: number, r: number) =>
+    page.evaluate(
+      ([cx, cy, r]) => {
+        const m = window.__pixelop!.game.world.def.map;
+        let best: [number, number, number] = [cx, cy, -1];
+        for (let j = cy - r; j <= cy + r; j++) for (let i = cx - r; i <= cx + r; i++) if (m.standable(i, j) && m.height(i, j) > best[2]) best = [i, j, m.height(i, j)];
+        return best;
+      },
+      [cx, cy, r] as const,
+    );
+  for (const [name, cx, cy, k] of [
+    ["103-dragonspine-summit", 488, 500, 0.12],
+    ["104-frost-peaks", 1120, 192, 0.08],
+  ] as const) {
+    const [i, j] = await summit(cx, cy, 40);
+    await timeOfDay(k);
+    // stand a little below the summit, so the mountain rises up the screen behind her
+    await goto(page, i + 5.5, j + 5.5);
+    await settle();
+    await quiet();
+    await shot(page, name);
+  }
+
+  // the journal
+  await page.keyboard.press("KeyJ");
+  await page.waitForTimeout(600);
+  await shot(page, "101-journal");
+  await page.keyboard.press("KeyJ");
+  await page.keyboard.press("KeyM");
+  await page.waitForTimeout(1500);
+  await shot(page, "102-world-map-mountains");
+});
