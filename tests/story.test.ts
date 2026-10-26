@@ -11,6 +11,18 @@ import { altarScript, areaUnlocked, arrivalScript, endingScript, errand, FOXES_N
 /** Apply every state mutation in a script (what the game does as it plays it). */
 const run = (g: GameState, steps: Step[]) => steps.reduce((s, st) => ("mutate" in st ? st.mutate(s) : s), g);
 
+/** Play a script answering each question with the next of `picks` (the first answer when they run out); fights are left to the caller. */
+function play(g: GameState, steps: Step[], picks: number[] = []): GameState {
+  const queue = [...steps];
+  while (queue.length) {
+    const st = queue.shift()!;
+    if ("mutate" in st) g = st.mutate(g);
+    else if ("choose" in st) queue.unshift(...st.choose[picks.shift() ?? 0].then);
+    else if ("end" in st) break;
+  }
+  return g;
+}
+
 describe("story", () => {
   it("walks the whole main quest from prologue to ascension", () => {
     let g = newGame();
@@ -170,8 +182,8 @@ describe("story", () => {
     expect(g.flags.festivalSeen).toBe(true);
     expect(currentAttire(g).id).toBe("festival");
     expect(arrivalScript("village", g)).toBeNull();
-    // and heaven itself dresses her at the end
-    g = run(g, endingScript());
+    // and heaven itself dresses her at the end, if she climbs its stair
+    g = play(g, endingScript(g));
     expect(currentAttire(g).id).toBe("celestial");
   });
 

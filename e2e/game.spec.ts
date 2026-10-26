@@ -154,6 +154,36 @@ test.describe("Jade Lotus Ascension", () => {
     await expect(page.getByTestId("place")).not.toContainText("Teahouse");
   });
 
+  test("three beginnings: the picker, the foundling in Willow Creek and the runaway at the sect gate", async ({ page }) => {
+    await page.goto("/");
+    await page.getByTestId("new-game").click();
+    await expect(page.getByTestId("origin-picker")).toBeVisible();
+    await expect(page.locator("[data-testid^=origin-]:not([data-testid=origin-picker]):not([data-testid=origin-back])")).toHaveCount(3);
+    await page.getByTestId("origin-back").click();
+    await expect(page.getByTestId("origin-picker")).toBeHidden();
+
+    await startNewGame(page, true, "foundling");
+    expect((await state(page)).area).toBe("village");
+    await expect(page.getByTestId("quest")).toContainText("fox");
+    expect((await state(page)).counters.attire).toBeGreaterThan(0);
+
+    await startNewGame(page, true, "defector");
+    await expect(page.getByTestId("quest")).toContainText("Blood Moon robes");
+    await standBy(page, "elder");
+    await page.keyboard.press("KeyE");
+    for (let i = 0; i < 30 && !(await page.getByTestId("choice").isVisible()); i++) {
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(120);
+    }
+    await page.getByTestId("choice-1").click();
+    await expect
+      .poll(async () => {
+        await page.keyboard.press("Enter");
+        return (await state(page)).flags.secretWay;
+      })
+      .toBe(true);
+  });
+
   test("progress is saved server-side and can be continued", async ({ page }) => {
     await startNewGame(page);
     await patch(page, { stones: 4242 });

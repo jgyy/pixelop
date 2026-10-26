@@ -793,6 +793,8 @@ function buildWorld(): WorldDef {
     P("lantern", x + 2, y - 5);
     P("banner", x + 5, y - 3);
     npcs.push({ key: "ou", char: "smith", i: x + 3, j: y + 4, dir: 3, anim: "hammer" });
+    // and, if she talked him home, the boy he made Dawnfrost for, oiling the swords of the fallen
+    npcs.push({ key: "xueming", name: "Xue Ming", char: "patriarch", i: x - 2, j: y + 5, dir: 2, anim: "sweep", when: (f) => !!f.xueRedeemed, outfit: () => "redeemed" });
     it("tomb-stele", "sign", x + 1, y + 3, "The Sword Tomb. “Here rest the swords of those who held the west against the Blood Moon. Their names are on the blades. Their bones are in the valley. Walk softly.”");
     it("tomb-shrine", "shrine", x - 4, y - 4);
     it("tomb-chest", "chest", x + 5, y - 5);
@@ -1430,6 +1432,91 @@ function buildWorld(): WorldDef {
       { id: "lotus", i: F(22), j: F(410), when: (f) => !!f["herb:purified"] },
       { id: "lotus", i: F(104), j: F(352), when: (f) => !!f["herb:purified"] },
     );
+  }
+  {
+    // the main quest's marks on the land: what Lin Yue did with Xue and with the Jade Lotus Heart
+    const local = (area: AreaId, x: number, y: number): [number, number] => toWorld(area, x, y);
+    const [vx, vy] = local("valley", 16, 16);
+    const planted = (f: Record<string, boolean>) => !!f["heart:planted"];
+    const dawn = (f: Record<string, boolean>) => !!f.xueRedeemed || planted(f);
+    // talked home or rooted over, the blood moon sets: the valley's lava rivers cool to clear water and moss creeps over the ash
+    const cool = new PatchPainter(fine);
+    cool.disc(vx, vy, 40, (i, j) => {
+      const k = fine.kind(i, j);
+      if (LIQUID[k] === "lava") return { kind: "water" };
+      if (k === "ash" && fbm(i * 0.25, j * 0.25, 71) > 0.46) return { kind: "moss" };
+      return undefined;
+    }, 4, 72);
+    patches.push(cool.build("valley-dawn", dawn));
+    // the planted Heart turns the whole valley into a garden of jade lotus and blossom
+    const bloom = new PatchPainter(fine);
+    bloom.disc(vx, vy, 36, (i, j) => {
+      const k = fine.kind(i, j);
+      if (k === "ash" || k === "moss" || (k === "redrock" && fbm(i * 0.3, j * 0.3, 73) > 0.45)) return { kind: hash2(i, j, 74) > 0.35 ? "meadow" : "grass" };
+      return undefined;
+    }, 3, 75);
+    patches.push(bloom.build("valley-lotus", planted));
+    // lotus on every pool that was lava, and blossom on the banks
+    for (let j = vy - 34; j <= vy + 34; j += 3)
+      for (let i = vx - 34; i <= vx + 34; i += 3) {
+        const k = fine.kind(i, j);
+        const h = hash2(i, j, 76);
+        if (LIQUID[k] === "lava" && h > 0.7) kept.push({ id: "lotus", i, j, when: planted });
+        else if ((k === "ash" || k === "redrock") && free(i, j) && h > 0.93) kept.push({ id: hash2(i, j, 77) > 0.5 ? "peachtree" : "cherry", i, j, when: planted });
+        else if (k === "ash" && free(i, j) && h < 0.03) kept.push({ id: "butterflies", i, j, when: planted });
+      }
+    // a Heart drunk dry bleeds the bamboo grey and red, until Elder Mo draws it out of her again
+    const blood = (f: Record<string, boolean>) => !!f["heart:devoured"] && !f.purged;
+    const [bx, by] = local("bamboo", 16, 16);
+    const blight = new PatchPainter(fine);
+    blight.disc(bx, by, 44, (i, j) => {
+      const k = fine.kind(i, j);
+      if (k === "leaf" || k === "moss" || k === "meadow" || k === "grass") return { kind: fbm(i * 0.3, j * 0.3, 78) > 0.55 ? "redrock" : "ash" };
+      return undefined;
+    }, 5, 79);
+    // and Willow Creek's paddies wither to cracked earth
+    const [wx, wy] = local("village", 16, 16);
+    blight.disc(wx, wy, 34, (i, j) => (fine.kind(i, j) === "paddy" || (fine.kind(i, j) === "meadow" && fbm(i * 0.3, j * 0.3, 80) > 0.5) ? { kind: "dirt", height: Math.max(0, fine.height(i, j)) } : undefined), 3, 81);
+    patches.push(blight.build("crimson-blight", blood));
+    for (const [a, x, y] of [
+      ["bamboo", 9, 12],
+      ["bamboo", 22, 18],
+      ["bamboo", 13, 26],
+      ["village", 7, 18],
+      ["village", 24, 9],
+    ] as [AreaId, number, number][]) {
+      const [i, j] = local(a, x, y);
+      if (free(i, j)) kept.push({ id: "deadtree", i, j, when: blood });
+    }
+    // where Elder Mo fell, the marble before the Hall of Clouds is scorched black
+    const [hx, hy] = local("sect", 15, 12);
+    const scar = new PatchPainter(fine);
+    scar.disc(hx, hy, 6, (i, j) => (fine.kind(i, j) !== "void" && !LIQUID[fine.kind(i, j)] && fine.kind(i, j) !== "stairs" ? { kind: fbm(i * 0.4, j * 0.4, 82) > 0.5 ? "ash" : "redrock" } : undefined), 1.4, 83);
+    patches.push(scar.build("sect-scar", (f) => !!f.moBroken));
+    // the guardian sat down with her back to heaven: moss and blossom push up through the peak's snow
+    const [px, py] = local("peak", 12, 13);
+    const green = new PatchPainter(fine);
+    green.disc(px, py, 12, (i, j) => (fine.kind(i, j) === "snow" ? { kind: hash2(i, j, 84) > 0.4 ? "moss" : "meadow" } : undefined), 2, 85);
+    patches.push(green.build("peak-green", (f) => !!f["ending:guardian"]));
+    for (const [x, y] of [
+      [7, 14],
+      [17, 14],
+      [6, 9],
+      [18, 9],
+    ] as [number, number][]) {
+      const [i, j] = local("peak", x, y);
+      if (free(i, j)) kept.push({ id: "cherry", i, j, when: (f) => !!f["ending:guardian"] });
+    }
+    // the teacher of Willow Creek: lanterns and banners for the new school in the village hall
+    for (const [id, x, y] of [
+      ["lantern", 13, 9],
+      ["lantern", 19, 9],
+      ["banner", 12, 11],
+      ["banner", 20, 11],
+    ] as [PropId, number, number][]) {
+      const [i, j] = local("village", x, y);
+      if (free(i, j)) kept.push({ id, i, j, when: (f) => !!f["ending:mortal"] });
+    }
   }
 
   // 13. which region owns each tile

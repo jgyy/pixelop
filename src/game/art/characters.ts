@@ -93,7 +93,14 @@ export type AnimId =
   | "shiver"
   | "warmhands"
   | "yawn"
-  | "stargaze";
+  | "stargaze"
+  | "offer"
+  | "think"
+  | "shrug"
+  | "cry"
+  | "levitate"
+  | "roar"
+  | "plantsword";
 
 export interface Anim {
   fps: number;
@@ -782,6 +789,76 @@ const human: Partial<Record<AnimId, AnimSpec<HumanPose>>> = {
       return { t: i, stance: "kneel", lean: 0.3, bob: -1, handL: [-2 + shiver * 0.3, 3.4, 22], handR: [2 + shiver * 0.3, 3.4, 22], eyes: "closed", mouth: "open", wind: [shiver, -0.2, 0] };
     },
   },
+  // holding something precious out in both cupped hands (the Heart, a gift), then lifting it a little
+  offer: {
+    n: 8,
+    fps: 6,
+    loop: false,
+    pose: (i) => {
+      const k = [0, 0.4, 0.8, 1, 1, 1, 0.7, 0.3][i];
+      return { t: i, lean: 0.06 + k * 0.08, handL: [-1.4, 2 + k * 4.4, 11.4 + k * 2.6], handR: [1.4, 2 + k * 4.4, 11.4 + k * 2.6], eyes: k === 1 && i === 4 ? "closed" : "open", mouth: "smile", wind: [0, -0.3, 0] };
+    },
+  },
+  // thinking it over: a hand to the chin, the head tipped, a slow nod
+  think: {
+    n: 8,
+    fps: 4,
+    loop: false,
+    pose: (i) => {
+      const k = [0.3, 0.8, 1, 1, 1, 1, 0.8, 0.3][i];
+      return { t: i, bob: i === 4 || i === 5 ? 0.4 : 0, lean: -0.02, handR: [1 + (1 - k) * 3, 3.2 * k + 0.6, 11.2 + k * 10.4], handL: [-1.2, 3.4, 15.4 - (1 - k) * 4], eyes: i === 3 ? "closed" : "open", mouth: "neutral", wind: [0, -0.2, 0] };
+    },
+  },
+  // a shrug: palms up, shoulders up, who knows?
+  shrug: {
+    n: 6,
+    fps: 7,
+    loop: false,
+    pose: (i) => {
+      const k = [0, 0.6, 1, 1, 0.6, 0][i];
+      return { t: i, bob: k * 0.8, handL: [-4.4 - k * 2, 0.6 + k * 2.4, 11.2 + k * 3.4], handR: [4.4 + k * 2, 0.6 + k * 2.4, 11.2 + k * 3.4], eyes: k === 1 ? "closed" : "open", mouth: k > 0.5 ? "grin" : "smile", wind: [0, -0.3, 0] };
+    },
+  },
+  // weeping: both hands to the face, shoulders shaking
+  cry: {
+    n: 8,
+    fps: 7,
+    loop: false,
+    pose: (i) => {
+      const sob = i % 2 ? 0.5 : 0;
+      return { t: i, lean: 0.16, bob: -sob, handL: [-1.6, 4.2, 22.4 - sob], handR: [1.6, 4.2, 22.4 - sob], eyes: "closed", mouth: "open", wind: [0, -0.2, -0.2] };
+    },
+  },
+  // rising off the ground on a column of qi, arms opening wide (ascension, and the crimson throne)
+  levitate: {
+    n: 8,
+    fps: 6,
+    loop: true,
+    pose: (i, n) => {
+      const a = ph(i, n);
+      return { t: a, lift: 4 + Math.sin(a) * 1.4, footL: [-1.2, 0.6, 0.4], footR: [1.2, -0.4, 0], handL: [-6.4, 0.6, 17 + Math.sin(a) * 1.2], handR: [6.4, 0.6, 17 + Math.sin(a) * 1.2], eyes: "closed", mouth: "smile", flash: 0.12, wind: [Math.sin(a) * 0.6, 0, 1.4] };
+    },
+  },
+  // a roar of power: crouch, then fling the arms wide and throw the head back
+  roar: {
+    n: 8,
+    fps: 8,
+    loop: false,
+    pose: (i) => {
+      const k = [0, 0.2, 0.1, 0.8, 1, 1, 1, 0.5][i];
+      return { t: i, stance: i < 3 ? "kneel" : "stand", lean: i < 3 ? 0.3 : -0.16 * k, handL: [-3 - k * 4, 2 - k * 2, 11 + k * 12], handR: [3 + k * 4, 2 - k * 2, 11 + k * 12], footL: [-2.4, 0, 0], footR: [2.4, 0, 0], eyes: k > 0.5 ? "glow" : "closed", mouth: k > 0.5 ? "open" : "neutral", flash: k === 1 ? 0.3 : 0, wind: [0, -0.4 - k, 0.8 * k] };
+    },
+  },
+  // driving a sword point-down into the earth and kneeling behind it (a vow, a grave, a surrender)
+  plantsword: {
+    n: 8,
+    fps: 6,
+    loop: false,
+    pose: (i) => {
+      const k = [0, 0.4, 0.8, 1, 1, 1, 1, 1][i];
+      return { t: i, sword: "hand", swordDir: [0, 0.1, -1], stance: i >= 4 ? "kneel" : "stand", lean: 0.1 * k, handR: [0.6, 3 + k * 2, 18 - k * 4], handL: [-0.6, 3 + k * 2, 17 - k * 4], eyes: i >= 5 ? "closed" : "fierce", mouth: "neutral", wind: [0, -0.3, 0] };
+    },
+  },
 };
 
 // ----------------------------------------------------------------------------- beast poses
@@ -930,6 +1007,18 @@ export const OUTFITS: Partial<Record<HumanId, Record<string, Partial<HumanStyle>
     scholar: { robe: ramp("#8ab0d0"), inner: PAL.white, trim: PAL.navy, sash: PAL.navy, shoes: PAL.black, shawl: undefined, hat: "scholar", hatRamp: PAL.black, flare: 5.4 },
     moonrabbit: { robe: PAL.white, inner: ramp("#ffd0e4"), trim: ramp("#ffd0e4"), sash: PAL.gold, shoes: PAL.white, shawl: ramp("#e8e6f0"), foxEars: tonesWhite, flare: 5.8 },
     empress: { robe: ramp("#f0c040", { lo: "#7a3a10" }), inner: PAL.crimson, trim: PAL.crimson, sash: PAL.crimson, shoes: PAL.red, shawl: undefined, cape: PAL.crimson, hat: "crown", hatRamp: PAL.gold, flare: 6.4 },
+    // where she began: a Willow Creek girl's homespun, or the robes of the Blood Moon's acolytes
+    homespun: { robe: ramp("#6a7a9a", { lo: "#1a2a3a" }), inner: PAL.paper, trim: PAL.brown, sash: PAL.red, shoes: PAL.brown, shawl: undefined, hem: 4.2, flare: 4.6 },
+    acolyte: { robe: ramp("#6a1a24", { lo: "#1a0408" }), inner: PAL.black, trim: PAL.gold, sash: PAL.black, shoes: PAL.black, shawl: undefined, hat: "hood", hatRamp: ramp("#3a0a14", { lo: "#0a0004" }), hem: 3.4, flare: 4.8, eye: "#7a2a3a" },
+    // what the main quest's choices make of her
+    xuerobe: { robe: ramp("#c8d8e8", { lo: "#3a4a6a" }), inner: PAL.azure, trim: PAL.navy, sash: PAL.navy, shoes: PAL.navy, shawl: undefined, hem: 3.6, flare: 4.6 },
+    lotusqueen: { robe: ramp("#f8e8f0", { lo: "#8a5a8a" }), inner: PAL.jade, trim: PAL.jade, sash: PAL.rose, shoes: PAL.jadeDeep, shawl: ramp("#9ff5de", { lo: "#2a7a6a" }), hat: "crown", hatRamp: PAL.jade, flare: 6.4 },
+    bloodmoon: { robe: ramp("#8a0a1a", { lo: "#200006" }), inner: PAL.black, trim: PAL.gold, sash: PAL.black, shoes: PAL.black, shawl: undefined, cape: PAL.black, hat: "crown", hatRamp: PAL.black, hair: ramp("#e8e0e8", { lo: "#6a5a7a" }), glowEyes: "#ff2040", flare: 6 },
+    guardian: { robe: ramp("#e8dcc0", { lo: "#6a5a3a" }), inner: PAL.jade, trim: PAL.gold, sash: PAL.jade, shoes: PAL.brown, shawl: undefined, cape: ramp("#5a8a6a", { lo: "#1a3a2a" }), hat: "veil", hatRamp: ramp("#f0fff8"), flare: 5.8 },
+    teacher: { robe: ramp("#9a8a6a", { lo: "#3a2a1a" }), inner: PAL.paper, trim: PAL.navy, sash: PAL.navy, shoes: PAL.brown, shawl: undefined, hat: "scholar", hatRamp: PAL.black, weapon: "fan", weaponRamp: PAL.paper, flare: 5 },
+    // and the shapes she may take: a fox spirit's, a dragon's
+    foxform: { robe: ramp("#fbe6d6"), inner: PAL.gold, trim: PAL.gold, sash: PAL.orange, shoes: PAL.white, shawl: ramp("#ffd8a0"), hair: ramp("#f8f0e0", { lo: "#a08a6a" }), foxEars: ramp("#fff4e0", { lo: "#c08a3a" }), tails: ramp("#fff4e0", { lo: "#c08a3a" }), eye: "#e0a020" },
+    dragonform: { robe: ramp("#1a5a6a", { lo: "#04141a" }), inner: PAL.gold, trim: PAL.gold, sash: PAL.gold, shoes: PAL.gold, shawl: undefined, cape: ramp("#9ff5de", { lo: "#1a5a6a" }), hat: "crown", hatRamp: PAL.jade, hair: ramp("#9ff5de", { hi: "#ffffff", lo: "#1a5a6a" }), glowEyes: "#ffe040", flare: 5.6 },
   },
   zhou: { festival: { robe: PAL.red, inner: PAL.gold, trim: PAL.gold, sash: PAL.gold, hatRamp: PAL.red } },
   hua: { festival: { robe: ramp("#c04a6a"), inner: PAL.gold, trim: PAL.gold, sash: PAL.gold, shawl: FESTIVAL_SHAWL } },
@@ -939,6 +1028,10 @@ export const OUTFITS: Partial<Record<HumanId, Record<string, Partial<HumanStyle>
   villagerM: { festival: { robe: ramp("#c8483a"), inner: PAL.gold, trim: PAL.gold, sash: PAL.gold } },
   villagerF: { festival: { robe: ramp("#e86a8a"), inner: PAL.gold, trim: PAL.gold, sash: PAL.red, shawl: FESTIVAL_SHAWL } },
   boy: { festival: { robe: PAL.red, inner: PAL.gold, trim: PAL.gold, sash: PAL.gold } },
+  // Elder Mo, his cultivation broken on the crimson path: grey mortal cloth, no crown, no whisk
+  elder: { broken: { robe: ramp("#8a8a90", { lo: "#2a2a30" }), inner: PAL.paper, trim: PAL.paper, sash: PAL.brown, hat: "none", weapon: "none", hunch: 0.14 } },
+  // Xue Ming come home: the crown and the blood-red eyes put away, an old outer-sect robe let out at the seams
+  patriarch: { redeemed: { robe: ramp("#c8d8e8", { lo: "#3a4a6a" }), inner: PAL.azure, trim: PAL.navy, sash: PAL.navy, cape: undefined, hat: "none", glowEyes: undefined, eye: "#3a3a5a", weapon: "none", scale: 1.1 } },
 };
 
 /** A character's style in one of their outfits (their everyday clothes when it is unknown). */
@@ -964,17 +1057,17 @@ export type MountId = "rider";
 export type CharId = HumanId | BeastId | MountId;
 
 const HUMAN_ANIMS: Record<HumanId, AnimId[]> = {
-  heroine: ["idle", "walk", "run", "talk", "attack", "cast", "hurt", "meditate", "fly", "victory", "defeat", "bow", "gather", "stretch", "look", "wave", "drink", "cheer", "point", "nod", "read", "sit", "pray", "clap", "laugh", "flute", "salute", "twirl", "write", "taichi", "kick", "umbrella", "eat", "torch", "kowtow", "sworddance", "flame", "sweep", "rake", "plant", "snowball", "kite", "shiver", "warmhands", "yawn", "stargaze"],
-  elder: ["idle", "walk", "talk", "cast", "bow", "wave", "nod", "read", "salute", "write", "taichi", "sworddance"],
+  heroine: ["idle", "walk", "run", "talk", "attack", "cast", "hurt", "meditate", "fly", "victory", "defeat", "bow", "gather", "stretch", "look", "wave", "drink", "cheer", "point", "nod", "read", "sit", "pray", "clap", "laugh", "flute", "salute", "twirl", "write", "taichi", "kick", "umbrella", "eat", "torch", "kowtow", "sworddance", "flame", "sweep", "rake", "plant", "snowball", "kite", "shiver", "warmhands", "yawn", "stargaze", "offer", "think", "shrug", "cry", "levitate", "roar", "plantsword"],
+  elder: ["idle", "walk", "talk", "cast", "sweep", "bow", "wave", "nod", "read", "salute", "write", "taichi", "sworddance", "offer", "think", "shrug", "cry", "plantsword", "attack", "hurt", "defeat"],
   qing: ["idle", "walk", "talk", "bow", "wave", "nod", "cheer", "clap", "pour", "salute"],
-  abao: ["idle", "walk", "run", "talk", "practice", "wave", "cheer", "laugh", "clap", "juggle", "salute", "kick", "snowball", "kite", "yawn", "shiver"],
+  abao: ["idle", "walk", "run", "talk", "practice", "wave", "cheer", "laugh", "clap", "juggle", "salute", "kick", "snowball", "kite", "yawn", "shiver", "cry", "shrug"],
   discipleM: ["idle", "walk", "practice", "bow", "nod", "clap", "salute", "taichi", "kick", "sworddance", "snowball", "stargaze", "yawn"],
   discipleF: ["idle", "walk", "practice", "bow", "wave", "clap", "salute", "taichi", "sworddance", "kite", "stargaze", "yawn", "umbrella"],
-  zhou: ["idle", "walk", "talk", "wave", "nod", "point", "laugh", "fan", "lantern"],
-  hua: ["idle", "walk", "talk", "wave", "drink", "nod", "pour", "laugh", "lantern"],
+  zhou: ["idle", "walk", "talk", "wave", "nod", "point", "laugh", "fan", "lantern", "think", "shrug"],
+  hua: ["idle", "walk", "talk", "wave", "drink", "nod", "pour", "laugh", "lantern", "cry", "think"],
   farmer: ["idle", "walk", "talk", "gather", "wave", "nod", "stretch", "laugh", "eat", "lantern", "hoe", "plant", "rake", "shiver", "warmhands", "umbrella"],
-  child: ["idle", "walk", "run", "talk", "wave", "dance", "cheer", "clap", "laugh", "juggle", "twirl", "lantern", "kick", "kite", "snowball", "shiver", "yawn"],
-  huli: ["idle", "walk", "talk", "cast", "bow", "wave", "dance", "flute", "twirl"],
+  child: ["idle", "walk", "run", "talk", "wave", "dance", "cheer", "clap", "laugh", "juggle", "twirl", "lantern", "kick", "kite", "snowball", "shiver", "yawn", "cry", "shrug"],
+  huli: ["idle", "walk", "talk", "cast", "bow", "wave", "dance", "flute", "twirl", "offer", "think", "cry"],
   wen: ["idle", "talk", "fish", "cast", "wave", "sleep", "flute"],
   monk: ["idle", "walk", "talk", "sweep", "bow", "nod", "wave", "meditate", "pray", "eat", "taichi", "kowtow", "rake", "warmhands"],
   teawoman: ["idle", "walk", "talk", "wave", "drink", "nod", "bow", "pour", "laugh", "umbrella", "lantern", "yawn"],
@@ -984,16 +1077,16 @@ const HUMAN_ANIMS: Record<HumanId, AnimId[]> = {
   bandit: ["idle", "walk", "run", "attack", "hurt", "point", "cheer", "eat"],
   peddler: ["idle", "walk", "talk", "wave", "look", "nod", "point", "laugh", "clap", "juggle", "eat", "carry", "umbrella", "yawn", "lantern"],
   archivist: ["idle", "walk", "talk", "read", "nod", "bow", "point"],
-  storyteller: ["idle", "talk", "tell", "sit", "laugh", "clap", "nod", "drink", "fan"],
+  storyteller: ["idle", "talk", "tell", "sit", "laugh", "clap", "nod", "drink", "fan", "shrug", "think"],
   weaver: ["idle", "walk", "talk", "weave", "nod", "wave", "laugh", "lantern", "twirl"],
   millhand: ["idle", "walk", "talk", "sweep", "wave", "cheer", "laugh", "eat"],
   lampkeeper: ["idle", "talk", "pray", "bow", "nod", "meditate"],
   scholar: ["idle", "talk", "read", "sit", "drink", "nod", "laugh", "clap", "fan", "write", "stargaze", "umbrella", "yawn"],
-  smith: ["idle", "walk", "talk", "hammer", "nod", "wave", "laugh", "drink", "salute", "mine"],
+  smith: ["idle", "walk", "talk", "hammer", "nod", "wave", "laugh", "drink", "salute", "mine", "think", "plantsword"],
   ghost: ["float", "talk", "write", "bow", "nod"],
   orchardist: ["idle", "walk", "talk", "gather", "wave", "nod", "laugh", "eat", "pour", "cheer", "rake", "plant", "umbrella"],
-  villagerM: ["idle", "walk", "talk", "wave", "nod", "gather", "carry", "hoe", "chop", "eat", "laugh", "stretch", "lantern", "mine", "torch", "rake", "plant", "shiver", "warmhands", "yawn", "umbrella"],
-  villagerF: ["idle", "walk", "talk", "wave", "nod", "gather", "pour", "laugh", "carry", "umbrella", "dance", "clap", "lantern", "kowtow", "rake", "plant", "shiver", "warmhands", "yawn", "stargaze"],
+  villagerM: ["idle", "walk", "talk", "wave", "nod", "gather", "carry", "hoe", "chop", "eat", "laugh", "stretch", "lantern", "mine", "torch", "rake", "plant", "shiver", "warmhands", "yawn", "umbrella", "think", "shrug"],
+  villagerF: ["idle", "walk", "talk", "wave", "nod", "gather", "pour", "laugh", "carry", "umbrella", "dance", "clap", "lantern", "kowtow", "rake", "plant", "shiver", "warmhands", "yawn", "stargaze", "think", "shrug"],
   boy: ["idle", "walk", "run", "talk", "wave", "kick", "cheer", "laugh", "juggle", "clap", "kite", "snowball", "shiver", "yawn"],
   woodcutter: ["idle", "walk", "talk", "chop", "carry", "wave", "nod", "stretch", "drink", "laugh", "rake", "warmhands", "shiver"],
   porter: ["idle", "walk", "talk", "carry", "wave", "nod", "stretch", "eat", "drink", "yawn", "warmhands", "umbrella"],
@@ -1011,7 +1104,7 @@ const HUMAN_ANIMS: Record<HumanId, AnimId[]> = {
   taiji: ["idle", "walk", "talk", "taichi", "bow", "nod", "cast", "salute"],
   cultist: ["idle", "walk", "attack", "hurt"],
   jiangshi: ["idle", "hop", "attack", "hurt"],
-  patriarch: ["idle", "walk", "attack", "cast", "hurt", "defeat", "talk"],
+  patriarch: ["idle", "walk", "attack", "cast", "hurt", "defeat", "talk", "kowtow", "offer", "cry", "plantsword", "roar", "sweep", "nod"],
   yanhuo: ["idle", "walk", "talk", "cast", "flame", "bow", "nod", "laugh", "salute", "point"],
   phoenix: ["idle", "walk", "talk", "practice", "flame", "salute", "attack", "hurt", "nod", "cheer", "torch"],
   miner: ["idle", "walk", "talk", "mine", "cower", "wave", "nod", "drink", "eat", "kowtow", "torch", "carry"],

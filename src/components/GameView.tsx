@@ -265,7 +265,7 @@ export function GameView({ initial, intro, onQuit }: { initial: GameState; intro
 
         {ui.mode === "shop" && (
           <div className="shop panel" data-testid="shop">
-            <h3>Alchemy Hall Wares</h3>
+            <h3>{ui.shopKeeper ? `${ui.shopKeeper}'s Wares` : "Alchemy Hall Wares"}</h3>
             <div>You carry ◆ {s.stones} spirit stones.</div>
             <div className="items">
               <button className="btn" onClick={() => game.buy("heal")} disabled={s.stones < PILL_PRICE}>
@@ -276,7 +276,7 @@ export function GameView({ initial, intro, onQuit }: { initial: GameState; intro
               </button>
             </div>
             <button className="btn primary" onClick={() => game.closeShop()} data-testid="shop-close">
-              Farewell, Senior Sister
+              {ui.shopKeeper === "Senior Sister Qing" || !ui.shopKeeper ? "Farewell, Senior Sister" : `Farewell, ${ui.shopKeeper}`}
             </button>
           </div>
         )}

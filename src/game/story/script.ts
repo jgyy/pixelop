@@ -32,6 +32,8 @@ export type Step =
   | { travel: true }
   /** Lay the story's changes to the land down at once (with dust and a tremor if she can see them). */
   | { reshape: true }
+  /** Stop here: skip whatever was left of the script (a fight that a choice talked its way out of). */
+  | { end: true }
   | { choose: Choice[]; prompt?: string };
 
 /**

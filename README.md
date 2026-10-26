@@ -455,9 +455,97 @@ Press `V` (or **Attire**) to open the **wardrobe**: all 21 outfits, the ones she
 - buying a pill with a full gourd (99) said "Not enough spirit stones"
 - midnight was barely darker than dusk; night now deepens properly after sunset
 
+### Three beginnings, a Heart to choose, and five endings
+
+The main quest branches now, from the first screen to the last. **Begin Cultivation** asks where Lin Yue's tale begins, and each beginning has its own opening scene, its own way into the story, its own answer for Patriarch Xue and its own place in the ending. At Xue's altar the fight is no longer the only way, and once the **Jade Lotus Heart** is in her hands she decides what it is for. Three of those answers change the land for good, one of them turns Elder Mo against her, and the last choice of all comes at the top of heaven's stair.
+
+| | |
+|---|---|
+| ![Where does her tale begin? The three beginnings](docs/screenshots/123-origin-picker.png) | ![The foundling wakes in Willow Creek to Granny Hua and a red moon](docs/screenshots/124-foundling-granny-hua.png) |
+| ![The Blood Moon runaway at the sect gate](docs/screenshots/125-defector-at-the-gate.png) | ![Swear an oath to Elder Mo, or tell him the secret way into the valley](docs/screenshots/126-defector-swears-or-tells.png) |
+
+| Beginning | Starts | What it changes |
+|---|---|---|
+| **Inner Disciple** 内门弟子 | in the floating sect, to the alarm bells (the classic opening) | can recite the founder's sutra at Xue, shaking his qi (he starts the fight 20% down) |
+| **Willow Creek Foundling** 柳溪孤女 | in Granny Hua's house in Willow Creek, homespun clothes, four healing pills and almost no money | fights the maddened fox on the first night, before she has ever seen the sect, then climbs the sky bridge with an outer-sect token; Elder Mo takes her as his disciple on the spot; Granny Hua, Head Zhou and Xue himself speak to her as one of the village; she can always talk Xue Ming home; she may go home at the very end |
+| **Blood Moon Runaway** 血月叛徒 | at the sect gate in Blood Moon robes, rich in stones and qi pills, with Disciple Guo's sword at her throat | chooses what to give Elder Mo: an oath on the founder's stele (his trust and the storerooms) or the **secret way** into the Crimson Demon Valley (the valley opens at Foundation without the Serpent King or the lake); knows the old wound in Xue's art and strikes it first (he starts the fight 40% down) |
+
+```mermaid
+flowchart TD
+  O{{"Begin Cultivation:<br/>where does her tale begin?"}} --> D["Inner Disciple<br/>wakes in the sect"] & F["Willow Creek Foundling<br/>wakes in the village · fox at the bridge"] & R["Blood Moon Runaway<br/>at the sect gate in Blood Moon robes"]
+  D & F --> M["Elder Mo: Sword Riding,<br/>Cloudmane's whistle"]
+  R --> RM{"Elder Mo doubts her"}
+  RM -- "swear on the stele" --> T["his trust · 40 stones · 4 pills"] --> M
+  RM -- "tell him the secret way" --> W["the valley opens at Foundation<br/>(no lake, no Serpent King)"] --> M
+  M --> CH["Chapters I–IV<br/>(the fox, the bamboo, the lake, the tribulation)"]
+  W -.->|the shortcut| X
+  CH --> X{"Patriarch Xue at his blood altar"}
+  X -- "offer him a way back / draw your sword" --> B["battle"]
+  X -- "disciple: recite the founder's sutra" --> B2["battle, Xue 20% down"]
+  X -- "runaway: strike the old wound" --> B3["battle, Xue 40% down"]
+  X -- "foundling, or one who knows his past (Shen + Ou):<br/>speak of Willow Creek and Dawnfrost" --> RX["no fight: Xue kneels<br/>and lays the Heart down himself"]
+  B & B2 & B3 & RX --> H{"The Jade Lotus Heart<br/>is in her hands"}
+  H -- "carry it home" --> HOME["Elder Mo · the shrine"]
+  H -- "plant it in the valley" --> PL["the valley blooms for good<br/>Lotus Sovereign Gown"] --> HOME
+  H -- "drink it" --> DV["the blood moon spreads<br/>Blood Moon Sovereign form"] --> MO{"Elder Mo in the Hall of Clouds<br/>(boss battle)"}
+  MO -- "break his cultivation" --> MB["the hall is scorched<br/>Mo sweeps it, a mortal"] --> PEAK
+  MO -- "lower your blade" --> PU["Mo draws the Heart out of her<br/>(her cultivation spent, the land heals)"] --> HOME
+  HOME --> PEAK["Heavenly Tribulation Peak<br/>nine bolts"]
+  PEAK --> E{"Heaven's stair"}
+  E -- "climb (Heart at home)" --> E1(["Immortal Ascension"])
+  E -- "climb (Heart planted)" --> E2(["The Lotus Takes Root"])
+  E -- "turn your back on heaven" --> E3(["Guardian of the Jianghu"])
+  E -- "foundling: go home" --> E4(["The Road Home"])
+  PEAK -- "the Heart drunk, Mo broken" --> E5(["The Blood Moon Sovereign"])
+  classDef fin fill:#241a40,stroke:#f2c55c,color:#fff6dc;
+  class E1,E2,E3,E4,E5 fin;
+```
+
+| | |
+|---|---|
+| ![Four answers at Xue's altar, one without a fight](docs/screenshots/127-xue-four-answers.png) | ![Xue Ming lays the Heart down himself](docs/screenshots/128-xue-lays-down-the-heart.png) |
+| ![The Heart's fate: home, the land, or her](docs/screenshots/129-the-hearts-fate.png) | ![The Heart takes root: the demon valley turns green, the lava to water](docs/screenshots/130-the-lotus-takes-root.png) |
+| ![Xue Ming at the Sword Tomb, oiling the swords of the fallen](docs/screenshots/131-xue-ming-at-the-sword-tomb.png) | ![Blood moon over the blighted bamboo, in the Blood Moon Sovereign form](docs/screenshots/132-blood-moon-over-the-bamboo.png) |
+| ![Blood moon over Willow Creek, its paddies withered](docs/screenshots/133-blood-moon-over-willow-creek.png) | ![Elder Mo, the new boss of the crimson road](docs/screenshots/134-elder-mo-battle.png) |
+| ![The Hall of Clouds scorched where Mo knelt](docs/screenshots/135-the-hall-of-clouds-scorched.png) | ![Heaven's stair: climb, turn back, or go home](docs/screenshots/136-heavens-stair.png) |
+| ![Guardian of the Jianghu: moss and blossom through the peak's snow](docs/screenshots/137-guardian-of-the-jianghu.png) | ![Hu Li's gift: the Nine-Tailed Form](docs/screenshots/138-nine-tailed-form.png) |
+| ![The wardrobe with the new forms](docs/screenshots/139-wardrobe-forms.png) | ![The Dragon-Blood Form](docs/screenshots/140-dragon-blood-form.png) |
+
+#### Choices that change the land for good
+
+Five new terrain patches and four new skies (26 patches in all, laid over the shared map from the save's flags, so they come and go with the save being played):
+
+| Choice | The land | The sky |
+|---|---|---|
+| Xue talked home | the valley's lava rivers cool to clear water, moss creeps over the ash; most of the cultists and the hopping dead go home; Xue Ming appears at the Sword Tomb | the blood moon sets: an ordinary dusk with fireflies |
+| The Heart planted | the whole Crimson Demon Valley turns to meadow, lotus opens on every pool that was lava, peach and cherry trees and butterflies on the banks | a clear day with blossom on the wind |
+| The Heart drunk | the Whispering Bamboo goes grey and red, Willow Creek's paddies wither to cracked earth, dead trees in both (all of it undone if Mo draws the Heart back out) | the blood moon rises over the bamboo and Willow Creek |
+| Elder Mo broken | the marble before the Hall of Clouds is scorched black; Mo stays, an old mortal in grey with a broom | a storm over the sect |
+| Guardian ending | moss and blossom push up through the peak's snow, cherry trees round the dais | |
+| The road home | lanterns and banners for the new school in Willow Creek's hall | |
+
+The battle arenas wear the sky the story has left, too.
+
+#### Nine new things to wear, and seven new gestures
+
+The wardrobe holds **30 outfits** now. Two come with a beginning (**Willow Creek Homespun**, **Blood Moon Acolyte's Robes**), five are woven by the main quest's choices (**Xue Ming's Outer-Sect Robe** if he comes home, the **Lotus Sovereign Gown** for a planted Heart, the **Blood Moon Sovereign** for a devoured one, with silver hair and red eyes, the **Earth Immortal's Mantle** for the guardian, the **Village Teacher's Robe** for the road home), and two are shapes she can take: Hu Li makes her sworn sister a fox spirit with the **Nine-Tailed Form** once the Blood Moon is over and Pei is at rest, and drinking the Dragon Vein leaves her the **Dragon-Blood Form** (jade hair, golden eyes). Heaven's own raiment is now woven only for those who climb its stair.
+
+New animations, for Lin Yue (53 now) and the folk: **offer** (both hands held out, the Heart or a gift), **think** (a hand to the chin), **shrug**, **cry**, **levitate** (rising on a column of qi), **roar** (a crouch, then arms flung wide, eyes glowing) and **plantsword** (a sword driven into the earth, kneeling behind it). Elder Mo, Patriarch Xue, Granny Hua, Head Zhou, Hu Li, Smith Ou, Ah Bao and the villagers use them in the new scenes and when they stand about.
+
+| The new gestures | The new outfits and forms |
+|---|---|
+| ![](docs/art/turning-gestures.gif) | ![](docs/art/forms.gif) |
+
+**Fixes:**
+- every pill shop said "Alchemy Hall Wares" and "Farewell, Senior Sister", even Peddler Bai's, Auntie Fang's, the innkeeper's and Ku Shen's; the shop is now named for whoever is selling
+- Patriarch Xue's last words called her "a child of Foundation" whatever realm she had reached
+- Elder Mo had news about the Dragon Vein but no marker over his head to say so
+- Elder Mo always thanked her for Old Fisher Wen's message, even when she had never met Wen
+- battles in the valley still showed the blood moon after the story had lifted it
+
 ### Animated art
 
-| Lin Yue's 46 animations | All 16 facing directions |
+| Lin Yue's 53 animations | All 16 facing directions |
 |---|---|
 | ![Heroine move set](docs/art/heroine-moves.gif) | ![Heroine 16 directions](docs/art/heroine-16dir.gif) |
 
@@ -495,9 +583,9 @@ Press `V` (or **Attire**) to open the **wardrobe**: all 21 outfits, the ones she
 - **Eleven regions plus a world map:** the five new ones of the doubled world (the Mistmarsh, the Cloudmist Tea Terraces, the Yellow Sands, Wavecrest Harbour and Frostveil Monastery), and the floating Azure Cloud Sect (day, falling petals), Willow Creek Village (dusk, autumn leaves), the Whispering Bamboo Forest (fireflies), the Moonlit Lotus Lake (night, stars and moon), the Crimson Demon Valley (blood moon, embers, lava) and Heavenly Tribulation Peak (snow, storm lightning). The miniature isometric continent has roads, rivers, sea, drifting clouds and their shadows, and animated landmarks. Regions unlock as the story advances.
 - **A calendar and four seasons:** day, night and the seasons follow the save; seasonal sprites and ground, weather, NPC clothes and habits, a sun and moon, golden hours and summer showers (see [The turning year](#the-turning-year-a-thousand-notices-and-a-wardrobe)).
 - **1000 notices and a second main quest:** a thousand composed side quests from 86 folk, and the Turning of the Year, waking four seasonal Wardens.
-- **Choices that matter:** questions put to the heroine (a choice panel with hints), remembered as story flags; three sect quest lines and a five-way conclave over the Dragon Vein, standing with each sect (Hostile to Allied), and 21 terrain patches that change the world and the caves as the story goes (see [Three sects, the deep, and choices that matter](#three-sects-the-deep-and-choices-that-matter)).
+- **Choices that matter:** questions put to the heroine (a choice panel with hints), remembered as story flags; three sect quest lines and a five-way conclave over the Dragon Vein, standing with each sect (Hostile to Allied), and 26 terrain patches that change the world and the caves as the story goes (plus skies that change with it) (see [Three sects, the deep, and choices that matter](#three-sects-the-deep-and-choices-that-matter)).
 - **Underground:** three caves (Ember Mine, Sunken Grotto, Dragon Vein Caverns) carved as cutaways of living rock at many heights, with a cave sky of dripping stalactites, drips and glowing spores, a torch she holds up, and battles on a ledge in the dark.
-- **Narrative:** a prologue, five chapters and an epilogue, with a quest tracker, scripted cutscenes (walk, emote, camera, flash, shake, spawn), typed-out dialogue with animated portraits, full-screen narration, first-arrival scenes, pre-boss speeches and an ending; plus four side errands shown under the quest tracker (a ghost's unfinished letter, two quarrelling brothers, a sword brought home, a dead husband's cloak) and Willow Creek's lantern festival, each ending in a new outfit.
+- **Narrative:** three beginnings, a prologue, six chapters, an epilogue and five endings (see [Three beginnings](#three-beginnings-a-heart-to-choose-and-five-endings)), with a quest tracker, scripted cutscenes (walk, emote, camera, flash, shake, spawn), typed-out dialogue with animated portraits, full-screen narration, first-arrival scenes, pre-boss speeches and an ending; plus four side errands shown under the quest tracker (a ghost's unfinished letter, two quarrelling brothers, a sword brought home, a dead husband's cloak) and Willow Creek's lantern festival, each ending in a new outfit.
 - **Cultivation:** 6 realms × 4 stages. Battles, spirit herbs, chests and shrine meditation grow your cultivation. At a realm's peak you must survive a Heavenly Tribulation (3 bolts, or 9 for the final ascension).
 - **Turn-based battles** on themed isometric arenas, with five techniques (Azure Sword Strike, Jade Lotus Palm, Lotus Heart Sutra, Myriad Swords Return, Nine Heavens Thunder), pills and fleeing. Fighters dash in, recoil, throw qi orbs and foxfire, and call down lightning, with damage pop-ups, crits, screen shake and flashes.
 - **Controls:** keyboard, click/tap-to-walk, and a virtual joystick on touch screens.
@@ -544,15 +632,18 @@ Saves live in `$DATA_DIR/saves.json` (default `.data/`). Set `SAVE_STORE=memory`
 
 ```mermaid
 flowchart TD
+  O{{"Three beginnings:<br/>disciple · foundling · runaway"}} --> P
   P["Prologue · The Stolen Heart<br/>Elder Mo sends Lin Yue after the Blood Moon Sect"] --> C1
   C1["Chapter I · Trouble Below the Clouds<br/>Drive off the fox haunting Willow Creek, hear Head Zhou's tale"] --> C2
   C2["Chapter II · Whispers in the Bamboo<br/>Calm 3 maddened fox spirits, meet Hu Li the fox maiden"] --> C3
   C3["Chapter III · The Moonlit Lake<br/>Find Old Fisher Wen, subdue the Serpent King,<br/>learn Myriad Swords Return"] --> C4
   C4["Chapter IV · Heaven's Gate<br/>Survive the tribulation into Foundation Establishment"] --> C5
-  C5["Chapter V · The Blood Moon<br/>Defeat Patriarch Xue, reclaim the Jade Lotus Heart"] --> E
-  E["Epilogue · Ascension<br/>Return the Heart, climb Tribulation Peak,<br/>endure nine bolts and ascend"]
+  C5["Chapter V · The Blood Moon<br/>Defeat (or talk home) Patriarch Xue, choose the Jade Lotus Heart's fate"] --> C6
+  C5 -- "the Heart drunk" --> C6b["Chapter VI · The Crimson Throne<br/>Face Elder Mo in the Hall of Clouds"] --> E
+  C6["Roots of Heaven / The Blood Moon<br/>Tell Elder Mo what became of the Heart"] --> E
+  E["Epilogue · Ascension<br/>Climb Tribulation Peak, endure nine bolts,<br/>and choose at heaven's stair: five endings"]
   classDef c fill:#241a40,stroke:#3fb59a,color:#fff6dc;
-  class P,C1,C2,C3,C4,C5,E c;
+  class P,C1,C2,C3,C4,C5,C6,C6b,E c;
 ```
 
 ### The world and its seals

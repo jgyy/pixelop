@@ -29,6 +29,18 @@ function play(g: GameState, steps: Step[], picks: number[] = [], won = true): Ga
 }
 
 const talk = (g: GameState, key: string, picks: number[] = []) => play(g, npcScript(key, g), picks);
+
+/** Everything a script narrates, answering its questions with the first answer. */
+function narration(steps: Step[]): string {
+  const out: string[] = [];
+  const queue = [...steps];
+  while (queue.length) {
+    const st = queue.shift()!;
+    if ("narrate" in st) out.push(...st.narrate);
+    else if ("choose" in st) queue.unshift(...st.choose[0].then);
+  }
+  return out.join(" ");
+}
 const started = (): GameState => ({ ...newGame(), realm: 1, flags: { metElder: true, villageSaved: true, metZhou: true } });
 
 /** The Phoenix's quest from the first word to the last, with the given answers at each turn. */
@@ -225,8 +237,7 @@ describe("the sects' quests", () => {
       const g = talk(base, "longlao", [k]);
       expect(g.flags[`vein:${fate}`], fate).toBe(true);
       expect(sectJournal(g).find((e) => e.sect === "vein")!.done).toBe(true);
-      const ending = endingScript(g).find((s) => "narrate" in s) as { narrate: string[] };
-      endings.add(ending.narrate.join(" "));
+      endings.add(narration(endingScript(g)));
       // Elder Mo has something to say about it, once
       const told = talk(g, "elder");
       expect(told.flags.elderVein, fate).toBe(true);
@@ -244,8 +255,7 @@ describe("the sects' quests", () => {
     expect(g.flags.xueOffered).toBe(true);
     g = play(g, victoryScript("patriarch", "patriarch", "valley", g));
     expect(g.flags.xueForgiven).toBe(true);
-    const ending = endingScript(g).find((s) => "narrate" in s) as { narrate: string[] };
-    expect(ending.narrate.join(" ")).toMatch(/Xue Ming/);
+    expect(narration(endingScript(g))).toMatch(/Xue Ming/);
   });
 
   it("every new sect NPC has something of their own to say", () => {
