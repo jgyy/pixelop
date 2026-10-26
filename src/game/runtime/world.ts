@@ -4,17 +4,21 @@ import type { PixelBuffer } from "../pixel/PixelBuffer";
 import { fadedSurface, type Surface } from "../pixel/surface";
 import { drawText } from "../pixel/font";
 import { HALF_W, isoX, isoY, LEVEL_H, screenToWorld } from "../iso/projection";
-import { charDef, frameAt, getAnim, type AnimId, type CharId } from "../art/characters";
+import { charDef, frameAt, getAnim, WINTER, type AnimId, type CharId } from "../art/characters";
 import { getProp, glowSprite, propDef, type PropId } from "../art/props";
 import { drawSky } from "../art/sky";
 import { foamOverlay, LIQUID_FRAMES, liquidFrame, paintTile, type TileBuffer } from "../art/tiles";
 import { AREA_IDS, placementTiles, type AreaDef, type AreaId, type Interactable, type PropPlacement, type SkyId, type Weather } from "../world/areas";
 import { isWorldDef, regionAt, type WorldDef } from "../world/continent";
 import { regionDistance, WORLD_SCALE } from "../world/layout";
-import { LIQUID, type TileMap } from "../world/tilemap";
+import { LIQUID, TILE_KINDS, type TileMap } from "../world/tilemap";
 import { applyPatches, patchMaxHeight } from "../world/terrain";
 import { ENEMIES, type EnemyId } from "../engine/enemies";
 import { Effects } from "./particles";
+import { CLIMATE, calendarAt, rainingAt, type Season } from "../world/calendar";
+import { groundTurns, seasonalProp, seasonTile } from "../art/seasons";
+
+export { DAY_LENGTH, duskAt } from "../world/calendar";
 
 export type Emote = "!" | "?" | "..." | "heart" | "anger" | "note" | "zzz";
 
@@ -45,8 +49,11 @@ export interface Actor {
   opacity?: number;
   /** Seconds until this actor may pick a new wander target. */
   rest: number;
-  /** Quest marker over the head. */
-  marker?: boolean;
+  /** Marker over the head: the story wants her here (true), a notice to offer, or a parcel to hand over. */
+  marker?: boolean | "bounty" | "deliver";
+  /** Stands about in everyday idleness, so the hour and weather choose what they hold (a lantern after dark, an umbrella in the rain). */
+  ambient?: boolean;
+  ambientAt?: number;
   /** Patrol route (NPCs walking the highway). */
   route?: [number, number][];
   routeK?: number;
@@ -93,16 +100,29 @@ interface Env {
   tint: string;
   /** 0 = day, 1 = deepest night of the day/night cycle. */
   dusk: number;
+  /** The season as it shows here (null where the year does not reach: rooms, caves, the demon valley). */
+  season: Season | null;
+  /** Hour of the day, 0–24. */
+  hour: number;
+  /** How hard a shower is falling (0..1). */
+  rain: number;
 }
 
 const HERO_RADIUS = 0.22;
-/** Length of a full day/night cycle in seconds of game time. */
-export const DAY_LENGTH = 360;
 /** Actors further than this from the heroine are frozen until she comes back. */
 const ACTIVE_RANGE = 26;
 const RESPAWN_AFTER = 60;
 /** Idle fidgets an NPC may break into, when its character has the animation. */
 const NPC_FIDGETS: AnimId[] = ["nod", "look", "stretch", "drink", "point", "dance", "cheer", "gather", "pour", "clap", "laugh", "flute", "eat", "juggle", "fan", "salute", "twirl", "kick", "sworddance", "flame"];
+/** What the folk get up to in each season when they stand about outdoors (if they can). */
+export const SEASON_FIDGETS: Record<Season, AnimId[]> = {
+  spring: ["kite", "plant"],
+  summer: ["fan", "drink"],
+  autumn: ["rake", "gather"],
+  winter: ["shiver", "warmhands", "snowball"],
+};
+/** …and after dark. */
+const NIGHT_FIDGETS: AnimId[] = ["yawn", "stargaze"];
 /** Idles that absorb an NPC (fishing, reading, weaving…): they neither turn to greet nor fidget. */
 const ABSORBED = new Set<AnimId>(["fish", "practice", "meditate", "read", "weave", "tell", "pray", "sit", "hammer", "write", "hoe", "chop", "taichi", "kick", "umbrella"]);
 /** …and the ones a roaming beast may (sleeping takes a while). */
@@ -140,13 +160,14 @@ export function syncTerrain(def: AreaDef, flags: Record<string, boolean>): numbe
           const n = (j + dj) * m.w + i + di;
           c.tiles[n] = undefined;
           c.foams[n] = undefined;
+          for (const arr of seasonCache.get(m)?.values() ?? []) arr[n] = undefined;
         }
     }
   return changed;
 }
 
-/** 0 at dawn (t = 0), 1 at midnight. */
-export const duskAt = (t: number) => (1 - Math.cos((t / DAY_LENGTH) * Math.PI * 2)) / 2;
+/** Seasonal copies of the painted terrain columns, per map and season. */
+const seasonCache = new WeakMap<TileMap, Map<Season, (TileBuffer | null | undefined)[]>>();
 
 /**
  * The explorable world at runtime: lazily painted terrain, props, actors,
@@ -188,6 +209,8 @@ export class World {
   private footprints: { x: number; y: number; z: number; at: number; dark: string }[] = [];
   private stepDist = 0;
   private clock = 0;
+  /** World time of the calendar (seconds; see world/calendar.ts), which drives day, night and the seasons. */
+  time = 0;
   camX = 0;
   camY = 0;
   private camInit = false;
@@ -248,16 +271,17 @@ export class World {
    * heroine has been away for a while. Scripted actors are left alone.
    */
   syncPopulation(flags: Record<string, boolean>, initial = false): void {
-    this.flags = flags;
     this.reshape(flags, initial);
+    // the hour and the season are part of what the world shows (snowmen in winter, folk who only come out at night)
+    flags = this.flags = this.withEnv(flags);
     const present = new Set(this.actors.map((a) => a.key));
     const h = this.hero;
     for (const n of this.def.npcs) {
       const want = !n.when || n.when(flags);
-      if (want && present.has(n.key) && n.outfit) {
-        // a change of clothes as the story moves on (Willow Creek's festival best)
+      if (want && present.has(n.key)) {
+        // a change of clothes as the story moves on (Willow Creek's festival best), or as the snow comes
         const a = this.actor(n.key);
-        if (a) this.dress(a, n.outfit(flags), n.anim);
+        if (a) this.dress(a, this.outfitFor(n, flags), n.anim);
       }
       if (want && !present.has(n.key)) {
         // a carrier stands about normally and shoulders the pole when walking
@@ -265,7 +289,8 @@ export class World {
         const a = this.makeActor(n.key, "npc", n.char, n.i + 0.5, n.j + 0.5, n.dir, carrier ? "idle" : (n.anim ?? "idle"));
         a.carrier = carrier;
         a.name = n.name;
-        if (n.outfit) this.dress(a, n.outfit(flags), n.anim);
+        a.ambient = !n.anim && !n.route;
+        this.dress(a, this.outfitFor(n, flags), n.anim);
         a.wander = n.wander ?? 0;
         a.speed = n.route ? 1.3 : 1.1;
         a.baseDir = n.dir;
@@ -302,6 +327,46 @@ export class World {
 
   /** Clock time the land last changed in view (the game shakes the screen for it). */
   quakeAt = -99;
+
+  /** Story flags plus what the hour and the year add: `season:<name>`, `night` and `raining`. */
+  withEnv(flags: Record<string, boolean>): Record<string, boolean> {
+    const env: Record<string, boolean> = { ...flags };
+    for (const k of Object.keys(env)) if (k.startsWith("season:")) delete env[k];
+    const c = calendarAt(this.time);
+    env[`season:${c.season}`] = true;
+    env.night = c.dusk > 0.55;
+    env.raining = rainingAt(this.time) > 0.3;
+    return env;
+  }
+
+  /** Is the land at (i, j) under the year's snow (a temperate land in winter, or Frostveil at any time)? */
+  private wintry(i: number, j: number): boolean {
+    if (this.interior || this.cave) return false;
+    const region = this.world ? this.regionAt(i + 0.5, j + 0.5) : this.def.id;
+    const c = CLIMATE[region];
+    return c === "frozen" || (c === "temperate" && calendarAt(this.time).season === "winter");
+  }
+
+  /** What an NPC wears: the story's choice, or else their winter wool when the snow is down. */
+  private outfitFor(n: { i: number; j: number; outfit?: (f: Record<string, boolean>) => string | undefined }, flags: Record<string, boolean>): string | undefined {
+    return n.outfit?.(flags) ?? (this.wintry(n.i, n.j) ? WINTER : undefined);
+  }
+
+  /**
+   * Folk standing about pick up what the hour and the weather call for: an
+   * umbrella in the rain, a lantern after dark (and put it away by day).
+   */
+  private ambientIdle(a: Actor, t: number, night: boolean, rain: boolean): void {
+    if (!a.ambient || a.holdUntil !== undefined || a.target || (a.outfit === "festival" && a.idleAnim === "lantern")) return;
+    if (t < (a.ambientAt ?? 0)) return;
+    a.ambientAt = t + 0.6 + (keyHash(a.key) % 10) / 10;
+    const has = charDef(a.char).anims;
+    const want: AnimId = rain && !this.interior && has.includes("umbrella") ? "umbrella" : night && !this.interior && has.includes("lantern") ? "lantern" : "idle";
+    if (want !== a.idleAnim && (a.idleAnim === "idle" || a.idleAnim === "umbrella" || a.idleAnim === "lantern")) {
+      a.idleAnim = want;
+      this.setAnim(a, want, t);
+    }
+  }
 
   /**
    * The story changes the land: lay its patches over the map, and if the
@@ -549,6 +614,11 @@ export class World {
     this.clock = t;
     let touched: Actor | null = null;
     const h = this.hero;
+    const cal = calendarAt(this.time);
+    const night = this.dayNight && cal.dusk > 0.55;
+    const rain = !this.interior && !this.cave && rainingAt(this.time) > 0.3 && CLIMATE[this.regionAt(h.x, h.y)] === "temperate";
+    const outdoors = !this.interior && !this.cave;
+    const fidgets = outdoors ? [...NPC_FIDGETS, ...(SEASON_FIDGETS[cal.season] ?? []), ...(night ? NIGHT_FIDGETS : [])] : NPC_FIDGETS;
     for (const a of this.actors) {
       if (a.opacity !== undefined && a.opacity < 1) a.opacity = Math.min(1, a.opacity + dt * 1.5);
       if (a.holdUntil !== undefined && t >= a.holdUntil) {
@@ -625,7 +695,8 @@ export class World {
         if (a.baseDir !== undefined && !a.route && !a.wander) a.dir = a.baseDir;
       }
       if (a.idleAnim === "sleep" && !a.emote && hash2(Math.floor(t * 0.5), keyHash(a.key), 6) < 0.25) a.emote = { icon: "zzz", until: t + 1.6 };
-      if (!busy && a.idleAnim !== "sleep" && a.idleAnim !== "sweep" && this.fidget(a, t, NPC_FIDGETS)) continue;
+      this.ambientIdle(a, t, night, rain);
+      if (!busy && a.idleAnim !== "sleep" && a.idleAnim !== "sweep" && this.fidget(a, t, fidgets)) continue;
       if (a.route) this.patrolStep(a, dt, t);
       else if (a.wander > 0) this.wanderStep(a, dt, t);
     }
@@ -832,10 +903,22 @@ export class World {
   // ------------------------------------------------------------------ environment
   /** Sky, weather and light at a world point, blended across region borders and the time of day. */
   envAt(x: number, y: number, t: number): Env {
-    const dusk = this.dayNight ? duskAt(t) : 0;
+    void t;
+    const cal = calendarAt(this.time);
+    const dusk = this.dayNight ? cal.dusk : 0;
     const w = this.world;
-    const base = (d: AreaDef) => d.night + (1 - d.night) * 0.48 * dusk;
-    if (!w) return { sky: this.def.sky, sky2: null, k: 0, weather: [[this.def.weather, 1]], night: base(this.def), tint: this.def.tint ?? "#1a1440", dusk };
+    const outdoors = !this.interior && !this.cave;
+    const rain = outdoors ? rainingAt(this.time) : 0;
+    // a shower darkens the day a little
+    // the night deepens steeply after dusk (a smoothstep of the cosine), so noon stays bright and midnight is truly dark
+    const deep = dusk * dusk * (3 - 2 * dusk);
+    const base = (d: AreaDef) => Math.min(1, d.night + (1 - d.night) * 0.78 * deep + (CLIMATE[d.id] === "temperate" ? rain * 0.12 : 0));
+    const seasonOf = (id: AreaId) => (outdoors && CLIMATE[id] === "temperate" ? cal.season : null);
+    const hour = cal.hour;
+    if (!w) {
+      const season = seasonOf(this.def.id);
+      return { sky: this.def.sky, sky2: null, k: 0, weather: seasonWeather([[this.def.weather, 1]], season, rain, dusk), night: base(this.def), tint: this.def.tint ?? "#1a1440", dusk, season, hour, rain: season ? rain : 0 };
+    }
     const near = AREA_IDS.map((id) => ({ id, d: regionDistance(id, x, y) })).sort((p, q) => p.d - q.d);
     const A = w.regions[near[0].id];
     const B = w.regions[near[1].id];
@@ -846,7 +929,8 @@ export class World {
       [A.weather, 1 - k],
       [B.weather, k],
     ];
-    return { sky: A.sky, sky2: k > 0.02 && B.sky !== A.sky ? B.sky : null, k, weather, night: base(A) * (1 - k) + base(B) * k, tint: mix(tintA, tintB, k), dusk };
+    const season = seasonOf(A.id);
+    return { sky: A.sky, sky2: k > 0.02 && B.sky !== A.sky ? B.sky : null, k, weather: seasonWeather(weather, season, rain, dusk), night: base(A) * (1 - k) + base(B) * k, tint: mix(tintA, tintB, k), dusk, season, hour, rain: season ? rain : 0 };
   }
 
   /** Take sky and light from this world point instead of the view's centre (a picture of the whole world painted in patches). */
@@ -874,16 +958,50 @@ export class World {
     return tb;
   }
 
+  /** The season the year shows on the land of this map right now (null in rooms and caves). */
+  private yearSeason(): Season | null {
+    return this.interior || this.cave ? null : calendarAt(this.time).season;
+  }
+
+  /** Does the year reach tile (or prop anchor) (i, j)? Only the temperate lands turn with it. */
+  private seasonHere(i: number, j: number, season: Season | null): Season | null {
+    if (!season) return null;
+    const m = this.def.map;
+    const region = this.world ? AREA_IDS[this.world.regionOf[Math.max(0, Math.min(m.h - 1, j)) * m.w + Math.max(0, Math.min(m.w - 1, i))]] : this.def.id;
+    return CLIMATE[region] === "temperate" ? season : null;
+  }
+
+  /** A tile's column as the season shows it. */
+  private tileIn(idx: number, season: Season | null): TileBuffer | null {
+    const tb = this.tile(idx);
+    if (!tb || !season) return tb;
+    const m = this.def.map;
+    const kind = TILE_KINDS[m.kinds[idx]];
+    if (!groundTurns(kind, season)) return tb;
+    let bySeason = seasonCache.get(m);
+    if (!bySeason) seasonCache.set(m, (bySeason = new Map()));
+    let arr = bySeason.get(season);
+    if (!arr) bySeason.set(season, (arr = new Array(m.w * m.h)));
+    let st = arr[idx];
+    if (st === undefined) {
+      const i = idx % m.w;
+      st = arr[idx] = seasonTile(tb, kind, season, i, (idx - i) / m.w);
+    }
+    return st;
+  }
+
   render(s: Surface, t: number): void {
     this.ensureBuckets();
+    const season = this.yearSeason();
     const cx = Math.round(this.camX);
     const cy = Math.round(this.camY);
     const m = this.def.map;
     const env = this.viewEnv(s, t);
     if (this.backdrop) s.rect(0, 0, s.width, s.height, this.backdrop);
     else {
-      drawSky(s, env.sky, t, cx, cy);
-      if (env.sky2) drawSky(fadedSurface(s, env.k), env.sky2, t, cx, cy);
+      const heavens = this.dayNight && !this.interior && !this.cave ? (sky: Surface) => drawHeavens(sky, env) : undefined;
+      drawSky(s, env.sky, t, cx, cy, heavens);
+      if (env.sky2) drawSky(fadedSurface(s, env.k), env.sky2, t, cx, cy, heavens);
       if (env.dusk > 0.35 && !this.interior) this.drawNightSky(s, t, env.dusk);
     }
     const W = s.width;
@@ -935,7 +1053,7 @@ export class World {
           if (!m.inside(i, j)) continue;
           const idx = j * m.w + i;
           if (m.kinds[idx] === 0) continue;
-          const tb = this.tile(idx);
+          const tb = this.tileIn(idx, this.seasonHere(i, j, season));
           if (!tb) continue;
           const h = m.heights[idx];
           const x = isoX(i, j) + cx - 16;
@@ -960,8 +1078,9 @@ export class World {
       const entries: { key: number; draw: () => void }[] = [];
       for (const p of this.bucketProps[b]) {
         if (p.when && !p.when(this.flags)) continue;
-        const sheet = getProp(p.id, p.k);
-        const fr = sheet.frames[Math.floor((t + p.phase) * sheet.fps) % sheet.frames.length];
+        const sheet = seasonalProp(p.id, p.k, this.seasonHere(p.i, p.j, season));
+        // the sundial's shadow follows the hour, not the clock of the animation
+        const fr = sheet.frames[p.id === "sundial" ? Math.floor(calendarAt(this.time).hour / 2) % sheet.frames.length : Math.floor((t + p.phase) * sheet.fps) % sheet.frames.length];
         const px = p.ax + cx - sheet.ox;
         const py = p.ay + cy - sheet.oy;
         if (!visible(px, py, fr.width, fr.height)) continue;
@@ -986,6 +1105,7 @@ export class World {
     this.drawLife(s, t, cx, cy, env, bMin, bTiles, dMin, dMax);
     this.fx.draw(s, cx, cy);
     for (const [w, k] of env.weather) this.drawWeather(s, w, k, t, cx, cy);
+    if (env.rain > 0.02) this.drawShower(s, t, env);
     this.drawLighting(s, t, cx, cy, env);
     if (this.interior) this.drawRoomLight(s, t, cx, cy, env);
     for (const a of this.actors) if (!a.hidden && a.kind !== "critter") this.drawOverhead(s, a, t, cx, cy);
@@ -1030,6 +1150,7 @@ export class World {
     const top = isoY(a.x, a.y, a.z) + cy - lift - 22 + (seated ? 7 : 0);
     if (x < -20 || x > s.width + 20 || top < -30 || top > s.height + 30) return;
     if (a.emote) drawEmote(s, a.emote.icon, x, top - 6 + Math.round(Math.sin(t * 6)), t);
+    else if (a.marker === "bounty" || a.marker === "deliver") drawNotice(s, a.marker, x, top - 4 + Math.round(Math.sin(t * 3) * 1.5));
     else if (a.marker) {
       const y = top - 4 + Math.round(Math.sin(t * 4) * 2);
       drawText(s, "!", x - 1, y, "#ffd860", { outline: "#3a1a10" });
@@ -1379,7 +1500,7 @@ export class World {
     if (w === "none" || density <= 0.02) return;
     const W = s.width;
     const H = s.height;
-    const n = Math.floor(((W * H) / (w === "snow" ? 1800 : w === "drips" ? 9000 : 3200)) * density);
+    const n = Math.floor(((W * H) / (w === "snow" ? 1800 : w === "drips" ? 9000 : w === "rain" ? 700 : 3200)) * density);
     for (let k = 0; k < n; k++) {
       const r1 = hash2(k, 1, 11);
       const r2 = hash2(k, 2, 11);
@@ -1434,6 +1555,25 @@ export class World {
           s.px(x, y, alpha(k % 3 ? "#9ff5de" : "#c8a8ff", 0.35 + glow * 0.55));
           break;
         }
+        case "rain": {
+          // slanting streaks, and where each one lands a splash ring on the ground
+          const period = 0.5 + r3 * 0.35;
+          const age = ((t + r1 * 13) % period) / period;
+          const x1 = wrap(r1 * W + cx * 0.5, W);
+          const y1 = wrap(r2 * H + cy * 0.5, H);
+          if (age < 0.8) {
+            const u = age / 0.8;
+            const x = x1 - (1 - u) * 26;
+            const y = y1 - (1 - u) * 70;
+            for (let q = 0; q < 8; q++) s.px(x - q * 0.37, y - q, alpha(q < 2 ? "#ffffff" : "#c8dcf8", 0.8 - q * 0.07));
+          } else {
+            const u = (age - 0.8) / 0.2;
+            s.px(x1 - 1 - u * 2, y1, alpha("#d8e8ff", 0.6 * (1 - u)));
+            s.px(x1 + 1 + u * 2, y1, alpha("#d8e8ff", 0.6 * (1 - u)));
+            s.px(x1, y1 - 1 - u, alpha("#e8f0ff", 0.5 * (1 - u)));
+          }
+          break;
+        }
         case "snow": {
           const x = wrap(r1 * W + Math.sin(t * 0.8 + k) * 12 + t * 6 + cx * 0.3, W);
           const y = wrap(r2 * H + t * (10 + r3 * 16) + cy * 0.3, H);
@@ -1444,11 +1584,42 @@ export class World {
     }
   }
 
+  /** A summer shower: the sky greys over, and in a heavy one, now and then, lightning and its flash. */
+  private drawShower(s: Surface, t: number, env: Env): void {
+    s.rect(0, 0, s.width, s.height, alpha("#3a4a64", 0.22 * env.rain));
+    if (env.season !== "summer" || env.rain < 0.7) return;
+    const n = Math.floor(t / 9);
+    const age = t - n * 9;
+    if (hash2(n, 3, 97) > 0.5 || age > 0.25) return;
+    s.rect(0, 0, s.width, s.height, alpha("#f0f0ff", 0.3 * (1 - age / 0.25)));
+    let x = s.width * (0.15 + hash2(n, 4, 97) * 0.7);
+    for (let y = 0; y < s.height * 0.45; y += 3) {
+      x += (hash2(y, n, 98) - 0.5) * 7;
+      s.rect(x, y, 2, 3, alpha("#ffffff", 0.9));
+    }
+  }
+
+  /**
+   * The light of the hour: a warm wash of gold at dawn and dusk, then the
+   * tint of night over everything but the lamps.
+   */
+  private drawGoldenHour(s: Surface, env: Env): void {
+    if (!this.dayNight || this.cave) return;
+    const h = env.hour;
+    // strongest at 6 and 18, nothing by 8 or 16
+    const k = Math.max(0, 1 - Math.abs(h - 6) / 1.6, 1 - Math.abs(h - 18.2) / 1.8);
+    if (k <= 0.01) return;
+    s.rect(0, 0, s.width, s.height, alpha(h < 12 ? "#ffb890" : "#ff9040", 0.22 * k * (this.interior ? 0.5 : 1)));
+  }
+
   private drawLighting(s: Surface, t: number, cx: number, cy: number, env: Env): void {
+    this.drawGoldenHour(s, env);
     const night = env.night;
     if (night <= 0.01) return;
+    // the hour's own darkness comes on top of a land's lasting gloom: midnight is dark everywhere
+    const deep = env.dusk * env.dusk * (3 - 2 * env.dusk);
     s.rect(0, 0, s.width, s.height, alpha(env.tint, night * 0.35));
-    s.rect(0, 0, s.width, s.height, alpha("#0a0618", night * 0.32));
+    s.rect(0, 0, s.width, s.height, alpha("#0a0618", Math.min(0.7, night * 0.32 + deep * (this.dayNight && !this.cave ? 0.26 : 0))));
     for (const p of gridNear(this.lights, cx, cy, s.width, s.height)) {
       const L = propDef(p.id).light;
       if (!L || (p.when && !p.when(this.flags))) continue;
@@ -1459,6 +1630,15 @@ export class World {
       const flick = 1 + Math.sin(t * 9 + p.phase) * 0.04;
       const g = glowSprite(L.color, Math.round(radius * flick));
       s.sprite(g, x - g.width / 2, y - g.height / 2, false, Math.min(1, 0.5 + night));
+    }
+    // lanterns carried by the folk after dark
+    for (const a of this.actors) {
+      if (a.hidden || (a.anim !== "lantern" && a.anim !== "torch")) continue;
+      const x = isoX(a.x, a.y) + cx;
+      const y = isoY(a.x, a.y, a.z) + cy - 22;
+      if (x < -40 || x > s.width + 40 || y < -40 || y > s.height + 40) continue;
+      const g = glowSprite(a.anim === "torch" ? "#ffb060" : "#ff9a50", Math.round(20 + Math.sin(t * 7 + a.x) * 1.2));
+      s.sprite(g, x + 4 - g.width / 2, y - g.height / 2, false, Math.min(1, 0.4 + night));
     }
     const [hx, hy] = this.heroScreen();
     // underground she carries a torch's worth of light with her
@@ -1534,5 +1714,92 @@ export function drawEmote(s: Surface, icon: Emote, x: number, y: number, t: numb
       s.rect(x0 + 4, y0 + 5, 2, 2, "#7a3ac8");
       s.px(x0 + 7, y0 + 2, "#7a3ac8");
       break;
+  }
+}
+
+/**
+ * The season's weather over a temperate land: blossom on the spring wind,
+ * fireflies on summer nights and its showers, falling leaves in autumn, and
+ * snow all winter (which buries the region's own petals and leaves).
+ */
+function seasonWeather(w: [Weather, number][], season: Season | null, rain: number, dusk: number): [Weather, number][] {
+  if (!season) return w;
+  let out: [Weather, number][] = w.map(([k, v]) => [k, v]);
+  if (season === "winter") out = out.map(([k, v]) => [k === "petals" || k === "leaves" || k === "fireflies" ? "snow" : k, v]);
+  if (season === "autumn") out = out.map(([k, v]) => [k === "petals" ? "leaves" : k, v]);
+  const add = (kind: Weather, k: number) => {
+    const e = out.find((x) => x[0] === kind);
+    if (e) e[1] = Math.max(e[1], k);
+    else out.push([kind, k]);
+  };
+  if (season === "spring") add("petals", 0.45);
+  if (season === "summer" && dusk > 0.55) add("fireflies", 0.6);
+  if (season === "autumn") add("leaves", 0.7);
+  if (season === "winter") add("snow", 0.9);
+  if (rain > 0.02) add("rain", rain);
+  return out;
+}
+
+/** Sky tones of the hour and season, washed over a region's own sky. */
+const SEASON_SKY: Record<Season, string> = { spring: "#ffd8ec", summer: "#78c8ff", autumn: "#ffc080", winter: "#d8e0f0" };
+
+/**
+ * The sun crossing the sky by day and the moon by night (behind the
+ * mountains, in front of the sky's gradient), with the sky warmed at dawn and
+ * dusk, deepened at night and coloured a little by the season.
+ */
+export function drawHeavens(s: Surface, env: Env): void {
+  const W = s.width;
+  const H = s.height;
+  const h = env.hour;
+  if (env.season) s.rect(0, 0, W, H * 0.6, alpha(SEASON_SKY[env.season], 0.1));
+  const glow = Math.max(0, 1 - Math.abs(h - 6) / 1.6, 1 - Math.abs(h - 18.2) / 1.8);
+  if (glow > 0) for (let b = 0; b < 8; b++) s.rect(0, H * (0.22 + b * 0.04), W, H * 0.04, alpha(h < 12 ? "#ff9ab0" : "#ff7a30", 0.05 * glow * (b + 1)));
+  if (env.dusk > 0.3) s.rect(0, 0, W, H * 0.62, alpha("#0a0a30", Math.min(0.55, (env.dusk - 0.3) * 0.9)));
+  // the sun from 6 to 18, the moon from 18 to 6, each on a low arc across the view
+  const arc = (u: number): [number, number] => [W * (0.1 + 0.8 * u), H * (0.42 - Math.sin(u * Math.PI) * 0.3)];
+  const sunU = (h - 6) / 12;
+  if (sunU > 0 && sunU < 1) {
+    const [x, y] = arc(sunU);
+    const low = 1 - Math.sin(sunU * Math.PI);
+    const core = low > 0.6 ? "#ffc070" : "#fff6d0";
+    for (let r = 4; r >= 1; r--) disc(s, x, y, 7 + r * 5, alpha(low > 0.6 ? "#ff9040" : "#fff0b0", 0.06 + (4 - r) * 0.03));
+    disc(s, x, y, 7, core);
+  }
+  const moonU = (((h - 18 + 24) % 24) / 12);
+  if (moonU > 0 && moonU < 1) {
+    const [x, y] = arc(moonU);
+    for (let r = 3; r >= 1; r--) disc(s, x, y, 6 + r * 5, alpha("#c8d8ff", 0.05 + (3 - r) * 0.03));
+    disc(s, x, y, 6, "#f0f4ff");
+    disc(s, x - 2, y - 1, 1.6, "#d0d8ea");
+    disc(s, x + 2, y + 2, 1.2, "#d0d8ea");
+  }
+}
+
+function disc(s: Surface, cx: number, cy: number, r: number, c: string): void {
+  for (let y = -Math.ceil(r); y <= Math.ceil(r); y++) {
+    const half = Math.floor(Math.sqrt(Math.max(0, (r + 0.5) * (r + 0.5) - y * y)));
+    s.rect(Math.round(cx) - half, Math.round(cy) + y, half * 2 + 1, 1, c);
+  }
+}
+
+/** A rolled notice (a favour to ask) or a tied parcel (one to hand over), floating over someone's head. */
+function drawNotice(s: Surface, kind: "bounty" | "deliver", x: number, y: number): void {
+  const x0 = Math.round(x - 3);
+  const y0 = Math.round(y - 6);
+  if (kind === "bounty") {
+    s.rect(x0, y0 + 1, 7, 5, "#3a2410");
+    s.rect(x0 + 1, y0 + 1, 5, 5, "#fff2c8");
+    s.rect(x0, y0, 7, 1, "#c08a30");
+    s.rect(x0, y0 + 6, 7, 1, "#c08a30");
+    s.rect(x0 + 2, y0 + 2, 3, 1, "#8a5a3a");
+    s.rect(x0 + 2, y0 + 4, 2, 1, "#8a5a3a");
+  } else {
+    s.rect(x0, y0 + 1, 7, 6, "#3a2410");
+    s.rect(x0 + 1, y0 + 2, 5, 4, "#c89a5a");
+    s.rect(x0 + 3, y0 + 1, 1, 6, "#d8433f");
+    s.rect(x0, y0 + 4, 7, 1, "#d8433f");
+    s.px(x0 + 2, y0, "#d8433f");
+    s.px(x0 + 4, y0, "#d8433f");
   }
 }

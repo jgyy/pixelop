@@ -179,7 +179,7 @@ function puff(colour: string, seed: number): PixelBuffer {
 }
 
 /** Paint the backdrop. `camX/camY` are the world camera's screen offsets (for parallax). */
-export function drawSky(s: Surface, id: SkyId, t: number, camX: number, camY: number): void {
+export function drawSky(s: Surface, id: SkyId, t: number, camX: number, camY: number, heavens?: (s: Surface) => void): void {
   const st = SKIES[id];
   const W = s.width;
   const H = s.height;
@@ -212,6 +212,8 @@ export function drawSky(s: Surface, id: SkyId, t: number, camX: number, camY: nu
     circle(s, mx - r * 0.3, my - r * 0.25, r * 0.28, shade(colour, 0.92));
     circle(s, mx + r * 0.35, my + r * 0.3, r * 0.18, shade(colour, 0.9));
   }
+  // the sun and moon of the hour sit behind the mountains
+  if (heavens && id !== "forest" && id !== "storm" && id !== "blood" && id !== "night") heavens(s);
   // parallax ridges
   for (const rg of st.ridges) {
     const buf = ridge(rg.colour, rg.rim, rg.amp, rg.seed);

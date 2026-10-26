@@ -183,6 +183,49 @@ test.describe("Jade Lotus Ascension", () => {
     expect(await page.evaluate(() => window.__pixelop!.game.flying)).toBe(false);
   });
 
+  test("the wardrobe: every outfit listed, the owned ones to put on", async ({ page }) => {
+    await startNewGame(page);
+    await patch(page, { flags: { metElder: true, "attire:wayfarer": true, "attire:springblossom": true } });
+    await page.getByTestId("attire").click();
+    await expect(page.getByTestId("wardrobe")).toBeVisible();
+    await expect(page.getByTestId("wear-empress")).toBeDisabled();
+    await page.getByTestId("wear-springblossom").click();
+    await expect.poll(async () => (await state(page)).counters.attire).toBe(11);
+    await page.keyboard.press("KeyV");
+    await expect(page.getByTestId("wardrobe")).toBeHidden();
+  });
+
+  test("the calendar turns, the almanac lets time pass, and the folk ask favours", async ({ page }) => {
+    await startNewGame(page);
+    await expect(page.getByTestId("calendar")).toContainText("Spring");
+    await patch(page, { flags: { metElder: true, metZhou: true, villageSaved: true, villageArrived: true } });
+    await expect(page.getByTestId("year-quest")).toContainText("Almanac");
+    // the sundial in Willow Creek's square: wait for the next season
+    await standBy(page, "almanac-dial");
+    await page.keyboard.press("KeyE");
+    await expect(page.getByTestId("dialog")).toBeVisible();
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("Enter");
+    await expect(page.getByTestId("choice")).toBeVisible();
+    await page.getByTestId("choice-2").click();
+    await page.waitForFunction(() => window.__pixelop!.game.mode === "explore", null, { timeout: 15_000 });
+    await expect(page.getByTestId("calendar")).toContainText("Summer");
+    // Ah Bao has a favour to ask; take the notice and see it in the journal
+    await standBy(page, "abao");
+    await page.keyboard.press("KeyE");
+    for (let i = 0; i < 20 && !(await page.getByTestId("choice").isVisible()); i++) {
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(150);
+    }
+    await page.getByTestId("choice-0").click();
+    await page.waitForFunction(() => window.__pixelop!.game.mode === "explore", null, { timeout: 15_000 });
+    await expect(page.getByTestId("notice")).toBeVisible();
+    await page.keyboard.press("KeyJ");
+    await expect(page.getByTestId("journal-notices")).toContainText("0/1000");
+    await page.getByTestId("abandon-0").click();
+    await expect(page.getByTestId("notice")).toBeHidden();
+  });
+
   test("the gallery animates every character, prop and region", async ({ page }) => {
     test.setTimeout(120_000);
     await page.goto("/gallery");

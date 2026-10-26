@@ -103,6 +103,8 @@ export function resolveTurn(game: GameState, battle: BattleState, action: Battle
     events.push({ kind: "playerSkill", skill: sk.id, hits, heal: healed });
   } else if (action.type === "item") {
     if (g.pills[action.item] <= 0) return { game, battle, events: [{ kind: "rejected", reason: "No pills left." }] };
+    // a pill swallowed at full strength would be wasted, and the turn with it
+    if (action.item === "heal" ? g.hp >= ps.maxHp : g.qi >= ps.maxQi) return { game, battle, events: [{ kind: "rejected", reason: action.item === "heal" ? "Your vitality is already full." : "Your qi is already full." }] };
     g.pills[action.item]--;
     if (action.item === "heal") {
       const amt = Math.min(ps.maxHp - g.hp, Math.round(ps.maxHp * PILL_EFFECT.heal));

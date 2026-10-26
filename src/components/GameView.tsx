@@ -142,10 +142,29 @@ export function GameView({ initial, intro, onQuit }: { initial: GameState; intro
                 ◈ {ui.sectQuest}
               </div>
             )}
+            {ui.year && (
+              <div className="errand year" data-testid="year-quest">
+                ❀ {ui.year.title}: {ui.year.objective}
+              </div>
+            )}
+            {ui.notices.length > 0 && (
+              <div className="errand notice" data-testid="notice">
+                ✉ {ui.notices[0].text}
+                {ui.notices.length > 1 && <small> (+{ui.notices.length - 1} more in the journal)</small>}
+              </div>
+            )}
           </div>
         )}
 
         <div className="hud-right">
+          {!ui.interior?.cave && (
+            <div className="chip panel calendar" data-testid="calendar" title={ui.calendar.label} style={{ borderColor: ui.calendar.colour }}>
+              <span className="cn" style={{ color: ui.calendar.colour }}>
+                {ui.calendar.hanzi}
+              </span>{" "}
+              {ui.calendar.seasonName} {ui.calendar.day} · {String(Math.floor(ui.calendar.hour)).padStart(2, "0")}:{String(Math.floor((ui.calendar.hour % 1) * 60)).padStart(2, "0")} {phaseIcon(ui.calendar.phase)}
+            </div>
+          )}
           <div className="chip panel" data-testid="stones">
             ◆ {s.stones} · 💊 {s.pills.heal} · 🔷 {s.pills.qi}
           </div>
@@ -164,18 +183,16 @@ export function GameView({ initial, intro, onQuit }: { initial: GameState; intro
                   {ui.riding ? "Dismount" : "Ride"} <span className="kbd">R</span>
                 </button>
               )}
-              {ui.attire.owned > 1 && (
-                <button className="btn" onClick={() => game.changeAttire()} data-testid="attire" title={ui.attire.name}>
-                  Attire <span className="kbd">C</span>
-                </button>
-              )}
+              <button className="btn" onClick={() => game.toggleWardrobe()} data-testid="attire" title={ui.attire.name}>
+                Attire <span className="kbd">V</span>
+              </button>
               <button className="btn" onClick={() => game.toggleJournal()} data-testid="journal-button">
                 Journal <span className="kbd">J</span>
               </button>
               <button className="btn" onClick={() => void save()} data-testid="save">
                 Save
               </button>
-              <button className="btn" onClick={onQuit} data-testid="quit">
+              <button className="btn" onClick={() => void save().finally(onQuit)} data-testid="quit">
                 Title
               </button>
             </div>
@@ -277,7 +294,9 @@ export function GameView({ initial, intro, onQuit }: { initial: GameState; intro
 
         {ui.worldmap && <WorldMapPanel ui={ui} game={game} />}
 
-        {ui.journal && <JournalPanel journal={ui.journal} onClose={() => game.toggleJournal()} />}
+        {ui.journal && <JournalPanel journal={ui.journal} ui={ui} game={game} onClose={() => game.toggleJournal()} />}
+
+        {ui.wardrobe && <WardrobePanel ui={ui} game={game} />}
 
         {ui.battle && <EnemyBar ui={ui} />}
         {ui.battle && <BattleMenu ui={ui} act={(a) => game.battleAction(a)} />}
@@ -355,7 +374,7 @@ function Portrait({ id, outfit, talking }: { id: HumanId; outfit?: string; talki
 }
 
 /** The quest journal: the tale, the errands, the sects' troubles, and how each sect regards her. */
-function JournalPanel({ journal, onClose }: { journal: NonNullable<UiSnapshot["journal"]>; onClose: () => void }) {
+function JournalPanel({ journal, ui, game, onClose }: { journal: NonNullable<UiSnapshot["journal"]>; ui: UiSnapshot; game: Game; onClose: () => void }) {
   return (
     <div className="journal panel" data-testid="journal">
       <h3>Journal · 江湖录</h3>
@@ -368,6 +387,31 @@ function JournalPanel({ journal, onClose }: { journal: NonNullable<UiSnapshot["j
           <p key={e} className="errand">
             ✦ {e}
           </p>
+        ))}
+      </section>
+      {ui.year && (
+        <section data-testid="journal-year">
+          <h4>
+            ❀ {ui.year.chapter} · {ui.year.title}
+          </h4>
+          <p>{ui.year.objective}</p>
+        </section>
+      )}
+      <section data-testid="journal-notices">
+        <h4>
+          Notices of the Jianghu · {ui.noticesDone}/{ui.noticeCount}
+        </h4>
+        {ui.notices.length === 0 && <p className="muted">No notices carried. Folk with a ✉ scroll over their heads have a favour to ask.</p>}
+        {ui.notices.map((n) => (
+          <div key={n.slot} className="entry notice">
+            <strong>
+              ✉ {n.title} <small>· {n.giver}</small>
+            </strong>
+            <p>{n.text}</p>
+            <button className="btn small" onClick={() => game.abandonNotice(n.slot)} data-testid={`abandon-${n.slot}`}>
+              Set aside
+            </button>
+          </div>
         ))}
       </section>
       <section>
@@ -546,6 +590,9 @@ function TouchControls({ game, typing }: { game: Game; typing: React.RefObject<{
         <button className="btn" {...press("KeyC")} aria-label="Change attire">
           C
         </button>
+        <button className="btn" {...press("KeyV")} aria-label="Wardrobe">
+          V
+        </button>
         <button className="btn" {...press("KeyJ")} aria-label="Journal">
           J
         </button>
@@ -553,6 +600,38 @@ function TouchControls({ game, typing }: { game: Game; typing: React.RefObject<{
           B
         </button>
       </div>
+    </div>
+  );
+}
+
+function phaseIcon(phase: string): string {
+  return phase === "dawn" ? "🌅" : phase === "day" ? "☀" : phase === "dusk" ? "🌇" : "☾";
+}
+
+/** Lin Yue's wardrobe: every outfit in the jianghu, the ones she owns to put on, and how to earn the rest. */
+function WardrobePanel({ ui, game }: { ui: UiSnapshot; game: Game }) {
+  const list = ui.wardrobe!;
+  return (
+    <div className="wardrobe panel" data-testid="wardrobe">
+      <h3>
+        Wardrobe · 衣橱 <small>({list.filter((a) => a.owned).length}/{list.length})</small>
+      </h3>
+      <ul>
+        {list.map((a) => (
+          <li key={a.id} className={a.worn ? "worn" : a.owned ? "owned" : "locked"}>
+            <button className="btn" disabled={!a.owned || a.worn} onClick={() => game.wear(a.id)} data-testid={`wear-${a.id}`}>
+              <span className="cn">{a.hanzi}</span> {a.owned ? a.name : "？？？"}
+              <small>{a.worn ? "✔ Wearing" : a.owned ? a.from : a.hint}</small>
+            </button>
+          </li>
+        ))}
+      </ul>
+      <div className="hint">
+        <span className="kbd">C</span> next outfit · <span className="kbd">V</span> / <span className="kbd">Esc</span> close
+      </div>
+      <button className="btn primary" onClick={() => game.toggleWardrobe()} data-testid="wardrobe-close">
+        Close
+      </button>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { test, type Page } from "@playwright/test";
 import { cultivationNeeded } from "../src/game/engine/realms";
-import { battle, goto, mode, patch, skipScene, standBy, startNewGame, teleport, tileOf } from "./helpers";
+import { battle, goto, mode, patch, skipScene, standBy, startNewGame, state, teleport, tileOf } from "./helpers";
 
 /** Captures the README / PR screenshots. Run with `npm run screenshots`. */
 const DIR = "docs/screenshots";
@@ -332,8 +332,8 @@ test("capture side errands, attire and new landmarks", async ({ page }) => {
   };
   /** Clear old toasts so each shot shows only its own. */
   const quiet = () => page.evaluate(() => ((window.__pixelop!.game as unknown as { toasts: unknown[] }).toasts = []));
-  /** Time of day as a fraction of the cycle (0 dawn, 0.5 midnight). */
-  const timeOfDay = (k: number) => page.evaluate((k) => (window.__pixelop!.game.clock = k * 360), k);
+  /** Time of day as a fraction of the cycle (0 noon, 0.5 midnight). */
+  const timeOfDay = (k: number) => page.evaluate((k) => window.__pixelop!.game.debugSetTime(k), k);
   const near = (key: string, dx: number, dy: number, dir = 3) =>
     page.evaluate(
       ([key, dx, dy, dir]) => {
@@ -460,7 +460,7 @@ test("capture the doubled world, its new regions and folk", async ({ page }) => 
     if ((await mode(page)) === "scene") await skipScene(page);
   };
   const quiet = () => page.evaluate(() => ((window.__pixelop!.game as unknown as { toasts: unknown[] }).toasts = []));
-  const timeOfDay = (k: number) => page.evaluate((k) => (window.__pixelop!.game.clock = k * 360), k);
+  const timeOfDay = (k: number) => page.evaluate((k) => window.__pixelop!.game.debugSetTime(k), k);
   const near = (key: string, dx: number, dy: number, dir = 3) =>
     page.evaluate(
       ([key, dx, dy, dir]) => {
@@ -547,7 +547,7 @@ test("capture the three sects, the caves beneath them, and the choices that chan
     if ((await mode(page)) === "scene") await skipScene(page);
   };
   const quiet = () => page.evaluate(() => ((window.__pixelop!.game as unknown as { toasts: unknown[] }).toasts = []));
-  const timeOfDay = (k: number) => page.evaluate((k) => (window.__pixelop!.game.clock = k * 360), k);
+  const timeOfDay = (k: number) => page.evaluate((k) => window.__pixelop!.game.debugSetTime(k), k);
   const near = (key: string, dx: number, dy: number, dir = 3) =>
     page.evaluate(
       ([key, dx, dy, dir]) => {
@@ -698,4 +698,153 @@ test("capture the three sects, the caves beneath them, and the choices that chan
   await page.keyboard.press("KeyM");
   await page.waitForTimeout(1500);
   await shot(page, "102-world-map-mountains");
+});
+
+/** The turning year: seasons on the land, day and night, the almanac, the Wardens, the notices and the wardrobe. */
+test("capture the turning year, the notices and the wardrobe", async ({ page }) => {
+  test.setTimeout(300_000);
+  await startNewGame(page);
+  const flags = { metElder: true, villageSaved: true, villageArrived: true, metZhou: true, foxesCleared: true, bambooArrived: true, metHuli: true, lakeArrived: true, marshArrived: true, terracesArrived: true, harborArrived: true, desertArrived: true, huaTea: true, qingGift: true };
+  await patch(page, { flags, realm: 1, stage: 1 });
+  const quiet = () => page.evaluate(() => ((window.__pixelop!.game as unknown as { toasts: unknown[] }).toasts = []));
+  const when = (k: number, season: string) => page.evaluate(([k, s]) => window.__pixelop!.game.debugSetTime(k as number, s as never), [k, season] as const);
+  const settle = async (ms = 1800) => {
+    // long enough for the season's banner to fade
+    await page.waitForTimeout(Math.max(ms, 4000));
+    if ((await mode(page)) === "scene") await skipScene(page);
+    await quiet();
+  };
+  const village = async (lx: number, ly: number) => {
+    await teleport(page, "village", lx, ly);
+    await page.evaluate(() => (window.__pixelop!.game.world.hero.dir = 3));
+  };
+
+  // the same square of Willow Creek through the year
+  for (const [name, k, season] of [
+    ["105-spring-village", 0.05, "spring"],
+    ["106-summer-village", 0.08, "summer"],
+    ["107-autumn-village", 0.06, "autumn"],
+    ["108-winter-village", 0.04, "winter"],
+  ] as const) {
+    await when(k, season);
+    await village(16, 15);
+    await settle(2200);
+    await shot(page, name);
+  }
+  // the hours: golden dawn, lanterns at night, a summer shower
+  await when(0.76, "autumn");
+  await village(15, 12);
+  await settle(2200);
+  await shot(page, "109-dawn-golden-hour");
+  await when(0.5, "spring");
+  await village(15, 12);
+  await settle(3500);
+  await shot(page, "110-night-lanterns");
+  // a rainy summer afternoon
+  await teleport(page, "terraces", 16, 18);
+  await page.evaluate(() => window.__pixelop!.game.debugShower());
+  await settle(2200);
+  await shot(page, "111-summer-shower");
+
+  // the almanac master and his sundial
+  await when(0.1, "spring");
+  await standBy(page, "almanac");
+  await page.keyboard.press("KeyE");
+  for (let i = 0; i < 10; i++) {
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(120);
+  }
+  await page.waitForTimeout(1500);
+  await shot(page, "112-almanac-master");
+  await skipScene(page);
+  await standBy(page, "almanac-dial");
+  await page.keyboard.press("KeyE");
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(800);
+  await shot(page, "113-sundial-almanac");
+  await page.getByTestId("choice-3").click();
+  await settle(600);
+
+  // the Wardens: Lady Qingming at the plum shrine at dawn, Old Dongzhi at the hot spring in the night
+  const toLandmark = (key: string, dx: number, dy: number) =>
+    page.evaluate(
+      ([key, dx, dy]) => {
+        const g = window.__pixelop!.game;
+        const w = (g.world as unknown as { world: { landmarks: { key: string; x: number; y: number }[]; map: { standable: (i: number, j: number) => boolean } } }).world;
+        const l = w.landmarks.find((x) => x.key === key)!;
+        for (let r = 0; r < 10; r++)
+          for (const [a, b] of [
+            [dx as number, dy as number],
+            [(dx as number) + r, dy as number],
+            [dx as number, (dy as number) + r],
+            [(dx as number) - r, dy as number],
+          ])
+            if (w.map.standable(l.x + a, l.y + b)) return g.debugGoto(l.x + a + 0.5, l.y + b + 0.5);
+      },
+      [key, dx, dy] as const,
+    );
+  await patch(page, { flags: { ...flags, yearMet: true, "yr:swept": true } });
+  await when(0.76, "spring");
+  await toLandmark("plum", 3, 3);
+  await page.waitForTimeout(1200);
+  for (let i = 0; i < 8; i++) {
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(300);
+  }
+  await page.waitForTimeout(1500);
+  await shot(page, "114-warden-of-spring");
+  await skipScene(page);
+  await patch(page, { flags: { ...flags, yearMet: true, "woke:spring": true, "woke:summer": true, "woke:autumn": true, "yr:tangyuan": true, "attire:springblossom": true } });
+  await when(0.5, "winter");
+  await toLandmark("spring", 3, 3);
+  await page.waitForTimeout(1200);
+  for (let i = 0; i < 8; i++) {
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(300);
+  }
+  await page.waitForTimeout(1500);
+  await shot(page, "115-warden-of-winter");
+  await skipScene(page);
+
+  // a favour asked: the notice scroll, the choice, the journal
+  await when(0.08, "autumn");
+  await standBy(page, "abao");
+  await page.waitForTimeout(1500);
+  await shot(page, "116-notice-scrolls");
+  await page.keyboard.press("KeyE");
+  for (let i = 0; i < 20 && !(await page.getByTestId("choice").isVisible()); i++) {
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(150);
+  }
+  await page.waitForTimeout(600);
+  await shot(page, "117-notice-offer");
+  await page.getByTestId("choice-0").click();
+  await settle(1200);
+  await page.keyboard.press("KeyJ");
+  await page.waitForTimeout(600);
+  await shot(page, "118-journal-notices");
+  await page.keyboard.press("KeyJ");
+
+  // the wardrobe, and Lin Yue in the raiment of the four seasons in the snow
+  await patch(page, { flags: { ...flags, yearMet: true, yearTurned: true, "attire:springblossom": true, "attire:summerlotus": true, "attire:autumnmaple": true, "attire:wintersnow": true, "attire:fourseasons": true, "attire:ranger": true, "attire:wayfarer": true } });
+  await page.keyboard.press("KeyV");
+  await page.waitForTimeout(600);
+  await shot(page, "119-wardrobe");
+  await page.getByTestId("wear-fourseasons").click();
+  await page.keyboard.press("KeyV");
+  await when(0.04, "winter");
+  await village(17, 9);
+  await settle(2200);
+  await shot(page, "120-four-seasons-raiment");
+  await patch(page, { counters: { ...(await state(page)).counters, attire: 14 } });
+  await when(0.08, "winter");
+  await teleport(page, "frost", 16, 16);
+  await settle(2400);
+  await shot(page, "121-snow-fox-cloak-frostveil");
+  await patch(page, { counters: { ...(await state(page)).counters, attire: 13 } });
+  await when(0.07, "autumn");
+  await teleport(page, "bamboo", 14, 22);
+  await settle(2400);
+  await shot(page, "122-autumn-maple-robe");
 });

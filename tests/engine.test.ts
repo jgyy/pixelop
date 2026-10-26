@@ -102,6 +102,17 @@ describe("game state", () => {
     expect(healed.hp).toBeGreaterThan(10);
     expect(consumePill({ ...g, pills: { heal: 0, qi: 0 } }, "qi")).toBeNull();
   });
+
+  it("never wastes a pill on a heroine who is already whole (in the field or in battle)", () => {
+    const g = newGame();
+    expect(consumePill(g, "heal")).toBeNull();
+    expect(consumePill(g, "qi")).toBeNull();
+    const b = startBattle("fox", 7);
+    const r = resolveTurn(g, b, { type: "item", item: "heal" });
+    expect(r.events[0].kind).toBe("rejected");
+    expect(r.game.pills.heal).toBe(g.pills.heal);
+    expect(r.battle.turn).toBe(0);
+  });
 });
 
 describe("battle", () => {
