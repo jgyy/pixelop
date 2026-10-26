@@ -1408,6 +1408,97 @@ const PROPS = {
       }
     },
   },
+  // the almanac's sundial: a bronze dial tilted to the sky on a stone drum; one frame per two hours, its gnomon's shadow swinging round
+  sundial: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 12,
+    fps: 1,
+    paint: (r, f, n) => {
+      r.prism(0, 0, 8, 0, 9, 10, md(PAL.stone, 1));
+      r.prism(0, 0, 9.2, 9, 11, 10, m(PAL.stone, 1));
+      // the dial face, its rim marked with the twelve watches
+      const hour = (f / n) * 24;
+      const sun = hour >= 6 && hour <= 18;
+      const ang = ((hour - 12) / 12) * Math.PI;
+      const bronze = ramp("#d8a858", { lo: "#4a2a10" });
+      r.prism(0, 0, 7.4, 11, 12.4, 16, m(bronze, 2, { shader: (sv, tone) => {
+        if (sv.n[2] < 0.5) return tone(bronze);
+        const d = Math.hypot(sv.p[0], sv.p[1]);
+        const a = Math.atan2(sv.p[1], sv.p[0]);
+        // the brass pointer of the watch now passing, bright on the rim
+        const watch = (hour / 24) * TAU;
+        if (d > 5.2 && Math.abs(Math.atan2(Math.sin(a - watch), Math.cos(a - watch))) < 0.22) return "#fff0a0";
+        if (d > 6 && Math.abs(Math.sin(a * 6)) < 0.18) return "#3a2410";
+        // the shadow of the gnomon, long at morning and evening, short at noon
+        if (sun) {
+          const sa = ang + Math.PI / 2;
+          const along = sv.p[0] * Math.cos(sa) + sv.p[1] * Math.sin(sa);
+          const across = -sv.p[0] * Math.sin(sa) + sv.p[1] * Math.cos(sa);
+          if (along > 0 && along < 2 + Math.abs(hour - 12) * 0.6 && Math.abs(across) < 0.8) return "#3a2a30";
+        }
+        return tone(bronze, d < 2 ? 1 : 0);
+      } }));
+      r.sweep([[0, 0, 12.4], [0, -2.4, 18]], 0.5, m(bronze, 3));
+    },
+  },
+  // a snowman with a coal-black grin, a carrot nose and a straw hat (winter, in the villages)
+  snowman: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      const snow = ramp("#ffffff", { lo: "#8a9ab8" });
+      r.sphere([0, 0, 6], 6.4, m(snow, 1));
+      r.sphere([0, 0, 15], 4.6, m(snow, 1));
+      r.sphere([0, 0, 22], 3.4, m(snow, 1, { shader: (sv, tone) => (sv.n[1] > 0.6 && Math.abs(sv.p[0]) > 0.6 && Math.abs(sv.p[0]) < 1.6 && Math.abs(sv.p[2] - 23) < 0.6 ? "#1a1428" : tone(snow)) }));
+      r.sweep([[0, 3, 22], [0, 6, 21.6]], [0.7, 0.1], m(PAL.orange, 2));
+      for (const k of [-1, 1]) r.sweep([[k * 4, 0, 15], [k * 8, 0.6, 19]], 0.35, m(PAL.woodDark, 2));
+      r.cone(0, 0, 4.4, 24.4, 0.6, 27.4, 10, m(PAL.straw, 3));
+      r.sweep([[-3, 3, 18], [0, 4.4, 18.6], [3, 3, 18]], 0.7, m(PAL.red, 3));
+    },
+  },
+  // a heap of raked leaves, a few blowing off the top (autumn)
+  leafpile: {
+    foot: [0, 0, 0, 0],
+    blocks: false,
+    frames: 4,
+    fps: 3,
+    paint: (r, f, n) => {
+      const ph = (f / n) * TAU;
+      r.ellipsoid([0, 0, 0], [8, 7, 5], md(MAPLE, 1, { shader: (sv, tone) => tone(MAPLE, hash2(Math.floor(sv.p[0] * 1.4), Math.floor(sv.p[1] * 1.4 + sv.p[2]), 3) > 0.6 ? 1 : 0) }));
+      for (let k = 0; k < 3; k++) r.sphere([Math.cos(ph + k * 2) * 6, Math.sin(ph + k * 2) * 6, 6 + k * 2 + Math.sin(ph * 2 + k) * 1.4], 0.9, m(k % 2 ? MAPLE : LEAVES, 2));
+    },
+  },
+  // persimmons strung up to dry under the eaves, glowing orange (autumn)
+  persimmons: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      for (const k of [-1, 1]) r.sweep([[k * 8, -k * 8, 0], [k * 8, -k * 8, 26]], 0.8, m(PAL.woodDark, 1));
+      r.sweep([[-8, 8, 25], [8, -8, 25]], 0.7, m(PAL.woodDark, 1));
+      for (let s = 0; s < 5; s++) {
+        const x = -6 + s * 3;
+        r.sweep([[x, -x, 25], [x, -x, 9]], 0.15, m(PAL.straw, 2));
+        for (let k = 0; k < 4; k++) r.sphere([x, -x, 22 - k * 3.6], 1.5, m(ramp("#ffa040", { lo: "#8a2a10" }), 3));
+      }
+    },
+  },
+  // a nursery bed of green rice seedlings in rows, nodding (spring)
+  seedbed: {
+    foot: [0, 0, 0, 0],
+    blocks: false,
+    frames: 4,
+    fps: 2,
+    paint: (r, f, n) => {
+      const ph = (f / n) * TAU;
+      r.box([-8, -8, 0], [8, 8, 1.4], m(ramp("#6a5a3a", { lo: "#2a1a10" }), 1));
+      for (let a = -6; a <= 6; a += 3) for (let b = -6; b <= 6; b += 3) r.sweep([[a, b, 1.4], [a + Math.sin(ph + a) * 0.6, b, 5]], 0.4, m(PAL.green, 2));
+    },
+  },
   // a village forge: a brick furnace roaring under its hood, bellows that breathe, and an anvil
   forge: {
     foot: [0, 0, 0, 0],

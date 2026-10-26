@@ -16,7 +16,7 @@ import type { AreaId } from "./ids";
 export { AREA_IDS, type AreaId } from "./ids";
 
 export type SkyId = "day" | "dusk" | "forest" | "night" | "blood" | "storm" | "interior" | "cave";
-export type Weather = "petals" | "leaves" | "fireflies" | "embers" | "snow" | "drips" | "spores" | "none";
+export type Weather = "petals" | "leaves" | "fireflies" | "embers" | "snow" | "drips" | "spores" | "rain" | "none";
 
 export interface PropPlacement {
   id: PropId;
@@ -57,6 +57,9 @@ export interface NpcPlacement {
   /** The outfit worn, by story flags (everyday clothes when it returns nothing). */
   outfit?: (flags: Record<string, boolean>) => string | undefined;
 }
+
+/** Shown only in one season (the game sets a `season:<name>` flag for the world it draws). */
+export const inSeason = (season: string) => (f: Record<string, boolean>) => !!f[`season:${season}`];
 
 /** Willow Creek puts on its festival best once the Jade Lotus Heart is home. */
 export const festive = (f: Record<string, boolean>) => (f.heartReturned ? "festival" : undefined);
@@ -330,6 +333,17 @@ function buildVillage(): AreaDef {
     P("reeds", 7, 11),
     P("reeds", 25, 21),
     P("reeds", 20, 19),
+    // the almanac's sundial in the square
+    P("sundial", 17, 8),
+    // the village through the year: seedlings in spring, leaves and persimmons in autumn, snowmen in winter
+    { id: "seedbed", i: 4, j: 22, when: inSeason("spring") },
+    { id: "seedbed", i: 7, j: 22, when: inSeason("spring") },
+    { id: "leafpile", i: 6, j: 13, when: inSeason("autumn") },
+    { id: "leafpile", i: 23, j: 18, when: inSeason("autumn") },
+    { id: "persimmons", i: 10, j: 4, when: inSeason("autumn") },
+    { id: "persimmons", i: 25, j: 5, when: inSeason("autumn") },
+    { id: "snowman", i: 20, j: 15, when: inSeason("winter") },
+    { id: "snowman", i: 12, j: 15, when: inSeason("winter") },
   ];
   scatter(m, props, ["maple", "tallgrass", "rock", "tallgrass"], 0.12, 21, (i, j) => (m.kind(i, j) === "grass" || m.kind(i, j) === "meadow") && (i < 3 || i > 28 || j < 2 || j > 29) && notNear([[16, 30]], 2)(i, j));
   scatter(m, props, "tallgrass", 0.05, 22, (i, j) => m.kind(i, j) === "grass" && notNear([[16, 16]], 3)(i, j));
@@ -356,6 +370,7 @@ function buildVillage(): AreaDef {
       { key: "chun", name: "Auntie Chun", char: "villagerF", i: 11, j: 26, dir: 12, anim: "gather", outfit: festive },
       { key: "dikehoe", name: "Farmer Liu Er", char: "farmer", i: 5, j: 27, dir: 0, anim: "hoe", outfit: festive },
       { key: "yu", name: "Old Yu", char: "villagerM", i: 18, j: 13, dir: 2, wander: 1.2, outfit: festive },
+      { key: "almanac", char: "almanac", i: 18, j: 7, dir: 1, anim: "read" },
     ],
     enemies: [
       { key: "village-fox", enemy: "fox", i: 16, j: 22, range: 1.5, when: (f) => !!f.metElder && !f.villageSaved },
@@ -365,6 +380,7 @@ function buildVillage(): AreaDef {
       { key: "village-herb", kind: "herb", i: 27, j: 28 },
       { key: "village-chest", kind: "chest", i: 29, j: 4 },
       { key: "village-sign", kind: "sign", i: 17, j: 28, text: "Willow Creek — north: the Village Hall. West: the bamboo forest path, closed by order of Head Zhou." },
+      { key: "almanac-dial", kind: "sign", i: 17, j: 8, anim: "look", text: "The almanac's sundial." },
     ],
   };
 }
