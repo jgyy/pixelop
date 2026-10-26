@@ -37,6 +37,16 @@ export const ATTIRE: Attire[] = [
   { id: "scholar", name: "Candidate's Robes", hanzi: "书生袍", from: "The teahouse scholars (150 notices)" },
   { id: "moonrabbit", name: "Moon Rabbit Dress", hanzi: "玉兔裙", from: "The children of the jianghu (400 notices)" },
   { id: "empress", name: "Empress of the Jianghu", hanzi: "江湖女皇袍", from: "Every road in the jianghu (1000 notices)" },
+  // where she began, and what the main quest's choices made of her
+  { id: "homespun", name: "Willow Creek Homespun", hanzi: "柳溪布衣", from: "Granny Hua, who raised her" },
+  { id: "acolyte", name: "Blood Moon Acolyte's Robes", hanzi: "血月道袍", from: "The Blood Moon Sect, which she fled" },
+  { id: "xuerobe", name: "Xue Ming's Outer-Sect Robe", hanzi: "薛明旧袍", from: "Xue Ming, who came home" },
+  { id: "lotusqueen", name: "Lotus Sovereign Gown", hanzi: "莲后衣", from: "The Jade Lotus Heart, rooted in the land" },
+  { id: "bloodmoon", name: "Blood Moon Sovereign", hanzi: "血月之主", from: "The Jade Lotus Heart, devoured" },
+  { id: "guardian", name: "Earth Immortal's Mantle", hanzi: "地仙氅", from: "The jianghu she would not leave" },
+  { id: "teacher", name: "Village Teacher's Robe", hanzi: "村塾先生袍", from: "The children of Willow Creek" },
+  { id: "foxform", name: "Nine-Tailed Form", hanzi: "九尾形", from: "Hu Li, her sworn sister" },
+  { id: "dragonform", name: "Dragon-Blood Form", hanzi: "龙血形", from: "Old Long, the Dragon Vein" },
 ];
 
 /** How an outfit she does not yet own may be earned (shown, greyed, in the wardrobe). */
@@ -61,12 +71,21 @@ export const ATTIRE_HINT: Record<string, string> = {
   scholar: "Fulfil 150 notices.",
   moonrabbit: "Fulfil 400 notices.",
   empress: "Fulfil all 1000 notices.",
+  homespun: "Begin as Granny Hua's foundling of Willow Creek.",
+  acolyte: "Begin as a runaway of the Blood Moon Sect.",
+  xuerobe: "Bring Patriarch Xue home without a fight.",
+  lotusqueen: "Plant the Jade Lotus Heart in the land.",
+  bloodmoon: "Drink the Jade Lotus Heart yourself.",
+  guardian: "Turn back from heaven's stair.",
+  teacher: "Go home to Willow Creek, at the very end.",
+  foxform: "Lay a scholar's shade to rest, and end the Blood Moon. Hu Li has a secret.",
+  dragonform: "Drink the Dragon Vein.",
 };
 
 export const attireFlag = (id: string) => `attire:${id}`;
 
-/** Her jade robes are always hers; heaven's raiment is hers once she has ascended (even in a save from before it was woven). */
-export const hasAttire = (g: GameState, id: string) => id === "jade" || !!g.flags[attireFlag(id)] || (id === "celestial" && !!g.flags.ascended);
+/** Her jade robes are always hers; heaven's raiment is hers once she has ascended (a save from before it was woven, or from before the tale had other endings, keeps it; the stair itself weaves it now). */
+export const hasAttire = (g: GameState, id: string) => id === "jade" || !!g.flags[attireFlag(id)] || (id === "celestial" && !!g.flags.ascended && !Object.keys(g.flags).some((k) => k.startsWith("ending:")));
 
 export const ownedAttire = (g: GameState): Attire[] => ATTIRE.filter((a) => hasAttire(g, a.id));
 

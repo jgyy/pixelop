@@ -8,7 +8,7 @@ import { charDef, frameAt, getAnim, WINTER, type AnimId, type CharId } from "../
 import { getProp, glowSprite, propDef, type PropId } from "../art/props";
 import { drawSky } from "../art/sky";
 import { foamOverlay, LIQUID_FRAMES, liquidFrame, paintTile, type TileBuffer } from "../art/tiles";
-import { AREA_IDS, placementTiles, type AreaDef, type AreaId, type Interactable, type PropPlacement, type SkyId, type Weather } from "../world/areas";
+import { AREA_IDS, moodOf, placementTiles, type AreaDef, type AreaId, type Interactable, type PropPlacement, type SkyId, type Weather } from "../world/areas";
 import { isWorldDef, regionAt, type WorldDef } from "../world/continent";
 import { regionDistance, WORLD_SCALE } from "../world/layout";
 import { LIQUID, TILE_KINDS, type TileMap } from "../world/tilemap";
@@ -917,11 +917,13 @@ export class World {
     const hour = cal.hour;
     if (!w) {
       const season = seasonOf(this.def.id);
-      return { sky: this.def.sky, sky2: null, k: 0, weather: seasonWeather([[this.def.weather, 1]], season, rain, dusk), night: base(this.def), tint: this.def.tint ?? "#1a1440", dusk, season, hour, rain: season ? rain : 0 };
+      const d = moodOf(this.def, this.flags);
+      return { sky: d.sky, sky2: null, k: 0, weather: seasonWeather([[d.weather, 1]], season, rain, dusk), night: base(d), tint: d.tint ?? "#1a1440", dusk, season, hour, rain: season ? rain : 0 };
     }
     const near = AREA_IDS.map((id) => ({ id, d: regionDistance(id, x, y) })).sort((p, q) => p.d - q.d);
-    const A = w.regions[near[0].id];
-    const B = w.regions[near[1].id];
+    // the story may have changed a region's sky (the blood moon set, or spreading)
+    const A = moodOf(w.regions[near[0].id], this.flags);
+    const B = moodOf(w.regions[near[1].id], this.flags);
     const k = Math.max(0, 0.5 - (near[1].d - near[0].d) / (7 * WORLD_SCALE));
     const tintA = A.tint ?? "#1a1440";
     const tintB = B.tint ?? "#1a1440";

@@ -5,10 +5,10 @@ import { sCircle, sLine, sRing } from "../pixel/surface";
 import { isoX, isoY } from "../iso/projection";
 import type { PropId } from "../art/props";
 import { ENEMIES, type EnemyId } from "../engine/enemies";
-import { resolveTurn, SKILLS, startBattle, type BattleAction, type BattleEvent, type BattleState } from "../engine/battle";
+import { openingWound, resolveTurn, SKILLS, startBattle, type BattleAction, type BattleEvent, type BattleState } from "../engine/battle";
 import { realmLabel } from "../engine/realms";
 import { stats, type GameState } from "../engine/state";
-import { getArea, type AreaDef, type AreaId } from "../world/areas";
+import { getArea, moodOf, type AreaDef, type AreaId } from "../world/areas";
 import { LIQUID, TileMap, type TileKind } from "../world/tilemap";
 import { World, type Actor } from "./world";
 
@@ -54,8 +54,9 @@ const ARENA: Record<AreaId, { ground: TileKind; ring: TileKind; edge: TileKind; 
 /** Fights underground are staged on a ledge of cave floor hanging in the dark. */
 const CAVE_ARENA = { ground: "cave" as TileKind, ring: "cave" as TileKind, edge: "rockwall" as TileKind, props: ["crystal", "torch", "glowshroom", "stalagmite"] as PropId[] };
 
-function buildArena(area: AreaId, underground = false): AreaDef {
-  const base = getArea(area);
+function buildArena(area: AreaId, underground = false, flags: Record<string, boolean> = {}): AreaDef {
+  // the arena is under the sky the story has left over the land (the blood moon set, or spreading)
+  const base = moodOf(getArea(area), flags);
   const th = underground ? CAVE_ARENA : ARENA[area];
   const m = new TileMap(11, 9, th.edge, LIQUID[th.edge] ? 0 : 1);
   m.rect(1, 1, 9, 7, th.ring, 1);
@@ -115,15 +116,16 @@ export class BattleScene {
     seed: number,
     underground = false,
   ) {
-    this.world = new World(buildArena(area, underground), { x: HERO_POS[0] - 2.5, y: HERO_POS[1] + 1.5, dir: 3 }, {}, []);
+    this.world = new World(buildArena(area, underground, state.flags), { x: HERO_POS[0] - 2.5, y: HERO_POS[1] + 1.5, dir: 3 }, {}, []);
     this.hero = this.world.hero;
     this.hero.speed = 5;
     const def = ENEMIES[enemy];
     this.foe = { ...this.hero, key: "foe", kind: "enemy", char: def.sprite, x: FOE_POS[0] + 2, y: FOE_POS[1] - 1.5, dir: 13, anim: "idle", idleAnim: "idle", enemy, speed: 5, target: null, holdUntil: undefined, emote: undefined, flying: false };
     this.world.actors.push(this.foe);
-    this.battle = startBattle(enemy, seed >>> 0);
+    const wound = openingWound(enemy, state);
+    this.battle = startBattle(enemy, seed >>> 0, wound);
     this.view = { heroHp: state.hp, heroQi: state.qi, enemyHp: this.battle.enemyHp };
-    this.log = [def.intro ?? (def.boss ? `${def.name} descends in a storm of killing intent!` : `A ${def.name} bars your way!`)];
+    this.log = [def.intro ?? (def.boss ? `${def.name} descends in a storm of killing intent!` : `A ${def.name} bars your way!`), ...(wound ? ["You strike the old wound in his art before he can raise his saber!"] : [])];
     this.flash = 0.8;
     this.world.setAnim(this.hero, "walk", 0);
     this.world.setAnim(this.foe, def.sprite === "jiangshi" ? "hop" : "walk", 0);
