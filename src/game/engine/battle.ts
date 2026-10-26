@@ -51,9 +51,21 @@ export interface BattleState {
   seed: number;
 }
 
-export function startBattle(enemy: EnemyId, seed: number): BattleState {
+export function startBattle(enemy: EnemyId, seed: number, wounded = 0): BattleState {
   const e = ENEMIES[enemy];
-  return { enemy, enemyHp: e.hp, enemyMaxHp: e.hp, turn: 0, phase: "active", seed: seed >>> 0 };
+  return { enemy, enemyHp: Math.max(1, Math.round(e.hp * (1 - wounded))), enemyMaxHp: e.hp, turn: 0, phase: "active", seed: seed >>> 0 };
+}
+
+/**
+ * How much of a foe's strength the story has already taken before the first
+ * blow: a Blood Moon runaway knows the old wound in her master's art, and
+ * strikes it first, and one of Mo's own disciples shakes him with the founder's sutra.
+ */
+export function openingWound(enemy: EnemyId, g: GameState): number {
+  if (enemy === "patriarch" && g.flags.xueWounded) return 0.4;
+  // the founder's sutra, recited by one of Mo's own, shakes his demonic qi
+  if (enemy === "patriarch" && g.flags.xueShaken) return 0.2;
+  return 0;
 }
 
 /** Damage after defence: diminishing returns rather than flat subtraction. */

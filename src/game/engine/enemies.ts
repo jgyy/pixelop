@@ -1,6 +1,6 @@
 import type { CharId } from "../art/characters";
 
-export type EnemyId = "fox" | "wolf" | "serpent" | "serpentKing" | "cultist" | "jiangshi" | "bandit" | "swordsman" | "patriarch" | "emberwyrm" | "stonehound" | "poisoner" | "phoenixguard" | "traitor";
+export type EnemyId = "fox" | "wolf" | "serpent" | "serpentKing" | "cultist" | "jiangshi" | "bandit" | "swordsman" | "patriarch" | "emberwyrm" | "stonehound" | "poisoner" | "phoenixguard" | "traitor" | "elderMo";
 
 export interface EnemyDef {
   id: EnemyId;
@@ -246,5 +246,22 @@ export const ENEMIES: Record<EnemyId, EnemyDef> = {
     intro: "Jian Wuyou, a Blood Moon crescent stitched over his heart, will not meet your eyes.",
     speed: 1.2,
     aggro: 3,
+  },
+  elderMo: {
+    id: "elderMo",
+    name: "Elder Mo",
+    sprite: "elder",
+    level: 16,
+    hp: 1100,
+    atk: 50,
+    def: 22,
+    exp: 900,
+    stones: 0,
+    basic: "Cloud-Sleeve Palm",
+    special: { name: "Azure Heaven Sword Array", power: 1.9, every: 3, colour: "#9ff5de" },
+    boss: true,
+    intro: "Elder Mo lifts his whisk. The Hall of Clouds goes very quiet. “Come, then. I taught you everything but this.”",
+    speed: 0,
+    aggro: 0,
   },
 };

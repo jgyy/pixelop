@@ -106,6 +106,31 @@ const chores: [CharId, AnimId][] = [
   ["monk", "pray"],
 ];
 writeGif("folk-at-work.gif", showcase(chores.map(([id, anim]): Cell => ({ id, anim, dir: 1, label: anim })), 6, 2, seconds), 12);
+// the branching tale's gestures: offering the Heart, weighing a choice, a shrug, tears, rising to heaven, a roar of stolen power and a vow on a planted sword
+const turning: [CharId, AnimId, string?][] = [
+  ["heroine", "offer"],
+  ["heroine", "think"],
+  ["heroine", "shrug"],
+  ["heroine", "cry"],
+  ["heroine", "levitate"],
+  ["heroine", "roar", "bloodmoon"],
+  ["heroine", "plantsword"],
+  ["elder", "think"],
+  ["elder", "cry"],
+  ["patriarch", "kowtow"],
+  ["patriarch", "offer"],
+  ["patriarch", "sweep", "redeemed"],
+  ["hua", "cry"],
+  ["zhou", "shrug"],
+  ["huli", "offer"],
+  ["smith", "plantsword"],
+  ["villagerF", "think"],
+  ["abao", "shrug"],
+];
+writeGif("turning-gestures.gif", showcase(turning.map(([id, anim, outfit]): Cell => ({ id, anim, dir: 1, label: anim, outfit })), 6, 2, seconds), 12);
+// where she began, and what the tale made of her: two beginnings' clothes, five the main quest's choices weave, a teacher's robe and two shapes
+const forms = ["homespun", "acolyte", "xuerobe", "lotusqueen", "bloodmoon", "guardian", "teacher", "foxform", "dragonform"];
+writeGif("forms.gif", showcase(forms.map((outfit): Cell => ({ id: "heroine", anim: "walk", dir: "spin", label: outfit, outfit })), 5, 2, seconds), 12);
 // the newest idles: a tune on the dizi, a bowl of noodles, juggling and a folding fan
 const pastimes: [CharId, AnimId][] = [
   ["heroine", "flute"],

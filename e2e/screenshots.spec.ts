@@ -848,3 +848,156 @@ test("capture the turning year, the notices and the wardrobe", async ({ page }) 
   await settle(2400);
   await shot(page, "122-autumn-maple-robe");
 });
+
+/** The branching tale: three beginnings, Xue's altar, the Heart's fate, Elder Mo, the endings and the land they leave. */
+test("capture the three beginnings, the Heart's fate and the endings", async ({ page }) => {
+  test.setTimeout(300_000);
+  const quiet = () => page.evaluate(() => ((window.__pixelop!.game as unknown as { toasts: unknown[] }).toasts = []));
+  const settle = async (ms = 2400) => {
+    await page.waitForTimeout(ms);
+    if ((await mode(page)) === "scene") await skipScene(page);
+    await quiet();
+  };
+  const noon = () => page.evaluate(() => window.__pixelop!.game.debugSetTime(0.06, "spring"));
+  const enterUntil = async (pred: () => Promise<boolean>, max = 40) => {
+    for (let i = 0; i < max && !(await pred()); i++) {
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(160);
+    }
+    await page.waitForTimeout(900);
+  };
+  const choiceUp = () => page.getByTestId("choice").isVisible();
+  const dialogHas = (t: string) => async () => ((await page.evaluate(() => document.querySelector("[data-testid=dialog]")?.textContent ?? "")) as string).includes(t);
+  const wear = (id: string) => page.evaluate((id) => window.__pixelop!.game.wear(id), id);
+
+  // the title screen asks where her tale begins
+  await page.goto("/");
+  await page.waitForTimeout(2500);
+  await page.getByTestId("new-game").click();
+  await page.waitForTimeout(2200);
+  await shot(page, "123-origin-picker");
+
+  // the foundling wakes in Willow Creek to Granny Hua
+  await page.getByTestId("origin-foundling").click();
+  await page.waitForFunction(() => !!window.__pixelop?.game);
+  for (let i = 0; i < 4; i++) await page.keyboard.press("Enter");
+  await enterUntil(dialogHas("persimmon"));
+  await page.waitForTimeout(1200);
+  await shot(page, "124-foundling-granny-hua");
+  await skipScene(page);
+
+  // the runaway at the sect gate, and what she gives Elder Mo
+  await startNewGame(page, false, "defector");
+  for (let i = 0; i < 3; i++) await page.keyboard.press("Enter");
+  await enterUntil(dialogHas("sharp"));
+  await page.waitForTimeout(1200);
+  await shot(page, "125-defector-at-the-gate");
+  await skipScene(page);
+  await noon();
+  await standBy(page, "elder");
+  await page.keyboard.press("KeyE");
+  await enterUntil(choiceUp);
+  await shot(page, "126-defector-swears-or-tells");
+  await page.getByTestId("choice-1").click();
+  await settle();
+
+  // Xue's altar, from a disciple who knows where he came from: four answers, one without a fight
+  await startNewGame(page);
+  const base = { metElder: true, villageSaved: true, villageArrived: true, metZhou: true, foxesCleared: true, bambooArrived: true, metHuli: true, metWen: true, lakeArrived: true, serpentKingDefeated: true, valleyArrived: true, shenLore: true, ouMet: true, huaTea: true };
+  await patch(page, { flags: base, realm: 1, stage: 2, skills: ["strike", "palm", "lotus", "swords"] });
+  await noon();
+  await standBy(page, "patriarch");
+  await page.waitForTimeout(1800);
+  // walk right up to him: touching him is what starts the confrontation
+  await page.evaluate(() => {
+    const g = window.__pixelop!.game;
+    const x = g.world.actor("patriarch")!;
+    Object.assign(g.world.hero, { x: x.x - 0.3, y: x.y + 0.3 });
+  });
+  await enterUntil(choiceUp);
+  await shot(page, "127-xue-four-answers");
+  await page.getByTestId("choice-3").click();
+  await enterUntil(dialogHas("Take it"));
+  await page.waitForTimeout(800);
+  await shot(page, "128-xue-lays-down-the-heart");
+  await enterUntil(choiceUp, 60);
+  await shot(page, "129-the-hearts-fate");
+  await page.getByTestId("choice-1").click();
+  await enterUntil(async () => (await mode(page)) !== "scene", 60);
+  await settle();
+  await page.evaluate(() => (window.__pixelop!.game.world.hero.dir = 2));
+  await page.waitForTimeout(1500);
+  await shot(page, "130-the-lotus-takes-root");
+
+  // Xue Ming at the Sword Tomb, oiling the swords of the fallen
+  await standBy(page, "xueming");
+  await page.waitForTimeout(1200);
+  await page.keyboard.press("KeyE");
+  await enterUntil(dialogHas("oil"));
+  await shot(page, "131-xue-ming-at-the-sword-tomb");
+  await skipScene(page);
+
+  // the crimson road: the Heart drunk, the bamboo blighted, Elder Mo faced
+  const crimson = { ...base, patriarchDefeated: true, "heart:devoured": true, "attire:bloodmoon": true, dawnfrost: true };
+  await patch(page, { flags: crimson, realm: 3, stage: 1 });
+  await wear("bloodmoon");
+  await teleport(page, "bamboo", 15, 20);
+  await page.evaluate(() => window.__pixelop!.game.toggleFly());
+  await settle(3000);
+  await page.evaluate(() => window.__pixelop!.game.toggleFly());
+  await page.waitForTimeout(800);
+  await shot(page, "132-blood-moon-over-the-bamboo");
+  await teleport(page, "village", 16, 15);
+  await settle(3000);
+  await shot(page, "133-blood-moon-over-willow-creek");
+  await noon();
+  await standBy(page, "elder");
+  await page.keyboard.press("KeyE");
+  await enterUntil(async () => (await mode(page)) === "battle", 30);
+  await page.waitForTimeout(2600);
+  await shot(page, "134-elder-mo-battle");
+  await patch(page, { flags: { ...crimson, moBroken: true } });
+  await page.evaluate(() => window.__pixelop!.game.debugTeleport("sect", 14, 14));
+  await settle(3000);
+  await page.evaluate(() => (window.__pixelop!.game.world.hero.dir = 6));
+  await page.waitForTimeout(900);
+  await shot(page, "135-the-hall-of-clouds-scorched");
+
+  // heaven's stair, and the choice at the very end
+  const home = { ...base, patriarchDefeated: true, "heart:home": true, heartReturned: true, festivalSeen: true, peakArrived: true };
+  await patch(page, { flags: home, realm: 4, stage: 3, cultivation: cultivationNeeded(4, 3) });
+  await wear("jade");
+  await standBy(page, "peak-altar");
+  await page.keyboard.press("KeyE");
+  await enterUntil(async () => (await mode(page)) === "meditate", 10);
+  await page.keyboard.press("KeyB");
+  await page.waitForFunction(() => window.__pixelop!.game.mode === "scene", undefined, { timeout: 40_000 });
+  await enterUntil(choiceUp, 10);
+  await shot(page, "136-heavens-stair");
+  await page.getByTestId("choice-1").click();
+  await enterUntil(async () => (await mode(page)) !== "scene", 20);
+  await settle();
+  await teleport(page, "peak", 12, 16);
+  await settle(2500);
+  await shot(page, "137-guardian-of-the-jianghu");
+
+  // the shapes she may take now
+  await patch(page, { flags: { ...home, ascended: true, "ending:guardian": true, peiAtRest: true, "attire:dragonform": true, "attire:xuerobe": true, "attire:lotusqueen": true, "attire:homespun": true, "attire:acolyte": true, "attire:teacher": true, "attire:bloodmoon": true, "attire:guardian": true } });
+  await teleport(page, "bamboo", 16, 8);
+  await settle(2500);
+  await standBy(page, "huli");
+  await page.keyboard.press("KeyE");
+  await enterUntil(dialogHas("Nine tails"), 40);
+  await shot(page, "138-nine-tailed-form");
+  await skipScene(page);
+  await page.keyboard.press("KeyV");
+  await page.waitForTimeout(800);
+  await shot(page, "139-wardrobe-forms");
+  await page.keyboard.press("KeyV");
+  await wear("dragonform");
+  await teleport(page, "village", 17, 9);
+  await settle(2500);
+  await page.evaluate(() => (window.__pixelop!.game.world.hero.dir = 2));
+  await page.waitForTimeout(900);
+  await shot(page, "140-dragon-blood-form");
+});
