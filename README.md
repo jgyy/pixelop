@@ -357,9 +357,107 @@ flowchart LR
   E & G & V -- "carve(): chambers + rising tunnels,<br/>rock walls behind, cliffs in front" --> R["a room of the World runtime<br/>(rooms.ts: buildings and caves)"]
 ```
 
+### The turning year, a thousand notices and a wardrobe
+
+The jianghu now keeps a **calendar**. Day, night and the **four seasons** follow the save's own clock (two days to a season, eight to a year), so a game left at midnight in winter is still midnight in winter when you come back. The sun and the moon cross the sky behind the mountains, dawn and dusk wash the land gold, and midnight is truly dark but for the lamps and the lanterns the folk carry. The calendar sits in the corner of the screen.
+
+| Spring | Summer |
+|---|---|
+| ![Willow Creek in spring: fresh green and blossom on the wind](docs/screenshots/105-spring-village.png) | ![Summer: deep green](docs/screenshots/106-summer-village.png) |
+| ![Autumn: the grass turns gold, the willows burn orange, leaves pile up and persimmons dry](docs/screenshots/107-autumn-village.png) | ![Winter: snow on the ground and the roofs, a snowman, and the folk in their wool](docs/screenshots/108-winter-village.png) |
+| ![Dawn's golden hour](docs/screenshots/109-dawn-golden-hour.png) | ![Midnight: the folk carry lanterns](docs/screenshots/110-night-lanterns.png) |
+| ![A summer shower on the tea terraces](docs/screenshots/111-summer-shower.png) | ![Autumn in the bamboo, in the Autumn Maple Robe](docs/screenshots/122-autumn-maple-robe.png) |
+
+| The year in Willow Creek's square, from noon through dusk and midnight to dawn, in every season |
+|---|
+| ![](docs/art/seasons.gif) |
+
+- **Seasons on the land.** A pixel filter turns the painted greens of every tree, bush and lawn with the year: fresh and blossom-flecked in spring, deep in summer, gold and red in autumn, grey and snow-capped in winter (with snow on every roof, rock and stele, snow lying on the ground and a lip of it over every cliff edge, thinner on paths and paving). Evergreens keep their needles. Only the temperate lands turn: the Yellow Sands stay dry, Frostveil is always under snow, and the demon valley and the peak answer to no season at all. The filtered sprites are cached beside the originals, so the art is painted once.
+- **Weather of the season:** blossom on the spring wind, summer **showers** (rain streaks with a splash where each drop lands, a greyer sky, and lightning in a heavy one), fireflies on summer nights, falling leaves in autumn, and snow all winter. A banner and a gust of petals, leaves or snow mark the day the season turns.
+- **The folk live by the hour and the season:** they put on **winter wool** (a shawl and a hood for anyone who has no winter clothes of their own), carry **lanterns** after dark and open **umbrellas** in the rain, and when they stand about they plant rice and fly kites in spring, rake leaves in autumn, shiver, warm their hands and throw snowballs in winter, and yawn or gaze at the stars at night. So does Lin Yue. Snowmen, leaf piles, persimmons drying under the eaves and beds of rice seedlings come and go in Willow Creek with the season.
+
+| Lin Yue's new moves through the year | The Almanac Master, the four Wardens, the new outfits and the folk in winter wool |
+|---|---|
+| ![](docs/art/year-moves.gif) | ![](docs/art/wardens.gif) |
+
+#### Main quest: the Turning of the Year
+
+A second thread of the main tale begins once Willow Creek is safe. **Almanac Master Shi** keeps the calendar beside a bronze **sundial** in the village square (its gnomon's shadow follows the hour). While the Jade Lotus Heart was gone, the **Four Wardens of the Year** fell asleep, and the seasons have been turning hollow. Lin Yue wakes each one in its own season, at its own place and hour, with the offering of its festival. Turn the almanac by the sundial to wait for dawn, nightfall or the next season.
+
+```mermaid
+flowchart LR
+  S["Almanac Master Shi<br/>(Willow Creek, after Head Zhou)"] --> SP & SU & AU & WI
+  subgraph SP["Spring · 清明 Qingming"]
+    sp1["Sweep the graves at the Sword Tomb"] --> sp2["Plum Blossom Shrine at dawn:<br/>Lady Qingming wakes"]
+  end
+  subgraph SU["Summer · 端午 / 夏至"]
+    su1["Zongzi from Noodle Seller Hu (harbour)"] --> su2["Rainbow Bridge at noon:<br/>Lord Xiazhi wakes"]
+  end
+  subgraph AU["Autumn · 中秋 Mid-Autumn"]
+    au1["Mooncakes from Cook Pang (sect)"] --> au2["Moon-Gazing Pavilion at night:<br/>Grandmother Shuangjiang wakes"]
+  end
+  subgraph WI["Winter · 冬至 Dongzhi"]
+    wi1["Tangyuan from Granny Hua"] --> wi2["Highland Hot Spring in the depth of night:<br/>Old Dongzhi wakes"]
+  end
+  SP & SU & AU & WI --> F(["Back to Shi: the year made whole<br/>Raiment of the Four Seasons"])
+  D[/"The sundial: wait for dawn,<br/>nightfall or the next season"/] -.-> SP & SU & AU & WI
+```
+
+| | |
+|---|---|
+| ![Almanac Master Shi](docs/screenshots/112-almanac-master.png) | ![Turning the almanac by the sundial](docs/screenshots/113-sundial-almanac.png) |
+| ![Lady Qingming, Warden of Spring, at the Plum Blossom Shrine at dawn](docs/screenshots/114-warden-of-spring.png) | ![Old Dongzhi, Warden of Winter, at the hot spring on the longest night](docs/screenshots/115-warden-of-winter.png) |
+
+#### A thousand notices
+
+The folk of the jianghu have **1000 favours** to ask (a dozen or so each, from 86 people in every region). Anyone with a ✉ scroll over their head has one: take it or leave it, and carry up to three at once. They are composed the same way every time from who asks, where they live, what they want and the roads and beasts in between, so nothing but a bit per notice goes into the save.
+
+| Kind | What she does |
+|---|---|
+| Delivery | Carry a jar of plum wine, a love letter or a cricket in a cage to someone else (a parcel marker hangs over them) |
+| Hunt | Beat 1–3 of a land's beasts (wolves, serpents, jiangshi, bandits, cultists) in that land |
+| Visit | Go to a landmark and burn incense, copy an inscription, play the dizi or practise a sword form there |
+| Night watch | The same, after dark |
+| By horse / by sword | Arrive on Cloudmane, or on the flying sword |
+| In season | Arrive in spring, summer, autumn or winter (the almanac helps) |
+| Stillness | Meditate a number of breaths at a land's lotus shrine |
+
+Rewards grow with the distance, and milestones bring outfits: **Ranger's Leathers** at 10 notices, **Night Heron Silks** at 50, a **Candidate's Robes** at 150, the **Moon Rabbit Dress** at 400 and **Empress of the Jianghu** at all 1000. The journal (`J`) lists the notices she carries (and lets her set one aside), and counts the ones done.
+
+```mermaid
+stateDiagram-v2
+  [*] --> Offered: talk to someone with a ✉ scroll<br/>(first undone notice whose lands are open)
+  Offered --> Carried: Take the notice (3 slots)
+  Offered --> [*]: Not now
+  Carried --> Carried: progress (beasts beaten · breaths at a shrine)
+  Carried --> Fulfilled: parcel handed over · landmark reached<br/>(at night · on Cloudmane · on the sword · in season)
+  Carried --> [*]: Set aside (journal)
+  Fulfilled --> [*]: stones · cultivation · a pill now and then<br/>milestone outfits at 10 · 50 · 150 · 400 · 1000
+```
+
+| | |
+|---|---|
+| ![Scrolls over the heads of folk with a favour to ask](docs/screenshots/116-notice-scrolls.png) | ![Ah Bao asks a favour](docs/screenshots/117-notice-offer.png) |
+| ![The journal: the year, the notices, the sects](docs/screenshots/118-journal-notices.png) | ![The wardrobe: every outfit, and how to earn the rest](docs/screenshots/119-wardrobe.png) |
+
+#### The wardrobe
+
+Press `V` (or **Attire**) to open the **wardrobe**: all 21 outfits, the ones she owns to put on with a click, and a hint for each one she hasn't earned yet. `C` still changes into the next one. Ten are new: the four Wardens' gifts (Spring Blossom Hanfu, Summer Lotus Gauze, Autumn Maple Robe, Snow-Fox Cloak), the Raiment of the Four Seasons, and the five notice milestones.
+
+| | |
+|---|---|
+| ![The Raiment of the Four Seasons in the winter square](docs/screenshots/120-four-seasons-raiment.png) | ![The Snow-Fox Cloak at Frostveil](docs/screenshots/121-snow-fox-cloak-frostveil.png) |
+
+**Fixes:**
+- the hour of the day was reset to noon every time a game was loaded (the cycle ran off the session's clock); it now follows the save
+- quitting to the title threw away everything since the last autosave (up to a minute); the game now saves first
+- a healing or qi pill swallowed at full strength was wasted, in the field and in battle (where it also cost a turn); now she refuses it
+- buying a pill with a full gourd (99) said "Not enough spirit stones"
+- midnight was barely darker than dusk; night now deepens properly after sunset
+
 ### Animated art
 
-| Lin Yue's 37 animations | All 16 facing directions |
+| Lin Yue's 46 animations | All 16 facing directions |
 |---|---|
 | ![Heroine move set](docs/art/heroine-moves.gif) | ![Heroine 16 directions](docs/art/heroine-16dir.gif) |
 
@@ -391,10 +489,12 @@ flowchart LR
 - **A living world:** a day/night cycle (stars come out, shooting stars streak past, lanterns glow), dragonflies over the shallows, fireflies rising from the grass after dusk, dandelion seeds on the wind, lava bubbles that swell and pop, birds and bats wheeling overhead, butterflies over meadow flowers, koi leaping in the water, cloud shadows drifting over the land, footprints in sand, snow and ash, cranes that take flight when you come close, NPCs who turn and wave as you pass, a peddler walking the highway with his shop, beasts that shout "!" and gallop after you (and give up with a "?"), and beaten beasts that come back once you've been away for a while.
 - **2.5D isometric world:** height-mapped tile maps with cliffs, stairs, raised platforms, floating islands with rocky undersides, animated water and lava with shore foam, depth-sorted props (sliced into screen columns so they occlude correctly), contact shadows, an x-ray silhouette when the heroine walks behind something, and parallax skies.
 - **Building interiors:** five cutaway rooms behind real doors in the world, each its own small map run by the same World runtime: back walls with timber frames, wainscots and lattice windows, raised floors with rugs, daylight shafts that follow the day/night cycle, and lamplit furniture. Walking into a door goes through it; walking out over the threshold mat steps back onto the street. Saves made indoors remember the step outside, so a reload lands in the open world. You can't ride your sword or open the world map under a roof.
-- **Procedural 3D pixel sprites:** 57 humanoid characters, 9 beasts and a rider on her horse, each built from roughly 20 ray-cast solids (bell skirts, sleeves, hair strands, shawls, tails, hats, weapons) with hue-shifted 4-tone shading, face decals and selective outlines. They render in 16 directions with up to 33 animations: idle, walk, run, talk, attack, cast, hurt, meditate, sword-flight, victory, defeat, bow, wave, gather (kneel and pick), drink, cheer, point and nod, stretch and look-around idle fidgets, plus hop, practice, fishing, sweeping, dancing and dozing, and the everyday ones: reading (with a page turn), sitting, kneeling in prayer, weaving at a loom, pouring tea, clapping, laughing, a seated storyteller's sweeping gestures, and four pastimes: playing the dizi flute (with a few notes over her head), eating a bowl of noodles, juggling three bright balls and cooling off with a folding fan; and the newest: the cultivator's fist-in-palm salute, a twirl on the spot that flares the skirts, a smith's hammer ringing on the anvil, kneeling to write with a brush, a restless shade drifting above the ground, and holding up a festival lantern; and the doubled world's: hoeing, chopping firewood, walking under a carrying pole, kicking a shuttlecock, strolling under an oiled-paper umbrella and slow taiji. People can change clothes: every humanoid can wear **outfits** (style overrides painted and cached per outfit, on foot, on horseback, in battle and in their portrait). Horses walk, gallop, graze and rear, and Lin Yue rides one: horse and rider are painted into one depth buffer so they occlude each other properly. Foxes and wolves gallop with a run cycle, sniff the ground and curl up asleep with their tails wrapped round them; wolves sit back and howl; cranes peck at the grass. Dialogue portraits are rendered from the same models at 3× scale, with blink and talk frames.
+- **Procedural 3D pixel sprites:** 62 humanoid characters, 9 beasts and a rider on her horse, each built from roughly 20 ray-cast solids (bell skirts, sleeves, hair strands, shawls, tails, hats, weapons) with hue-shifted 4-tone shading, face decals and selective outlines. They render in 16 directions with up to 33 animations: idle, walk, run, talk, attack, cast, hurt, meditate, sword-flight, victory, defeat, bow, wave, gather (kneel and pick), drink, cheer, point and nod, stretch and look-around idle fidgets, plus hop, practice, fishing, sweeping, dancing and dozing, and the everyday ones: reading (with a page turn), sitting, kneeling in prayer, weaving at a loom, pouring tea, clapping, laughing, a seated storyteller's sweeping gestures, and four pastimes: playing the dizi flute (with a few notes over her head), eating a bowl of noodles, juggling three bright balls and cooling off with a folding fan; and the newest: the cultivator's fist-in-palm salute, a twirl on the spot that flares the skirts, a smith's hammer ringing on the anvil, kneeling to write with a brush, a restless shade drifting above the ground, and holding up a festival lantern; and the doubled world's: hoeing, chopping firewood, walking under a carrying pole, kicking a shuttlecock, strolling under an oiled-paper umbrella and slow taiji. People can change clothes: every humanoid can wear **outfits** (style overrides painted and cached per outfit, on foot, on horseback, in battle and in their portrait). Horses walk, gallop, graze and rear, and Lin Yue rides one: horse and rider are painted into one depth buffer so they occlude each other properly. Foxes and wolves gallop with a run cycle, sniff the ground and curl up asleep with their tails wrapped round them; wolves sit back and howl; cranes peck at the grass. Dialogue portraits are rendered from the same models at 3× scale, with blink and talk frames.
 - **Idle life:** villagers and wayfarers break into nods, stretches, sips of tea, pours from the teapot, claps, laughs, little dances and cheers when nobody needs them; sleepers breathe with drifting "Z"s; roaming beasts stop to sniff, howl or nap (and leap up the moment they spot you); Lin Yue drinks her pills, reads the steles she stops at, bows in prayer at altars and, left alone, nods, points, claps and laughs as well as stretching, and in the end sits down where she stands until you move her again. Fish shadows glide in slow circles under the water, and washing flaps on a line in Willow Creek.
-- **113 props, 74 of them animated** (buildings grow with the world, drawn 2–4× their size and painted only when first seen): swaying pines, cherry and maple trees, bamboo groves, willows, a glowing spirit tree, the multi-tier Hall of Clouds, village houses with chimney smoke, a lake pavilion, flickering lanterns and braziers that cast soft glows at night, waving banners, a bubbling alchemy cauldron, bobbing lotuses and boats, a rotating taiji dais, a pulsing blood altar, a turning waterwheel that sheds water, crackling campfires, scarecrows flapping in the wind, a five-tier pagoda with swinging wind chimes, a teahouse with a fluttering tea flag, tents, fluttering prayer flags, steaming hot-spring rocks, karst spires, temple ruins, haystacks and benches; and indoors, bookcases, hanging scrolls that stir in the draught, a brick stove with a fire and a steaming wok, a loom, a millstone with its crown wheel, grain sacks, ancestral altars with incense and candles, a bronze tree of seven oil lamps, a jade founder's statue, folding screens, a bed, an herb-drying rack, porcelain vases, a sword rack, tea tables with steaming cups, cushions and a washing line; and new: strings of festival lanterns swinging over the village square and the crossroads, bronze temple bells that swing now and then in their bell-frames, and a paper kite riding the wind over Willow Creek; and newest: a village forge with breathing bellows and a red-hot blade on the anvil, the Sword Tomb bristling with glinting blades, peach trees in blossom and fruit that shed petals, straw beehives with bees looping round them, a lonely grave with a stick of incense, drifting will-o'-wisps, and festival fireworks that climb and burst over Willow Creek once the Heart is home (props can now appear only while a story condition holds); and for the doubled world: junks at anchor, a lighthouse with a turning beam, circling koi, butterflies, tea bushes, fan palms, snow pines, a fountain, a war drum, fish-drying racks, stupas, a noodle cart, a bronze censer, stilt houses, archery targets, handcarts and wine jars. Little dust devils (and whirls of ash and sand) spin along the roads.
+- **118 props, 77 of them animated** (buildings grow with the world, drawn 2–4× their size and painted only when first seen): swaying pines, cherry and maple trees, bamboo groves, willows, a glowing spirit tree, the multi-tier Hall of Clouds, village houses with chimney smoke, a lake pavilion, flickering lanterns and braziers that cast soft glows at night, waving banners, a bubbling alchemy cauldron, bobbing lotuses and boats, a rotating taiji dais, a pulsing blood altar, a turning waterwheel that sheds water, crackling campfires, scarecrows flapping in the wind, a five-tier pagoda with swinging wind chimes, a teahouse with a fluttering tea flag, tents, fluttering prayer flags, steaming hot-spring rocks, karst spires, temple ruins, haystacks and benches; and indoors, bookcases, hanging scrolls that stir in the draught, a brick stove with a fire and a steaming wok, a loom, a millstone with its crown wheel, grain sacks, ancestral altars with incense and candles, a bronze tree of seven oil lamps, a jade founder's statue, folding screens, a bed, an herb-drying rack, porcelain vases, a sword rack, tea tables with steaming cups, cushions and a washing line; and new: strings of festival lanterns swinging over the village square and the crossroads, bronze temple bells that swing now and then in their bell-frames, and a paper kite riding the wind over Willow Creek; and newest: a village forge with breathing bellows and a red-hot blade on the anvil, the Sword Tomb bristling with glinting blades, peach trees in blossom and fruit that shed petals, straw beehives with bees looping round them, a lonely grave with a stick of incense, drifting will-o'-wisps, and festival fireworks that climb and burst over Willow Creek once the Heart is home (props can now appear only while a story condition holds); and for the doubled world: junks at anchor, a lighthouse with a turning beam, circling koi, butterflies, tea bushes, fan palms, snow pines, a fountain, a war drum, fish-drying racks, stupas, a noodle cart, a bronze censer, stilt houses, archery targets, handcarts and wine jars. Little dust devils (and whirls of ash and sand) spin along the roads. With the year: a bronze sundial whose shadow follows the hour, snowmen, leaf piles, persimmons drying on a rack and beds of rice seedlings.
 - **Eleven regions plus a world map:** the five new ones of the doubled world (the Mistmarsh, the Cloudmist Tea Terraces, the Yellow Sands, Wavecrest Harbour and Frostveil Monastery), and the floating Azure Cloud Sect (day, falling petals), Willow Creek Village (dusk, autumn leaves), the Whispering Bamboo Forest (fireflies), the Moonlit Lotus Lake (night, stars and moon), the Crimson Demon Valley (blood moon, embers, lava) and Heavenly Tribulation Peak (snow, storm lightning). The miniature isometric continent has roads, rivers, sea, drifting clouds and their shadows, and animated landmarks. Regions unlock as the story advances.
+- **A calendar and four seasons:** day, night and the seasons follow the save; seasonal sprites and ground, weather, NPC clothes and habits, a sun and moon, golden hours and summer showers (see [The turning year](#the-turning-year-a-thousand-notices-and-a-wardrobe)).
+- **1000 notices and a second main quest:** a thousand composed side quests from 86 folk, and the Turning of the Year, waking four seasonal Wardens.
 - **Choices that matter:** questions put to the heroine (a choice panel with hints), remembered as story flags; three sect quest lines and a five-way conclave over the Dragon Vein, standing with each sect (Hostile to Allied), and 21 terrain patches that change the world and the caves as the story goes (see [Three sects, the deep, and choices that matter](#three-sects-the-deep-and-choices-that-matter)).
 - **Underground:** three caves (Ember Mine, Sunken Grotto, Dragon Vein Caverns) carved as cutaways of living rock at many heights, with a cave sky of dripping stalactites, drips and glowing spores, a torch she holds up, and battles on a ledge in the dark.
 - **Narrative:** a prologue, five chapters and an epilogue, with a quest tracker, scripted cutscenes (walk, emote, camera, flash, shake, spawn), typed-out dialogue with animated portraits, full-screen narration, first-arrival scenes, pre-boss speeches and an ending; plus four side errands shown under the quest tracker (a ghost's unfinished letter, two quarrelling brothers, a sword brought home, a dead husband's cloak) and Willow Creek's lantern festival, each ending in a new outfit.
@@ -429,8 +529,9 @@ Saves live in `$DATA_DIR/saves.json` (default `.data/`). Set `SAVE_STORE=memory`
 | `Shift` (or push the joystick all the way) | Run |
 | `F` | Ride the flying sword (crosses water, enemies can't reach you) |
 | `R` | Whistle for Cloudmane, your spirit horse (`Shift` to gallop; `R` again to dismount) |
-| `C` | Change attire (once someone has given you something to wear) |
-| `J` | Journal: every quest and rumour, and how each sect regards you |
+| `C` | Change into the next outfit you own |
+| `V` | Wardrobe: every outfit, owned or not; click one to put it on |
+| `J` | Journal: every quest and rumour, the Turning of the Year, the notices you carry (set one aside), and how each sect regards you |
 | `1`–`5` / `↑` `↓` + `E` | Answer a question put to Lin Yue (or click an answer) |
 | `E` / `Space` / `Enter` | Talk · meditate at shrines · open chests · gather herbs · read steles · enter and leave buildings · open the world map at a region's gate |
 | `M` | World map of the real world (arrows or clicks pick a region, the sword flies there, `E` lands at its waypoint) |
@@ -719,7 +820,8 @@ flowchart LR
 ```
 
 - **Unit tests (Vitest):** the iso projection and ray caster (shading, depth, decal visibility, convex solids), every character × animation × direction, all portraits and props, terrain and skies. Every region layout, and then the whole continuous world, is checked by BFS: every waypoint, NPC, encounter and interactable is reachable on foot, the sky bridges connect, rivers reach the edge, and no prop stands in water or on the road. Also covered: the world map's terrain (built from the real world), save migration from per-region coordinates and from the smaller world, the grown world's size, landmarks and new folk, a complete story walkthrough from prologue to ascension, realms and battle rules, a headless run of the `Game` runtime (cutscenes, walking and collision, tap-to-walk, the elder's briefing, world-map travel, battles won and lost, boss speeches, the fox quest, meditation and tribulation, pickups, rendering every region, walking down the sky bridge into the village, seals turning the heroine back, running, startled cranes, greeting NPCs, respawning beasts, idle fidgets and the day cycle, the wayside folk's gifts, Xiao Han's duel won and lost, landmark banners, beasts sniffing, howling and dozing, opening the map while flying over water, loading a save onto open ground, walking into the Hall of Clouds through its door and back out over the threshold, learning from the archivist, reading the shelves and praying at the altar, every room rendering with its folk at work, losing a fight indoors, a beast standing its ground at the edge of its territory, a lost friendly duel costing nothing, and scripted walks staying at a walk), every room's walls, windows and reachability, every building's door on open ground in front of it, the indoor folk's one-time gifts, and the API route handlers.
-- **E2E (Playwright):** fullscreen title and health check, opening narration and walking, walking from the sect into the village in one world, Elder Mo's briefing through to world-map travel, a battle won through the UI, tea and the shop at the crossroads teahouse (with Enter skipping the typewriter text), stepping inside the crossroads teahouse to hear the storyteller and walking back out, a save/reload/continue round trip with the leaderboard, and the gallery canvases painting (now with the indoor folk and every room).
+- **The year and the notices (Vitest):** the calendar (seasons, phases, passing time, a save keeps its hour), seasonal filters on props, every season by day and night with the folk in winter wool and lanterns after dark, the season banner, the whole Turning of the Year from the almanac to the four Wardens and the Raiment, the wardrobe, and the thousand notices (exactly 1000, deterministic, every giver, landmark, beast and shrine really in the world, three slots, bits in the save, milestones, a delivery taken and handed over, a night visit and a hunt fulfilled in the running game).
+- **E2E (Playwright):** the wardrobe, the calendar turning at the sundial and a notice taken and set aside from the journal; and  fullscreen title and health check, opening narration and walking, walking from the sect into the village in one world, Elder Mo's briefing through to world-map travel, a battle won through the UI, tea and the shop at the crossroads teahouse (with Enter skipping the typewriter text), stepping inside the crossroads teahouse to hear the storyteller and walking back out, a save/reload/continue round trip with the leaderboard, and the gallery canvases painting (now with the indoor folk and every room).
 
 ## Project layout
 

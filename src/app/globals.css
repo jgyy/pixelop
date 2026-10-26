@@ -940,3 +940,89 @@ button {
 .topnav a {
   text-decoration: none;
 }
+
+/* the Turning of the Year, and the notices she carries */
+.quest .errand.year {
+  color: #c8f0d8;
+}
+.quest .errand.notice {
+  color: #fff2c8;
+}
+.quest .errand small {
+  color: var(--muted);
+}
+.journal .entry.notice strong {
+  color: #fff2c8;
+}
+.journal .entry.notice small {
+  color: var(--muted);
+  font-weight: 400;
+}
+.journal .btn.small {
+  padding: 2px 8px;
+  font-size: 0.8em;
+}
+.journal .muted {
+  color: var(--muted);
+}
+.hud-right .calendar {
+  border-width: 2px;
+  white-space: nowrap;
+}
+
+/* the wardrobe */
+.wardrobe {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(720px, 94%);
+  max-height: 86%;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: hidden;
+}
+.wardrobe h3 {
+  margin: 0;
+  color: var(--gold);
+}
+.wardrobe h3 small {
+  color: var(--muted);
+  font-weight: 400;
+}
+.wardrobe ul {
+  list-style: none;
+  margin: 0;
+  padding: 0 4px 0 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 6px;
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1;
+}
+.wardrobe li .btn {
+  width: 100%;
+  text-align: left;
+}
+.wardrobe li small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.78em;
+}
+.wardrobe li.worn .btn {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+.wardrobe li.locked .btn {
+  opacity: 0.55;
+}
+.wardrobe .hint {
+  color: var(--muted);
+  font-size: 0.85em;
+}
+.wardrobe > .btn {
+  align-self: flex-end;
+}

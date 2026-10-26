@@ -70,7 +70,7 @@ function TitleScreen({ existing, leaders, onNew, onContinue }: { existing: GameS
                 <span className="kbd">WASD</span>/<span className="kbd">←↑→↓</span> walk · <span className="kbd">F</span> ride your sword · <span className="kbd">R</span> whistle for Cloudmane, your spirit horse (<span className="kbd">Shift</span> gallops)
               </li>
               <li>
-                <span className="kbd">E</span>/<span className="kbd">Space</span> talk, meditate, open chests · <span className="kbd">M</span> world map · <span className="kbd">C</span> change attire
+                <span className="kbd">E</span>/<span className="kbd">Space</span> talk, meditate, open chests · <span className="kbd">M</span> world map · <span className="kbd">J</span> journal · <span className="kbd">C</span>/<span className="kbd">V</span> attire &amp; wardrobe
               </li>
               <li>
                 Touch a demonic beast to battle: <span className="kbd">1-5</span> techniques · <span className="kbd">6 7</span> pills · <span className="kbd">0</span> flee

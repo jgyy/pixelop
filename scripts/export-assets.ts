@@ -21,6 +21,9 @@ import { CAVE_IDS, getCave } from "../src/game/world/caves";
 import { toWorld, WORLD_H, WORLD_SCALE, WORLD_W } from "../src/game/world/layout";
 import { isoX, isoY } from "../src/game/iso/projection";
 import { writePng } from "./lib";
+import { Game } from "../src/game/runtime/Game";
+import { newGame } from "../src/game/engine/state";
+import { SEASONS } from "../src/game/world/calendar";
 
 const OUT = path.resolve(process.argv[2] ?? "docs/art");
 const QUICK = process.argv.includes("--quick");
@@ -189,6 +192,40 @@ const deep: [CharId, AnimId][] = [
   ["heroine", "idle"],
 ];
 writeGif("deep-moves.gif", showcase(deep.map(([id, anim], k): Cell => ({ id, anim, dir: 1, label: `${charDef(id).name.split(" ").pop()!.replace("'", "")} ${anim}`, outfit: k === 17 ? "phoenix" : undefined })), 6, 2, seconds), 12);
+
+// the turning year: work and play through the seasons, and what the folk do after dark
+const yearly: [CharId, AnimId, string?][] = [
+  ["heroine", "plant"],
+  ["farmer", "plant"],
+  ["child", "kite"],
+  ["heroine", "kite"],
+  ["villagerF", "rake"],
+  ["heroine", "rake"],
+  ["heroine", "sweep"],
+  ["boy", "snowball"],
+  ["heroine", "snowball"],
+  ["novice", "shiver", "winter"],
+  ["heroine", "warmhands", "wintersnow"],
+  ["guard", "warmhands", "winter"],
+  ["porter", "yawn"],
+  ["heroine", "yawn"],
+  ["discipleF", "stargaze"],
+  ["heroine", "stargaze"],
+  ["farmer", "umbrella", "winter"],
+  ["guard", "lantern"],
+];
+writeGif("year-moves.gif", showcase(yearly.map(([id, anim, outfit]): Cell => ({ id, anim, dir: 1, label: `${charDef(id).name.split(" ").pop()} ${anim}`, outfit })), 6, 2, seconds), 12);
+// the almanac master and the four wardens of the year, and the folk in their winter wool
+const wardens: Cell[] = [
+  { id: "almanac", anim: "read", dir: 1, label: "Almanac Shi" },
+  { id: "springWarden", anim: "float", dir: 1, label: "Qingming" },
+  { id: "summerWarden", anim: "float", dir: 1, label: "Xiazhi" },
+  { id: "autumnWarden", anim: "float", dir: 1, label: "Shuangjiang" },
+  { id: "winterWarden", anim: "float", dir: 1, label: "Dongzhi" },
+  ...(["springblossom", "summerlotus", "autumnmaple", "wintersnow", "fourseasons", "ranger", "nightheron", "scholar", "moonrabbit", "empress"] as const).map((o): Cell => ({ id: "heroine", anim: "twirl", dir: 2, label: o, outfit: o })),
+  ...(["zhou", "hua", "villagerM", "villagerF", "monk", "child"] as HumanId[]).map((id): Cell => ({ id, anim: "idle", dir: 1, label: `${charDef(id).name.split(" ").pop()} wool`, outfit: "winter" })),
+];
+writeGif("wardens.gif", showcase(wardens, 7, 2, seconds), 12);
 
 // 2. Portraits
 const portraitIds = HUMAN_IDS.filter((id) => charDef(id).portrait);
@@ -382,6 +419,30 @@ for (const id of CAVE_IDS) {
   });
   writePng(frames[0].scaled(2), path.join(OUT, `cave-${id}.png`));
   if (!QUICK) writeGif(`cave-${id}.gif`, frames, 12);
+}
+
+// 4f. The year in Willow Creek's square: each season from noon through dusk to midnight and dawn
+{
+  const g = new Game({ ...newGame(), flags: { metElder: true } }, { seed: 7 });
+  g.debugTeleport("village", 15, 13);
+  const frames: PixelBuffer[] = [];
+  const stills: PixelBuffer[] = [];
+  for (const season of SEASONS)
+    for (const k of [0.02, 0.27, 0.5, 0.76]) {
+      g.debugSetTime(k, season);
+      g.debugSkipTime(2.5, 1 / 6);
+      for (let i = 0; i < (QUICK ? 1 : 6); i++) {
+        g.debugSkipTime(1 / 12, 1 / 12);
+        const b = new PixelBuffer(W, H);
+        g.render(new BufferSurface(b));
+        frames.push(b);
+      }
+      if (k === 0.02) stills.push(frames[frames.length - 1]);
+    }
+  const grid = new PixelBuffer(W * 2, H * 2);
+  stills.forEach((b, i) => grid.blit(b, (i % 2) * W, Math.floor(i / 2) * H));
+  writePng(grid, path.join(OUT, "seasons.png"));
+  writeGif("seasons.gif", frames, 6);
 }
 
 // 5. World map
