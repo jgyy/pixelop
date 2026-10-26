@@ -9,6 +9,8 @@ import { say, type Step } from "./script";
 import { giveAttire } from "./wardrobe";
 import { sectHasNews, sectNpcScript, sectPreBattle, sectVictory, veinEpilogue } from "./sects";
 import { veinFate } from "../world/caves";
+import { calendarAt, worldTime } from "../world/calendar";
+import { almanacMasterScript, yearEpilogue, yearHasNews } from "./year";
 
 /**
  * The tale of the Jade Lotus Ascension: quest log, region gating, every
@@ -186,6 +188,8 @@ export function hasNews(key: string, g: GameState): boolean {
       return !f.herderMilk;
     case "mei":
       return !!f.heartReturned && !f[`attire:festival`];
+    case "almanac":
+      return yearHasNews(key, g, calendarAt(worldTime(g)));
     default:
       return sectHasNews(key, g) ?? false;
   }
@@ -196,6 +200,8 @@ export function npcScript(key: string, g: GameState): Step[] {
   switch (key) {
     case "elder":
       return elderScript(g);
+    case "almanac":
+      return almanacMasterScript(g, calendarAt(worldTime(g)));
     case "peddler":
       return [
         say("peddler", pick(g, [
@@ -1092,6 +1098,7 @@ export function altarScript(g: GameState): Step[] {
 export function endingScript(g?: GameState): Step[] {
   const f = g?.flags ?? {};
   const vein = veinEpilogue(f);
+  const year = yearEpilogue(f);
   return [
     { mutate: (s) => setFlag(giveAttire(s, "celestial"), "ascended") },
     {
@@ -1100,6 +1107,7 @@ export function endingScript(g?: GameState): Step[] {
         "The storm parted. A stair of white light descended from the ninth heaven.",
         "Below, the spirit veins sang. Rice grew green in Willow Creek; fox kits played in the bamboo; an old man on a lake caught a fish made of moonlight.",
         ...(vein ? [vein] : []),
+        ...(year ? [year] : []),
         ...(f.xueForgiven ? ["On a hill in the westwood, beside a sword that was never drawn, someone left a cup of tea for Xue Ming. It was still warm."] : []),
         "So ends the tale of the Jade Lotus Ascension — and so begins the tale of an immortal.",
       ],

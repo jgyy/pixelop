@@ -6,7 +6,7 @@ import { charDef, type AnimId, type HumanId } from "../art/characters";
 import { ENEMIES, type EnemyId } from "../engine/enemies";
 import { reviveAtSect, type BattleAction } from "../engine/battle";
 import { atBottleneck, cultivationNeeded, FINAL_REALM, levelIndex, realmLabel, REALMS, type Stats } from "../engine/realms";
-import { applyBreakthrough, buyPill, consumePill, gainCultivation, heal, stats, type GameState, type SkillId } from "../engine/state";
+import { applyBreakthrough, buyPill, consumePill, gainCultivation, heal, pillUseful, stats, type GameState, type SkillId } from "../engine/state";
 import { getArea, type AreaId } from "../world/areas";
 import { getWorld } from "../world/continent";
 import type { InteriorDef } from "../world/interiors";
@@ -14,8 +14,11 @@ import { getRoom, isRoomId, roomOpen, type RoomId } from "../world/rooms";
 import { AREA_IDS } from "../world/ids";
 import { toWorld, WORLD_SCALE } from "../world/layout";
 import { NODES } from "../world/overworld";
+import { atTimeOfDay, calendarAt, calendarLabel, CLIMATE, rainingAt, SEASON_INFO, TIME_SKIP, worldTime, YEAR_LENGTH, type Season } from "../world/calendar";
 import type { Step } from "../story/script";
-import { currentAttire, nextAttire, ownedAttire } from "../story/wardrobe";
+import { ATTIRE, ATTIRE_HINT, currentAttire, hasAttire, nextAttire, ownedAttire, wearAttire } from "../story/wardrobe";
+import { abandon, advance, BOUNTY_COUNT, bountiesDone, carried, deliveryScript, folk, fulfil, offerFrom, offerScript, progressText, rewardText, slotsFree, type Carried } from "../story/bounties";
+import { almanacScript, landmarkScript, offeringScript, yearHasNews, yearQuest } from "../story/year";
 import { altarScript, areaUnlocked, arrivalScript, endingScript, errand, hasNews, introScript, lockReason, npcScript, preBattleScript, questLog, victoryScript, type Quest } from "../story/story";
 import { BattleScene } from "./battle";
 import { dirFrom, syncTerrain, World, type Actor } from "./world";
@@ -56,6 +59,16 @@ export interface UiSnapshot {
   banner: { title: string; hanzi: string; subtitle: string; seq: number } | null;
   /** The building she is inside, if any. */
   interior: { id: RoomId; name: string; hanzi: string; cave: boolean } | null;
+  /** The second thread of the tale: the Turning of the Year (null before it starts and after it ends). */
+  year: Quest | null;
+  /** The notices (favours) she carries, and how many of the thousand she has fulfilled. */
+  notices: { slot: number; title: string; giver: string; text: string }[];
+  noticesDone: number;
+  noticeCount: number;
+  /** The wardrobe, when it is open: every outfit, owned or not. */
+  wardrobe: { id: string; name: string; hanzi: string; from: string; owned: boolean; worn: boolean; hint: string }[] | null;
+  /** The jianghu's calendar: season, day and hour. */
+  calendar: { season: Season; seasonName: string; hanzi: string; colour: string; day: number; hour: number; phase: string; label: string };
   toasts: { id: number; text: string }[];
   canSkip: boolean;
 }
@@ -154,6 +167,7 @@ export class Game {
     syncTerrain(getWorld(), state.flags);
     this.world = this.makeWorld(Game.openGround([state.x, state.y], state.area), state.dir);
     this.state = { ...this.state, x: this.world.hero.x, y: this.world.hero.y, area: this.world.regionAt(this.world.hero.x, this.world.hero.y) };
+    this.syncClock();
     this.showBanner();
     if (opts.intro) {
       this.fade = 1;
@@ -326,6 +340,7 @@ export class Game {
 
   takePill(kind: "heal" | "qi"): void {
     if (this.mode !== "explore" && this.mode !== "meditate") return;
+    if (this.state.pills[kind] > 0 && !pillUseful(this.state, kind)) return this.toast(kind === "heal" ? "Your vitality is already full — the pill would be wasted." : "Your dantian is already brimming with qi.");
     const next = consumePill(this.state, kind);
     if (!next) return this.toast("No pills of that kind.");
     this.state = next;
@@ -337,7 +352,7 @@ export class Game {
 
   buy(kind: "heal" | "qi"): void {
     const next = buyPill(this.state, kind);
-    if (!next) return this.toast("Not enough spirit stones.");
+    if (!next) return this.toast(this.state.pills[kind] >= 99 ? "Your pill gourd is full (99)." : "Not enough spirit stones.");
     this.state = next;
     this.toast(kind === "heal" ? "Bought a Healing Pill." : "Bought a Qi Gathering Pill.");
   }
@@ -532,6 +547,50 @@ export class Game {
     this.startBattle(enemy, key);
   }
 
+  /** Set the hour (0 noon, 0.5 midnight, as a fraction of the day) and, optionally, the season. */
+  debugSetTime(k: number, season?: Season): void {
+    this.state = atTimeOfDay(this.state, k, season);
+    this.syncClock();
+    this.markDirty();
+  }
+
+  /** Skip ahead to the next summer shower at its heaviest (screenshots). */
+  debugShower(): void {
+    const t0 = worldTime(this.state);
+    for (let t = t0; t < t0 + YEAR_LENGTH * 40; t += 30)
+      if (rainingAt(t) > 0.95) {
+        this.state = { ...this.state, counters: { ...this.state.counters, [TIME_SKIP]: (this.state.counters[TIME_SKIP] ?? 0) + Math.ceil(t - t0) } };
+        this.syncClock();
+        return;
+      }
+  }
+
+  /** Keep every world on the save's calendar (and tell the HUD when the hour turns). */
+  private syncClock(): void {
+    const t = worldTime(this.state);
+    this.world.time = t;
+    if (this.interior) this.interior.outdoor.time = t;
+    const c = calendarAt(t);
+    const stamp = `${c.season}/${c.dayOfSeason}/${Math.floor(c.hour)}`;
+    if (stamp !== this.calendarStamp) {
+      const turned = this.calendarStamp && this.calendarStamp.split("/")[0] !== c.season;
+      this.calendarStamp = stamp;
+      if (turned) this.seasonTurned(c.season);
+      this.markDirty();
+    }
+  }
+  private calendarStamp = "";
+
+  /** The year turns: a banner, and a gust of the new season's petals, rain, leaves or snow about her. */
+  private seasonTurned(season: Season): void {
+    const info = SEASON_INFO[season];
+    this.banner = { title: info.name, hanzi: info.hanzi, subtitle: { spring: "The plum and cherry wake", summer: "Long days, warm rain", autumn: "The leaves turn to gold", winter: "Snow on the jianghu" }[season], seq: ++this.seq };
+    this.bannerUntil = this.clock + 3.5;
+    const h = this.world.hero;
+    const cols = { spring: ["#ffd0e4", "#f8a8c8", "#ffffff"], summer: ["#9ae870", "#ffffff", "#ffe070"], autumn: ["#f08a3a", "#ffd070", "#c04a2a"], winter: ["#ffffff", "#e8f4ff", "#c8e0ff"] }[season];
+    this.world.fx.burst(isoX(h.x, h.y), isoY(h.x, h.y, h.z) - 16, 40, cols, 80);
+  }
+
   debugSkipTime(seconds: number, dt = 1 / 30): void {
     for (let t = 0; t < seconds; t += dt) this.update(dt);
   }
@@ -561,6 +620,7 @@ export class Game {
     const w = new World(def, { x: def.arrive[0], y: def.arrive[1], dir: dirFrom(def.inward[0], def.inward[1]) }, this.state.flags, this.state.taken);
     // underground she lights a torch and holds it up while she stands
     if (w.cave) w.hero.idleAnim = "torch";
+    w.time = worldTime(this.state);
     w.updateCamera(480, 270, 0);
     w.recenter();
     this.world = w;
@@ -676,6 +736,7 @@ export class Game {
   play(steps: Step[]): void {
     if (steps.length === 0) return;
     this.journalOpen = false;
+    this.wardrobeOpen = false;
     // she swings down from the saddle to talk, read or watch
     this.dismount();
     if (this.runner) {
@@ -695,6 +756,7 @@ export class Game {
 
   private endRunner(): void {
     this.runner = null;
+    this.markerAt = 0;
     this.dialog = null;
     this.choice = null;
     this.narration = null;
@@ -920,6 +982,8 @@ export class Game {
     this.dismount();
     this.battle = new BattleScene(this.state.area, enemy, key, this.state, (this.seed + Math.floor(this.clock * 1000)) >>> 0, this.interior?.def.sky === "cave");
     this.battle.hero.outfit = currentAttire(this.state).id;
+    // the arena wears the season outside
+    this.battle.world.time = worldTime(this.state);
     this.mode = "battle";
     this.dialog = null;
     this.markDirty();
@@ -937,6 +1001,7 @@ export class Game {
       if (b.levelUp) this.toast(`Your cultivation rises: ${b.levelUp}!`);
       if (atBottleneck(this.state)) this.toast("Your qi has reached its peak! Meditate at a shrine and press B to face the tribulation.");
       this.play(victoryScript(b.enemy, b.enemyKey, this.state.area, this.state));
+      this.noticeHunt(b.enemy);
     } else if (b.result === "lost" && ENEMIES[b.enemy].friendly) {
       // a friendly duel: Xiao Han lowers his blade instead of letting her fall
       const s = stats(this.state);
@@ -997,6 +1062,7 @@ export class Game {
     const altar = this.state.area === "peak";
     const need = cultivationNeeded(this.state.realm, this.state.stage);
     const gain = Math.max(3, Math.round(need / (altar ? 7 : 20)));
+    this.noticeBreath();
     const was = atBottleneck(this.state);
     const r = gainCultivation(heal(this.state, s.maxHp * 0.08, s.maxQi * 0.08), gain);
     this.state = r.state;
@@ -1142,7 +1208,7 @@ export class Game {
       } else if (!h.flying && !riding && this.idleTime > 8) {
         this.idleTime = -4;
         // first a stretch or a glance around; left alone longer, she hums, nods off or practises a pointing form
-        const pool: AnimId[] = this.fidgets++ < 1 ? ["look", "stretch"] : ["stretch", "look", "nod", "point", "cheer", "clap", "laugh", "flute", "salute", "twirl", "taichi", "kick", "sworddance", ...(this.state.flags.phxDone ? (["flame"] as AnimId[]) : [])];
+        const pool: AnimId[] = this.fidgets++ < 1 ? ["look", "stretch"] : ["stretch", "look", "nod", "point", "cheer", "clap", "laugh", "flute", "salute", "twirl", "taichi", "kick", "sworddance", ...(this.state.flags.phxDone ? (["flame"] as AnimId[]) : []), ...this.weatherFidgets()];
         // left alone long enough, she sits down where she stands until she moves again
         if (this.fidgets > 4 && h.idleAnim === "idle") h.idleAnim = "sit";
         else {
@@ -1174,6 +1240,8 @@ export class Game {
     if (this.clock > this.syncAt) {
       this.syncAt = this.clock + 0.5;
       w.syncPopulation(this.state.flags);
+      this.landmarkEvents();
+      if (this.mode !== "explore") return;
     }
     const touched = w.update(dt, this.clock, h.flying === true || this.clock < this.invulnerableUntil, true);
     if (touched && touched.enemy) {
@@ -1210,6 +1278,144 @@ export class Game {
     }
   }
 
+  /**
+   * A conversation: parcels she carries for this person are handed over
+   * first, then a Warden's offering if it is theirs to give, then what they
+   * have to say; folk with nothing pressing to say ask a favour instead.
+   */
+  private talkTo(key: string): Step[] {
+    const g = this.state;
+    const cal = calendarAt(worldTime(g));
+    const pre: Step[] = [];
+    for (const c of carried(g)) if (c.bounty.kind === "deliver" && c.bounty.to === key) pre.push(...deliveryScript(c));
+    const offering = offeringScript(key, g, cal);
+    if (offering) pre.push(...offering);
+    const news = hasNews(key, g);
+    if (pre.length && !news) return pre;
+    const story = npcScript(key, g);
+    if (news || pre.length) return [...pre, ...story];
+    const b = offerFrom(key, g, (id) => areaUnlocked(id, g));
+    return b ? [...story, ...offerScript(b, slotsFree(g) === 0)] : story;
+  }
+
+  /** What the hour and the season move her to do when she stands about outdoors: shiver in the snow, fly a kite in spring, gaze at the stars. */
+  private weatherFidgets(): AnimId[] {
+    if (this.interior) return [];
+    const c = calendarAt(worldTime(this.state));
+    const climate = CLIMATE[this.state.area];
+    const out: AnimId[] = [];
+    if (climate === "frozen" || (climate === "temperate" && c.season === "winter")) out.push("shiver", "warmhands", "snowball");
+    else if (climate === "temperate" && c.season === "spring") out.push("kite");
+    else if (climate === "temperate" && c.season === "autumn") out.push("rake");
+    if (c.dusk > 0.55) out.push("stargaze", "yawn");
+    return out;
+  }
+
+  /** Give up a notice she carries (from the journal). */
+  abandonNotice(slot: number): void {
+    const c = carried(this.state).find((x) => x.slot === slot);
+    if (!c) return;
+    this.state = abandon(this.state, slot);
+    this.markerAt = 0;
+    this.toast(`Notice set aside: ${c.bounty.title}. ${folk(c.bounty.giver)?.name ?? "They"} will ask again.`);
+  }
+
+  /** A notice is done: pay out, and tell her (with a milestone outfit, now and then). */
+  private fulfilNotice(c: Carried, steps: Step[] = []): void {
+    const before = ownedAttire(this.state).length;
+    const next = fulfil(this.state, c);
+    const gained = ownedAttire(next).length > before;
+    this.play([
+      ...steps,
+      { mutate: (s) => fulfil(s, c) },
+      { toast: `Notice fulfilled: ${c.bounty.title} · ${rewardText(c.bounty)} · ${bountiesDone(next)}/${BOUNTY_COUNT}` },
+      ...(gained ? [{ anim: "hero", name: "twirl", wait: true } as Step, { toast: `A gift from the jianghu: the ${currentAttire(next).name} · Press C or open the wardrobe` } as Step] : []),
+    ]);
+    this.markerAt = 0;
+  }
+
+  /** A beast beaten where a notice wanted it beaten. */
+  private noticeHunt(enemy: EnemyId): void {
+    for (const c of carried(this.state)) {
+      const b = c.bounty;
+      if (b.kind !== "hunt" || b.foe !== enemy || b.region !== this.state.area) continue;
+      this.state = advance(this.state, c.slot);
+      const p = c.progress + 1;
+      if (p >= b.count) this.fulfilNotice({ ...c, progress: p });
+      else this.toast(`${b.title}: ${p}/${b.count}`);
+      return;
+    }
+  }
+
+  /** At a landmark: notices that wanted her there (at night, on horseback, on the sword, in a season), and the Wardens of the year. */
+  private landmarkEvents(): void {
+    if (this.interior || this.mode !== "explore" || this.runner) return;
+    const h = this.world.hero;
+    const near = getWorld().landmarks.find((l) => Math.hypot(l.x + 0.5 - h.x, l.y + 0.5 - h.y) < 7 * WORLD_SCALE);
+    if (!near) return;
+    const cal = calendarAt(worldTime(this.state));
+    const year = landmarkScript(near.key, this.state, cal, [h.x + 1.2, h.y + 0.4]);
+    if (year) return this.play(year);
+    for (const c of carried(this.state)) {
+      const b = c.bounty;
+      if (b.landmark !== near.key) continue;
+      const ok = b.kind === "visit" || (b.kind === "night" && cal.dusk > 0.55) || (b.kind === "ride" && this.riding) || (b.kind === "fly" && !!h.flying) || (b.kind === "season" && cal.season === b.season);
+      if (!ok) continue;
+      const act: Step[] = b.kind === "fly" || !b.anim ? [] : [{ anim: "hero", name: b.anim, wait: true }];
+      return this.fulfilNotice(c, [...act, { say: "narrator", text: b.done }]);
+    }
+  }
+
+  /** Breaths held at a shrine count towards a notice that asked for stillness there. */
+  private noticeBreath(): void {
+    for (const c of carried(this.state)) {
+      const b = c.bounty;
+      if (b.kind !== "meditate" || b.region !== this.state.area || this.interior) continue;
+      this.state = advance(this.state, c.slot);
+      if (c.progress + 1 >= b.count) this.fulfilNotice({ ...c, progress: c.progress + 1 });
+      return;
+    }
+  }
+
+  /** Bounty markers over heads (refreshed twice a second, or at once after a scene). */
+  private markerAt = 0;
+  private bountyMarkers = new Map<string, "bounty" | "deliver">();
+  private refreshMarkers(): void {
+    this.markerAt = this.clock + 0.5;
+    const g = this.state;
+    const m = new Map<string, "bounty" | "deliver">();
+    for (const c of carried(g)) if (c.bounty.kind === "deliver" && c.bounty.to) m.set(c.bounty.to, "deliver");
+    const open = (id: AreaId) => areaUnlocked(id, g);
+    for (const a of this.world.actors) if (a.kind === "npc" && !m.has(a.key) && slotsFree(g) > 0 && offerFrom(a.key, g, open)) m.set(a.key, "bounty");
+    this.bountyMarkers = m;
+  }
+
+  // ------------------------------------------------------------------ wardrobe
+  private wardrobeOpen = false;
+
+  /** Open or close the wardrobe (V, or the Attire button). */
+  toggleWardrobe(): void {
+    if (!this.wardrobeOpen && this.mode !== "explore") return;
+    this.wardrobeOpen = !this.wardrobeOpen;
+    this.journalOpen = false;
+    this.markDirty();
+  }
+
+  /** Put on an outfit from the wardrobe (with a twirl). */
+  wear(id: string): void {
+    if (this.mode !== "explore" || !hasAttire(this.state, id)) return;
+    if (currentAttire(this.state).id === id) return;
+    this.state = wearAttire(this.state, id);
+    this.dressHero();
+    const h = this.world.hero;
+    if (!h.flying && h.char === "heroine") {
+      if (h.idleAnim === "sit") h.idleAnim = "idle";
+      this.world.setAnim(h, "twirl", this.clock, true);
+    }
+    this.world.fx.burst(isoX(h.x, h.y), isoY(h.x, h.y, h.z) - 12, 22, ["#ffffff", "#f8bcd6", "#f2c55c"], 50);
+    this.markDirty();
+  }
+
   private interact(): void {
     const near = this.world.nearestInteraction();
     if (!near) return;
@@ -1221,7 +1427,7 @@ export class Game {
       h.dir = dirFrom(npc.x - h.x, npc.y - h.y);
       if (npc.idleAnim !== "fish" && npc.idleAnim !== "practice") npc.dir = dirFrom(h.x - npc.x, h.y - npc.y);
       npc.target = null;
-      this.play(npcScript(npc.key, this.state));
+      this.play(this.talkTo(npc.key));
       return;
     }
     const it = near.it!;
@@ -1239,7 +1445,7 @@ export class Game {
       case "sign": {
         h.dir = dirFrom(it.i + 0.5 - h.x, it.j + 0.5 - h.y);
         if (!h.flying) this.world.setAnim(h, it.anim ?? "read", this.clock, true);
-        this.play(signScript(it.key, this.state) ?? [{ say: "narrator", text: it.text ?? "" }]);
+        this.play(it.key === "almanac-dial" ? almanacScript() : (signScript(it.key, this.state) ?? [{ say: "narrator", text: it.text ?? "" }]));
         break;
       }
       case "door":
@@ -1328,7 +1534,9 @@ export class Game {
       }
       case "explore":
         if (code === "KeyJ") return this.toggleJournal();
+        if (code === "KeyV") return this.toggleWardrobe();
         if (this.journalOpen && (code === "Escape" || CONFIRM.has(code))) return this.toggleJournal();
+        if (this.wardrobeOpen && (code === "Escape" || CONFIRM.has(code))) return this.toggleWardrobe();
         if (CONFIRM.has(code)) this.interact();
         else if (code === "KeyF") this.toggleFly();
         else if (code === "KeyR") this.toggleRide();
@@ -1348,6 +1556,7 @@ export class Game {
     dt = Math.min(dt, 0.1);
     this.clock += dt;
     this.state.playTime += dt;
+    this.syncClock();
     this.shake = Math.max(0, this.shake - dt * 2.5);
     this.flash = Math.max(0, this.flash - dt * 2.5);
     this.fade += (this.fadeTarget - this.fade) * Math.min(1, dt * 4);
@@ -1401,7 +1610,9 @@ export class Game {
       this.quakeSeen = this.world.quakeAt;
       this.shake = Math.max(this.shake, 0.7);
     }
-    for (const a of this.world.actors) if (a.kind === "npc") a.marker = this.mode === "explore" && hasNews(a.key, this.state);
+    if (this.mode === "explore" && this.clock >= this.markerAt) this.refreshMarkers();
+    const cal = calendarAt(worldTime(this.state));
+    for (const a of this.world.actors) if (a.kind === "npc") a.marker = this.mode === "explore" && ((hasNews(a.key, this.state) || yearHasNews(a.key, this.state, cal)) || (this.bountyMarkers.get(a.key) ?? false));
     if (this.world.hero.outfit !== currentAttire(this.state).id) this.dressHero();
     if (this.dirty) {
       this.dirty = false;
@@ -1418,6 +1629,7 @@ export class Game {
   toggleJournal(): void {
     if (!this.journalOpen && this.mode !== "explore" && this.mode !== "meditate") return;
     this.journalOpen = !this.journalOpen;
+    this.wardrobeOpen = false;
     this.markDirty();
   }
   private timers: { at: number; fn: () => void }[] = [];
@@ -1505,6 +1717,12 @@ export class Game {
     if (this.fade > 0.005) s.rect(0, 0, s.width, s.height, alpha("#0a0612", this.fade));
   }
 
+  private calendarSnapshot(): UiSnapshot["calendar"] {
+    const c = calendarAt(worldTime(this.state));
+    const info = SEASON_INFO[c.season];
+    return { season: c.season, seasonName: info.name, hanzi: info.hanzi, colour: info.colour, day: c.dayOfSeason, hour: c.hour, phase: c.phase, label: calendarLabel(c) };
+  }
+
   snapshot(): UiSnapshot {
     const s = stats(this.state);
     const area = getArea(this.state.area);
@@ -1565,6 +1783,14 @@ export class Game {
       tribulation: this.mode === "tribulation" ? this.tribText : null,
       banner: this.mode === "explore" || this.mode === "scene" ? this.banner : null,
       interior: this.interior ? { id: this.interior.def.key, name: this.interior.def.name, hanzi: this.interior.def.hanzi, cave: this.interior.def.sky === "cave" } : null,
+      calendar: this.calendarSnapshot(),
+      year: yearQuest(this.state, calendarAt(worldTime(this.state))),
+      notices: carried(this.state).map((c) => ({ slot: c.slot, title: c.bounty.title, giver: folk(c.bounty.giver)?.name ?? "", text: progressText(c) })),
+      noticesDone: bountiesDone(this.state),
+      noticeCount: BOUNTY_COUNT,
+      wardrobe: this.wardrobeOpen
+        ? ATTIRE.map((a) => ({ id: a.id, name: a.name, hanzi: a.hanzi, from: a.from, owned: hasAttire(this.state, a.id), worn: currentAttire(this.state).id === a.id, hint: ATTIRE_HINT[a.id] ?? "" }))
+        : null,
       toasts: this.toasts.map(({ id, text }) => ({ id, text })),
       canSkip: this.mode === "scene",
     };

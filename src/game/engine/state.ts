@@ -144,9 +144,15 @@ export function buyPill(g: GameState, kind: "heal" | "qi"): GameState | null {
   return { ...g, stones: g.stones - PILL_PRICE, pills: { ...g.pills, [kind]: g.pills[kind] + 1 } };
 }
 
-/** Consume a pill outside of battle. */
+/** Whether a pill of that kind would do her any good right now (a full dantian has no room for one). */
+export function pillUseful(g: GameState, kind: "heal" | "qi"): boolean {
+  const s = stats(g);
+  return kind === "heal" ? g.hp < s.maxHp : g.qi < s.maxQi;
+}
+
+/** Consume a pill outside of battle (none is wasted when she is already whole). */
 export function consumePill(g: GameState, kind: "heal" | "qi"): GameState | null {
-  if (g.pills[kind] <= 0) return null;
+  if (g.pills[kind] <= 0 || !pillUseful(g, kind)) return null;
   const s = stats(g);
   const next = { ...g, pills: { ...g.pills, [kind]: g.pills[kind] - 1 } };
   return kind === "heal" ? heal(next, s.maxHp * PILL_EFFECT.heal, 0) : heal(next, 0, s.maxQi * PILL_EFFECT.qi);

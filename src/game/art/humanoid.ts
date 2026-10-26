@@ -72,7 +72,7 @@ export interface HumanPose {
   /** Extra light-blue tint (qi casting) or white (hit flash) applied after. */
   flash?: number;
   /** Something held in the hands: a bamboo dizi flute, a rice bowl and chopsticks, juggling balls, a smith's hammer, a writing brush, a paper lantern, a hoe, a woodsman's axe, a carrying pole with two baskets, a shuttlecock or an oiled-paper umbrella. */
-  held?: "flute" | "bowl" | "balls" | "hammer" | "brush" | "lantern" | "hoe" | "axe" | "pole" | "shuttlecock" | "umbrella" | "pickaxe" | "torch" | "ladle" | "fireball";
+  held?: "flute" | "bowl" | "balls" | "hammer" | "brush" | "lantern" | "hoe" | "axe" | "pole" | "shuttlecock" | "umbrella" | "pickaxe" | "torch" | "ladle" | "fireball" | "rake" | "seedling" | "snowball" | "kite";
   /** Where a tossed thing (the shuttlecock) is, in pose space. */
   toss?: V3;
 }
@@ -481,6 +481,33 @@ export function paintHuman(st: HumanStyle, p: HumanPose, facing: number, o: Rend
     const fire = ramp4("#ffffff", "#fff0a0", "#ffb040", "#f0601e");
     r.sphere(ball, Math.max(1.4, Rr(2 + Math.sin(t * 3) * 0.3)), mat(fire, 9, { outline: undefined }));
     for (let k = 0; k < 4; k++) r.sweep([ball, add(ball, [Math.cos(t * 2 + k * 1.6) * 2.4 * S, Math.sin(t * 2 + k * 1.6) * 1.4 * S, (2.6 + Math.sin(t * 3 + k)) * S])], [Rr(0.9), Rr(0.1)], mat(ramp4("#fff6c0", "#ffb040", "#f0601e", "#a81a10"), 9, { outline: undefined }));
+  }
+
+  if (p.held === "rake") {
+    // a bamboo leaf rake drawn across the ground in both hands, its fan of tines scraping
+    const a = U(handR);
+    const b = U(p.handL ?? REST_HAND_L);
+    const d = sub(a, b);
+    const foot = add(a, scale3(d, 1.6));
+    const end: V3 = [foot[0], foot[1], Math.max(G([0, 0, 0.6])[2], foot[2] - 8 * S)];
+    r.sweep([sub(b, scale3(d, 0.2)), end], Rr(0.35), mat(PAL.straw, 9));
+    for (let k = -3; k <= 3; k++) r.sweep([end, add(end, [k * 0.9 * S, 1.6 * S, -0.6 * S])], Rr(0.18), mat(PAL.straw, 9));
+  } else if (p.held === "seedling") {
+    // a bundle of green rice seedlings, one pressed into the mud at a time
+    const c = U(handL);
+    for (let k = 0; k < 4; k++) r.sweep([c, add(c, [(k - 1.5) * 0.5 * S, 0.4 * S, 3 * S])], Rr(0.22), mat(PAL.green, 9));
+    const tip = U(handR);
+    r.sweep([tip, add(tip, [0, 0.3 * S, 2.4 * S])], Rr(0.2), mat(PAL.green, 9));
+  } else if (p.held === "snowball") {
+    const c = add(U(p.toss ? p.toss : handR), [0, 0.4 * S, 0.6 * S]);
+    r.sphere(c, Math.max(1.1, Rr(1.4)), mat(ramp4("#ffffff", "#f0f6ff", "#c8d8f0", "#8a9ab8"), 9));
+  } else if (p.held === "kite") {
+    // a paper carp kite flying high on a long string, tugging on the wind
+    const grip = U(handR);
+    const kite = add(grip, [3 * S + Math.sin(t) * 1.2 * S, 10 * S, 22 * S + Math.cos(t * 2) * 1.4 * S]);
+    r.sweep(spline([grip, add(grip, [1.6 * S, 5 * S, 8 * S]), kite], 4), Rr(0.1), mat(PAL.white, 9));
+    r.ellipsoid(kite, [Rr(2.4), Rr(0.5), Rr(1.6)], mat(ramp4("#fff0b0", "#ff6a3a", "#c02a2a", "#6a0a1a"), 9));
+    r.sweep([kite, add(kite, [wind[0] * S - 1 * S, -2 * S, -3.6 * S + Math.sin(t * 3) * 0.6 * S])], [Rr(0.8), Rr(0.1)], mat(PAL.gold, 9));
   }
 
   // ------------------------------------------------------------------ shawl, cape, tails, beard
