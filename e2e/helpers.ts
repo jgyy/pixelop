@@ -3,10 +3,11 @@ import type { GameState } from "../src/game/engine/state";
 import type { EnemyId } from "../src/game/engine/enemies";
 import type { AreaId } from "../src/game/world/ids";
 
-/** Start a fresh game from the title screen, skip the opening, and wait for the runtime hook. */
-export async function startNewGame(page: Page, skipIntro = true): Promise<void> {
+/** Start a fresh game from the title screen (from one of the three beginnings), skip the opening, and wait for the runtime hook. */
+export async function startNewGame(page: Page, skipIntro = true, origin: "disciple" | "foundling" | "defector" = "disciple"): Promise<void> {
   await page.goto("/");
   await page.getByTestId("new-game").click();
+  await page.getByTestId(`origin-${origin}`).click();
   await page.waitForFunction(() => !!window.__pixelop?.game);
   if (skipIntro) {
     await page.evaluate(() => window.__pixelop!.game.skipScene());

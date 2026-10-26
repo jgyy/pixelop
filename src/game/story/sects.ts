@@ -641,12 +641,12 @@ function fateSteps(fate: VeinFate): Step[] {
         { anim: "hero", name: "meditate" },
         { flash: "#ff2040" },
         ...done,
-        { mutate: (s) => gainCultivation(s, cultivationNeeded(s.realm, s.stage) * 2).state },
+        { mutate: (s) => giveAttire(gainCultivation(s, cultivationNeeded(s.realm, s.stage) * 2).state, "dragonform") },
         say("narrator", "The vein's light pours into her until it pours out of her eyes. Above, the green Dragonspine goes grey, then black. When she opens her eyes the cavern is dark, and the three sect masters are staring at her as they once stared at Patriarch Xue."),
         // whatever they thought of her before, they fear her now
         { mutate: (s) => SECT_IDS.reduce((a, id) => addRep(a, id, Math.min(-5, -3 - repOf(a, id))), s) },
         named("lingfeng", "Ling Feng", "We have seen this before. It ended in a valley full of blood."),
-        { toast: "You drank the Dragon Vein · Cultivation surges · Every sect turns against you" },
+        { toast: "You drank the Dragon Vein · Cultivation surges · Received the Dragon-Blood Form · Every sect turns against you" },
       ];
   }
 }

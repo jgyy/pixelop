@@ -1,5 +1,5 @@
-import { levelIndex, realmLabel, FINAL_REALM, atBottleneck } from "../engine/realms";
-import { bump, gainCultivation, heal, learn, setFlag, stats, type GameState } from "../engine/state";
+import { levelIndex, realmLabel, FINAL_REALM, atBottleneck, REALMS } from "../engine/realms";
+import { bump, gainCultivation, heal, learn, newGame, setFlag, stats, type GameState } from "../engine/state";
 import { cultivationNeeded } from "../engine/realms";
 import type { EnemyId } from "../engine/enemies";
 import type { AreaId } from "../world/ids";
@@ -11,6 +11,8 @@ import { sectHasNews, sectNpcScript, sectPreBattle, sectVictory, veinEpilogue } 
 import { veinFate } from "../world/caves";
 import { calendarAt, worldTime } from "../world/calendar";
 import { almanacMasterScript, yearEpilogue, yearHasNews } from "./year";
+import { originElderMeeting, originEpilogue, originIntro, originOf, originPrologue } from "./origins";
+import { canRedeemXue, crimsonPath, elderHeartScript, elderMoVictory, endingOf, ENDINGS, endingSteps, heartFate, heartFateChoice, xueConfrontation } from "./heart";
 
 /**
  * The tale of the Jade Lotus Ascension: quest log, region gating, every
@@ -29,22 +31,42 @@ export interface Quest {
 
 export function questLog(g: GameState): Quest {
   const f = g.flags;
-  if (!f.metElder) return { chapter: "Prologue", title: "The Stolen Heart", objective: "Speak with Elder Mo before the Hall of Clouds." };
+  if (!f.metElder) return { chapter: "Prologue", title: "The Stolen Heart", objective: originPrologue(g) ?? "Speak with Elder Mo before the Hall of Clouds." };
+  // the defector's secret way can bring her to Xue before the lake (or even the bamboo) ever sees her
+  if (f.patriarchDefeated) return afterXue(g);
   if (!f.villageSaved) return { chapter: "Chapter I", title: "Trouble Below the Clouds", objective: "Go out through the sect gate and down the sky bridge to Willow Creek Village. Drive off the beast that haunts it." };
   if (!f.metZhou) return { chapter: "Chapter I", title: "Trouble Below the Clouds", objective: "Speak with Village Head Zhou in the village square." };
   if (!f.foxesCleared) return { chapter: "Chapter II", title: "Whispers in the Bamboo", objective: `Take the old highway west to the Whispering Bamboo Forest and calm its maddened fox spirits (${Math.min(FOXES_NEEDED, g.counters.foxes ?? 0)}/${FOXES_NEEDED}).` };
   if (!f.metHuli) return { chapter: "Chapter II", title: "Whispers in the Bamboo", objective: "Someone waits beneath the spirit tree at the heart of the grove." };
+  const secret = f.secretWay && !f.serpentKingDefeated ? " (Or, at Foundation Establishment, take your secret way west through the red mist to Xue's valley.)" : "";
   if (!f.metWen)
     return levelIndex(g.realm, g.stage) < LAKE_LEVEL
-      ? { chapter: "Chapter III", title: "The Moonlit Lake", objective: `Cultivate to ${realmLabel(0, LAKE_LEVEL)} (battles, herbs, shrine meditation), then seek the hermit of the Lotus Lake, east along the highway.` }
-      : { chapter: "Chapter III", title: "The Moonlit Lake", objective: "Follow the highway east to the Moonlit Lotus Lake and seek the hermit who fishes there." };
-  if (!f.serpentKingDefeated) return { chapter: "Chapter III", title: "The Moonlit Lake", objective: "Cross the stepping stones and subdue the Serpent King on the eastern isle." };
+      ? { chapter: "Chapter III", title: "The Moonlit Lake", objective: `Cultivate to ${realmLabel(0, LAKE_LEVEL)} (battles, herbs, shrine meditation), then seek the hermit of the Lotus Lake, east along the highway.${secret}` }
+      : { chapter: "Chapter III", title: "The Moonlit Lake", objective: `Follow the highway east to the Moonlit Lotus Lake and seek the hermit who fishes there.${secret}` };
+  if (!f.serpentKingDefeated) return { chapter: "Chapter III", title: "The Moonlit Lake", objective: `Cross the stepping stones and subdue the Serpent King on the eastern isle.${secret}` };
   if (!g.skills.includes("swords")) return { chapter: "Chapter III", title: "The Moonlit Lake", objective: "Return to Old Fisher Wen at the lake pavilion." };
   if (g.realm < 1) return { chapter: "Chapter IV", title: "Heaven's Gate", objective: "Break through to Foundation Establishment: fill your cultivation, meditate at a shrine and face the Heavenly Tribulation (B)." };
-  if (!f.patriarchDefeated) return { chapter: "Chapter V", title: "The Blood Moon", objective: "Go west past the bamboo, through the red mist, and defeat Patriarch Xue at his blood altar in the Crimson Demon Valley." };
-  if (!f.heartReturned) return { chapter: "Chapter V", title: "The Blood Moon", objective: "Bring the Jade Lotus Heart home to Elder Mo." };
-  if (!f.ascended) return { chapter: "Epilogue", title: "Ascension", objective: `Reach the peak of Spirit Severing, cross the sky bridge behind the Hall of Clouds, and face the final tribulation at the dais of Heavenly Tribulation Peak. (${realmLabel(g.realm, g.stage)})` };
-  return { chapter: "Fin", title: "Immortal", objective: "Lin Yue has ascended. Wander the jianghu as you please." };
+  return { chapter: "Chapter V", title: "The Blood Moon", objective: `Go west past the bamboo, through the red mist, and ${canRedeemXue(f) ? "face" : "defeat"} Patriarch Xue at his blood altar in the Crimson Demon Valley.` };
+}
+
+/** The tale once Xue is dealt with: it runs on as the Heart's fate chose. */
+function afterXue(g: GameState): Quest {
+  const f = g.flags;
+  const fate = heartFate(f);
+  const climb = `Reach the peak of Spirit Severing, cross the sky bridge behind the Hall of Clouds, and face the final tribulation at the dais of Heavenly Tribulation Peak. (${realmLabel(g.realm, g.stage)})`;
+  if (f.ascended) {
+    const e = ENDINGS[endingOf(f) ?? "ascension"];
+    return { chapter: "Fin", title: e.title, objective: e.line };
+  }
+  if (crimsonPath(f)) {
+    if (!f.moBroken) return { chapter: "Chapter VI", title: "The Crimson Throne", objective: "Elder Mo felt the blood moon rise. Face him before the Hall of Clouds." };
+    return { chapter: "Epilogue", title: "The Crimson Throne", objective: `Nothing stands between you and heaven now. ${climb}` };
+  }
+  if (!f.heartReturned)
+    return fate === "planted"
+      ? { chapter: "Chapter V", title: "Roots of Heaven", objective: "The Heart has taken root in the valley. Go home and tell Elder Mo what you have done." }
+      : { chapter: "Chapter V", title: "The Blood Moon", objective: "Bring the Jade Lotus Heart home to Elder Mo." };
+  return { chapter: "Epilogue", title: f.purged ? "The Second Climb" : "Ascension", objective: climb };
 }
 
 /**
@@ -73,16 +95,18 @@ export function lockReason(id: AreaId, g: GameState): string | null {
     case "sect":
       return null;
     case "village":
-      return f.metElder ? null : "Speak with Elder Mo first.";
+      return f.metElder || originOf(f) === "foundling" ? null : "Speak with Elder Mo first.";
     case "bamboo":
       return f.metZhou ? null : "Village Head Zhou forbids the forest path.";
     case "lake":
       if (!f.metHuli) return "A spirit mist hides the lake.";
       return levelIndex(g.realm, g.stage) >= LAKE_LEVEL ? null : `The lake beasts would devour you. Reach ${realmLabel(0, LAKE_LEVEL)}.`;
     case "valley":
-      if (!f.serpentKingDefeated) return "The way west is unknown.";
+      if (!f.serpentKingDefeated && !f.secretWay) return "The way west is unknown.";
       return g.realm >= 1 ? null : "Demonic qi would tear you apart. Reach Foundation Establishment.";
     case "peak":
+      if (f.moBroken) return null;
+      if (crimsonPath(f)) return "The sky bridge will not carry you while Elder Mo stands before it.";
       return f.heartReturned ? null : "Only those the Heart chooses may climb.";
     case "terraces":
     case "marsh":
@@ -99,7 +123,9 @@ export function lockReason(id: AreaId, g: GameState): string | null {
 export const areaUnlocked = (id: AreaId, g: GameState) => lockReason(id, g) === null;
 
 // ----------------------------------------------------------------------------- opening
-export function introScript(): Step[] {
+export function introScript(g?: GameState): Step[] {
+  const own = originIntro(originOf(g?.flags ?? {}));
+  if (own) return own;
   return [
     {
       narrate: [
@@ -131,11 +157,11 @@ export function hasNews(key: string, g: GameState): boolean {
   const f = after(g);
   switch (key) {
     case "elder":
-      return !f.metElder || (f.patriarchDefeated && !f.heartReturned);
+      return !f.metElder || (f.patriarchDefeated && !f.heartReturned && !(crimsonPath(f) && f.moBroken)) || (!!veinFate(f) && !f.elderVein && !f.ascended);
     case "qing":
       return !f.qingGift && !!f.metElder;
     case "zhou":
-      return !!f.villageSaved && !f.metZhou;
+      return !!f.villageSaved && !f.metZhou && !!f.metElder;
     case "elderPeak":
       return true;
     case "fang":
@@ -159,7 +185,9 @@ export function hasNews(key: string, g: GameState): boolean {
     case "hua":
       return !f.huaTea || (!!f.foxesCleared && !f.huaCloak);
     case "huli":
-      return !f.metHuli || (!!f.peiMet && !f.huliLetter);
+      return !f.metHuli || (!!f.peiMet && !f.huliLetter) || foxformReady(f);
+    case "xueming":
+      return !f.xueAtTomb;
     case "wen":
       return !f.metWen || (!!f.serpentKingDefeated && !g.skills.includes("swords")) || (!!f.yunTea && !f.wenReply);
     case "yun":
@@ -243,9 +271,11 @@ export function npcScript(key: string, g: GameState): Step[] {
       return [say("discipleF", pick(g, ["Keep your wrist loose and your heart still — that's what Elder Mo says.", "Bring the Heart back, Senior Sister. The spirit veins already feel thin.", "I'll guard the sect while you're gone! …Probably."]))];
     case "zhou":
       if (!f.villageSaved) return [{ emote: "zhou", icon: "!" }, say("zhou", "A cultivator! Please, the fox spirit by the bridge — it attacks anyone who crosses! Drive it off, I beg you!")];
+      if (!f.metZhou && !f.metElder)
+        return [say("zhou", "Yue'er! You drove that thing off with Hua's old practice sword? Heaven help us. …No. Heaven isn't helping. Go up the sky bridge, child, show the immortals your token, and tell them what is happening down here.")];
       if (!f.metZhou)
         return [
-          say("zhou", "You drove off the beast! Heaven has heard us at last. I am Zhou, head of Willow Creek."),
+          say("zhou", originOf(f) === "foundling" ? "Hua's Yue'er, in sect robes — well, nearly. Heaven has heard us at last, and it sent one of our own." : "You drove off the beast! Heaven has heard us at last. I am Zhou, head of Willow Creek."),
           say("zhou", "For seven nights fox spirits have come down from the Whispering Bamboo Forest. Their eyes burn red — like the moon on the night the sky turned to blood."),
           say("child", "I saw a man in red robes walking with them! He laughed, and the foxes howled…"),
           say("zhou", "Hush, Mei. …The forest lies west along the highway. I had it sealed with talismans, but you — you could find out what drives them mad."),
@@ -253,11 +283,12 @@ export function npcScript(key: string, g: GameState): Step[] {
           { mutate: (s) => setFlag({ ...s, stones: s.stones + 30 }, "metZhou") },
           { toast: "Received 30 spirit stones · The talisman seal on the bamboo forest lifts" },
         ];
+      if (crimsonPath(f)) return [{ emote: "zhou", icon: "..." }, say("zhou", "The moon's been red for weeks. The children won't go out after dark. …Forgive me, cultivator. I don't think I know you any more.")];
       return [say("zhou", f.foxesCleared ? "The foxes are quiet again. The children play by the creek. Willow Creek owes you everything." : "Take the south road down to the old highway and follow it west. The bamboo starts where the creek bends. Be careful in there.")];
     case "hua":
       if (!f.huaTea)
         return [
-          say("hua", "Come, come, child. You look pale. Drink — ginseng and snow lotus, steeped since dawn."),
+          say("hua", originOf(f) === "foundling" ? "There's my Yue'er, home already, and pale as a radish. Sit. Drink. Ginseng and snow lotus, steeped since dawn, like every morning of your life." : "Come, come, child. You look pale. Drink — ginseng and snow lotus, steeped since dawn."),
           { mutate: (s) => setFlag({ ...s, hp: stats(s).maxHp, qi: stats(s).maxQi }, "huaTea") },
           { toast: "HP and QI fully restored" },
           say("hua", "Spirit herbs glow faintly where qi pools. Pick them when you see them — they feed a cultivator's foundation."),
@@ -274,10 +305,12 @@ export function npcScript(key: string, g: GameState): Step[] {
           { toast: "Received the Wayfarer's Cloak · Press C to change your attire" },
           say("hua", "Hm. The straw hat suits you better than it ever suited him. Don't tell him I said so."),
         ];
+      if (crimsonPath(f)) return [{ anim: "hua", name: "cry", wait: true }, say("hua", originOf(f) === "foundling" ? "I raised you on bitter tea so you'd never want anything too sweet. Oh, Yue'er. What have you swallowed?" : "Your eyes are red, child. Not from crying. Sit down. Drink the tea anyway.")];
       return [say("hua", pick(g, ["Shrines, herbs and honest fights — that's how cultivators grow. Patience, child.", "My husband was a sect disciple once. He never came home from the valley in the west.", "Have some more tea. No? Then off with you!"])), { mutate: (s) => ({ ...s, hp: stats(s).maxHp }) }];
     case "liu":
       return [say("farmer", pick(g, ["The rice drinks the creek, and the creek drinks the mountain's qi. If the mountain sickens, so do we.", "Foxes trampled half my paddy. Hope you gave them a good scare.", "Fine weather. Too fine. Feels like the calm before a storm."]))];
     case "mei":
+      if (crimsonPath(f)) return [{ emote: "mei", icon: "..." }, say("child", "Granny Hua says not to look at the moon. Big Sister… is the moon yours now?")];
       if (f.heartReturned && !f["attire:festival"]) return festivalScript();
       if (f.heartReturned)
         return [{ emote: "mei", icon: "heart" }, say("child", pick(g, ["You look like a lantern! A pretty one!", "Granny says the Heart made the rice green overnight. I checked. It's true!", "Watch the sky! Head Zhou bought ALL the fireworks."]))];
@@ -308,6 +341,18 @@ export function npcScript(key: string, g: GameState): Step[] {
           say("huli", "The Moon-Gazing Pavilion. Of course it's there. Go ahead of me, little sister. A fox needs a moment to tidy her tails."),
           { mutate: (s) => setFlag(s, "huliLetter") },
           { toast: "Hu Li will meet you at the Moon-Gazing Pavilion" },
+        ];
+      if (foxformReady(f))
+        return [
+          { emote: "huli", icon: "heart" },
+          say("huli", "Little sister. The Blood Moon is gone, and Pei is at peace, and I find there is one thing left I want to give away."),
+          say("huli", "Three hundred years ago a fox taught a scholar to read the moon. Tonight a fox will teach a cultivator to wear one. Hold still. It tickles."),
+          { anim: "huli", name: "cast", wait: true },
+          { flash: "#ffe0a0" },
+          { mutate: (s) => setFlag(giveAttire(s, "foxform"), "huliSister") },
+          { anim: "hero", name: "twirl", wait: true },
+          { toast: "Received the Nine-Tailed Form · Hu Li calls you sister" },
+          say("huli", "Nine tails! I only have three. …I am not jealous. I am three hundred years old and not at all jealous."),
         ];
       if (f.peiAtRest) return [say("huli", pick(g, ["I go to the pavilion on clear nights. The moon is the same moon. He was right about that.", "Wear the dress when you need courage. Fox-fire never goes out — it only waits.", "The kits ask why I smile now. I tell them a scholar finally finished his homework."]))];
       return [say("huli", pick(g, ["The grove breathes easier. Thank you.", "Xue was a gentle boy once, they say. Power is a hungry thing.", "Visit the shrine by the stream. Its qi is sweet."]))];
@@ -553,6 +598,17 @@ export function npcScript(key: string, g: GameState): Step[] {
       ])), { anim: "ming", name: "pray" }];
     case "ou":
       return smithScript(g);
+    case "xueming":
+      if (!f.xueAtTomb)
+        return [
+          { anim: "xueming", name: "plantsword", wait: true },
+          named("patriarch", "Xue Ming", "Ou put me to work the morning I arrived. Three hundred and twelve swords to oil, and he says I'm doing it wrong."),
+          named("patriarch", "Xue Ming", "Mo came down the sky bridge last week. He didn't say anything. He sat on that rock and watched me oil swords for an hour, and then he went home. It was the best conversation we've had in forty years."),
+          { mutate: (s) => setFlag(gainCultivation(s, Math.round(cultivationNeeded(s.realm, s.stage) * 0.4)).state, "xueAtTomb") },
+          named("patriarch", "Xue Ming", "Here. The one true thing the Blood Moon taught me: power you take is a debt. Power you're given is a road. Walk yours."),
+          { toast: "Xue Ming's last teaching · Cultivation rises" },
+        ];
+      return [named("patriarch", "Xue Ming", pick(g, ["Dawnfrost is at the top of the hill. Ou says it's the first sword on the hill whose owner came back for it.", "I carved a new name in the willow at Willow Creek. Underneath Mo's. He'll be furious.", "If you see a Blood Moon acolyte on the roads, send them here. There are more swords than one old fool can oil.", "Heaven never opened its door for me. It turns out I was knocking on the wrong one."])), { anim: "xueming", name: "sweep" }];
     case "pei":
       return peiScript(g);
     case "huliPav":
@@ -798,6 +854,9 @@ export function npcScript(key: string, g: GameState): Step[] {
   }
 }
 
+/** Hu Li has one more gift once Pei is at rest and the Blood Moon is over (and not if the blood moon now rises for Lin Yue). */
+const foxformReady = (f: Record<string, boolean>) => !!f.peiAtRest && !!f.patriarchDefeated && !f["attire:foxform"] && !crimsonPath(f);
+
 /** Dawnfrost lay on Xue's altar: whoever beat him has it (saves from before the smith knew of it included). */
 const hasDawnfrost = (f: Record<string, boolean>) => !!(f.dawnfrost || f.patriarchDefeated);
 
@@ -814,19 +873,21 @@ function smithScript(g: GameState): Step[] {
       { mutate: (s) => setFlag({ ...s, pills: { ...s.pills, heal: Math.min(99, s.pills.heal + 1) } }, "ouMet") },
       ...(hasDawnfrost(f) ? [] : [{ toast: "Received a Healing Pill · Smith Ou asks you to find Dawnfrost" }, { anim: "ou", name: "hammer" } as Step]),
       // she already carries it: the valley is behind her
-      ...(hasDawnfrost(f) && !f.ouMail ? dawnfrostHome() : []),
+      ...(hasDawnfrost(f) && !f.ouMail ? dawnfrostHome(f) : []),
     ];
-  if (hasDawnfrost(f) && !f.ouMail) return dawnfrostHome();
+  if (hasDawnfrost(f) && !f.ouMail) return dawnfrostHome(f);
   return smithTalk(g);
 }
 
-function dawnfrostHome(): Step[] {
+function dawnfrostHome(f: Record<string, boolean>): Step[] {
+  // talked home, Xue Ming gave it to her himself (and is coming up the hill behind her)
+  const given = !!f.xueRedeemed;
   return [
-    say("heroine", "Master Ou. It was on his altar, under the Heart. Dawnfrost."),
+    say("heroine", given ? "Master Ou. He gave it to me himself, at his altar. Dawnfrost. He said to tell you he's glad he never drew it." : "Master Ou. It was on his altar, under the Heart. Dawnfrost."),
     { emote: "ou", icon: "..." },
     { wait: 0.8 },
     say("smith", "…Not a nick on it. He never used it on anyone. Forty years a demon and he never once drew the sword I made him."),
-    say("smith", "That's something. That's not nothing."),
+    say("smith", given ? "Glad. Hmph. The boy always did have to have the last word. …If he comes up this hill, I'll hand him an oil rag and say nothing. That's how we did it, him and me." : "That's something. That's not nothing."),
     { anim: "ou", name: "salute", wait: true },
     say("smith", "It goes at the top, upright. Like it was always meant to. …And you'll take this. I made it for no one, out of the swords' broken tips. It's been waiting for someone who could bring one home."),
     { flash: "#dfe8f4" },
@@ -906,40 +967,58 @@ export function festivalScript(): Step[] {
 
 function elderScript(g: GameState): Step[] {
   const f = g.flags;
-  if (!f.metElder)
+  if (!f.metElder) return originElderMeeting(g, elderGifts()) ?? discipleBriefing();
+  const heart = elderHeartScript(g);
+  if (heart) return heart;
+  if (f.patriarchDefeated && !f.heartReturned)
     return [
+      { emote: "elder", icon: "!" },
+      say("heroine", "Master. The Jade Lotus Heart."),
+      { anim: "hero", name: "offer", wait: true },
+      { flash: "#ffd0e4" },
+      say("elder", "…It blooms. In your hands, it blooms. Xue spent his life trying to force heaven's door, and you simply walked through it."),
+      ...(f.metWen ? [say("heroine", "Old Fisher Wen asked me to tell you: his old teacher still fishes."), { emote: "elder", icon: "..." } as Step, say("elder", "Master Wen… alive. Hah. Heaven has a sense of humour after all.")] : []),
+      ...(f.xueRedeemed ? [say("heroine", "And Xue Ming laid it down himself, Master. He's gone to Smith Ou's hill. He remembers the willow."), { anim: "elder", name: "cry", wait: true } as Step, say("elder", "…The willow. Forty years, and he remembers the willow.")] : []),
+      say("elder", "The Heart will restore the spirit veins. But it chose you, Lin Yue. Cross the sky bridge behind this hall to Heavenly Tribulation Peak. There, at the peak of Spirit Severing, you may ascend."),
+      { mutate: (s) => setFlag({ ...s, stones: s.stones + 200, pills: { heal: Math.min(99, s.pills.heal + 3), qi: Math.min(99, s.pills.qi + 3) } }, "heartReturned") },
+      { toast: "Received 200 spirit stones and 6 pills · The sky bridge behind the Hall of Clouds opens" },
+    ];
+  if (f.moBroken)
+    return [{ anim: "elder", name: "sweep" }, say("elder", pick(g, ["The marble remembers. So do I. Go on, Lin Yue. There is nothing here you need.", "A mortal broom is heavier than a whisk. Who knew.", f.ascended ? "The moon is red every night now. I sweep by its light." : "Heaven's door is up there. You have the key you made. Use it."]))];
+  if (f.ascended) return [say("elder", { ascension: "The sect's founder was the last to ascend, a thousand years ago. Now there are two names on the stele. I am proud of you.", rooted: "Two names on the stele, and a lotus in the valley. The founder would have laughed out loud.", guardian: "You came back down. Of course you did. The jianghu is luckier than it knows.", mortal: "A teacher in Willow Creek. Hua sends me her tea every month. It is unbearably bitter. I drink every drop.", crimson: "…" }[endingOf(f) ?? "ascension"])];
+  return elderTalk(g);
+}
+
+/** The Sword Riding, the whistle and the counsel Elder Mo gives every beginning. */
+function elderGifts(): Step[] {
+  return [
+    { anim: "elder", name: "cast", wait: true },
+    { flash: "#9ff5de" },
+    { mutate: (s) => setFlag(s, "metElder") },
+    { toast: "Learned: Sword Riding (F) · Cloudmane's Whistle (R) · Willow Creek Village is open" },
+    say("elder", "The art of Sword Riding. Press F to ride your blade. Below the sect gate a sky bridge leads down to the mortal lands, and with M your sword can carry you to any land you have opened."),
+    say("elder", "And take this jade whistle. The jianghu is wide, and the roads are long. Blow it (R) and Cloudmane will come down out of the clouds to carry you — no beast on the road can catch her at a gallop."),
+    say("elder", "Your cultivation is still shallow. Gather herbs, defeat corrupted beasts and meditate at lotus shrines. When your qi overflows at a realm's peak, face the Heavenly Tribulation."),
+  ];
+}
+
+function discipleBriefing(): Step[] {
+  return [
       { face: "elder", to: "hero" },
       say("elder", "Lin Yue. You heard the bells."),
       say("heroine", "The shrine is empty, Master. Who would dare—"),
       say("elder", "The Blood Moon Sect. Their Patriarch, Xue, was once my sworn brother… before he chose the demonic path."),
       say("elder", "Without the Heart, the spirit veins of the land wither. Beasts go mad. Mortals suffer."),
       say("elder", "Word came at dawn from Willow Creek Village below: fox spirits attacking in the night. Start there. The trail of corrupted qi will lead you to Xue."),
-      { anim: "elder", name: "cast", wait: true },
-      { flash: "#9ff5de" },
-      { mutate: (s) => setFlag(s, "metElder") },
-      { toast: "Learned: Sword Riding (F) · Cloudmane's Whistle (R) · Willow Creek Village is open" },
-      say("elder", "The art of Sword Riding. Press F to ride your blade. Below the sect gate a sky bridge leads down to the mortal lands, and with M your sword can carry you to any land you have opened."),
-      say("elder", "And take this jade whistle. The jianghu is wide, and the roads are long. Blow it (R) and Cloudmane will come down out of the clouds to carry you — no beast on the road can catch her at a gallop."),
-      say("elder", "Your cultivation is still shallow. Gather herbs, defeat corrupted beasts and meditate at lotus shrines. When your qi overflows at a realm's peak, face the Heavenly Tribulation."),
+      ...elderGifts(),
       { anim: "hero", name: "bow", wait: true },
       say("heroine", "I will bring the Heart home, Master."),
       say("elder", "Go. And Lin Yue — come back alive."),
     ];
-  if (f.patriarchDefeated && !f.heartReturned)
-    return [
-      { emote: "elder", icon: "!" },
-      say("heroine", "Master. The Jade Lotus Heart."),
-      { anim: "hero", name: "cast", wait: true },
-      { flash: "#ffd0e4" },
-      say("elder", "…It blooms. In your hands, it blooms. Xue spent his life trying to force heaven's door, and you simply walked through it."),
-      say("heroine", "Old Fisher Wen asked me to tell you: his old teacher still fishes."),
-      { emote: "elder", icon: "..." },
-      say("elder", "Master Wen… alive. Hah. Heaven has a sense of humour after all."),
-      say("elder", "The Heart will restore the spirit veins. But it chose you, Lin Yue. Cross the sky bridge behind this hall to Heavenly Tribulation Peak. There, at the peak of Spirit Severing, you may ascend."),
-      { mutate: (s) => setFlag({ ...s, stones: s.stones + 200, pills: { heal: Math.min(99, s.pills.heal + 3), qi: Math.min(99, s.pills.qi + 3) } }, "heartReturned") },
-      { toast: "Received 200 spirit stones and 6 pills · The sky bridge behind the Hall of Clouds opens" },
-    ];
-  if (f.ascended) return [say("elder", "The sect's founder was the last to ascend, a thousand years ago. Now there are two names on the stele. I am proud of you.")];
+}
+
+function elderTalk(g: GameState): Step[] {
+  const f = g.flags;
   const fate = veinFate(f);
   if (fate && !f.elderVein)
     return [
@@ -948,7 +1027,7 @@ function elderScript(g: GameState): Step[] {
       { mutate: (s) => setFlag(s, "elderVein") },
     ];
   if (!f.villageSaved) return [say("elder", "Willow Creek lies below the clouds. Go out through the sect gate and down the sky bridge.")];
-  if (f.patriarchDefeated) return [say("elder", "Heavenly Tribulation Peak awaits.")];
+  if (f.patriarchDefeated) return [say("elder", f.purged ? "Your foundation will grow back. Foundations do. Climb again, slowly this time." : "Heavenly Tribulation Peak awaits.")];
   if (g.realm >= 1 && f.serpentKingDefeated) return [say("elder", "Foundation Establishment already… Then go. Xue waits in his valley. Do not hesitate when the moment comes.")];
   return [say("elder", "Follow the corrupted qi. And do not neglect your cultivation — Xue's power is deep.")];
 }
@@ -999,32 +1078,8 @@ export function arrivalScript(area: AreaId, g: GameState): Step[] | null {
 }
 
 /** Dialogue before special fights. */
-export function preBattleScript(enemy: EnemyId, key: string): Step[] | null {
-  if (enemy === "patriarch")
-    return [
-      { face: "hero", to: key },
-      say("patriarch", "Mo sends a child to fetch his flower? How very like him."),
-      say("heroine", "Return the Jade Lotus Heart, Patriarch Xue."),
-      say("patriarch", "That 'flower' lets heaven decide who may ascend. I merely… remove heaven's veto."),
-      {
-        choose: [
-          {
-            label: "Offer him a way back",
-            hint: "He was once a boy from Willow Creek",
-            then: [
-              say("heroine", "Smith Ou still keeps your sword on his hill. Elder Mo still calls you brother. Give back the Heart and come home, Xue Ming."),
-              { emote: key, icon: "..." },
-              say("patriarch", "…Nobody has called me that in forty years. Too late, little lotus. Far too late."),
-              { mutate: (s) => setFlag(s, "xueOffered") },
-            ],
-          },
-          { label: "Draw your sword", hint: "There is nothing left to say", then: [{ anim: "hero", name: "salute", wait: true }, say("heroine", "Then let it be decided.")] },
-        ],
-        prompt: "Patriarch Xue waits, the blood moon behind him.",
-      },
-      { shake: 0.6 },
-      say("patriarch", "Come then, little lotus! Let the blood moon judge us!"),
-    ];
+export function preBattleScript(enemy: EnemyId, key: string, g?: GameState): Step[] | null {
+  if (enemy === "patriarch") return xueConfrontation(g ?? newGame(), key);
   const sect = sectPreBattle(enemy);
   if (sect) return sect;
   if (enemy === "serpentKing") return [{ shake: 0.4 }, say("heroine", "The Serpent King… its scales are veined with Xue's crimson qi. Forgive me — I'll purge it!")];
@@ -1052,8 +1107,11 @@ export function victoryScript(enemy: EnemyId, key: string, area: AreaId, g: Game
     if (n === 3) steps.push({ mutate: (s) => setFlag({ ...s, stones: s.stones + 40 }, "banditsRouted") }, say("heroine", "That's the last of their leaders. The east road should be safe for travellers now."), { toast: "The highland bandits scatter · Found 40 spirit stones in their camp" });
   }
   if (key === "village-fox") {
-    steps.push({ mutate: (s) => setFlag(s, "villageSaved") }, { emote: "hero", icon: "..." }, say("heroine", "It fled into the west, toward the forest. Its eyes cleared just before it ran…"), { toast: "Speak with Village Head Zhou" });
+    steps.push({ mutate: (s) => setFlag(s, "villageSaved") }, { emote: "hero", icon: "..." }, say("heroine", "It fled into the west, toward the forest. Its eyes cleared just before it ran…"));
+    if (g.flags.metElder) steps.push({ toast: "Speak with Village Head Zhou" });
+    else steps.push(say("heroine", "Red eyes, a red moon… This is beyond Granny's practice sword. It's time I climbed the sky bridge."), { toast: "Climb the sky bridge north of the village to the Azure Cloud Sect" });
   }
+  if (enemy === "elderMo") return won ? elderMoVictory() : [];
   if (enemy === "fox" && area === "bamboo" && !g.flags.foxesCleared) {
     const n = (g.counters.foxes ?? 0) + 1;
     steps.push({ mutate: (s) => bump(s, "foxes") });
@@ -1072,26 +1130,26 @@ export function victoryScript(enemy: EnemyId, key: string, area: AreaId, g: Game
   if (enemy === "patriarch")
     steps.push(
       { mutate: (s) => setFlag({ ...s, bossDefeated: true }, "patriarchDefeated") },
-      say("patriarch", "Impossible… heaven chose… a child of Foundation…"),
+      say("patriarch", `Impossible… heaven chose… a child of ${REALMS[g.realm]?.name ?? "Foundation"}…`),
       ...(g.flags.xueOffered
         ? [say("patriarch", "You offered… you actually offered. Tell Ou… I never drew it. Tell Mo… his brother came home… a little."), { mutate: (s: GameState) => setFlag(s, "xueForgiven") }]
         : [say("patriarch", "Mo… you were right about the Dao… after all…")]),
       { flash: "#ff2040" },
       { shake: 0.8 },
       say("narrator", "Patriarch Xue dissolves into crimson mist. Upon the altar, a lotus of pure jade light opens its petals."),
-      { toast: "Obtained the Jade Lotus Heart · Return to Elder Mo" },
       ...(g.flags.ouMet
         ? [say("narrator", "Beneath the Heart lies a plain sword in a dusty scabbard, bright as the first frost on the paddies. Its blade has never been drawn in anger."), { mutate: (s: GameState) => setFlag(s, "dawnfrost") }, { toast: "Found Dawnfrost · Bring it to Smith Ou" }]
         : [{ mutate: (s: GameState) => setFlag(s, "dawnfrost") }]),
+      ...heartFateChoice(),
     );
   return steps;
 }
 
 // ----------------------------------------------------------------------------- the final altar
 export function altarScript(g: GameState): Step[] {
-  if (!g.flags.heartReturned) return [say("narrator", "The dais is cold and silent.")];
+  if (!g.flags.heartReturned && !g.flags.moBroken) return [say("narrator", "The dais is cold and silent.")];
   if (g.flags.ascended) return [say("narrator", "Lightning-scarred marble hums faintly beneath your feet."), { meditate: true }];
-  if (g.realm === FINAL_REALM - 1 && atBottleneck(g)) return [say("heroine", "My qi has reached its limit. It's time."), { meditate: true }];
+  if (g.realm === FINAL_REALM - 1 && atBottleneck(g)) return [say("heroine", crimsonPath(g.flags) ? "Heaven, open your door. Or I will open it for you." : "My qi has reached its limit. It's time."), { meditate: true }];
   return [say("narrator", `The taiji dais hums. Meditating here gathers qi three times faster. (${realmLabel(g.realm, g.stage)} — the final tribulation requires the peak of Spirit Severing.)`), { meditate: true }];
 }
 
@@ -1099,20 +1157,16 @@ export function endingScript(g?: GameState): Step[] {
   const f = g?.flags ?? {};
   const vein = veinEpilogue(f);
   const year = yearEpilogue(f);
-  return [
-    { mutate: (s) => setFlag(giveAttire(s, "celestial"), "ascended") },
-    {
-      narrate: [
-        "Nine bolts fell upon Heavenly Tribulation Peak, and nine times Lin Yue stood.",
-        "The storm parted. A stair of white light descended from the ninth heaven.",
-        "Below, the spirit veins sang. Rice grew green in Willow Creek; fox kits played in the bamboo; an old man on a lake caught a fish made of moonlight.",
-        ...(vein ? [vein] : []),
-        ...(year ? [year] : []),
-        ...(f.xueForgiven ? ["On a hill in the westwood, beside a sword that was never drawn, someone left a cup of tea for Xue Ming. It was still warm."] : []),
-        "So ends the tale of the Jade Lotus Ascension — and so begins the tale of an immortal.",
-      ],
-    },
-    { fade: "in" },
-    { toast: "THE END · Thank you for playing" },
+  const origin = originEpilogue(f);
+  const epilogue = [
+    ...(vein ? [vein] : []),
+    ...(year ? [year] : []),
+    ...(f.xueRedeemed
+      ? ["On a hill in the westwood, an old man in an outer-sect robe oiled three hundred and twelve swords every morning, and on clear evenings a white-haired elder came down from the clouds to sit beside him and say nothing at all."]
+      : f.xueForgiven
+        ? ["On a hill in the westwood, beside a sword that was never drawn, someone left a cup of tea for Xue Ming. It was still warm."]
+        : []),
+    ...(origin ? [origin] : []),
   ];
+  return endingSteps(g ?? newGame(), epilogue);
 }

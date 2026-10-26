@@ -120,7 +120,23 @@ export interface AreaDef {
   critters?: Critter[];
   /** Changes the story makes to the land (see world/terrain.ts). */
   patches?: TerrainPatch[];
+  /** The story can change a region's sky as well as its ground (the blood moon lifting, or spreading). */
+  mood?: (flags: Record<string, boolean>) => Mood | undefined;
 }
+
+export type Mood = Partial<Pick<AreaDef, "sky" | "weather" | "night" | "tint">>;
+
+/** A region as the story has left it: its own sky, or the one the story gave it. */
+export function moodOf<T extends AreaDef>(d: T, flags: Record<string, boolean>): T {
+  const m = d.mood?.(flags);
+  return m ? { ...d, ...m } : d;
+}
+
+/** Whether the blood moon still hangs over the Crimson Demon Valley (Xue not talked home, the Heart not planted there). */
+const bloodMoonUp = (f: Record<string, boolean>) => !f.xueRedeemed && !f["heart:planted"];
+
+/** The blood moon she drank rises over the lands nearest the valley, until Elder Mo draws it out of her. */
+const bloodMoon = (f: Record<string, boolean>): Mood | undefined => (f["heart:devoured"] && !f.purged ? { sky: "blood", weather: "embers", night: 0.42, tint: "#a01020" } : undefined);
 
 const P = (id: PropId, i: number, j: number): PropPlacement => ({ id, i, j });
 
@@ -210,6 +226,8 @@ function buildSect(): AreaDef {
   scatter(m, props, "tallgrass", 0.06, 12, (i, j) => (m.kind(i, j) === "grass" || m.kind(i, j) === "meadow") && notNear([[15, 22]], 2)(i, j));
   return {
     id: "sect",
+    // the hall where Elder Mo fell keeps a storm over it
+    mood: (f) => (f.moBroken ? { sky: "storm", weather: "none", night: 0.3, tint: "#5a4a7a" } : undefined),
     name: "Azure Cloud Sect",
     hanzi: "青云宗",
     subtitle: "Floating peaks above the sea of clouds",
@@ -222,7 +240,8 @@ function buildSect(): AreaDef {
     arrive: [15.5, 25.5],
     props,
     npcs: [
-      { key: "elder", char: "elder", i: 15, j: 9, dir: 0 },
+      // broken on the crimson path, he stays: an old man in grey, sweeping the scorched marble
+      { key: "elder", char: "elder", i: 15, j: 9, dir: 0, outfit: (f) => (f.moBroken ? "broken" : undefined) },
       { key: "qing", char: "qing", i: 20, j: 12, dir: 1, anim: "idle" },
       { key: "abao", char: "abao", i: 13, j: 15, dir: 2, wander: 2 },
       { key: "feng", char: "discipleM", i: 7, j: 21, dir: 12, anim: "practice" },
@@ -349,6 +368,7 @@ function buildVillage(): AreaDef {
   scatter(m, props, "tallgrass", 0.05, 22, (i, j) => m.kind(i, j) === "grass" && notNear([[16, 16]], 3)(i, j));
   return {
     id: "village",
+    mood: bloodMoon,
     name: "Willow Creek Village",
     hanzi: "柳溪村",
     subtitle: "Mortal farmland at the foot of the mountains",
@@ -373,7 +393,8 @@ function buildVillage(): AreaDef {
       { key: "almanac", char: "almanac", i: 18, j: 7, dir: 1, anim: "read" },
     ],
     enemies: [
-      { key: "village-fox", enemy: "fox", i: 16, j: 22, range: 1.5, when: (f) => !!f.metElder && !f.villageSaved },
+      // Granny Hua's foundling meets it on the first night, before she has ever been up to the sect
+      { key: "village-fox", enemy: "fox", i: 16, j: 22, range: 1.5, when: (f) => (!!f.metElder || !!f["origin:foundling"]) && !f.villageSaved },
     ],
     interacts: [
       { key: "village-exit", kind: "exit", i: 16, j: 31 },
@@ -435,6 +456,7 @@ function buildBamboo(): AreaDef {
   scatter(m, props, ["rock", "tallgrass", "reeds"], 0.25, 32, (i, j) => m.kind(i, j) === "leaf" && notNear(clear, 2.4)(i, j) && !route.some((_, n) => n > 0 && distToSeg([i, j], route[n - 1], route[n]) < 1.6));
   return {
     id: "bamboo",
+    mood: bloodMoon,
     name: "Whispering Bamboo Forest",
     hanzi: "竹林",
     subtitle: "Where the wind speaks and fox spirits wander",
@@ -606,6 +628,8 @@ function buildValley(): AreaDef {
   });
   return {
     id: "valley",
+    // the blood moon sets once Xue is talked home or the Heart takes root in the valley
+    mood: (f) => (f["heart:planted"] ? { sky: "day", weather: "petals", night: 0.05, tint: "#9ff5de" } : f.xueRedeemed ? { sky: "dusk", weather: "fireflies", night: 0.25, tint: "#ff9a5a" } : undefined),
     name: "Crimson Demon Valley",
     hanzi: "血魔谷",
     subtitle: "Stronghold of the Blood Moon Sect",
@@ -620,10 +644,11 @@ function buildValley(): AreaDef {
     props,
     npcs: [],
     enemies: [
+      // once the blood moon sets over the valley, most of its acolytes and its dead go home (a few stragglers linger by the road)
       { key: "cultist-a", enemy: "cultist", i: 9, j: 22, range: 1.5 },
       { key: "jiangshi-a", enemy: "jiangshi", i: 15, j: 21, range: 2 },
-      { key: "cultist-b", enemy: "cultist", i: 18, j: 13, range: 1.5 },
-      { key: "jiangshi-b", enemy: "jiangshi", i: 24, j: 15, range: 2 },
+      { key: "cultist-b", enemy: "cultist", i: 18, j: 13, range: 1.5, when: bloodMoonUp },
+      { key: "jiangshi-b", enemy: "jiangshi", i: 24, j: 15, range: 2, when: bloodMoonUp },
       { key: "wolf-v", enemy: "wolf", i: 12, j: 27, range: 2 },
       { key: "patriarch", enemy: "patriarch", i: 25, j: 6, range: 0, when: (f) => !f.patriarchDefeated },
     ],

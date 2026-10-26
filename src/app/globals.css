@@ -1026,3 +1026,72 @@ button {
 .wardrobe > .btn {
   align-self: flex-end;
 }
+
+/* the title screen's choice of beginning */
+.origins {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(980px, 94vw);
+  max-height: 92dvh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 5;
+}
+.origins h2 {
+  margin: 0;
+  color: var(--gold);
+  font-size: clamp(16px, 2vw, 22px);
+}
+.origins h2 small {
+  display: block;
+  color: var(--muted);
+  font-weight: 400;
+  font-size: 0.7em;
+}
+.origins ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 10px;
+}
+.origins li .btn {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.origin-figure {
+  width: 140px;
+  height: 150px;
+  flex: none;
+  image-rendering: pixelated;
+}
+.origin-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.origin-text b .cn {
+  color: var(--gold);
+  font-weight: 400;
+}
+.origin-text em {
+  font-style: normal;
+  color: var(--ink);
+  font-size: 0.9em;
+}
+.origin-text .perks small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.78em;
+}
+.origins > .btn {
+  align-self: flex-end;
+}

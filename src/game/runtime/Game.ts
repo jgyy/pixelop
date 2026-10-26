@@ -71,6 +71,8 @@ export interface UiSnapshot {
   calendar: { season: Season; seasonName: string; hanzi: string; colour: string; day: number; hour: number; phase: string; label: string };
   toasts: { id: number; text: string }[];
   canSkip: boolean;
+  /** Who is selling, while the pill shop is open. */
+  shopKeeper: string | null;
 }
 
 const MOVE_KEYS: Record<string, [number, number]> = {
@@ -159,6 +161,8 @@ export class Game {
   private returnMode: Mode = "explore";
   /** The room she is standing in, and the open world waiting outside it. */
   private interior: { def: InteriorDef; outdoor: World } | null = null;
+  /** Whoever last spoke in a scene: a shop that opens belongs to them. */
+  private lastSpeaker: string | null = null;
 
   constructor(state: GameState, opts: { intro?: boolean; seed?: number } = {}) {
     this.state = state;
@@ -171,7 +175,7 @@ export class Game {
     this.showBanner();
     if (opts.intro) {
       this.fade = 1;
-      this.play(introScript());
+      this.play(introScript(this.state));
     }
   }
 
@@ -814,6 +818,7 @@ export class Game {
         // the portrait wears what the speaker is wearing
         const outfit = step.say === "heroine" ? currentAttire(this.state).id : actor?.outfit;
         this.dialog = { speaker, portrait, ...(outfit && { outfit }), text: step.text, seq: ++this.seq };
+        if (step.say !== "heroine" && speaker) this.lastSpeaker = speaker;
         if (actor && actor.kind === "npc" && !SEATED.has(actor.idleAnim) && charDef(actor.char).anims.includes("talk") && !actor.holdUntil) {
           this.world.setAnim(actor, "talk", this.clock);
           const back = actor;
@@ -946,6 +951,12 @@ export class Game {
         this.endRunner();
         this.beginMeditation();
         return;
+      }
+      if ("end" in step) {
+        r.i = r.steps.length;
+        // the fight it skips would have taken the scene's invulnerability off again
+        this.invulnerableUntil = this.clock + 2.2;
+        continue;
       }
       if ("reshape" in step) {
         this.world.syncPopulation(this.state.flags);
@@ -1246,7 +1257,7 @@ export class Game {
     const touched = w.update(dt, this.clock, h.flying === true || this.clock < this.invulnerableUntil, true);
     if (touched && touched.enemy) {
       this.tapTarget = null;
-      const pre = preBattleScript(touched.enemy, touched.key);
+      const pre = preBattleScript(touched.enemy, touched.key, this.state);
       if (pre) {
         this.invulnerableUntil = this.clock + 999;
         this.play([...pre, { battle: touched.enemy, key: touched.key }]);
@@ -1793,6 +1804,7 @@ export class Game {
         : null,
       toasts: this.toasts.map(({ id, text }) => ({ id, text })),
       canSkip: this.mode === "scene",
+      shopKeeper: this.mode === "shop" ? this.lastSpeaker : null,
     };
   }
 }
