@@ -29,6 +29,8 @@ export type Step =
   | { mutate: (g: GameState) => GameState }
   | { shop: true }
   | { meditate: true }
+  /** Call heaven's lightning down on her where she sits (after the heart demon trial). */
+  | { tribulation: true }
   | { travel: true }
   /** Lay the story's changes to the land down at once (with dust and a tremor if she can see them). */
   | { reshape: true }

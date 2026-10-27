@@ -126,8 +126,13 @@ export function GameView({ initial, intro, onQuit }: { initial: GameState; intro
             </div>
             <div className={`bar cult${ui.bottleneck ? " full" : ""}`}>
               <i style={{ width: pct(s.cultivation, ui.cultivationNeeded) }} />
-              <span>{ui.bottleneck ? "BOTTLENECK · face the tribulation" : `Cultivation ${s.cultivation}/${ui.cultivationNeeded}`}</span>
+              <span>{ui.bottleneck ? (ui.blocked ? "BOTTLENECK · not yet ready" : "BOTTLENECK · face the tribulation") : `Cultivation ${s.cultivation}/${ui.cultivationNeeded}`}</span>
             </div>
+            {ui.condition.label && (
+              <div className="condition" data-testid="condition" title={ui.blocked ?? undefined}>
+                ⚠ {ui.condition.label}
+              </div>
+            )}
           </div>
         )}
 
@@ -424,6 +429,37 @@ function JournalPanel({ journal, ui, game, onClose }: { journal: NonNullable<UiS
               ))}
             </ul>
           )}
+        </section>
+      )}
+      {ui.condition.journal && (
+        <section data-testid="journal-cultivation">
+          <h4>☵ Cultivation · {ui.realm}</h4>
+          <p className="muted">
+            Qi kept: {ui.condition.journal.rate}% of what you draw in
+            {ui.condition.journal.fails > 0 ? ` · Tribulations failed: ${ui.condition.journal.fails}` : ""}
+          </p>
+          <ul className="daos cultivation">
+            {(
+              [
+                ["丹毒", "Pill poison", ui.condition.journal.toxicity, 100, "#c8e05a", "Every pill leaves some. Meditation burns it off; herbalists draw it out. At 80 your qi runs wild."],
+                ["心魔", "Heart demons", ui.condition.journal.demons, 100, "#ff6a8a", "Fed by slaughter and failure. Meditation quiets a few; monks, friends and lamps quiet the rest. Heaven's lightning finds every one."],
+                ["根基", "Cracked foundation", ui.condition.journal.wound, 100, "#b8a4ff", "Left by a failed tribulation. Halves the qi you keep, and heaven will not test you until it mends."],
+                ["悟", "Insight", ui.condition.journal.insight, Math.max(1, ui.condition.journal.insightNeeded), "#f2c55c", `Needed to break out of ${ui.condition.journal.realmName}: ${ui.condition.journal.insightNeeded}. Steles, masters' pointers, new shrines and long sittings at the bottleneck.`],
+              ] as const
+            ).map(([cn, name, v, max, colour, tip]) => (
+              <li key={cn} title={tip}>
+                <span className="cn" style={{ color: colour }}>
+                  {cn}
+                </span>{" "}
+                {name}
+                <i className="daobar" aria-hidden>
+                  <i style={{ width: `${Math.min(100, (v / max) * 100)}%`, background: colour }} />
+                </i>
+                <b>{cn === "悟" ? `${v}/${ui.condition.journal!.insightNeeded}` : v}</b>
+              </li>
+            ))}
+          </ul>
+          {ui.condition.journal.block && <p className="muted">{ui.condition.journal.block}</p>}
         </section>
       )}
       {ui.dao.paths && (

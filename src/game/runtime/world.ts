@@ -327,6 +327,13 @@ export class World {
 
   /** Clock time the land last changed in view (the game shakes the screen for it). */
   quakeAt = -99;
+  /**
+   * How the folk take the heroine as she passes: her realm (from Core
+   * Formation on, they bow rather than wave) and whether her heart demons
+   * show (then some of them shrink back instead).
+   */
+  heroRealm = 0;
+  heroDread = false;
 
   /** Story flags plus what the hour and the year add: `season:<name>`, `night` and `raining`. */
   withEnv(flags: Record<string, boolean>): Record<string, boolean> {
@@ -686,7 +693,13 @@ export class World {
         if (!a.greeted && d < 2.2) {
           a.greeted = true;
           a.rest = Math.max(a.rest, 2.5);
-          if (charDef(a.char).anims.includes("wave") && !a.holdUntil) this.setAnim(a, "wave", t, true);
+          const anims = charDef(a.char).anims;
+          const shy = this.heroDread && hash2(keyHash(a.key), 3, 17) < 0.5;
+          if (shy) a.emote = { icon: "...", until: t + 1.4 };
+          else if (this.heroRealm >= 2 && anims.includes("bow") && !a.holdUntil) {
+            this.setAnim(a, "bow", t, true);
+            if (this.heroRealm >= 3 && hash2(keyHash(a.key), this.heroRealm, 18) < 0.35) a.emote = { icon: "!", until: t + 1.2 };
+          } else if (anims.includes("wave") && !a.holdUntil) this.setAnim(a, "wave", t, true);
         }
         continue;
       }

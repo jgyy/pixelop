@@ -23,6 +23,8 @@ import { altarScript, areaUnlocked, arrivalScript, endingScript, errand, hasNews
 import { BattleScene } from "./battle";
 import { currentWar, daoJournal, daoLabel, warBreath, warChronicle, warCultivated, warDone, warHasNews, warHunt, warLandmark, warLog, warTalk, WAR_COUNT } from "../story/war";
 import { daoAside, daoHasNews } from "../story/dao";
+import { aweAside, conditionAside, cultivationHasNews, heartDemonTrial, pointerAside, realmAside, trialDue } from "../story/cultivation";
+import { boltDamage, breathGain, conditionJournal, conditionLabel, CULT, failTribulation, foundationWound, heartDemons, insight, insightNeeded, passTribulation, shift, tendBreath, toxicity, tribulationBlock } from "../engine/cultivation";
 import { DAOS, dominantDao } from "../engine/dao";
 import { dirFrom, syncTerrain, World, type Actor } from "./world";
 import { WorldMap } from "./worldmap";
@@ -38,6 +40,8 @@ export interface UiSnapshot {
   realmColour: string;
   cultivationNeeded: number;
   bottleneck: boolean;
+  /** At the bottleneck, why heaven will not yet test her (null when she may face it). */
+  blocked: string | null;
   area: { id: AreaId; name: string; hanzi: string; subtitle: string };
   prompt: string | null;
   flying: boolean;
@@ -72,6 +76,8 @@ export interface UiSnapshot {
   warFronts: { front: string; hanzi: string; state: "waiting" | "burning" | "freed"; scar: string | null }[] | null;
   /** The Dao she walks: its name and depth (null while none leads), and every Dao's weight in her heart (in the journal). */
   dao: { label: string | null; colour: string | null; creed: string | null; paths: { id: string; name: string; hanzi: string; colour: string; points: number; creed: string; gift: string }[] | null };
+  /** Her cultivation's condition: one line for the HUD (null while she is whole), and the full picture in the journal. */
+  condition: { label: string | null; journal: ReturnType<typeof conditionJournal> | null };
   /** The notices (favours) she carries, and how many of the thousand she has fulfilled. */
   notices: { slot: number; title: string; giver: string; text: string }[];
   noticesDone: number;
@@ -166,7 +172,10 @@ export class Game {
   private flashColor = "#ffffff";
   private cameraFocus: [number, number, number] | null = null;
   private medTick = 0;
-  private trib: { start: number; bolts: number; struck: number; final: boolean; done: boolean } | null = null;
+  /** Seconds she has sat in this session (each breath brings less), and the shrine she sits at. */
+  private medSitting = 0;
+  private medShrine: string | null = null;
+  private trib: { start: number; bolts: number; struck: number; final: boolean; done: boolean; failed: boolean; damage: number } | null = null;
   private tribText: string | null = null;
   private boltFx: { at: number }[] = [];
   private returnMode: Mode = "explore";
@@ -963,6 +972,13 @@ export class Game {
         this.beginMeditation();
         return;
       }
+      if ("tribulation" in step) {
+        r.i = r.steps.length;
+        this.endRunner();
+        this.beginMeditation(this.medShrine);
+        this.callLightning();
+        return;
+      }
       if ("end" in step) {
         r.i = r.steps.length;
         // the fight it skips would have taken the scene's invulnerability off again
@@ -1050,7 +1066,7 @@ export class Game {
   }
 
   // ------------------------------------------------------------------ meditation & tribulation
-  private beginMeditation(): void {
+  private beginMeditation(shrine: string | null = null): void {
     const h = this.world.hero;
     this.land();
     this.dismount();
@@ -1058,7 +1074,16 @@ export class Game {
     this.world.setAnim(h, "meditate", this.clock);
     h.idleAnim = "meditate";
     this.medTick = 0;
-    this.toast(atBottleneck(this.state) ? "Your qi is full. Press B to call down the Heavenly Tribulation." : "You sit in lotus position and draw in the qi of heaven and earth…");
+    this.medSitting = 0;
+    this.medShrine = shrine;
+    const block = tribulationBlock(this.state);
+    this.toast(atBottleneck(this.state) ? (block ? block : "Your qi is full. Press B to call down the Heavenly Tribulation.") : "You sit in lotus position and draw in the qi of heaven and earth…");
+    // the first sitting at a shrine in each realm shows her something new
+    const seen = shrine && `ins:shrine:${shrine}:${this.state.realm}`;
+    if (seen && this.state.realm >= 1 && !this.state.flags[seen] && !this.interior) {
+      this.state = shift({ ...this.state, flags: { ...this.state.flags, [seen]: true } }, CULT.insight, 1);
+      this.toast(`A new shrine, a new view of the Dao · Insight ${insight(this.state)}${atBottleneck(this.state) ? `/${insightNeeded(this.state.realm)}` : ""}`);
+    }
     this.markDirty();
   }
 
@@ -1082,10 +1107,24 @@ export class Game {
     if (this.medTick < 1) return;
     this.medTick -= 1;
     const s = stats(this.state);
-    const altar = this.state.area === "peak";
-    const need = cultivationNeeded(this.state.realm, this.state.stage);
-    const gain = Math.max(3, Math.round(need / (altar ? 7 : 20)));
+    const gain = breathGain(this.state, this.interior ? "village" : this.state.area, this.medSitting);
+    this.medSitting++;
     this.noticeBreath();
+    // the breath tends her body first: poison burns off, cracks knit, demons quieten (or, too poisoned, her qi runs wild)
+    const tended = tendBreath(this.state, s);
+    this.state = tended.state;
+    if (tended.deviation) {
+      this.shake = 0.6;
+      this.flash = 0.6;
+      this.flashColor = "#5a1030";
+      this.world.setAnim(h, "hurt", this.clock, true);
+      this.world.fx.burst(hx, hy, 26, ["#5a1030", "#9a2a4a", "#2a2030"], 60);
+      this.world.fx.float("QI DEVIATION", hx, hy - 26, "#ff6a8a");
+      this.toast("Qi deviation! The pill poison sets your qi running wild through your meridians · Heart demons stir");
+      this.reactNearby("!", null);
+      this.markDirty();
+      return;
+    }
     const was = atBottleneck(this.state);
     const r = gainCultivation(heal(this.state, s.maxHp * 0.08, s.maxQi * 0.08), gain);
     this.state = r.state;
@@ -1093,9 +1132,33 @@ export class Game {
     if (r.stagesGained) {
       this.world.fx.burst(hx, hy, 30, ["#9ff5de", "#ffffff", "#f2c55c"], 70);
       this.toast(`Your cultivation deepens: ${realmLabel(this.state.realm, this.state.stage)}.`);
+      this.reactNearby("heart", "clap");
     }
-    if (!was && atBottleneck(this.state)) this.toast("Your qi has reached its peak! Press B to face the Heavenly Tribulation.");
+    if (!was && atBottleneck(this.state)) this.toast(tribulationBlock(this.state) ?? "Your qi has reached its peak! Press B to face the Heavenly Tribulation.");
+    // sitting long at the bottleneck, she begins to understand it
+    if (was && insight(this.state) < insightNeeded(this.state.realm) && this.medSitting % 45 === 0) {
+      this.state = shift(this.state, CULT.insight, 1);
+      this.world.fx.burst(hx, hy - 20, 20, ["#f2c55c", "#ffffff"], 40);
+      this.toast(`A flash of insight · 顿悟 · Insight ${insight(this.state)}/${insightNeeded(this.state.realm)}`);
+    }
+    if (this.woundWas > 0 && foundationWound(this.state) === 0) this.toast("Your foundation has mended. Heaven may test you again.");
+    this.woundWas = foundationWound(this.state);
     this.markDirty();
+  }
+  private woundWas = 0;
+  private toxClock = 0;
+
+  /** Folk standing nearby react to what heaven does to her: a cheer, a bow, a gasp. */
+  private reactNearby(icon: "!" | "heart" | "...", anim: AnimId | null): void {
+    const h = this.world.hero;
+    for (const a of this.world.actors) {
+      if (a.kind !== "npc" || Math.hypot(a.x - h.x, a.y - h.y) > 14) continue;
+      a.emote = { icon, until: this.clock + 2 };
+      a.dir = dirFrom(h.x - a.x, h.y - a.y);
+      const anims = charDef(a.char).anims;
+      const pick = anim && anims.includes(anim) ? anim : anims.includes("bow") && icon === "heart" ? "bow" : null;
+      if (pick && !a.holdUntil) this.world.setAnim(a, pick, this.clock, true);
+    }
   }
 
   startTribulation(): void {
@@ -1104,14 +1167,28 @@ export class Game {
     const final = this.state.realm === FINAL_REALM - 1;
     // checked before she sits down, so a refusal doesn't leave her meditating
     if (final && (this.state.area !== "peak" || this.interior)) return this.toast("The final tribulation can only be faced on Heavenly Tribulation Peak.");
+    const block = tribulationBlock(this.state);
+    if (block) return this.toast(block);
     if (this.mode === "explore") {
       const near = this.world.nearestInteraction();
       if (!near?.it || (near.it.kind !== "shrine" && near.it.kind !== "altar")) return this.toast("Face the tribulation while meditating at a shrine.");
-      this.beginMeditation();
+      this.beginMeditation(near.it.key);
     }
+    // from Foundation Establishment on, her own heart tests her before heaven does
+    if (trialDue(this.state)) {
+      const h = this.world.hero;
+      this.play(heartDemonTrial(this.state, [h.x, h.y]));
+      return;
+    }
+    this.callLightning();
+  }
+
+  /** Heaven's lightning gathers: three bolts, or nine at the last. */
+  private callLightning(): void {
+    const final = this.state.realm === FINAL_REALM - 1;
     this.mode = "tribulation";
-    this.trib = { start: this.clock, bolts: final ? 9 : 3, struck: 0, final, done: false };
-    this.tribText = final ? "The heavens split open. Nine bolts gather above the peak…" : "Heaven's lightning gathers above you…";
+    this.trib = { start: this.clock, bolts: final ? 9 : 3, struck: 0, final, done: false, failed: false, damage: boltDamage(this.state, stats(this.state), final) };
+    this.tribText = final ? "The heavens split open. Nine bolts gather above the peak…" : heartDemons(this.state) >= 30 || toxicity(this.state) >= 30 ? "Heaven's lightning gathers — and it can smell the poison and the demons in you…" : "Heaven's lightning gathers above you…";
     this.markDirty();
   }
 
@@ -1123,8 +1200,10 @@ export class Game {
     const due = Math.floor((el - 1.4) / gap) + 1;
     const [hx, hy] = [isoX(h.x, h.y), isoY(h.x, h.y, h.z)];
     if (Math.random() < 0.5) this.world.fx.emit({ x: hx + (Math.random() - 0.5) * 140, y: hy - Math.random() * 90, tx: hx, ty: hy - 12, life: 1, color: Math.random() < 0.5 ? "#b8a4ff" : "#ffffff" });
-    while (tr.struck < Math.min(tr.bolts, due)) {
+    while (!tr.failed && tr.struck < Math.min(tr.bolts, due)) {
       tr.struck++;
+      // every bolt strikes her body; if it falls before heaven is done, the tribulation fails
+      this.state = { ...this.state, hp: Math.max(0, this.state.hp - tr.damage) };
       this.boltFx.push({ at: this.clock });
       this.shake = 0.9;
       this.flash = 0.9;
@@ -1132,8 +1211,24 @@ export class Game {
       this.world.setAnim(h, "hurt", this.clock, true);
       this.world.fx.burst(hx, hy - 14, 30, ["#ffffff", "#b8a4ff", "#9ff5de"], 90);
       this.world.fx.float(`BOLT ${tr.struck}/${tr.bolts}`, hx, hy - 44, "#e8dcff");
+      this.world.fx.float(`-${tr.damage}`, hx + 14, hy - 30, "#ff8aa8");
       const lines = ["The bolt tempers your meridians!", "Your old limits shatter!", "Your dao heart does not waver!"];
       this.tribText = tr.final ? `Bolt ${tr.struck} of nine — ${lines[(tr.struck - 1) % 3]}` : lines[tr.struck - 1];
+      if (this.state.hp <= 0) {
+        tr.failed = true;
+        tr.done = true;
+        tr.start = this.clock - (1.4 + tr.bolts * gap + 0.6);
+        this.state = failTribulation(this.state, stats(this.state));
+        this.woundWas = foundationWound(this.state);
+        this.flash = 1;
+        this.flashColor = "#2a1030";
+        this.world.setAnim(h, "defeat", this.clock);
+        h.idleAnim = "idle";
+        this.world.fx.burst(hx, hy - 10, 40, ["#3a2a4a", "#9a8aaa", "#ffffff"], 80);
+        this.tribText = `The ${["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth"][tr.struck - 1]} bolt throws you down — the tribulation fails!`;
+        this.toast("Tribulation failed · Your qi scatters and your foundation cracks · Meditate to mend it, purge your poison and quiet your demons before you try again");
+        this.reactNearby("!", null);
+      }
       this.markDirty();
     }
     if (h.holdUntil === undefined && h.anim !== "meditate" && !tr.done) this.world.setAnim(h, "meditate", this.clock);
@@ -1141,7 +1236,8 @@ export class Game {
     if (!tr.done && el > end) {
       tr.done = true;
       const before = REALMS[this.state.realm].name;
-      this.state = applyBreakthrough(this.state);
+      this.state = applyBreakthrough(passTribulation(this.state));
+      this.reactNearby("heart", "cheer");
       const after = REALMS[this.state.realm];
       this.flash = 1;
       this.flashColor = after.colour;
@@ -1157,7 +1253,7 @@ export class Game {
       this.tribText = null;
       this.mode = "explore";
       this.world.setAnim(h, "idle", this.clock);
-      if (tr.final) this.play(endingScript(this.state));
+      if (tr.final && !tr.failed) this.play(endingScript(this.state));
       this.markDirty();
     }
   }
@@ -1311,8 +1407,10 @@ export class Game {
   private talkTo(key: string): Step[] {
     const g = this.state;
     // first, what they make of the Dao she walks (once for each depth of it)
-    const aside = daoAside(key, g) ?? [];
-    return [...aside, ...this.conversation(key, g)];
+    // then, once each, what they make of her realm, her condition, or the bottleneck she is stuck at
+    const npc = this.world.actor(key);
+    const seen = daoAside(key, g) ?? realmAside(key, g) ?? conditionAside(key, g) ?? pointerAside(key, g) ?? (npc && charDef(npc.char).portrait ? aweAside(key, npc.char as HumanId, g) : null);
+    return [...(seen ?? []), ...this.conversation(key, g)];
   }
 
   /** What someone says: parcels, offerings, the war's business, the tale, and favours to ask. */
@@ -1491,7 +1589,7 @@ export class Game {
     switch (it.kind) {
       case "shrine":
         h.dir = dirFrom(it.i + 0.5 - h.x, it.j + 0.5 - h.y);
-        this.beginMeditation();
+        this.beginMeditation(it.key);
         break;
       case "altar":
         this.play(altarScript(this.state));
@@ -1503,6 +1601,12 @@ export class Game {
         h.dir = dirFrom(it.i + 0.5 - h.x, it.j + 0.5 - h.y);
         if (!h.flying) this.world.setAnim(h, it.anim ?? "read", this.clock, true);
         this.play(it.key === "almanac-dial" ? almanacScript() : (signScript(it.key, this.state) ?? [{ say: "narrator", text: it.text ?? "" }]));
+        // an old stele, read with a cultivator's eyes, is a lesson (once in each realm)
+        const lesson = `ins:stele:${it.key}:${this.state.realm}`;
+        if (it.key.includes("stele") && this.state.realm >= 1 && !this.state.flags[lesson]) {
+          this.state = shift({ ...this.state, flags: { ...this.state.flags, [lesson]: true } }, CULT.insight, 1);
+          this.toast(`The old words open something in you · Insight ${insight(this.state)}${atBottleneck(this.state) ? `/${insightNeeded(this.state.realm)}` : ""}`);
+        }
         break;
       }
       case "door":
@@ -1630,6 +1734,12 @@ export class Game {
     switch (this.mode) {
       case "explore":
         this.updateExplore(dt);
+        // the body clears a little pill poison by itself as she goes about, slowly
+        this.toxClock += dt;
+        if (this.toxClock >= 20) {
+          this.toxClock -= 20;
+          if (toxicity(this.state) > 0) this.state = shift(this.state, CULT.tox, -1);
+        }
         break;
       case "scene":
         this.world.update(dt, this.clock, true, false);
@@ -1669,8 +1779,10 @@ export class Game {
     }
     if (this.mode === "explore" && this.clock >= this.markerAt) this.refreshMarkers();
     const cal = calendarAt(worldTime(this.state));
-    for (const a of this.world.actors) if (a.kind === "npc") a.marker = this.mode === "explore" && ((hasNews(a.key, this.state) || yearHasNews(a.key, this.state, cal) || warHasNews(a.key, this.state) || daoHasNews(a.key, this.state)) || (this.bountyMarkers.get(a.key) ?? false));
+    for (const a of this.world.actors) if (a.kind === "npc") a.marker = this.mode === "explore" && ((hasNews(a.key, this.state) || yearHasNews(a.key, this.state, cal) || warHasNews(a.key, this.state) || daoHasNews(a.key, this.state) || cultivationHasNews(a.key, this.state)) || (this.bountyMarkers.get(a.key) ?? false));
     if (this.world.hero.outfit !== currentAttire(this.state).id) this.dressHero();
+    this.world.heroRealm = this.state.realm;
+    this.world.heroDread = heartDemons(this.state) > 60;
     if (this.dirty) {
       this.dirty = false;
       const snap = this.snapshot();
@@ -1793,6 +1905,7 @@ export class Game {
       realmColour: REALMS[this.state.realm].colour,
       cultivationNeeded: cultivationNeeded(this.state.realm, this.state.stage),
       bottleneck: atBottleneck(this.state),
+      blocked: atBottleneck(this.state) ? tribulationBlock(this.state) : null,
       area: { id: area.id, name: area.name, hanzi: area.hanzi, subtitle: area.subtitle },
       prompt: this.mode === "explore" ? this.prompt : null,
       flying: this.flying,
@@ -1850,6 +1963,7 @@ export class Game {
         const d = dominantDao(this.state);
         return { label: daoLabel(this.state), colour: d ? DAOS[d].colour : null, creed: d ? DAOS[d].creed : null, paths: this.journalOpen ? daoJournal(this.state) : null };
       })(),
+      condition: { label: conditionLabel(this.state), journal: this.journalOpen ? conditionJournal(this.state) : null },
       notices: carried(this.state).map((c) => ({ slot: c.slot, title: c.bounty.title, giver: folk(c.bounty.giver)?.name ?? "", text: progressText(c) })),
       noticesDone: bountiesDone(this.state),
       noticeCount: BOUNTY_COUNT,

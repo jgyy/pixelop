@@ -2573,7 +2573,120 @@ const PROPS = {
       }
     },
   },
+  // a stretch of grey-brick city rampart with crenellations, running along the world x axis
+  citywall: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    paint: (r) => paintRampart(r, false),
+  },
+  // the same rampart, running along the world y axis
+  citywallY: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    paint: (r) => paintRampart(r, true),
+  },
+  // a corner watchtower on the city wall: a brick bastion with a lookout pavilion and a lantern that flickers on watch
+  watchtower: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 4,
+    fps: 5,
+    light: { color: "#ffc070", radius: 40, dy: 58 },
+    paint: (r, f) => {
+      const brick = md(BRICK, 1, { shader: brickShader });
+      r.box([-11.3, -11.3, 0], [11.3, 11.3, 32], brick);
+      for (const sx of [-1, 1]) for (const sy of [-1, 1]) r.box([sx * 11.3 - 2.5, sy * 11.3 - 2.5, 32], [sx * 11.3 + 2.5, sy * 11.3 + 2.5, 37], brick);
+      for (const sx of [-1, 1]) for (const sy of [-1, 1]) r.prism(sx * 6.5, sy * 6.5, 1.3, 32, 46, 6, m(PILLAR, 2));
+      r.box([-7.5, -7.5, 32], [7.5, 7.5, 34], m(PAL.wood, 3));
+      r.hipRoof(0, 0, 12, 12, 46, 3, 1, 58, md(ROOF_GREY, 4, { shader: roofTiles(ROOF_GREY) }));
+      r.sphere([0, 0, 59], 1.6, m(PAL.gold, 5));
+      const flick = [0.9, 1, 0.8, 1][f];
+      r.ellipsoid([0, 7.2, 40], [2.2, 2.2, 3], m(tones("#ffffff", mix("#ff7050", "#ffd0a0", flick - 0.7), "#c03a32", "#6a1020"), 6));
+    },
+  },
+  // an opera stage on the city square: red pillars, a painted backdrop, and banners that stir over the boards
+  operastage: {
+    foot: [0, 0, 1, 1],
+    blocks: true,
+    frames: 6,
+    fps: 4,
+    light: { color: "#ffb070", radius: 46, dy: 24 },
+    paint: (r, f, n) => {
+      const cx = T / 2;
+      const cy = T / 2;
+      const W = T * 0.9;
+      const sw = Math.sin((f / n) * TAU);
+      r.box([cx - W, cy - W, 0], [cx + W, cy + W, 8], md(PAL.stone, 1));
+      r.box([cx - W + 1, cy - W + 1, 8], [cx + W - 1, cy + W - 1, 9], m(PAL.wood, 2));
+      // the painted backdrop on the far side: mountains and a moon on red silk
+      r.box([cx - W + 1, cy - W + 1, 9], [cx - W + 3, cy + W - 1, 34], m(ramp("#a83a3a", { lo: "#3a0a20" }), 3, { shader: (sf, tone) => {
+        const y = sf.p[1] - cy;
+        const z = sf.p[2];
+        if (Math.hypot(y - 6, z - 27) < 3.2) return "#fff0c0";
+        if (z < 16 + Math.abs(Math.sin(y * 0.35)) * 6) return tone(PAL.gold, 1);
+        return tone(ramp("#a83a3a", { lo: "#3a0a20" }));
+      } }));
+      for (const [x, y] of [[cx + W - 2, cy - W + 2], [cx + W - 2, cy + W - 2], [cx - W + 2, cy - W + 2], [cx - W + 2, cy + W - 2]] as [number, number][]) r.prism(x, y, 1.4, 9, 34, 6, m(PILLAR, 4));
+      r.hipRoof(cx, cy, W + 6, W + 6, 34, W * 0.5, 1, 48, md(ROOF_RED, 5, { shader: roofTiles(ROOF_RED) }));
+      r.sweep([[cx - W * 0.5, cy, 48.5], [cx + W * 0.5, cy, 48.5]], 1.2, m(PAL.gold, 6));
+      // valance and side curtains that sway a little
+      r.box([cx + W - 1.2, cy - W + 2, 30], [cx + W - 0.4, cy + W - 2, 33], m(PAL.gold, 7));
+      for (const s of [-1, 1]) r.sweep([[cx + W - 0.8, cy + s * (W - 3), 30], [cx + W - 0.8 + sw * 0.6, cy + s * (W - 5), 20], [cx + W - 0.8 + sw, cy + s * (W - 4), 10]], [1.6, 1.4, 1.2], m(ramp("#c03a32", { lo: "#4a0a1a" }), 7));
+      for (const s of [-1, 1]) {
+        const top: V3 = [cx + W + 3, cy + s * (W + 2), 46];
+        r.sweep([[top[0], top[1], 8], top], 0.5, m(PAL.woodDark, 8));
+        r.sweep([top, [top[0] + 1 + sw * 1.5, top[1] + s * 2, 43], [top[0] + 1 + sw * 2.5, top[1] + s * 3, 38]], [1.4, 1.2, 1], m(s > 0 ? PAL.gold : PAL.jade, 8));
+      }
+    },
+  },
+  // a tall shop banner on a pole, its cloth swaying in front of a shop
+  shopflag: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 6,
+    fps: 4,
+    paint: (r, f, n) => {
+      const sw = Math.sin((f / n) * TAU);
+      r.box([-1, -1, 0], [1, 1, 40], m(PAL.woodDark, 1));
+      r.sweep([[0, 0, 39], [0, 7, 39]], 0.5, m(PAL.woodDark, 1));
+      const cloth = m(ramp("#2a5a9a", { lo: "#0a1a3a" }), 2, { shader: (sf, tone) => (Math.abs(sf.p[2] - 30) < 2.2 || Math.abs(sf.p[2] - 22) < 2.2 ? tone(PAL.gold) : tone(ramp("#2a5a9a", { lo: "#0a1a3a" }))) });
+      for (let k = 0; k <= 6; k++) {
+        const y = 1 + k;
+        r.sweep([[sw * 0.3 * (k / 6), y, 38.5], [sw * (1 + k * 0.25), y, 26], [sw * (1.6 + k * 0.4), y + 0.3, 14]], 0.6, cloth);
+      }
+    },
+  },
 } satisfies Record<string, PropDef>;
+
+const BRICK = ramp("#8a8a96", { lo: "#2a2a3a" });
+
+/** Courses of grey brick, with a darker line at every course and a stagger between them. */
+function brickShader(...[sf, tone]: Parameters<Shader>): string {
+  const z = sf.p[2];
+  const along = Math.abs(sf.n[0]) > 0.5 ? sf.p[1] : sf.p[0];
+  const course = Math.floor(z / 3);
+  if (z % 3 < 0.45) return tone(BRICK, 1);
+  if (Math.abs(sf.n[2]) < 0.5 && (along + (course % 2) * 3 + 60) % 6 < 0.5) return tone(BRICK, 1);
+  return tone(BRICK);
+}
+
+/** A rampart segment: a brick wall with a walkway and merlons along its outer edge. */
+function paintRampart(r: Raster, sw: boolean): void {
+  const Q = (v: V3): V3 => (sw ? [v[1], v[0], v[2]] : v);
+  const B = (a: V3, b: V3, mat: Mat) => {
+    const [p, q] = [Q(a), Q(b)];
+    r.box([Math.min(p[0], q[0]), Math.min(p[1], q[1]), p[2]], [Math.max(p[0], q[0]), Math.max(p[1], q[1]), q[2]], mat);
+  };
+  const brick = md(BRICK, 1, { shader: brickShader });
+  B([-11.3, -6, 0], [11.3, 6, 26], brick);
+  B([-11.3, -6, 26], [11.3, 6, 27], m(PAL.stone, 2));
+  for (const x of [-9, -1.5, 6]) B([x, -6, 27], [x + 4.5, -3.2, 33], brick);
+  for (const x of [-9, -1.5, 6]) B([x, 3.2, 27], [x + 4.5, 6, 30], brick);
+}
 
 /** A bookcase backed against an interior wall: `sw` puts it on the wall along the other axis. */
 function paintShelf(r: Raster, sw: boolean): void {

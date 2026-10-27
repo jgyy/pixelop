@@ -36,6 +36,10 @@ export const STRUCTURE_SCALE: Partial<Record<PropId, number>> = {
   lighthouse: 2,
   ship: 2,
   stilthouse: 3,
+  citywall: 2,
+  citywallY: 2,
+  watchtower: 2,
+  operastage: 2,
 };
 
 /** Props of the wild that are scattered more thickly once the land doubles (a second one shares the tile block). */

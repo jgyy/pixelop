@@ -50,7 +50,7 @@ const GROUND: Ground[] = [...MAINLAND, "marsh", "terraces", "desert", "harbor", 
 const SKY: AreaId[] = ["sect", "peak"];
 
 /** Wild biomes: each ground region's own, the southern lands below the highway, and the far south and east the world grew into. */
-type WildId = Ground | "wastes" | "stoneforest" | "fields" | "highlands" | "marshland" | "terracehills" | "plum" | "sands" | "badlands" | "autumn" | "steppe" | "frostlands" | "coast";
+type WildId = Ground | "wastes" | "stoneforest" | "fields" | "highlands" | "marshland" | "terracehills" | "plum" | "sands" | "badlands" | "autumn" | "steppe" | "frostlands" | "coast" | "riverlands";
 
 interface WildStyle {
   ground: (i: number, j: number) => TileKind;
@@ -89,6 +89,8 @@ const BIOME: Record<Exclude<WildId, "marsh" | "terraces" | "desert" | "harbor" |
   steppe: { ground: (i, j) => (fbm(i * 0.12, j * 0.12, 146) > 0.58 ? "meadow" : "grass"), lift: 0, hills: 1.6, trees: ["rock", "boulder", "haystack"], treeP: 0.012, extras: ["tallgrass", "tallgrass", "butterflies"], extraP: 0.06 },
   frostlands: { ground: (i, j) => (fbm(i * 0.15, j * 0.15, 147) > 0.68 ? "marble" : fbm(i * 0.3, j * 0.3, 148) > 0.7 ? "grass" : "snow"), lift: 2, hills: 4, trees: ["snowpine", "snowpine", "rock", "crystal", "snowpine"], treeP: 0.1, extras: ["rock", "crystal"], extraP: 0.03 },
   coast: { ground: (i, j) => (fbm(i * 0.2, j * 0.2, 149) > 0.6 ? "sand" : "grass"), lift: 0, hills: 1.8, trees: ["pine", "palm", "rock", "pine"], treeP: 0.05, extras: ["tallgrass", "reeds"], extraP: 0.04 },
+  // the Golden River country: low farmland running down to the southern sea, sandy toward the shore
+  riverlands: { ground: (i, j) => (j > 538 + fbm(i * 0.1, j * 0.1, 150) * 12 ? "sand" : fbm(i * 0.16, j * 0.16, 151) > 0.6 ? "meadow" : "grass"), lift: 0, hills: 1.4, trees: ["willow", "maple", "haystack", "cherry", "willow"], treeP: 0.04, extras: ["tallgrass", "reeds", "butterflies", "tallgrass"], extraP: 0.06 },
 };
 // the new regions' own surroundings take after the lands they stand in
 const WILD: Record<WildId, WildStyle> = { ...BIOME, marsh: BIOME.marshland, terraces: BIOME.terracehills, desert: BIOME.sands, harbor: BIOME.coast, frost: BIOME.frostlands };
@@ -110,6 +112,8 @@ const ZONES: [WildId, [number, number, number, number]][] = [
   ["steppe", [350, 150, 560, 235]],
   ["frostlands", [350, 52, 640, 145]],
   ["coast", [565, 150, 640, 330]],
+  // and the Golden River country, below the far south, down to the southern sea
+  ["riverlands", [10, 458, 290, 552]],
 ];
 
 /** The old highway across the whole mainland, below the four regions. */
@@ -141,6 +145,9 @@ export const HIGHWAY: [number, number][] = [
   [572, 248],
   [590, 252],
 ];
+
+/** Jinhe's walls (authoring tiles, inclusive), and the crossroads at its heart where its two streets meet. */
+const JINHE = { x0: 208, y0: 487, x1: 236, y1: 513, c: [222, 500] as [number, number] };
 
 /** The planks of the Rainbow Bridge span the gorge between these x (authoring tiles). */
 const GORGE: [number, number] = [314, 350];
@@ -186,6 +193,16 @@ const BRANCHES: { pts: [number, number][]; valley?: boolean }[] = [
   { pts: [[460, 192], [445, 240], [430, 278], [400, 318], [366, 366]] },
   // into the red cliffs of the badlands
   { pts: [[430, 278], [480, 330], [512, 372], [524, 396]] },
+  // the Great South Road, from the southern road down through the plum hills to Jinhe's north gate
+  { pts: [[240, 282], [234, 320], [228, 360], [224, 400], [222, 440], [222, 486]] },
+  // out of Jinhe's west gate to Reedwater Landing, where the bamboo stream meets the sea
+  { pts: [[208, 500], [180, 504], [150, 508], [120, 514], [104, 520]] },
+  // out of the east gate, over the Golden River, to the caravanserai…
+  { pts: [[236, 500], [260, 500], [290, 501], [326, 500]] },
+  // …and the caravan track north to the Yellow Sands
+  { pts: [[330, 496], [340, 470], [348, 440], [350, 404]] },
+  // the south gate, down to the sea
+  { pts: [[222, 513], [222, 530], [224, 540]] },
 ];
 
 const RIVERS: { pts: [number, number][]; kind: "water" | "lava"; width: number }[] = [
@@ -196,9 +213,9 @@ const RIVERS: { pts: [number, number][]; kind: "water" | "lava"; width: number }
   // …which spills over the eastern edge of the world as a waterfall.
   { kind: "water", width: 2.6, pts: [[280, 125], [296, 127], [310, 128], [324, 129]] },
   // The bamboo stream runs on west and south through the stone forest and off the southern cliffs.
-  { kind: "water", width: 2.6, pts: [[93, 132], [86, 138], [81, 148], [78, 160], [75, 176], [80, 192], [76, 208], [72, 220], [70, 232], [74, 260], [80, 300], [84, 340], [80, 380], [84, 420], [82, 464]] },
+  { kind: "water", width: 2.6, pts: [[93, 132], [86, 138], [81, 148], [78, 160], [75, 176], [80, 192], [76, 208], [72, 220], [70, 232], [74, 260], [80, 300], [84, 340], [80, 380], [84, 420], [82, 464], [86, 500], [82, 530], [80, 560]] },
   // A hot stream from the highland spring winds south to the world's edge too.
-  { kind: "water", width: 2.2, pts: [[252, 195], [257, 206], [255, 218], [258, 232], [262, 260], [270, 290], [268, 330], [275, 380], [272, 420], [274, 464]] },
+  { kind: "water", width: 2.2, pts: [[252, 195], [257, 206], [255, 218], [258, 232], [262, 260], [270, 290], [268, 330], [275, 380], [272, 420], [274, 464], [278, 490], [272, 520], [276, 560]] },
   // The Jade River runs down out of the eastern snows and pours off the eastern edge into the sea of clouds.
   { kind: "water", width: 3, pts: [[520, 108], [532, 130], [548, 152], [575, 172], [606, 186], [648, 194]] },
   // In the ashen wastes, lava wells up and sinks back into a burning pool.
@@ -222,8 +239,10 @@ const mainlandMask = (i: number, j: number) => {
   // the new lands' outer shores wander in broad bays and headlands
   const shore = (fbm(i * 0.018, j * 0.018, 43) - 0.5) * 44;
   const south = j >= 200 + n && j <= 448 + n + shore && i >= 6 + n * 0.6 - shore && i <= 470 + n * 0.6;
+  // the Golden River country, the world's newest land, runs on to the southern sea
+  const river = j >= 400 + n && j <= 546 + n + shore * 0.3 && i >= 8 + n * 0.6 - shore * 0.3 && i <= 466 + n * 0.6 + shore * 0.2;
   const east = j >= 56 + n - shore && j <= 448 + n + shore && i >= 346 + n * 0.6 && (j > 222 && j < 282 ? i <= 621 : i <= 636 + n * 0.6 + shore);
-  return old || south || east;
+  return old || south || east || river;
 };
 
 /**
@@ -453,6 +472,19 @@ function buildWorld(): WorldDef {
         fix(i, j, 1);
       }
   }
+
+  // Jinhe, the Golden River City: levelled ground inside its walls, two paved streets crossing at a square
+  for (let j = JINHE.y0 - 3; j <= JINHE.y1 + 3; j++)
+    for (let i = JINHE.x0 - 3; i <= JINHE.x1 + 3; i++) {
+      if (m.kind(i, j) === "void") continue;
+      const inside = i > JINHE.x0 && i < JINHE.x1 && j > JINHE.y0 && j < JINHE.y1;
+      const street = Math.abs(i - JINHE.c[0]) <= 1 || Math.abs(j - JINHE.c[1]) <= 1;
+      const square = Math.abs(i - JINHE.c[0]) <= 4 && Math.abs(j - JINHE.c[1]) <= 4;
+      m.set(i, j, inside && (street || square) ? "plaza" : inside && hash2(i, j, 152) > 0.86 ? "dirt" : "grass", 1);
+      fix(i, j, 1);
+    }
+  site([100, 522], 7, "sand", 1, 0.8); // Reedwater Landing
+  site([330, 500], 6.4, "sand", 1, 0.8); // the caravanserai
 
   // 5. rivers, ponds, the hot spring and the lava pools
   for (const r of RIVERS)
@@ -1108,6 +1140,195 @@ function buildWorld(): WorldDef {
     it("vein-sign", "sign", x + 3, y + 1, "A boundary stone half sunk in the scree: “The Dragonspine. Beneath it sleeps the Dragon Vein. Three sects swore here never to dig for it. Read the oath again before you lift a pick.”");
     mark("dragonspine", "Dragonspine", "龙脊山", "cavemouth", x + 4, y - 6);
   }
+  // Jinhe, the Golden River City: walls and watchtowers, a magistrate's yamen, an opera stage on the square, a
+  // city-god temple, shops under their banners, an academy, a teahouse, and the busiest streets in the jianghu
+  {
+    const { x0, y0, x1, y1, c } = JINHE;
+    const [cx, cy] = c;
+    const gap = (v: number, at: number) => Math.abs(v - at) <= 1;
+    for (let i = x0 + 1; i < x1; i++)
+      for (const j of [y0, y1])
+        if (!gap(i, cx)) P("citywall", i, j);
+    for (let j = y0 + 1; j < y1; j++)
+      for (const i of [x0, x1])
+        if (!gap(j, cy)) P("citywallY", i, j);
+    for (const i of [x0, x1]) for (const j of [y0, y1]) P("watchtower", i, j);
+    P("gate", cx, y0);
+    P("gate", cx, y1);
+    for (const [i, j] of [
+      [cx - 2, y0 + 1],
+      [cx + 2, y0 + 1],
+      [cx - 2, y1 - 1],
+      [cx + 2, y1 - 1],
+      [x0 + 1, cy - 2],
+      [x0 + 1, cy + 2],
+      [x1 - 1, cy - 2],
+      [x1 - 1, cy + 2],
+    ] as [number, number][])
+      P("redlantern", i, j);
+    // the north-west: the magistrate's yamen and the houses of the well-to-do
+    P("hall", 213, 491);
+    P("drum", 216, 494);
+    P("house", 217, 489);
+    P("house", 210, 495);
+    P("shopflag", 220, 492);
+    P("stall", 219, 495);
+    P("shopflag", 220, 496);
+    // the north-east: merchants' houses and the teahouse
+    P("house", 225, 489);
+    P("house", 229, 489);
+    P("house", 233, 489);
+    P("teahouse", 230, 494);
+    P("stall", 226, 494);
+    P("stall", 227, 494);
+    P("shopflag", 224, 493);
+    P("shopflag", 228, 497);
+    P("bench", 234, 497);
+    // the south-west: the opera stage, the forge and the lanes behind
+    P("operastage", 216, 506);
+    P("bench", 219, 509);
+    P("bench", 220, 509);
+    P("house", 210, 503);
+    P("house", 210, 508);
+    P("house", 214, 510);
+    P("forge", 213, 504);
+    P("well", 216, 503);
+    P("laundry", 213, 507);
+    P("barrels", 218, 511);
+    // the south-east: the city-god temple, the academy and the noodle stalls
+    P("pagoda", 231, 508);
+    P("censer", 228, 506);
+    P("bell", 234, 511);
+    P("house", 233, 502);
+    P("house", 225, 509);
+    P("noodlecart", 226, 503);
+    P("shopflag", 224, 506);
+    P("stall", 229, 503);
+    // the square at the crossroads
+    P("fountain", cx, cy);
+    P("lanterns", cx, y0 + 4);
+    P("lanterns", cx, y1 - 4);
+    P("lanterns", x0 + 5, cy);
+    P("lanterns", x1 - 5, cy);
+    P("lantern", cx - 4, cy - 4);
+    P("lantern", cx + 4, cy - 4);
+    P("lantern", cx - 4, cy + 4);
+    P("lantern", cx + 4, cy + 4);
+    npcs.push(
+      { key: "magistrate", name: "Magistrate Lu", char: "scholar", i: 213, j: 494, dir: 2, anim: "read" },
+      { key: "constable", name: "Constable Tie Shan", char: "guard", i: cx, j: y0 + 3, dir: 2, route: [[cx + 0.5, y0 + 2.5], [cx + 0.5, y1 - 2.5]] },
+      { key: "gateguardN", name: "Gate Guard Wu", char: "guard", i: cx - 2, j: y0 + 2, dir: 0 },
+      { key: "gateguardS", name: "Gate Guard Pan", char: "guard", i: cx + 2, j: y1 - 2, dir: 8 },
+      { key: "alchemist", name: "Alchemist Hu Mei", char: "herbalist", i: 219, j: 497, dir: 4 },
+      { key: "silk", name: "Silk Merchant Jin", char: "lady", i: 227, j: 497, dir: 2, anim: "fan" },
+      { key: "fortune", name: "Fortune-Teller Ma", char: "storyteller", i: 219, j: 502, dir: 6, anim: "sit" },
+      { key: "operaYu", name: "Opera Singer Yu", char: "lady", i: 219, j: 507, dir: 6, anim: "twirl" },
+      { key: "operaHong", name: "Opera Singer Hong", char: "discipleF", i: 220, j: 505, dir: 6, anim: "sworddance" },
+      { key: "rival", name: "Shangguan Yan", char: "swordsea", i: 225, j: 499, dir: 4, anim: "practice" },
+      { key: "recruiter", name: "Recruiter Mei", char: "discipleF", i: 219, j: 499, dir: 2 },
+      { key: "beggar", name: "Old Ding the Beggar", char: "refugeeM", i: cx + 3, j: y0 - 2, dir: 0, anim: "warmhands" },
+      { key: "academy", name: "Academy Master Kong Wen", char: "archivist", i: 227, j: 506, dir: 2, anim: "read" },
+      { key: "student", name: "Student Xu", char: "scholar", i: 229, j: 505, dir: 4, anim: "write" },
+      { key: "templeNovice", name: "Novice Ji", char: "novice", i: 229, j: 510, dir: 2, anim: "sweep" },
+      { key: "wineseller", name: "Auntie Qiao", char: "villagerF", i: 231, j: 497, dir: 2, anim: "pour" },
+      { key: "teakeeper", name: "Teahouse Keeper Bo", char: "cook", i: 233, j: 497, dir: 4 },
+      { key: "tao", name: "Little Tao", char: "child", i: 224, j: 502, dir: 6, anim: "juggle" },
+      { key: "pang2", name: "Little Pang", char: "boy", i: 220, j: 503, dir: 2, anim: "kick" },
+      { key: "jinporter", name: "Porter Gui", char: "porter", i: 212, j: cy, dir: 4, anim: "carry", route: [[x0 + 2.5, cy + 0.5], [x1 - 2.5, cy + 0.5]] },
+      { key: "pawn", name: "Pawnbroker Qian", char: "villagerM", i: 211, j: 498, dir: 6 },
+      { key: "noodlefu", name: "Noodle Seller Fu", char: "cook", i: 227, j: 502, dir: 2 },
+      { key: "washer", name: "Washerwoman Liang", char: "villagerF", i: 215, j: 502, dir: 4, anim: "gather" },
+      { key: "physician", name: "Physician Zhang", char: "medic", i: 215, j: 497, dir: 2 },
+      { key: "clerk", name: "Clerk Hou", char: "villagerM", i: 217, j: 494, dir: 2, wander: 1.5 },
+      { key: "ladyshen", name: "Lady Shen", char: "lady", i: 230, j: 499, dir: 6, anim: "umbrella", wander: 1.5 },
+      { key: "apprentice", name: "Apprentice Gang", char: "villagerM", i: 214, j: 505, dir: 6, anim: "mine" },
+      { key: "jinfarmer", name: "Farmer Sun", char: "villagerM", i: 223, j: 509, dir: 0, anim: "carry", route: [[cx + 1.5, cy + 3.5], [cx + 1.5, y1 + 6.5]] },
+    );
+    it("jinhe-shrine", "shrine", 228, 509);
+    it("jinhe-stele", "sign", 233, 506, "The City God of Jinhe, carved on the temple stele: “I keep the ledger of every soul within these walls. The cultivator's page is written in lightning; the porter's in sweat. Both pages weigh the same.”");
+    it("jinhe-sign", "sign", cx + 2, y0 - 2, "JINHE · 金河城 · THE GOLDEN RIVER CITY. “By order of Magistrate Lu: no flying swords over the market, no duels on the square, no qi in the wells.”");
+    it("jinhe-chest", "chest", 234, 492);
+    it("jinhe-herb", "herb", 211, 511);
+    mark("jinhe", "Jinhe, the Golden River City", "金河城", "hall", cx, cy);
+  }
+  // Reedwater Landing, where the bamboo stream meets the southern sea
+  {
+    const [x, y] = [100, 522];
+    P("stilthouse", x - 6, y - 4);
+    P("stilthouse", x + 1, y + 3);
+    P("house", x + 4, y - 5);
+    P("fishrack", x - 2, y - 2);
+    P("fishrack", x + 5, y + 1);
+    P("fishrack", x - 4, y + 3);
+    P("lanterns", x, y - 3);
+    P("barrels", x + 6, y - 1);
+    let boat: [number, number] | null = null;
+    for (let i = x - 10; i > x - 24 && !boat; i--) if (LIQUID[m.kind(i, y)] === "water") boat = [i, y];
+    if (boat) P("boat", ...boat);
+    npcs.push(
+      { key: "laoji", name: "Fisherman Lao Ji", char: "villagerM", i: x - 7, j: y + 1, dir: 12, anim: "fish" },
+      { key: "ahhong", name: "Fishwife Ah Hong", char: "fishwife", i: x + 2, j: y - 1, dir: 2, wander: 1 },
+      { key: "ferryman", name: "Ferryman Shui", char: "captain", i: x - 4, j: y - 5, dir: 6 },
+      { key: "reedkid", name: "Little Lu", char: "child", i: x + 5, j: y + 6, dir: 2, anim: "kite" },
+    );
+    it("reed-shrine", "shrine", x + 6, y + 5);
+    it("reed-stele", "sign", x - 1, y + 6, "A sea-worn stele at the landing: “The stream comes down from the bamboo, past the marsh, through the hills, and gives itself to the sea. So does every cultivator, in the end. Some only take longer.”");
+    it("reed-chest", "chest", x + 8, y - 4);
+    mark("reedwater", "Reedwater Landing", "芦水渡", "stilthouse", x, y);
+  }
+  // the Camel Bell Caravanserai, where the caravans out of the Yellow Sands rest before the city
+  {
+    const [x, y] = [330, 500];
+    P("tent", x - 4, y - 3);
+    P("tent", x + 4, y - 3);
+    P("house", x - 1, y - 6);
+    P("cart", x + 3, y + 2);
+    P("cart", x - 5, y + 2);
+    P("barrels", x + 5, y);
+    P("sacks", x - 3, y + 4);
+    P("well", x, y + 1);
+    P("palm", x + 6, y + 4);
+    P("palm", x - 6, y - 5);
+    P("campfire", x + 1, y + 4);
+    P("prayerflags", x - 2, y - 2);
+    npcs.push(
+      { key: "caravanmaster", name: "Caravan Master Temujin", char: "nomad", i: x - 1, j: y + 3, dir: 2 },
+      { key: "camelhand", name: "Drover Ilkhan", char: "villagerM", i: x + 2, j: y - 1, dir: 6, anim: "carry", wander: 1 },
+      { key: "caravanguard", name: "Caravan Guard Aru", char: "guard", i: x + 5, j: y + 3, dir: 4 },
+    );
+    critters.push(...([[x + 8, y - 4], [x + 9, y - 2]] as [number, number][]).map(([i, j], k): Critter => ({ key: `horse-caravan-${k}`, char: "horse", i, j })));
+    it("caravan-stele", "sign", x + 2, y - 4, "Scratched into the caravanserai's gatepost in six scripts: “Water for the camel first, then the drover, then the merchant. The cultivator can fly to the river.”");
+    it("caravan-chest", "chest", x - 6, y + 5);
+    mark("caravan", "Camel Bell Caravanserai", "驼铃驿", "tent", x, y);
+  }
+  // treasure, beasts and birds out in the Golden River country
+  for (const [k, i, j] of [
+    [18, 160, 470],
+    [19, 60, 500],
+    [20, 290, 530],
+    [21, 400, 480],
+    [22, 180, 540],
+  ] as [number, number, number][])
+    it(`wild-herb-${k}`, "herb", i, j);
+  for (const [k, i, j] of [
+    [12, 140, 530],
+    [13, 380, 520],
+    [14, 30, 470],
+  ] as [number, number, number][])
+    it(`wild-chest-${k}`, "chest", i, j);
+  enemies.push(
+    { key: "south-bandit-1", enemy: "bandit", i: 300, j: 470, range: 2 },
+    { key: "south-bandit-2", enemy: "bandit", i: 345, j: 455, range: 2 },
+    { key: "south-wolf-1", enemy: "wolf", i: 160, j: 525, range: 2 },
+    { key: "south-fox-1", enemy: "fox", i: 50, j: 480, range: 2 },
+    { key: "south-serpent-1", enemy: "serpent", i: 92, j: 540, range: 1.5 },
+  );
+  critters.push(
+    { key: "crane-s1", char: "crane", i: 130, j: 520 },
+    { key: "crane-s2", char: "crane", i: 250, j: 530 },
+    ...([[180, 480], [183, 482], [178, 484]] as [number, number][]).map(([i, j], k): Critter => ({ key: `horse-riverlands-${k}`, char: "horse", i, j })),
+  );
+
   // a wandering herbalist at the inn, if she let Ku Shen go
   npcs.push({ key: "kushen2", name: "Herbalist Ku", char: "poisoner", i: 113, j: 302, dir: 6, anim: "brew", when: (f) => !!f.kuSpared });
 
