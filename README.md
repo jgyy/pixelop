@@ -543,6 +543,75 @@ New animations, for Lin Yue (53 now) and the folk: **offer** (both hands held ou
 - Elder Mo always thanked her for Old Fisher Wen's message, even when she had never met Wen
 - battles in the valley still showed the blood moon after the story had lifted it
 
+### The War of the Iron Banner: a thousand main quests, the Dao, and a land at war
+
+Beyond the Yellow Sands, Tuoba Hong, Khan of the Iron Wolf horde, has swallowed the cores of a hundred demon beasts. Once Willow Creek is safe, General Yue Wushuang of the Northern Army raises her standard in the village square and asks the Azure Cloud's disciple to be everywhere at once. The war is the third thread of the main tale: **1000 quests in ten books**, one book per front.
+
+| Book | Front | Captain |
+| --- | --- | --- |
+| I · 柳溪烽烟 Smoke over Willow Creek | Willow Creek | Börte Ash-Hand |
+| II · 竹林焚 The Burning Grove | Whispering Bamboo | Qara the Firebrand |
+| III · 赤水 Red Water | Lotus Lake | Jelme Red-Water |
+| IV · 沉路 The Drowned Road | Mistmarsh | Alaq of the Drowned Road |
+| V · 围梯田 Siege of the Terraces | Cloudmist Terraces | Iron Marshal Toghril |
+| VI · 黑帆 Black Sails | Wavecrest Harbour | Admiral Khulan |
+| VII · 入黄沙 Into the Yellow Sands | Yellow Sands | Sorqan the Sand-King |
+| VIII · 冰关 The Frozen Pass | Frostveil | Hulagu of the Frozen Pass |
+| IX · 血盟 The Crimson Pact | Crimson Demon Valley | Shaman Ebugen |
+| X · 围青云 The Siege of the Azure Cloud | Azure Cloud Sect | Tuoba Hong, the Khan |
+
+Each book opens with the General's muster and closes with its captain. Between them: raids to break, dispatches and supplies to carry, ground to scout on foot, after dark, on Cloudmane or on the sword, people to rescue from behind the lines, land to heal at a shrine, nine Dao dilemmas, a "beyond your realm" checkpoint, and the call to assault. Like the notices, every quest is composed from its number, so the save only stores how many are done (`war`) and how far the current one has got (`warp`); the flags the land and the folk answer to are derived from those.
+
+```mermaid
+flowchart LR
+  Z[Village Head Zhou met] --> M[Muster: General Yue]
+  M -->|front burns| Q{Quest n of 1000}
+  Q --> F[Break a raid] & R[Report / supply] & S[Scout / rescue] & H[Heal the land]
+  Q --> D[Dao dilemma ×9]
+  Q --> C[Beyond your realm: cultivate]
+  F & R & S & H & D & C --> Q
+  Q --> A[Sound the assault]
+  A --> B[Captain battle]
+  B --> P{Captain's fate}
+  P -->|mercy · sword · balance · slaughter| L[Front freed, scarred by her Dao]
+  L -->|next book| M
+  L -->|book X| E[The Khan falls: a robe for her Dao, and the ending remembers]
+```
+
+**Cultivation matters.** Each quest asks for a realm, from Qi Condensation at the first muster up to Spirit Severing's peak for the Khan. A cultivator below it is told to cultivate first, and the journal says so. Horde soldiers falter before a cultivator far above them and start the fight already wounded; captains feel it only a little. Some dilemma answers only show at a deeper realm (hold a granary gate at Foundation, heal two dying men with your own core at Core Formation, let a dyke out by a bridle's width).
+
+**The Dao has weight.** Every dilemma and every captain's fate leans her heart toward one of four Daos (剑道 Sword, 慈道 Compassion, 天道 Heaven's Balance, 杀道 Slaughter). The one that leads becomes her Dao, deepening through Glimpse, Path, Heart and Embodiment:
+
+- it reshapes her stats (sharper strikes, a sturdier body, a deeper dantian, or terrible strength at the cost of guard), shown under her realm in the HUD and as a Dao Heart in the journal
+- fourteen of the main cast (Elder Mo, Granny Hua, Zhou, Qing, Wen, Abbot Xuan, Master Yun, Hu Li, Ling Feng, Yan Huo, Bai Zhi, Almanac Shi, Smith Ou, Xiao Han) speak of it once at each new depth; the army calls her by it; captains hear it before the duel; Elder Mo's last words at heaven's stair name it
+- it decides how each freed front heals (wildflowers and blossom for Compassion, sword steles for the Sword, cairns and a land that forgets for the Balance, grey ash, dead trees and crows for Slaughter), the end-of-war robe, and lines in every ending
+- mercy and slaughter wear each other away; her idle habits follow it (sword forms, prayer, taiji, a roar)
+
+**The war on the land.** While a front burns, its fields are scorched to ash and cracked earth, its sky turns to smoke and embers, wreckage and farmhouses burn, wolf banners and crows go up, and later fronts get trebuchets. Raiders, Iron Banner guards and Black Banner reavers roam the outskirts. The Northern Army pitches tents, standards and a weapon rack, with barricades on the picket line. The folk the front drives out wait in a refugee camp in Willow Creek and go home when it is freed. 142 new NPCs in all: General Yue, Quartermaster Bao, Medic Su Lan, Drummer Tian, Scout Feiyan, the deserter Ashina and Envoy Kou who follow the army, four named spearmen per front, two refugee families per front, homecomers, and Lady Gu at the war memorial.
+
+| | |
+| --- | --- |
+| ![General Yue](docs/screenshots/141-general-yue-wushuang.png) | ![The camp](docs/screenshots/142-the-northern-army-camps-at-willow-creek.png) |
+| ![Willow Creek burns](docs/screenshots/143-willow-creek-burns.png) | ![A raider falters](docs/screenshots/144-a-raider-falters-before-her-aura.png) |
+| ![A Dao dilemma](docs/screenshots/145-a-dao-dilemma.png) | ![The journal](docs/screenshots/146-journal-the-war-and-the-dao-heart.png) |
+| ![Elder Mo on the Dao](docs/screenshots/147-elder-mo-on-the-dao-of-compassion.png) | ![Refugee camp](docs/screenshots/148-the-refugee-camp-at-willow-creek.png) |
+| ![The picket](docs/screenshots/149-the-picket-line-in-the-mistmarsh.png) | ![A captain's fate](docs/screenshots/150-the-captains-fate.png) |
+| ![Healed by mercy](docs/screenshots/151-willow-creek-healed-by-mercy.png) | ![Steles of the sword](docs/screenshots/152-the-bamboo-steles-of-the-sword.png) |
+| ![Scarred by slaughter](docs/screenshots/153-the-lake-scarred-by-slaughter.png) | ![Siege of the Azure Cloud](docs/screenshots/154-the-siege-of-the-azure-cloud.png) |
+| ![Tuoba Hong](docs/screenshots/155-tuoba-hong-khan-of-the-iron-banner.png) | |
+
+#### New animations
+
+- characters: `march`, `spear` drill, `banner` waving, `drum`, `bandage`, `horn`, `grieve`, `rally`, `shieldwall`; held war banners, war drums, bandages and horns; iron helmets and spears on the rig
+- 18 new characters (the army, the refugees, the horde's ranks and captains) and six war outfits for her (Northern Army Lamellar, Banner General's Panoply, and a robe for each Dao at the war's end)
+- environment: burning wreckage with smoke, smouldering farmhouses, wolf and imperial banners in the wind, a trebuchet that flings its stone, tents that breathe, circling crows, a cairn's mourning cloth, a memorial stele whose sword glints
+
+![War moves](docs/art/war-moves.gif)
+
+#### Fixes
+
+- dialogue portraits had eyes twice too big; they are now half the width and half the height
+
 ### Animated art
 
 | Lin Yue's 53 animations | All 16 facing directions |
