@@ -14,6 +14,7 @@ import { almanacMasterScript, yearEpilogue, yearHasNews } from "./year";
 import { originElderMeeting, originEpilogue, originIntro, originOf, originPrologue } from "./origins";
 import { warEpilogue, warNpcScript, warPreBattle, warVictory } from "./war";
 import { daoEpilogue } from "./dao";
+import { townNpcScript } from "./town";
 import { DAOS, dominantDao } from "../engine/dao";
 import { canRedeemXue, crimsonPath, elderHeartScript, elderMoVictory, endingOf, ENDINGS, endingSteps, heartFate, heartFateChoice, xueConfrontation } from "./heart";
 
@@ -854,7 +855,7 @@ export function npcScript(key: string, g: GameState): Step[] {
     case "restporter":
       return [named("porter", "Porter Lao", pick(g, ["Eating. Talking costs breath, and breath costs noodles.", "From the terraces to the sands with tea, from the sands to the harbour with salt. Then home to sleep for a week.", "My pole's older than me. My father's. Same shoulders, too."])), { anim: "restporter", name: "eat" }];
     default:
-      return warNpcScript(key, g) ?? sectNpcScript(key, g) ?? [say("narrator", "…")];
+      return warNpcScript(key, g) ?? sectNpcScript(key, g) ?? townNpcScript(key, g) ?? [say("narrator", "…")];
   }
 }
 

@@ -1153,3 +1153,114 @@ test("capture the War of the Iron Banner and the Dao", async ({ page }) => {
   await page.waitForTimeout(1800);
   await shot(page, "155-tuoba-hong-khan-of-the-iron-banner");
 });
+
+/** Cultivation's toll and the Golden River country: Jinhe, the heart demon trial, a failed tribulation, the folk who answer her realm. */
+test("capture cultivation's toll and the Golden River country", async ({ page }) => {
+  test.setTimeout(300_000);
+  const quiet = () => page.evaluate(() => ((window.__pixelop!.game as unknown as { toasts: unknown[] }).toasts = []));
+  const settle = async (ms = 2400) => {
+    await page.waitForTimeout(ms);
+    if ((await mode(page)) === "scene") await skipScene(page);
+    await quiet();
+  };
+  const noon = () => page.evaluate(() => window.__pixelop!.game.debugSetTime(0.06, "summer"));
+  const enterUntil = async (pred: () => Promise<boolean>, max = 40) => {
+    for (let i = 0; i < max && !(await pred()); i++) {
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(160);
+    }
+    await page.waitForTimeout(900);
+  };
+  const dialogHas = (t: string) => async () => ((await page.evaluate(() => document.querySelector("[data-testid=dialog]")?.textContent ?? "")) as string).includes(t);
+  const talk = async (key: string, text: string) => {
+    await standBy(page, key);
+    await page.waitForTimeout(700);
+    await page.keyboard.press("KeyE");
+    await enterUntil(dialogHas(text), 20);
+  };
+  const open = { metElder: true, villageSaved: true, villageArrived: true, metZhou: true, foxesCleared: true, bambooArrived: true, metHuli: true, metWen: true, lakeArrived: true, serpentKingDefeated: true, marshArrived: true, terracesArrived: true, harborArrived: true, desertArrived: true, frostArrived: true, valleyArrived: true };
+
+  await startNewGame(page);
+  await patch(page, { flags: open, realm: 2, stage: 1, hp: 400, qi: 200 });
+  await noon();
+
+  // Jinhe, the Golden River City
+  await goto(page, 222 * 2 + 0.5, 503 * 2 + 0.5);
+  await settle(3000);
+  await shot(page, "156-jinhe-the-golden-river-city");
+  await goto(page, 222 * 2 + 0.5, 485 * 2 + 0.5);
+  await settle(2500);
+  await shot(page, "157-the-north-gate-of-jinhe");
+  await talk("operaYu", "Ballad");
+  await page.waitForTimeout(2500);
+  await shot(page, "158-the-opera-sings-of-her");
+  await skipScene(page);
+  await standBy(page, "rival");
+  await page.waitForTimeout(700);
+  await page.keyboard.press("KeyE");
+  await enterUntil(() => page.getByTestId("choice").isVisible(), 20);
+  await shot(page, "159-a-rival-humbled-by-her-realm");
+  await page.getByTestId("choice-0").click();
+  await settle();
+
+  // a poisoned cultivator: the alchemist won't sell, and her qi runs wild
+  await patch(page, { counters: { "cult:tox": 70 } });
+  await talk("alchemist", "pill-sheen");
+  await shot(page, "160-the-alchemist-refuses-a-poisoned-cultivator");
+  await skipScene(page);
+  await patch(page, { counters: { "cult:tox": 85, "cult:demon": 30 } });
+  await standBy(page, "jinhe-shrine");
+  await page.keyboard.press("KeyE");
+  await page.waitForTimeout(1300);
+  await shot(page, "161-a-qi-deviation");
+  await page.keyboard.press("KeyE");
+  await settle(800);
+
+  // Reedwater Landing and the caravanserai
+  await standBy(page, "laoji");
+  await settle(2500);
+  await shot(page, "162-reedwater-landing");
+  await standBy(page, "caravanmaster");
+  await settle(2500);
+  await shot(page, "163-the-camel-bell-caravanserai");
+
+  // the people who know her speak of each new realm
+  await patch(page, { realm: 2, stage: 0, counters: {} });
+  await teleport(page, "sect", 15.5, 14.5);
+  await settle();
+  await talk("elder", "golden core");
+  await shot(page, "164-elder-mo-sees-her-golden-core");
+  // and when he asks a favour after, not now
+  for (let i = 0; i < 40 && (await mode(page)) === "scene"; i++) {
+    if (await page.getByTestId("choice").isVisible()) await page.getByTestId("choice-1").click();
+    else await page.keyboard.press("Enter");
+    await page.waitForTimeout(160);
+  }
+
+  // stuck at the bottleneck: the journal, and the heart demon trial
+  await patch(page, { realm: 2, stage: 3, cultivation: cultivationNeeded(2, 3), counters: { "cult:insight": 1, "cult:demon": 34, "cult:tox": 28 } });
+  await page.evaluate(() => window.__pixelop!.game.debugPatch({ hp: window.__pixelop!.game.snapshot().stats.maxHp }));
+  await settle(600);
+  await skipScene(page);
+  await quiet();
+  await page.keyboard.press("KeyJ");
+  await page.waitForTimeout(900);
+  await shot(page, "165-journal-cultivation-and-its-toll");
+  await page.keyboard.press("KeyJ");
+  await patch(page, { counters: { "cult:insight": 3, "cult:demon": 34, "cult:tox": 28 } });
+  await standBy(page, "sect-shrine");
+  await page.keyboard.press("KeyB");
+  await enterUntil(() => page.getByTestId("choice").isVisible(), 20);
+  await shot(page, "166-the-heart-demon-trial");
+  await page.getByTestId("choice-3").click();
+  await enterUntil(async () => (await mode(page)) !== "scene", 20);
+  // a troubled heart draws the lightning: heaven throws her down
+  await page.waitForTimeout(3800);
+  await shot(page, "167-the-tribulation-fails");
+  await settle(4000);
+  // even with her qi full again, heaven will not test a cracked vessel
+  await patch(page, { cultivation: cultivationNeeded(2, 3) });
+  await page.keyboard.press("KeyB");
+  await page.waitForTimeout(500);
+  await shot(page, "168-heaven-will-not-test-a-cracked-foundation");
+});

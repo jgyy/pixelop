@@ -3,6 +3,7 @@ import { AREA_IDS as AREAS, OLD_AREA_IDS, type AreaId, type OldAreaId } from "..
 import { LEGACY_REGION_ORIGIN, TEMPLATE_SIZE, toWorld, WORLD_H, WORLD_SCALE, WORLD_W } from "../world/layout";
 import { addCultivation, breakthrough, statsFor, type Stats } from "./realms";
 import { daoStats } from "./dao";
+import { swallowPill } from "./cultivation";
 
 export const SKILL_IDS = ["strike", "palm", "lotus", "swords", "thunder"] as const;
 export type SkillId = (typeof SKILL_IDS)[number];
@@ -152,11 +153,11 @@ export function pillUseful(g: GameState, kind: "heal" | "qi"): boolean {
   return kind === "heal" ? g.hp < s.maxHp : g.qi < s.maxQi;
 }
 
-/** Consume a pill outside of battle (none is wasted when she is already whole). */
+/** Consume a pill outside of battle (none is wasted when she is already whole); every pill leaves a little poison behind. */
 export function consumePill(g: GameState, kind: "heal" | "qi"): GameState | null {
   if (g.pills[kind] <= 0 || !pillUseful(g, kind)) return null;
   const s = stats(g);
-  const next = { ...g, pills: { ...g.pills, [kind]: g.pills[kind] - 1 } };
+  const next = swallowPill({ ...g, pills: { ...g.pills, [kind]: g.pills[kind] - 1 } });
   return kind === "heal" ? heal(next, s.maxHp * PILL_EFFECT.heal, 0) : heal(next, 0, s.maxQi * PILL_EFFECT.qi);
 }
 

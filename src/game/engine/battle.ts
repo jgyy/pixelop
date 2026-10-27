@@ -3,6 +3,8 @@ import { ENEMIES, isWarFoe, type EnemyId } from "./enemies";
 import { levelIndex } from "./realms";
 import { gainCultivation, PILL_EFFECT, stats, type GameState, type SkillId } from "./state";
 import { toWorld } from "../world/layout";
+import { CULT, cultivationRate, shift, swallowPill } from "./cultivation";
+import { dominantDao } from "./dao";
 
 export type { SkillId } from "./state";
 
@@ -139,6 +141,7 @@ export function resolveTurn(game: GameState, battle: BattleState, action: Battle
     // a pill swallowed at full strength would be wasted, and the turn with it
     if (action.item === "heal" ? g.hp >= ps.maxHp : g.qi >= ps.maxQi) return { game, battle, events: [{ kind: "rejected", reason: action.item === "heal" ? "Your vitality is already full." : "Your qi is already full." }] };
     g.pills[action.item]--;
+    g = swallowPill(g);
     if (action.item === "heal") {
       const amt = Math.min(ps.maxHp - g.hp, Math.round(ps.maxHp * PILL_EFFECT.heal));
       g.hp += amt;
@@ -168,9 +171,12 @@ export function resolveTurn(game: GameState, battle: BattleState, action: Battle
     g.stones += enemy.stones;
     g.kills += 1;
     if (enemy.id === "patriarch") g.bossDefeated = true;
-    const gained = gainCultivation(g, enemy.exp);
+    // a poisoned or cracked dantian keeps less of what the fight stirred up; a killing heart feeds its demons
+    const exp = Math.max(1, Math.round(enemy.exp * cultivationRate(g)));
+    if (dominantDao(g) === "slaughter" && !enemy.friendly) g = shift(g, CULT.demon, 2);
+    const gained = gainCultivation(g, exp);
     g = gained.state;
-    events.push({ kind: "victory", exp: enemy.exp, stones: enemy.stones, stagesGained: gained.stagesGained, drop });
+    events.push({ kind: "victory", exp, stones: enemy.stones, stagesGained: gained.stagesGained, drop });
     b.seed = Math.floor(rng() * 2 ** 32);
     return { game: g, battle: b, events };
   }

@@ -171,16 +171,31 @@ test.describe("Jade Lotus Ascension", () => {
     await expect(page.getByTestId("quest")).toContainText("Blood Moon robes");
     await standBy(page, "elder");
     await page.keyboard.press("KeyE");
-    for (let i = 0; i < 30 && !(await page.getByTestId("choice").isVisible()); i++) {
-      await page.keyboard.press("Enter");
+    // advance the talk inside the page, checking the game itself for the question first, so an Enter
+    // can never land on the question before the panel has rendered (Enter would answer it)
+    for (let i = 0; i < 30; i++) {
+      const asked = await page.evaluate(() => {
+        const g = window.__pixelop!.game;
+        if (g.snapshot().choice) return true;
+        g.keyDown("Enter");
+        g.keyUp("Enter");
+        return false;
+      });
+      if (asked) break;
       await page.waitForTimeout(120);
     }
+    await expect(page.getByTestId("choice")).toContainText("Elder Mo waits");
     await page.getByTestId("choice-1").click();
+    // each poll presses Enter once, and the rest of the talk takes a handful of them (plus Elder Mo stopping to think),
+    // so poll at a steady pace rather than with the default back-off, which only fits about seven presses in five seconds
     await expect
-      .poll(async () => {
-        await page.keyboard.press("Enter");
-        return (await state(page)).flags.secretWay;
-      })
+      .poll(
+        async () => {
+          await page.keyboard.press("Enter");
+          return (await state(page)).flags.secretWay;
+        },
+        { intervals: [200], timeout: 20_000 },
+      )
       .toBe(true);
   });
 

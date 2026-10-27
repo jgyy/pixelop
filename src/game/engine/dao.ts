@@ -99,5 +99,8 @@ export function walkDao<G extends Counted>(g: G, id: DaoId, by = 1): G {
   const opposed: Partial<Record<DaoId, DaoId>> = { mercy: "slaughter", slaughter: "mercy" };
   const o = opposed[id];
   if (o && by > 0 && daoPoints(g, o) > 0) counters[`dao:${o}`] = Math.max(0, daoPoints(g, o) - 1);
+  // and what she does feeds her heart demons or starves them (see cultivation.ts)
+  const demon = id === "slaughter" ? 3 * by : id === "mercy" ? -2 * by : 0;
+  if (demon) counters["cult:demon"] = Math.max(0, Math.min(100, (g.counters["cult:demon"] ?? 0) + demon));
   return { ...g, counters };
 }

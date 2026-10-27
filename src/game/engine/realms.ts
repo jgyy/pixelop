@@ -33,10 +33,14 @@ export function levelIndex(realm: number, stage: number): number {
   return n + stage;
 }
 
-/** Cultivation required to fill the current stage. */
+/**
+ * Cultivation required to fill the current stage. Each realm is steeper
+ * than the last: the higher she climbs, the thinner heaven's qi is to her and
+ * the more of it a stage takes.
+ */
 export function cultivationNeeded(realm: number, stage: number): number {
   const L = levelIndex(realm, stage);
-  return 30 + 25 * L + 6 * L * L;
+  return Math.round((30 + 25 * L + 6 * L * L) * (1 + 0.35 * realm));
 }
 
 export function realmLabel(realm: number, stage: number): string {
