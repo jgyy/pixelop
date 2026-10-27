@@ -3,7 +3,7 @@ import { atBottleneck } from "../engine/realms";
 import { CULT, DEMONS_LOUD, failedTribulations, foundationWound, heartDemons, insight, insightNeeded, shift, toxicity } from "../engine/cultivation";
 import { DAOS, dominantDao, type DaoId } from "../engine/dao";
 import type { GameState } from "../engine/state";
-import type { HumanId } from "../art/characters";
+import { charDef, type HumanId } from "../art/characters";
 import { hash2 } from "../pixel/noise";
 import type { Choice, Step } from "./script";
 
@@ -182,7 +182,7 @@ export function realmAside(key: string, g: GameState): Step[] | null {
     { emote: key, icon: g.realm >= 3 ? "!" : "heart" },
     { say: a.who, ...(a.name && { name: a.name }), text: a.lines[g.realm - 1] },
     { mutate: (s) => ({ ...s, flags: { ...s.flags, [realmFlag(key, s.realm)]: true } }) },
-    { toast: `${a.name ?? key[0].toUpperCase() + key.slice(1)} sees you at ${r.name} (${r.hanzi})` },
+    { toast: `${a.name ?? charDef(a.who).name} sees you at ${r.name} (${r.hanzi})` },
   ];
 }
 
