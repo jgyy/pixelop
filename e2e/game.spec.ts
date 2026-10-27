@@ -186,11 +186,16 @@ test.describe("Jade Lotus Ascension", () => {
     }
     await expect(page.getByTestId("choice")).toContainText("Elder Mo waits");
     await page.getByTestId("choice-1").click();
+    // each poll presses Enter once, and the rest of the talk takes a handful of them (plus Elder Mo stopping to think),
+    // so poll at a steady pace rather than with the default back-off, which only fits about seven presses in five seconds
     await expect
-      .poll(async () => {
-        await page.keyboard.press("Enter");
-        return (await state(page)).flags.secretWay;
-      })
+      .poll(
+        async () => {
+          await page.keyboard.press("Enter");
+          return (await state(page)).flags.secretWay;
+        },
+        { intervals: [200], timeout: 20_000 },
+      )
       .toBe(true);
   });
 
