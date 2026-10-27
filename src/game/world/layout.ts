@@ -18,6 +18,12 @@ import type { AreaId, OldAreaId } from "./ids";
  * waterfall lie the eastern lands: the steppe, Frostveil Monastery in the
  * snowy north-east and Wavecrest Harbour on the eastern shore.
  *
+ * Below the far south, the land runs on another hundred-odd tiles to the
+ * southern sea: the Golden River country, with the walled city of Jinhe at
+ * its heart, a fishing village where the bamboo stream meets the sea and a
+ * caravanserai under the sands. The world only grew southward, so every
+ * position in an older version 5 save is still the same spot.
+ *
  * The world is laid out on an "authoring" grid (the hand-built region
  * templates and the landmarks are written in it) and then magnified
  * WORLD_SCALE times: every authoring tile becomes WORLD_SCALE × WORLD_SCALE
@@ -27,7 +33,7 @@ export const WORLD_SCALE = 2;
 
 /** The authoring grid the world is laid out on. */
 export const COARSE_W = 648;
-export const COARSE_H = 464;
+export const COARSE_H = 560;
 export const WORLD_W = COARSE_W * WORLD_SCALE;
 export const WORLD_H = COARSE_H * WORLD_SCALE;
 
@@ -110,9 +116,9 @@ export function rectDistance(area: AreaId, x: number, y: number, scale = WORLD_S
  * hold only the land nearest them.
  */
 export const DOMAIN: Partial<Record<AreaId, [number, number, number, number][]>> = {
-  marsh: [[3, 236, 135, 452]],
-  terraces: [[140, 238, 280, 452]],
-  desert: [[290, 330, 640, 452]],
+  marsh: [[3, 236, 135, 556]],
+  terraces: [[140, 238, 280, 556]],
+  desert: [[290, 330, 640, 452], [290, 452, 480, 556]],
   harbor: [[350, 150, 640, 330]],
   frost: [[350, 52, 640, 146]],
 };

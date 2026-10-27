@@ -173,9 +173,10 @@ describe("the continuous world", () => {
     expect(falls).toBeGreaterThan(0);
   });
 
-  it("is twice the size of the version 5 world in each direction (four times the version 4 one), with its landmarks on open land", () => {
+  it("is four times the version 4 world across, and has grown south beyond that, with its landmarks on open land", () => {
     expect(WORLD_W).toBe(324 * 4);
-    expect(WORLD_H).toBe(232 * 4);
+    expect(WORLD_H).toBe(560 * WORLD_SCALE);
+    expect(WORLD_H).toBeGreaterThan(232 * 4);
     expect(walkable.size).toBeGreaterThan(600000);
     expect(w.landmarks.length).toBeGreaterThanOrEqual(18);
     for (const l of w.landmarks) {
@@ -305,3 +306,42 @@ describe("building interiors", () => {
     }
   });
 });
+
+describe("the Golden River country", () => {
+  const w = getWorld();
+  const m = w.map;
+  const S = WORLD_SCALE;
+  const inCity = (i: number, j: number) => i > 208 * S && i < 237 * S && j > 487 * S && j < 514 * S;
+
+  it("grew the world south without moving any of the old lands", () => {
+    for (const id of AREA_IDS) expect(w.waypoints[id][1], id).toBeLessThan(464 * S);
+    for (const key of ["jinhe", "reedwater", "caravan"]) {
+      const l = w.landmarks.find((x) => x.key === key)!;
+      expect(l, key).toBeDefined();
+      expect(l.y, key).toBeGreaterThan(464 * S);
+    }
+  });
+
+  it("walls Jinhe in, with watchtowers at its corners and gates where its streets go out", () => {
+    const walls = w.props.filter((p) => (p.id === "citywall" || p.id === "citywallY") && p.i >= 207 * S && p.i <= 237 * S && p.j >= 486 * S && p.j <= 514 * S);
+    expect(walls.length).toBeGreaterThan(90);
+    expect(w.props.filter((p) => p.id === "watchtower")).toHaveLength(4);
+    // the four streets out of the city are open ground
+    for (const [i, j] of [
+      [222, 486],
+      [222, 514],
+      [206, 500],
+      [238, 500],
+    ])
+      expect(m.standable(i * S, j * S), `${i},${j}`).toBe(true);
+  });
+
+  it("fills its streets with people and its quarters with buildings", () => {
+    const folk = w.npcs.filter((n) => inCity(n.i, n.j));
+    expect(folk.length).toBeGreaterThanOrEqual(25);
+    const buildings = w.props.filter((p) => inCity(p.i, p.j) && ["house", "hall", "teahouse", "pagoda", "operastage", "forge"].includes(p.id));
+    expect(buildings.length).toBeGreaterThanOrEqual(14);
+    for (const key of ["laoji", "ahhong", "caravanmaster", "caravanguard"]) expect(w.npcs.some((n) => n.key === key), key).toBe(true);
+  });
+});
+
