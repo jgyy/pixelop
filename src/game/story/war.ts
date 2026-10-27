@@ -691,7 +691,7 @@ function compose(id: number): WarQuest {
       kind: "rally",
       title: "Sound the Assault",
       objective: `The army is ready to take back ${F.place}. Tell General Yue to sound the assault.`,
-      brief: `${boss.name} holds what is left of the horde at ${F.place}. When the drums sound, he will come out to meet you. Are you ready?`,
+      brief: `${boss.name} holds what is left of the horde at ${F.place}. When the drums sound, the captain will come out to meet you. Are you ready?`,
       npc: yue,
       count: 1,
       done: "The drums of the Northern Army roll across the front, and far off the horde's horns answer.",
@@ -702,7 +702,7 @@ function compose(id: number): WarQuest {
       ...base,
       kind: "siege",
       title: `${boss.name}`,
-      objective: `${boss.name} has come out to fight at ${F.place}. Find and defeat him on the edge of the front.`,
+      objective: `${boss.name} has come out to fight at ${F.place}. Find and defeat them on the edge of the front.`,
       brief: "",
       count: 1,
       done: F.victory,
@@ -1037,7 +1037,7 @@ export function warTalk(key: string, g: GameState): Step[] | null {
         narr(q.done),
         ...finish(q, g),
         { anim: "hero", name: "rally", wait: true },
-        { toast: `${ENEMIES[frontBoss(q.front)].name} rides out to meet you · find him on the front` },
+        { toast: `${ENEMIES[frontBoss(q.front)].name} rides out to meet you · find them on the front` },
       ];
     case "dao":
       return dilemmaSteps(q, g);
@@ -1137,7 +1137,7 @@ export function warPreBattle(enemy: EnemyId, g: GameState): Step[] | null {
 
 /** The fates she may give a beaten captain. */
 const FATES: { dao: DaoId; label: string; line: (name: string) => string }[] = [
-  { dao: "mercy", label: "Bind his wounds and let him go home", line: (n) => `She binds ${n}'s wounds herself and points north. Whatever ${n} expected, it was not this.` },
+  { dao: "mercy", label: "Bind their wounds and let them go home", line: (n) => `She binds ${n}'s wounds herself and points north. Whatever ${n} expected, it was not this.` },
   { dao: "sword", label: "Grant a warrior's death", line: (n) => `She gives ${n} a warrior's death, swift and clean, and closes the eyes after.` },
   { dao: "balance", label: "Send them to the Khan with terms of peace", line: (n) => `She sends ${n} north with terms: a border, a market on it, and an end. ${n} goes, looking back at her the whole way.` },
   { dao: "slaughter", label: "Take the head to the walls", line: (n) => `${n}'s head goes up on a spear at the front. The horde sees it at dawn.` },
