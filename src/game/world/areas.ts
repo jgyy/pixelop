@@ -4,6 +4,7 @@ import { footTiles, propDef, type PropId } from "../art/props";
 import type { EnemyId } from "../engine/enemies";
 import { LIQUID, TileMap, type TileKind } from "./tilemap";
 import type { TerrainPatch } from "./terrain";
+import { warMood } from "./war";
 
 /**
  * The six explorable regions. Each is built procedurally from a few shape
@@ -128,7 +129,7 @@ export type Mood = Partial<Pick<AreaDef, "sky" | "weather" | "night" | "tint">>;
 
 /** A region as the story has left it: its own sky, or the one the story gave it. */
 export function moodOf<T extends AreaDef>(d: T, flags: Record<string, boolean>): T {
-  const m = d.mood?.(flags);
+  const m = d.mood?.(flags) ?? warMood(d.id, flags);
   return m ? { ...d, ...m } : d;
 }
 

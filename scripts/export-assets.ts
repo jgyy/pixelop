@@ -251,6 +251,38 @@ const wardens: Cell[] = [
   ...(["zhou", "hua", "villagerM", "villagerF", "monk", "child"] as HumanId[]).map((id): Cell => ({ id, anim: "idle", dir: 1, label: `${charDef(id).name.split(" ").pop()} wool`, outfit: "winter" })),
 ];
 writeGif("wardens.gif", showcase(wardens, 7, 2, seconds), 12);
+// the War of the Iron Banner: the Northern Army at work, the horde in arms, and what the war makes of her
+const war: [CharId, AnimId, string?][] = [
+  ["general", "banner"],
+  ["general", "horn"],
+  ["soldier", "march"],
+  ["soldier", "spear"],
+  ["soldier", "shieldwall"],
+  ["drummer", "drum"],
+  ["medic", "bandage"],
+  ["quartermaster", "write"],
+  ["scout", "look"],
+  ["deserter", "plantsword"],
+  ["envoy", "fan"],
+  ["widow", "grieve"],
+  ["refugeeF", "cower"],
+  ["refugeeM", "grieve"],
+  ["raider", "march"],
+  ["ironguard", "attack"],
+  ["bannerman", "roar"],
+  ["warcaptain", "roar"],
+  ["ironmarshal", "spear"],
+  ["shaman", "cast"],
+  ["tuoba", "roar"],
+  ["heroine", "rally", "lamellar"],
+  ["heroine", "banner", "bannergeneral"],
+  ["heroine", "bandage", "bodhisattva"],
+  ["heroine", "grieve", "taijisage"],
+  ["heroine", "horn", "swordsaint"],
+  ["heroine", "roar", "asura"],
+];
+writeGif("war-moves.gif", showcase(war.map(([id, anim, outfit]): Cell => ({ id, anim, dir: 1, label: `${charDef(id).name.split(" ").pop()} ${anim}`, outfit })), 7, 2, seconds), 12);
+
 
 // 2. Portraits
 const portraitIds = HUMAN_IDS.filter((id) => charDef(id).portrait);
