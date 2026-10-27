@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { PixelBuffer } from "@/game/pixel/PixelBuffer";
 import { BufferSurface } from "@/game/pixel/surface";
-import { cultivationNeeded } from "@/game/engine/realms";
+import { cultivationNeeded, statsFor } from "@/game/engine/realms";
 import { newGame, SKILL_IDS } from "@/game/engine/state";
 import { Game, type UiSnapshot } from "@/game/runtime/Game";
 import { renderTitle } from "@/game/runtime/title";
@@ -173,7 +173,8 @@ describe("Game runtime", () => {
   it("meditates at a shrine, faces the tribulation and breaks through", () => {
     const game = fresh();
     standBy(game, "sect-shrine");
-    game.debugPatch({ stage: 3, cultivation: cultivationNeeded(0, 3) - 5 });
+    // heaven's bolts strike hard: she faces them whole
+    game.debugPatch({ stage: 3, cultivation: cultivationNeeded(0, 3) - 5, hp: statsFor(0, 3).maxHp });
     game.keyDown("KeyE");
     game.keyUp("KeyE");
     expect(game.mode).toBe("meditate");

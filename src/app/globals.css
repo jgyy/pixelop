@@ -1105,6 +1105,12 @@ button {
   margin: -2px 0 4px;
   text-shadow: 0 1px 0 #0008;
 }
+.hud .condition {
+  font-size: 0.74em;
+  margin: 3px 0 0;
+  color: #ffb0c0;
+  text-shadow: 0 1px 0 #0008;
+}
 .journal ul.fronts,
 .journal ul.daos {
   list-style: none;
