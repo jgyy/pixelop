@@ -1763,27 +1763,7 @@ function buildWorld(): WorldDef {
   }
 
   // 13. which region owns each tile
-  const regionOf = new Uint8Array(WORLD_W * WORLD_H);
-  // each region's template and wider lands as flat world rectangles, so the million tiles go quickly
-  const holds = AREA_IDS.flatMap((id, n) => [regionRect(id), ...(DOMAIN[id] ?? []).map((r) => r.map((v) => v * S))].map((r) => [n, ...r]));
-  for (let j = 0; j < WORLD_H; j++)
-    for (let i = 0; i < WORLD_W; i++) {
-      if (fine.kinds[j * WORLD_W + i] === 0) continue;
-      const x = i + 0.5;
-      const y = j + 0.5;
-      let best = 0;
-      let bd = Infinity;
-      for (const [n, x0, y0, x1, y1] of holds) {
-        const dx = Math.max(x0 - x, 0, x - x1);
-        const dy = Math.max(y0 - y, 0, y - y1);
-        const d = Math.sqrt(dx * dx + dy * dy);
-        if (d < bd - 1e-6) {
-          bd = d;
-          best = n;
-        }
-      }
-      regionOf[j * WORLD_W + i] = best;
-    }
+  const regionOf = regionOwners(fine);
 
   const waypoints = {} as Record<AreaId, [number, number]>;
   for (const id of AREA_IDS) waypoints[id] = toWorld(id, ...regions[id].arrive);
@@ -1808,6 +1788,49 @@ function buildWorld(): WorldDef {
     landmarks: landmarks.map((l) => ({ ...l, x: l.x * S + (S - 1) / 2, y: l.y * S + (S - 1) / 2 })),
     patches,
   };
+}
+
+/**
+ * Which region owns each world tile: the nearest of each region's template
+ * and wider lands. Kept out of buildWorld so the engine optimises it (it runs
+ * once for every one of the million-odd tiles).
+ */
+function regionOwners(fine: TileMap): Uint8Array {
+  const regionOf = new Uint8Array(WORLD_W * WORLD_H);
+  // each region's template and wider lands as flat world rectangles in typed arrays, each one's vertical distance worked out once a row
+  const holds = AREA_IDS.flatMap((id, n) => [regionRect(id), ...(DOMAIN[id] ?? []).map((r) => r.map((v) => v * WORLD_SCALE))].map((r) => [n, ...r]));
+  const owner = Uint8Array.from(holds, (h) => h[0]);
+  const hx0 = Float64Array.from(holds, (h) => h[1]);
+  const hx1 = Float64Array.from(holds, (h) => h[3]);
+  const hy0 = Float64Array.from(holds, (h) => h[2]);
+  const hy1 = Float64Array.from(holds, (h) => h[4]);
+  const dy2 = new Float64Array(holds.length);
+  const [W, H, kinds, n] = [WORLD_W, WORLD_H, fine.kinds, holds.length];
+  for (let j = 0; j < H; j++) {
+    const y = j + 0.5;
+    for (let k = 0; k < n; k++) {
+      const dy = Math.max(hy0[k] - y, 0, y - hy1[k]);
+      dy2[k] = dy * dy;
+    }
+    for (let i = 0; i < W; i++) {
+      if (kinds[j * W + i] === 0) continue;
+      const x = i + 0.5;
+      let best = 0;
+      let bd = Infinity;
+      for (let k = 0; k < n; k++) {
+        const a = hx0[k] - x;
+        const b = x - hx1[k];
+        const dx = a > 0 ? a : b > 0 ? b : 0;
+        const d = Math.sqrt(dx * dx + dy2[k]);
+        if (d < bd - 1e-6) {
+          bd = d;
+          best = owner[k];
+        }
+      }
+      regionOf[j * W + i] = best;
+    }
+  }
+  return regionOf;
 }
 
 const xy = ([i, j]: [number, number]) => ({ i, j });

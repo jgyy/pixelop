@@ -8,7 +8,7 @@ A **2.5D isometric pixel-art xianxia RPG** built as a full-stack **Next.js 16** 
 
 ### One world, no loading screens
 
-The whole jianghu is a single **1296 × 928 tile map**: twice as wide and twice as deep as it was, which was itself twice the world before. The old lands are now its north-western quarter, and **five new regions** lie beyond them (see [The world doubled again](#the-world-doubled-again)). Whistle for **Cloudmane**, Lin Yue's spirit horse, to cover it at a gallop. You can walk from the sect gate down a long sky bridge that rests on Cloudrest Isle half way, along the old highway past the bamboo, and on to the waterfall where the Lotus Lake spills off the edge of the world. South of the highway lie the ashen wastes, a stone forest with a ruined temple, scarecrow fields under a seven-tier pagoda and the snowy highlands with a hot spring and a bandit camp. East of the sect, plank walkways lead out to the floating Cloudstep Isles. Sealed regions sit behind walls of mist, talismans, demonic qi or heaven's light until the story opens them.
+The whole jianghu is a single **1296 × 1120 tile map**: twice as wide and more than twice as deep as it was, which was itself twice the world before (it has since grown south to the sea, see [the Golden River country](#the-golden-river-country)). The old lands are now its north-western quarter, and **five new regions** lie beyond them (see [The world doubled again](#the-world-doubled-again)). Whistle for **Cloudmane**, Lin Yue's spirit horse, to cover it at a gallop. You can walk from the sect gate down a long sky bridge that rests on Cloudrest Isle half way, along the old highway past the bamboo, and on to the waterfall where the Lotus Lake spills off the edge of the world. South of the highway lie the ashen wastes, a stone forest with a ruined temple, scarecrow fields under a seven-tier pagoda and the snowy highlands with a hot spring and a bandit camp. East of the sect, plank walkways lead out to the floating Cloudstep Isles. Sealed regions sit behind walls of mist, talismans, demonic qi or heaven's light until the story opens them.
 
 ![The whole continuous world](docs/art/world-overview.png)
 
@@ -612,6 +612,72 @@ flowchart LR
 
 - dialogue portraits had eyes twice too big; they are now half the width and half the height
 
+### A harder road to heaven, and the Golden River country
+
+Filling the dantian is now only half of cultivation. The other half is what the filling does to her, and everyone she knows can see it.
+
+```mermaid
+flowchart LR
+  Q[Draw in qi: shrines, herbs, battles] --> F{Dantian full at a realm's peak?}
+  P[Pills] -->|丹毒 +14 each| T[Pill poison]
+  T -->|leaks qi · at 80 a qi deviation| Q
+  K[Slaughter · failures · deviations] --> D[心魔 Heart demons]
+  M[Mercy · meditation · monks, friends, lamps] -->|starve| D
+  F -->|Foundation on| I{悟 Insight enough?}
+  I -->|no: steles, masters' pointers, new shrines, long sittings| I
+  I -->|yes| H[Heart demon trial: answer as her Dao would]
+  F -->|Qi Condensation| B
+  H --> B[Heavenly Tribulation: every bolt strikes her body]
+  D & T -->|draw the lightning| B
+  B -->|she stands| R[Breakthrough: poison burnt out, demons quietened, insight spent]
+  B -->|she falls| W[根基 Cracked foundation · qi scattered · demons fed]
+  W -->|meditate until it mends| F
+```
+
+- **Steeper realms.** Each realm needs 35% more qi per stage than the one below it, the shrine's qi thins the longer she sits (the Tribulation Peak is richest, the corrupted valley poorest), and what she draws in leaks away through poison, cracks and demons (the journal shows how much she keeps).
+- **丹毒 Pill poison.** Every pill, in battle or out, leaves 14 points of poison. It eats into her gains, and at 80 her qi runs wild in meditation: a qi deviation hurts her, feeds her demons and purges some of the poison. Meditation burns it off, the body slowly clears it, and Bai Zhi, Ling'er and Senior Sister Qing draw it out once a realm. Jinhe's alchemist won't sell to a poisoned cultivator.
+- **心魔 Heart demons.** The Dao of Slaughter feeds them (in its choices and every kill), Compassion starves them, and failed tribulations and deviations add more. Meditation quiets a few, but past 40 only another voice will: Abbot Xuan, Monk Kong, Hu Li, Granny Hua or Sister Ming's lamps. Past 60 the folk shrink from her.
+- **悟 Insight.** From Foundation Establishment on, a full dantian is not enough: she needs 2, 3, 4 and then 5 insight to break out of each realm. An old stele read with a cultivator's eyes, the first sitting at each shrine, a flash of insight every 45 seconds sat at the bottleneck, and the masters' pointers (Elder Mo, Abbot Xuan, Master Yun, Monk Kong, Ling Feng, Bai Zhi, Old Wen, the Almanac Master, and in Jinhe the fortune-teller and the academy master) all bring it.
+- **心魔劫 The heart demon trial.** Before every tribulation from Foundation on, what she fears most speaks in her own voice. Cut it down, forgive it, let it pass or devour it: her own Dao's answer (or, with no Dao yet, anything but devouring) starves it; any other feeds it.
+- **Tribulations can fail.** Every bolt now strikes her body, harder for poison and demons, a little softer for Compassion or Heaven's Balance, harder for Slaughter. If she falls, her qi scatters, her foundation cracks (half the qi she keeps, and no tribulation until meditation mends it), her demons feed and her insight is shaken. Passing burns the poison out of her and quiets the demons.
+- **The jianghu answers.** Fourteen of the cast speak once of each new realm she reaches. The people who care for her notice the cracks, the poison and the demons, and some of them help. Passers-by stare and bow, or recoil, or say how glad they are heaven didn't kill her. From Core Formation on, the folk she passes bow instead of waving. When she breaks through, the people around her cheer; when she falls, they gasp. The HUD shows how she is, and the journal has a Cultivation page.
+
+| | |
+| --- | --- |
+| ![Jinhe](docs/screenshots/156-jinhe-the-golden-river-city.png) | ![The north gate](docs/screenshots/157-the-north-gate-of-jinhe.png) |
+| ![The opera sings of her](docs/screenshots/158-the-opera-sings-of-her.png) | ![A rival humbled](docs/screenshots/159-a-rival-humbled-by-her-realm.png) |
+| ![The alchemist refuses](docs/screenshots/160-the-alchemist-refuses-a-poisoned-cultivator.png) | ![A qi deviation](docs/screenshots/161-a-qi-deviation.png) |
+| ![Reedwater Landing](docs/screenshots/162-reedwater-landing.png) | ![The caravanserai](docs/screenshots/163-the-camel-bell-caravanserai.png) |
+| ![Elder Mo sees her golden core](docs/screenshots/164-elder-mo-sees-her-golden-core.png) | ![The journal](docs/screenshots/165-journal-cultivation-and-its-toll.png) |
+| ![The heart demon trial](docs/screenshots/166-the-heart-demon-trial.png) | ![The tribulation fails](docs/screenshots/167-the-tribulation-fails.png) |
+| ![A cracked foundation](docs/screenshots/168-heaven-will-not-test-a-cracked-foundation.png) | |
+
+#### The Golden River country
+
+The world grew south again: 96 more rows of the authoring grid (192 world tiles), from the old southern shore down to the sea. Every older position is still the same spot.
+
+```mermaid
+flowchart TD
+  S[The southern road] -->|the Great South Road, through the plum hills| N[Jinhe · north gate]
+  N --> Q((The square))
+  Q --- Y[Yamen · Magistrate Lu]
+  Q --- O[Opera stage · the Ballad of Lin Yue]
+  Q --- T[City-god temple · shrine · stele]
+  Q --- M[Teahouse · alchemist · silk · pawnshop · forge · academy]
+  Q -->|west gate| R[Reedwater Landing, where the bamboo stream meets the sea]
+  Q -->|east gate, over the Golden River| C[Camel Bell Caravanserai]
+  C -->|caravan track| D[The Yellow Sands]
+  Q -->|south gate| SEA[The southern sea]
+```
+
+- **Jinhe, the Golden River City (金河城):** grey-brick walls with crenellations, four watchtowers with lanterns on watch, a paifang over each street gate, two paved streets crossing at a square with a fountain, a magistrate's yamen, an opera stage, a teahouse, a city-god temple, an academy, a forge, shops under swaying banners, stalls and 28 townsfolk. Nearly all of them answer to her realm, her Dao, her failures and her condition: the magistrate pays a Core Formation cultivator to keep the peace, the opera adds a verse to the Ballad of Lin Yue for each realm (and one for each fall), a rival from the Golden Pavilion sneers until she outgrows him and then asks for a lesson (three Dao answers), the physician reads her pulse and needles a cracked foundation, a beggar who was once a cultivator tells how pills ruined him, the clerk reads out her entry in the register.
+- **Reedwater Landing (芦水渡)**, a fishing village where the bamboo stream reaches the sea, and the **Camel Bell Caravanserai (驼铃驿)**, where the caravans out of the Yellow Sands rest, each with their own folk, a stele and treasure. Bandits, wolves, foxes and a serpent roam between them, and herds of horses graze the riverlands.
+- **New props:** city walls (both ways), a watchtower, an opera stage whose curtains and banners stir, and a shop banner that sways. Common folk can bow now, and villagers can fish.
+
+#### Fixes
+
+- the continuous world is built in about 40% of the time it took before (and despite being bigger): assigning each tile to its region now runs in its own small function that the JavaScript engine can optimise, instead of inside the very large world builder
+
 ### Animated art
 
 | Lin Yue's 53 animations | All 16 facing directions |
@@ -655,7 +721,7 @@ flowchart LR
 - **Choices that matter:** questions put to the heroine (a choice panel with hints), remembered as story flags; three sect quest lines and a five-way conclave over the Dragon Vein, standing with each sect (Hostile to Allied), and 26 terrain patches that change the world and the caves as the story goes (plus skies that change with it) (see [Three sects, the deep, and choices that matter](#three-sects-the-deep-and-choices-that-matter)).
 - **Underground:** three caves (Ember Mine, Sunken Grotto, Dragon Vein Caverns) carved as cutaways of living rock at many heights, with a cave sky of dripping stalactites, drips and glowing spores, a torch she holds up, and battles on a ledge in the dark.
 - **Narrative:** three beginnings, a prologue, six chapters, an epilogue and five endings (see [Three beginnings](#three-beginnings-a-heart-to-choose-and-five-endings)), with a quest tracker, scripted cutscenes (walk, emote, camera, flash, shake, spawn), typed-out dialogue with animated portraits, full-screen narration, first-arrival scenes, pre-boss speeches and an ending; plus four side errands shown under the quest tracker (a ghost's unfinished letter, two quarrelling brothers, a sword brought home, a dead husband's cloak) and Willow Creek's lantern festival, each ending in a new outfit.
-- **Cultivation:** 6 realms × 4 stages. Battles, spirit herbs, chests and shrine meditation grow your cultivation. At a realm's peak you must survive a Heavenly Tribulation (3 bolts, or 9 for the final ascension).
+- **Cultivation:** 6 realms × 4 stages, each realm steeper than the last. Battles, spirit herbs, chests and shrine meditation grow your cultivation; pill poison, heart demons and a cracked foundation hold it back, and from Foundation on a breakthrough needs insight and a heart demon trial. At a realm's peak you must survive a Heavenly Tribulation (3 bolts, or 9 for the final ascension), and it can fail (see [A harder road to heaven](#a-harder-road-to-heaven-and-the-golden-river-country)).
 - **Turn-based battles** on themed isometric arenas, with five techniques (Azure Sword Strike, Jade Lotus Palm, Lotus Heart Sutra, Myriad Swords Return, Nine Heavens Thunder), pills and fleeing. Fighters dash in, recoil, throw qi orbs and foxfire, and call down lightning, with damage pop-ups, crits, screen shake and flashes.
 - **Controls:** keyboard, click/tap-to-walk, and a virtual joystick on touch screens.
 - **Full stack:** saves are validated with zod and stored server-side by Route Handlers in an atomic JSON file store. A leaderboard of top cultivators is computed from all saves. The gallery at `/gallery` plays every character, prop and region live.
@@ -676,7 +742,7 @@ npm run dev            # http://localhost:3000
 | `npm run screenshots` | Re-captures `docs/screenshots/*` through Playwright |
 | `npm run assets` | Exports the animated GIF showcases and PNGs to `docs/art/` (add `-- docs/art --overview` for the picture of the whole world) |
 
-Saves live in `$DATA_DIR/saves.json` (default `.data/`). Set `SAVE_STORE=memory` for an ephemeral in-memory store. Saves are version 5; the world doubled again around the old lands without moving them, so every version 5 position is still the same spot. Older saves are migrated on load: version 4 positions from the 324 × 232 world are doubled into the magnified world, version 3 positions from the smaller 162 × 116 world keep their place relative to their region, and a position that is no longer open ground (or a save made while flying over water) lands on the nearest open tile.
+Saves live in `$DATA_DIR/saves.json` (default `.data/`). Set `SAVE_STORE=memory` for an ephemeral in-memory store. Saves are version 5; the world doubled again around the old lands without moving them, and has since only grown southward, so every version 5 position is still the same spot. Her cultivation's condition (pill poison, heart demons, a cracked foundation, insight) lives in the save's counters as `cult:*`, so older saves load whole. Older saves are migrated on load: version 4 positions from the 324 × 232 world are doubled into the magnified world, version 3 positions from the smaller 162 × 116 world keep their place relative to their region, and a position that is no longer open ground (or a save made while flying over water) lands on the nearest open tile.
 
 ## Controls
 
