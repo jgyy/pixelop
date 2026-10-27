@@ -47,6 +47,13 @@ export const ATTIRE: Attire[] = [
   { id: "teacher", name: "Village Teacher's Robe", hanzi: "村塾先生袍", from: "The children of Willow Creek" },
   { id: "foxform", name: "Nine-Tailed Form", hanzi: "九尾形", from: "Hu Li, her sworn sister" },
   { id: "dragonform", name: "Dragon-Blood Form", hanzi: "龙血形", from: "Old Long, the Dragon Vein" },
+  // the War of the Iron Banner
+  { id: "lamellar", name: "Northern Army Lamellar", hanzi: "北军鳞甲", from: "General Yue Wushuang (100 war quests)" },
+  { id: "bannergeneral", name: "Banner General's Panoply", hanzi: "旗帅战袍", from: "The Northern Army (500 war quests)" },
+  { id: "swordsaint", name: "Sword Saint's Robe", hanzi: "剑圣袍", from: "The war, won on the Dao of the Sword" },
+  { id: "bodhisattva", name: "Robe of the Merciful", hanzi: "慈悲衣", from: "The war, won on the Dao of Compassion" },
+  { id: "taijisage", name: "Taiji Sage's Robe", hanzi: "太极道袍", from: "The war, won on the Dao of Heaven's Balance" },
+  { id: "asura", name: "Asura's Warplate", hanzi: "修罗甲", from: "The war, won on the Dao of Slaughter" },
 ];
 
 /** How an outfit she does not yet own may be earned (shown, greyed, in the wardrobe). */
@@ -78,6 +85,12 @@ export const ATTIRE_HINT: Record<string, string> = {
   bloodmoon: "Drink the Jade Lotus Heart yourself.",
   guardian: "Turn back from heaven's stair.",
   teacher: "Go home to Willow Creek, at the very end.",
+  lamellar: "Fulfil 100 quests of the War of the Iron Banner.",
+  bannergeneral: "Fulfil 500 quests of the War of the Iron Banner.",
+  swordsaint: "End the war walking the Dao of the Sword.",
+  bodhisattva: "End the war walking the Dao of Compassion.",
+  taijisage: "End the war walking the Dao of Heaven's Balance (or no Dao at all).",
+  asura: "End the war walking the Dao of Slaughter.",
   foxform: "Lay a scholar's shade to rest, and end the Blood Moon. Hu Li has a secret.",
   dragonform: "Drink the Dragon Vein.",
 };

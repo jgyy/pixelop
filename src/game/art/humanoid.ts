@@ -11,8 +11,8 @@ import { OUTLINE, PAL, tones as ramp4 } from "./palette";
  */
 
 export type HairStyle = "bun" | "long" | "topknot" | "bald" | "twin" | "short" | "wild";
-export type Hat = "none" | "straw" | "scholar" | "crown" | "jiangshi" | "hood" | "veil";
-export type Weapon = "jian" | "saber" | "staff" | "fan" | "whisk" | "rod" | "none";
+export type Hat = "none" | "straw" | "scholar" | "crown" | "jiangshi" | "hood" | "veil" | "helmet";
+export type Weapon = "jian" | "saber" | "staff" | "fan" | "whisk" | "rod" | "spear" | "none";
 
 export interface HumanStyle {
   skin: Ramp;
@@ -72,7 +72,7 @@ export interface HumanPose {
   /** Extra light-blue tint (qi casting) or white (hit flash) applied after. */
   flash?: number;
   /** Something held in the hands: a bamboo dizi flute, a rice bowl and chopsticks, juggling balls, a smith's hammer, a writing brush, a paper lantern, a hoe, a woodsman's axe, a carrying pole with two baskets, a shuttlecock or an oiled-paper umbrella. */
-  held?: "flute" | "bowl" | "balls" | "hammer" | "brush" | "lantern" | "hoe" | "axe" | "pole" | "shuttlecock" | "umbrella" | "pickaxe" | "torch" | "ladle" | "fireball" | "rake" | "seedling" | "snowball" | "kite";
+  held?: "flute" | "bowl" | "balls" | "hammer" | "brush" | "lantern" | "hoe" | "axe" | "pole" | "shuttlecock" | "umbrella" | "pickaxe" | "torch" | "ladle" | "fireball" | "rake" | "seedling" | "snowball" | "kite" | "warbanner" | "drum" | "bandage" | "horn";
   /** Where a tossed thing (the shuttlecock) is, in pose space. */
   toss?: V3;
 }
@@ -295,6 +295,12 @@ export function paintHuman(st: HumanStyle, p: HumanPose, facing: number, o: Rend
     r.sphere(add(head, [0, -0.6 * S, 0.6 * S]), HR + Rr(1.1), mat(hatR, 9, { shader: hood }));
   } else if (hat === "veil") {
     r.cone(hc[0], hc[1], Rr(9), zAt(29), Rr(1), zAt(33.5), 12, mat(hatR, 9));
+  } else if (hat === "helmet") {
+    // a soldier's iron helmet: a domed bowl with a spike and plume on top, and lamellar flaps over the neck
+    const helm: Shader = (s, tone) => (s.n[2] > 0.18 || (s.n[1] < -0.25 && s.n[2] > -0.55) ? tone(hatR, Math.sin(s.n[2] * 14) > 0.8 ? 1 : 0) : null);
+    r.sphere(add(head, [0, -0.4 * S, 0.5 * S]), HR + Rr(0.9), mat(hatR, 9, { shader: helm }));
+    r.cone(hc[0], hc[1] - 0.2 * S, Rr(1.2), zAt(31.6), Rr(0.2), zAt(35.4), 6, mat(hatR, 9));
+    r.sweep([U([0, -0.4, 35]), U([wind[0] * 1.6, -2.4 + wind[1] * 1.6, 33.4 + Math.sin(t * 2) * 0.4])], [Rr(0.9), Rr(0.3)], mat(PAL.red, 9));
   }
 
   // ------------------------------------------------------------------ arms
@@ -364,6 +370,15 @@ export function paintHuman(st: HumanStyle, p: HumanPose, facing: number, o: Rend
     const tip = add(hR, [1 * S, 14 * S, 9 * S]);
     r.sweep([sub(hR, [0, 1.5 * S, 1 * S]), tip], [Rr(0.55), Rr(0.25)], mat(PAL.woodDark, 9));
     r.sweep([tip, add(tip, [0, 1.5 * S, -12 * S + Math.sin(t) * 0.5])], Rr(0.15), mat(PAL.white, 9));
+  }
+  if (st.weapon === "spear") {
+    // a long spear: levelled along the thrust in a drill or a charge, otherwise held upright at the soldier's side
+    const head = sword === "hand" ? add(hR, scale3(swordDir, 14 * S)) : add(hR, [0, 0.6 * S, 17 * S]);
+    const butt = sword === "hand" ? sub(hR, scale3(swordDir, 7 * S)) : add(hR, [0, 0.6 * S, -11 * S]);
+    r.sweep([butt, head], Rr(0.5), mat(st.weaponRamp ?? PAL.wood, 9));
+    const d = norm(sub(head, butt));
+    r.sweep([head, add(head, scale3(d, 3.4 * S))], [Rr(0.95), Rr(0.1)], mat(PAL.steel, 9, { shader: (s2, tone) => (s2.lum > 0.6 ? "#ffffff" : tone(PAL.steel)) }));
+    r.sweep([sub(head, scale3(d, 0.4 * S)), add(sub(head, scale3(d, 2.4 * S)), [wind[0] * 1.4 * S, wind[1] * 1.4 * S, -0.6 * S])], [Rr(1), Rr(0.4)], mat(PAL.red, 9));
   }
   if (sword !== "hand" && st.weapon === "saber") {
     r.sweep([U([-3.8, 2, 12.6]), U([-4.3, -6, 8.2])], [Rr(0.7), Rr(0.9)], mat(st.weaponRamp ?? PAL.crimson, 9));
@@ -510,6 +525,47 @@ export function paintHuman(st: HumanStyle, p: HumanPose, facing: number, o: Rend
     r.sweep([kite, add(kite, [wind[0] * S - 1 * S, -2 * S, -3.6 * S + Math.sin(t * 3) * 0.6 * S])], [Rr(0.8), Rr(0.1)], mat(PAL.gold, 9));
   }
 
+  if (p.held === "warbanner") {
+    // a war banner on a tall pole, both hands on it, the silk streaming out and rippling
+    const grip = U(handR);
+    const low = U(p.handL ?? REST_HAND_L);
+    const d = norm(sub(grip, low));
+    const top = add(grip, scale3(d, 20 * S));
+    r.sweep([sub(low, scale3(d, 3 * S)), top], Rr(0.45), mat(PAL.woodDark, 9));
+    r.sphere(top, Rr(0.9), mat(PAL.gold, 9));
+    for (let k = 0; k < 4; k++) {
+      const z = -1.4 - k * 2.6;
+      const pts: V3[] = [];
+      for (let q = 0; q <= 5; q++) {
+        const w = Math.sin(t * 2 - q * 0.9 + k * 0.3) * (q / 5) * 1.6;
+        pts.push(add(top, [(q * 1.7 + w * 0.4) * S, (wind[1] * q * 0.4 + w * 0.5) * S, (z - q * 0.3 + w * 0.3) * S]));
+      }
+      const silk = st.trim;
+      r.sweep(pts, Rr(1.5), mat(k === 0 ? PAL.gold : silk, 10, { shader: (s2, tone) => (k === 1 && s2.u > 0.3 && s2.u < 0.6 ? tone(PAL.gold) : tone(k === 0 ? PAL.gold : silk)) }));
+    }
+  } else if (p.held === "drum") {
+    // a war drum slung at the hip, beaten with a stick in each hand
+    const c = U([0, 5.6, 9.4]);
+    r.ellipsoid(c, [Rr(3.4), Rr(2.4), Rr(2.6)], mat(PAL.crimson, 9, { shader: (s2, tone) => (s2.n[1] > 0.7 ? tone(ramp4("#f4e2c0", "#d8c09a", "#a8885a", "#5a4020")) : Math.abs(s2.n[2]) > 0.75 ? tone(PAL.gold) : tone(PAL.crimson)) }));
+    for (const hand of [handL, handR]) {
+      const g = U(hand);
+      r.sweep([g, add(g, [0, 3.4 * S, -1.6 * S])], Rr(0.3), mat(PAL.wood, 9));
+      r.sphere(add(g, [0, 3.6 * S, -1.7 * S]), Rr(0.6), mat(PAL.red, 9));
+    }
+  } else if (p.held === "bandage") {
+    // a roll of clean linen unwound between the hands
+    const a = U(handL);
+    const b = U(handR);
+    r.sphere(b, Rr(1.1), mat(PAL.white, 9));
+    r.sweep([a, scale3(add(a, b), 0.5), b], Rr(0.4), mat(ramp4("#ffffff", "#f0f0f6", "#c8c8d8", "#8a8aa0"), 9));
+  } else if (p.held === "horn") {
+    // a curved ox-horn trumpet raised to the lips
+    const lips = U([0.4, 6, 21.4]);
+    const bell = add(U(handR), [1.6 * S, 2.2 * S, 3.2 * S]);
+    const horn = ramp4("#fff0d0", "#e8c890", "#a8804a", "#5a3a1a");
+    r.sweep(spline([lips, add(scale3(add(lips, bell), 0.5), [0, 0, -1.4 * S]), bell], 4), [Rr(0.4), Rr(0.8), Rr(1.6)], mat(horn, 9, { shader: (s2, tone) => (Math.sin(s2.u * 18) > 0.85 ? tone(PAL.gold) : tone(horn)) }));
+  }
+
   // ------------------------------------------------------------------ shawl, cape, tails, beard
   if (st.shawl) {
     const pts = spline(
@@ -604,8 +660,9 @@ function drawFace(r: Raster, st: HumanStyle, p: HumanPose, head: V3, HR: number,
     const outer = side * (r.basis.xh >= 0 ? 1 : -1);
     if (big) {
       const e = k * S;
-      const ew = Math.max(2, Math.round(1.3 * e));
-      const eh = Math.max(3, Math.round(2 * e));
+      // half the size they once were: big enough to read the mood, small enough not to swallow the face
+      const ew = Math.max(1, Math.round(0.65 * e));
+      const eh = Math.max(2, Math.round(1 * e));
       if (eyes === "closed" || eyes === "blink") {
         for (let i = -ew; i <= ew; i++) r.plot(x + i, y + Math.round(Math.abs(i) * 0.25) - (eyes === "blink" ? 1 : 0), lash);
       } else if (eyes === "hurt") {

@@ -2357,6 +2357,222 @@ const PROPS = {
       r.sphere([-T * 0.5, -T * 0.5, 125], 4, m(PAL.gold, 4));
     },
   },
+  // ---------------------------------------------------------------- the War of the Iron Banner
+  // wreckage still burning where the horde passed: charred beams, a broken wheel, flames licking up through it
+  warfire: {
+    foot: [0, 0, 0, 0],
+    blocks: false,
+    frames: 6,
+    fps: 10,
+    light: { color: "#ff6a2a", radius: 46, dy: 10 },
+    emit: "smoke",
+    paint: (r, f, n) => {
+      const char = md(ramp("#4a3a34", { lo: "#0a0606" }), 1, { shader: (sf, tone) => (fbm(sf.p[0] * 0.6, sf.p[1] * 0.6 + sf.p[2] * 0.4, 5) > 0.66 ? "#ff8a3a" : tone(ramp("#4a3a34", { lo: "#0a0606" }))) });
+      r.sweep([[-8, -3, 1.2], [7, 3, 2.4]], 1.4, char);
+      r.sweep([[-3, 7, 1.2], [4, -6, 4.6]], 1.2, char);
+      r.sweep([[2, 4, 1], [-5, 1, 8]], 1, char);
+      r.prism(6, -5, 3.6, 0, 1.4, 10, m(PAL.woodDark, 2, { shader: (sf, tone) => (Math.hypot(sf.p[1] + 5, sf.p[2] - 4) < 1.2 ? tone(PAL.black) : tone(PAL.woodDark)) }), 0);
+      for (let k = 0; k < 7; k++) {
+        const ph = (f / n) * TAU + k * 1.7;
+        const hgt = 8 + Math.sin(ph) * 3.4 + (k % 3) * 2.6;
+        const x = Math.cos(k * 2.3) * 4.4;
+        const y = Math.sin(k * 2.3) * 3.4;
+        r.sweep([[x, y, 2], [x * 0.5 + Math.sin(ph) * 1.1, y * 0.5, 2 + hgt]], [2.6, 0.2], m(FIRE, 3, { shader: (sf, tone) => tone(FIRE, sf.u > 0.55 ? 1 : sf.u < 0.3 ? -1 : 0) }));
+      }
+    },
+  },
+  // a farmhouse the raiders burned: blackened posts, a fallen roof beam, smoke curling up
+  burnthouse: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 4,
+    fps: 4,
+    emit: "smoke",
+    light: { color: "#ff5a20", radius: 26, dy: 6 },
+    paint: (r, f, n) => {
+      const charred = md(ramp("#5a4a44", { lo: "#0a0606" }), 1);
+      for (const [x, y, h] of [
+        [-8, -8, 22],
+        [8, -8, 15],
+        [-8, 8, 11],
+        [8, 8, 19],
+      ])
+        r.prism(x, y, 1.4, 0, h, 4, charred);
+      r.box([-9, -9, 0], [9, -7.6, 7], md(WALL, 2, { shader: (sf, tone) => (fbm(sf.p[0] * 0.3, sf.p[2] * 0.3, 9) > 0.5 ? "#2a1e1a" : tone(WALL, 1)) }));
+      r.box([-9, -9, 0], [-7.6, 9, 5], md(WALL, 2, { shader: (sf, tone) => (fbm(sf.p[1] * 0.3, sf.p[2] * 0.3, 11) > 0.45 ? "#2a1e1a" : tone(WALL, 1)) }));
+      r.sweep([[-8, -8, 21], [8, 8, 2]], 1.3, charred);
+      r.sweep([[8, -8, 14], [-3, 6, 1]], 1, charred);
+      const glow = 0.5 + 0.5 * Math.sin((f / n) * TAU);
+      r.ellipsoid([1, 1, 0.6], [6, 5, 1.4], m(ramp("#2a1a16"), 3, { shader: (sf) => (fbm(sf.p[0] * 0.8, sf.p[1] * 0.8, 3 + f) > 0.6 - glow * 0.08 ? mix("#c03010", "#ffb040", glow) : "#2a1a16") }));
+    },
+  },
+  // the horde's black banner: a wolf's head on grey, a horsetail streaming from the crossbar
+  wolfbanner: {
+    foot: [0, 0, 0, 0],
+    blocks: false,
+    frames: 6,
+    fps: 7,
+    paint: (r, f, n) => {
+      r.sweep([[0, 0, 0], [0, 0, 56]], 1, m(PAL.black, 1));
+      r.sweep([[-4, 4, 50], [4, -4, 50]], 0.7, m(PAL.black, 1));
+      r.cone(0, 0, 1.4, 56, 0.2, 61, 5, m(PAL.steel, 1));
+      for (let k = 0; k < 5; k++) {
+        const z = 49 - k * 5;
+        const pts: V3[] = [];
+        for (let q = 0; q <= 6; q++) {
+          const w = Math.sin((f / n) * TAU - q * 0.9 + k * 0.25) * (q / 6) * 2.6;
+          pts.push([q * 2 + w * 0.5, -q * 2 + w * 0.5, z - q * 0.5 + w * 0.3]);
+        }
+        const grey = ramp("#5a5a62", { lo: "#0a0a0e" });
+        r.sweep(pts, 2.6, m(grey, 2, { shader: (sf, tone) => ((k === 1 || k === 2) && sf.u > 0.3 && sf.u < 0.62 ? tone(ramp("#e8e0d0", { lo: "#5a5048" })) : k === 4 ? tone(PAL.crimson) : tone(grey)) }));
+      }
+      const tail: V3[] = [[0, 0, 50]];
+      for (let q = 1; q <= 4; q++) tail.push([-q * 0.6 + Math.sin((f / n) * TAU + q) * 0.8, q * 0.6, 50 - q * 3.4]);
+      r.sweep(tail, [1.4, 1.2, 1, 0.6, 0.2], m(ramp("#d8c8a8", { lo: "#4a3a2a" }), 3));
+    },
+  },
+  // the Northern Army's standard: crimson silk with a gold border on a pole tipped with a spearhead
+  warbanner: {
+    foot: [0, 0, 0, 0],
+    blocks: false,
+    frames: 6,
+    fps: 7,
+    paint: (r, f, n) => {
+      r.sweep([[0, 0, 0], [0, 0, 54]], 1, m(PAL.woodDark, 1));
+      r.cone(0, 0, 1.6, 54, 0.1, 61, 4, m(PAL.steel, 1));
+      r.sweep([[0, 0, 53], [-1.6, 1.6, 49 + Math.sin((f / n) * TAU) * 0.6]], 0.8, m(PAL.red, 1));
+      for (let k = 0; k < 5; k++) {
+        const z = 51 - k * 5;
+        const pts: V3[] = [];
+        for (let q = 0; q <= 6; q++) {
+          const w = Math.sin((f / n) * TAU - q * 0.8 + k * 0.2) * (q / 6) * 2.4;
+          pts.push([q * 2 + w * 0.5, -q * 2 + w * 0.5, z - q * 0.4 + w * 0.3]);
+        }
+        r.sweep(pts, 2.6, m(k === 0 || k === 4 ? PAL.gold : PAL.crimson, 2, { shader: (sf, tone) => (k === 2 && sf.u > 0.4 && sf.u < 0.62 ? tone(PAL.gold) : tone(k === 0 || k === 4 ? PAL.gold : PAL.crimson)) }));
+      }
+    },
+  },
+  // sharpened stakes lashed into an X: the line the horde must not cross
+  barricade: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      r.sweep([[-10, 10, 4], [10, -10, 4]], 1.2, m(PAL.woodDark, 1));
+      for (const t of [-7, 0, 7]) {
+        const [x, y] = [t, -t];
+        r.sweep([[x - 4, y - 4, 0], [x + 5, y + 5, 12]], [1.2, 0.2], m(PAL.wood, 2));
+        r.sweep([[x + 4, y + 4, 0], [x - 5, y - 5, 12]], [1.2, 0.2], m(PAL.wood, 2));
+      }
+    },
+  },
+  // a counterweight trebuchet: the arm swings up and flings its stone, then is winched back down
+  catapult: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 8,
+    fps: 5,
+    paint: (r, f, n) => {
+      const wood = m(PAL.wood, 1);
+      for (const s of [-1, 1]) {
+        r.sweep([[s * 6 - 6, s * 6 + 6, 0], [s * 3, s * 3, 22]], 1.2, wood);
+        r.sweep([[s * 6 + 6, s * 6 - 6, 0], [s * 3, s * 3, 22]], 1.2, wood);
+      }
+      r.box([-9, -9, 0], [9, 9, 2], m(PAL.woodDark, 2));
+      const swing = [0, 0.2, 0.9, 1, 0.8, 0.5, 0.25, 0.05][f % n];
+      const a = -0.9 + swing * 2.2;
+      const piv: V3 = [0, 0, 22];
+      const dir: V3 = [Math.cos(a) * 0.7, -Math.cos(a) * 0.7, Math.sin(a)];
+      r.sweep([add(piv, [-dir[0] * 8, -dir[1] * 8, -dir[2] * 8]), add(piv, [dir[0] * 18, dir[1] * 18, dir[2] * 18])], [1.4, 0.9], m(PAL.woodDark, 3));
+      r.box(add(piv, [-dir[0] * 8 - 3, -dir[1] * 8 - 3, -dir[2] * 8 - 6]), add(piv, [-dir[0] * 8 + 3, -dir[1] * 8 + 3, -dir[2] * 8]), m(PAL.stone, 4));
+      if (swing < 0.85) r.sphere(add(piv, [dir[0] * 18, dir[1] * 18, dir[2] * 18 - 1]), 2.2, md(PAL.stone, 5));
+      else r.sphere([16 + swing * 6, -16 - swing * 6, 50 + swing * 8], 2.2, md(PAL.stone, 5));
+    },
+  },
+  // an army tent with a pennant: the canvas breathes in the wind
+  wartent: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 6,
+    fps: 5,
+    paint: (r, f, n) => {
+      const canvas = ramp("#e8dcc0", { lo: "#5a4a3a" });
+      const W = 11;
+      const flap = Math.sin((f / n) * TAU) * 1.2;
+      r.hipRoof(0, 0, W, W, 0, 0.6 + flap * 0.1, W * 0.6, 22, md(canvas, 1, { shader: (sf, tone) => (Math.abs(sf.p[0] - sf.p[1]) < 3 && sf.n[0] + sf.n[1] > 0.4 && sf.p[2] < 13 ? "#2a1a14" : Math.abs((sf.p[0] + sf.p[1]) % 8) < 0.8 ? tone(PAL.red) : tone(canvas)) }));
+      r.sweep([[0, 0, 22], [0, 0, 34]], 0.6, m(PAL.woodDark, 2));
+      const pts: V3[] = [];
+      for (let q = 0; q <= 4; q++) pts.push([q * 1.6 + Math.sin((f / n) * TAU - q) * 0.6 * q * 0.3, -q * 1.6, 33 - q * 0.3]);
+      r.sweep(pts, 1.4, m(PAL.crimson, 3));
+    },
+  },
+  // a rack of spears and shields outside the camp
+  weaponrack: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      r.sweep([[-9, 9, 10], [9, -9, 10]], 0.8, m(PAL.woodDark, 1));
+      for (const s of [-1, 1]) r.sweep([[s * 9, -s * 9, 0], [s * 9, -s * 9, 12]], 0.9, m(PAL.woodDark, 1));
+      for (let k = 0; k < 5; k++) {
+        const t = -7 + k * 3.5;
+        r.sweep([[t, -t + 2, 0], [t, -t - 1, 28]], 0.4, m(PAL.wood, 2));
+        r.cone(t, -t - 1, 0.9, 28, 0.1, 32, 4, m(PAL.steel, 3));
+      }
+      for (const t of [-5, 4]) r.ellipsoid([t, -t + 3.4, 6], [3.6, 0.8, 4.4], m(PAL.crimson, 4, { shader: (sf, tone) => (Math.hypot(sf.p[0] - t, sf.p[2] - 6) < 1.3 ? tone(PAL.gold) : tone(PAL.crimson)) }));
+    },
+  },
+  // a cairn of field stones over the fallen, with a strip of white mourning cloth
+  cairn: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 4,
+    fps: 3,
+    emit: "incense",
+    paint: (r, f, n) => {
+      const st = md(PAL.stone, 1);
+      r.sphere([0, 0, 2.4], 6, st);
+      r.sphere([1, -1, 7.4], 4.4, st);
+      r.sphere([0, 0, 11.4], 3, st);
+      r.sphere([-0.4, 0.4, 14.2], 1.8, st);
+      const w = Math.sin((f / n) * TAU) * 1.2;
+      r.sweep([[0, 0, 15.6], [2 + w * 0.4, -3, 13], [3 + w, -5, 9]], [0.9, 0.8, 0.5], m(PAL.white, 2));
+    },
+  },
+  // a memorial stele to the fallen of a battle, a sword driven into the ground before it, its edge glinting
+  warmemorial: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 6,
+    fps: 4,
+    paint: (r, f, n) => {
+      r.box([-7, -3, 0], [7, 3, 3], md(PAL.stone, 1));
+      r.box([-5, -1.6, 3], [5, 1.6, 26], md(PAL.stone, 2, { shader: (sf, tone) => (Math.abs(sf.p[0]) < 1.4 && sf.p[2] > 7 && sf.p[2] < 23 && Math.floor(sf.p[2] * 0.7) % 2 && sf.n[1] > 0.5 ? "#2a2238" : tone(PAL.stone)) }));
+      r.cone(0, 0, 6.4, 26, 0.6, 30, 4, md(ROOF_GREY, 3), Math.PI / 4);
+      const glint = 6 + (f / n) * 22;
+      r.box([5.4, 5.4, 0], [6.4, 6.6, 16], m(PAL.steel, 4, { shader: (sf, tone) => (Math.abs(sf.p[2] - glint) < 2 ? "#ffffff" : tone(PAL.steel)) }));
+      r.box([4, 5, 15.6], [7.8, 7, 17], m(PAL.gold, 4));
+      r.sweep([[5.9, 6, 17], [5.9, 6, 21]], 0.6, m(PAL.black, 4));
+    },
+  },
+  // crows circling over a battlefield
+  crows: {
+    foot: [0, 0, 0, 0],
+    blocks: false,
+    frames: 8,
+    fps: 6,
+    paint: (r, f, n) => {
+      for (let k = 0; k < 5; k++) {
+        const ph = (f / n) * TAU + (k * TAU) / 5;
+        const c: V3 = [Math.cos(ph) * (9 + k * 1.6), Math.sin(ph) * (9 + k * 1.6), 40 + k * 4 + Math.sin(ph * 2) * 2];
+        const flap = (f + k) % 2 ? 2.6 : -1.4;
+        for (const s of [-1, 1]) r.sweep([c, add(c, [Math.cos(ph + Math.PI / 2) * s * 4.4, Math.sin(ph + Math.PI / 2) * s * 4.4, flap])], [1.3, 0.5], m(ramp("#2a2a36", { lo: "#000000" }), 1 + k));
+        r.sphere(c, 1.4, m(PAL.black, 1 + k));
+      }
+    },
+  },
 } satisfies Record<string, PropDef>;
 
 /** A bookcase backed against an interior wall: `sw` puts it on the wall along the other axis. */
