@@ -5,7 +5,7 @@ import { sCircle, sLine, sRing } from "../pixel/surface";
 import { isoX, isoY } from "../iso/projection";
 import type { PropId } from "../art/props";
 import { ENEMIES, type EnemyId } from "../engine/enemies";
-import { openingWound, resolveTurn, SKILLS, startBattle, type BattleAction, type BattleEvent, type BattleState } from "../engine/battle";
+import { openingWound, resolveTurn, woundLine, SKILLS, startBattle, type BattleAction, type BattleEvent, type BattleState } from "../engine/battle";
 import { realmLabel } from "../engine/realms";
 import { stats, type GameState } from "../engine/state";
 import { getArea, moodOf, type AreaDef, type AreaId } from "../world/areas";
@@ -125,7 +125,7 @@ export class BattleScene {
     const wound = openingWound(enemy, state);
     this.battle = startBattle(enemy, seed >>> 0, wound);
     this.view = { heroHp: state.hp, heroQi: state.qi, enemyHp: this.battle.enemyHp };
-    this.log = [def.intro ?? (def.boss ? `${def.name} descends in a storm of killing intent!` : `A ${def.name} bars your way!`), ...(wound ? ["You strike the old wound in his art before he can raise his saber!"] : [])];
+    this.log = [def.intro ?? (def.boss ? `${def.name} descends in a storm of killing intent!` : `A ${def.name} bars your way!`), ...(wound ? [woundLine(enemy, state)!] : [])];
     this.flash = 0.8;
     this.world.setAnim(this.hero, "walk", 0);
     this.world.setAnim(this.foe, def.sprite === "jiangshi" ? "hop" : "walk", 0);

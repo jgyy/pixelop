@@ -1,6 +1,8 @@
 import { mkdirSync } from "node:fs";
 import { test, type Page } from "@playwright/test";
 import { cultivationNeeded } from "../src/game/engine/realms";
+import { newGame } from "../src/game/engine/state";
+import { currentWar, syncWarFlags } from "../src/game/story/war";
 import { battle, goto, mode, patch, skipScene, standBy, startNewGame, state, teleport, tileOf } from "./helpers";
 
 /** Captures the README / PR screenshots. Run with `npm run screenshots`. */
@@ -1000,4 +1002,154 @@ test("capture the three beginnings, the Heart's fate and the endings", async ({ 
   await page.evaluate(() => (window.__pixelop!.game.world.hero.dir = 2));
   await page.waitForTimeout(900);
   await shot(page, "140-dragon-blood-form");
+});
+
+/** The War of the Iron Banner: the muster, the burning fronts, the camps and the refugees, a Dao dilemma, a captain's fate, and the land her Dao leaves. */
+test("capture the War of the Iron Banner and the Dao", async ({ page }) => {
+  test.setTimeout(300_000);
+  const quiet = () => page.evaluate(() => ((window.__pixelop!.game as unknown as { toasts: unknown[] }).toasts = []));
+  const settle = async (ms = 2400) => {
+    await page.waitForTimeout(ms);
+    if ((await mode(page)) === "scene") await skipScene(page);
+    await quiet();
+  };
+  const noon = () => page.evaluate(() => window.__pixelop!.game.debugSetTime(0.06, "summer"));
+  const enterUntil = async (pred: () => Promise<boolean>, max = 40) => {
+    for (let i = 0; i < max && !(await pred()); i++) {
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(160);
+    }
+    await page.waitForTimeout(900);
+  };
+  const choiceUp = () => page.getByTestId("choice").isVisible();
+  const dialogHas = (t: string) => async () => ((await page.evaluate(() => document.querySelector("[data-testid=dialog]")?.textContent ?? "")) as string).includes(t);
+  const open = { metElder: true, villageSaved: true, villageArrived: true, metZhou: true, foxesCleared: true, bambooArrived: true, metHuli: true, metWen: true, lakeArrived: true, serpentKingDefeated: true, marshArrived: true, terracesArrived: true, harborArrived: true, desertArrived: true, frostArrived: true, valleyArrived: true };
+  /** Put the war at quest n, with the given Dao and realm, and let the land and the folk catch up. */
+  const warAt = async (n: number, dao: Record<string, number> = {}, level: [number, number] = [1, 2], extra: Record<string, boolean> = {}) => {
+    const g = syncWarFlags({ ...newGame(), flags: { ...open, ...extra }, counters: { war: n, ...Object.fromEntries(Object.entries(dao).map(([k, v]) => [`dao:${k}`, v])) } });
+    await patch(page, { flags: g.flags, counters: g.counters, realm: level[0], stage: level[1], hp: 2000, qi: 900, skills: ["strike", "palm", "lotus", "swords", "thunder"] });
+    await noon();
+    return g;
+  };
+  /** Stand beside the first prop of a kind that a flag set shows, in a region. */
+  const nearProp = (id: string, flags: Record<string, boolean>, region: string, dx = 2, dy = 3) =>
+    page.evaluate(
+      ([id, flags, region, dx, dy]) => {
+        const g = window.__pixelop!.game;
+        const p = g.world.def.props.find((q) => q.id === id && q.when?.(flags as Record<string, boolean>) && g.world.regionAt(q.i + 0.5, q.j + 0.5) === region);
+        if (!p) throw new Error(`no ${id} in ${region}`);
+        g.debugGoto(p.i + (dx as number) + 0.5, p.j + (dy as number) + 0.5);
+      },
+      [id, flags, region, dx, dy] as const,
+    );
+  const win = async () => {
+    for (let i = 0; i < 40 && (await mode(page)) === "battle"; i++) {
+      const thunder = page.getByTestId("skill-thunder");
+      if (await thunder.isEnabled().catch(() => false)) await thunder.click().catch(() => undefined);
+      await page.waitForTimeout(900);
+    }
+  };
+
+  await startNewGame(page);
+  await warAt(0);
+  await teleport(page, "village", 16, 16);
+  await settle();
+  // General Yue raises her standard in Willow Creek
+  await standBy(page, "yue-village");
+  await page.waitForTimeout(600);
+  await page.keyboard.press("KeyE");
+  await enterUntil(dialogHas("Yue Wushuang"), 20);
+  await shot(page, "141-general-yue-wushuang");
+  await enterUntil(async () => (await mode(page)) !== "scene", 40);
+  await settle(1800);
+  await standBy(page, "bao-village");
+  await settle(1800);
+  await shot(page, "142-the-northern-army-camps-at-willow-creek");
+  await nearProp("warfire", { "war:village": true }, "village", 2, 2);
+  await settle(1800);
+  await shot(page, "143-willow-creek-burns");
+
+  // cultivation tells: a raider falters before a cultivator far above him
+  await battle(page, "raider");
+  await page.waitForTimeout(1600);
+  await shot(page, "144-a-raider-falters-before-her-aura");
+  await win();
+  await settle();
+
+  // a Dao dilemma
+  const dg = await warAt(9);
+  const asker = currentWar(dg)!.npc!;
+  await standBy(page, asker);
+  await page.waitForTimeout(600);
+  await page.keyboard.press("KeyE");
+  await enterUntil(choiceUp, 20);
+  await shot(page, "145-a-dao-dilemma");
+  await page.getByTestId("choice-0").click();
+  await enterUntil(async () => (await mode(page)) !== "scene", 30);
+  await settle();
+
+  // the journal: the war's ten fronts, and the Dao heart
+  await warAt(342, { mercy: 14, sword: 5, balance: 2 }, [1, 3], { "scar:village:mercy": true, "scar:bamboo:sword": true, "scar:lake:mercy": true });
+  await settle(1200);
+  await page.keyboard.press("KeyJ");
+  await page.waitForTimeout(900);
+  await shot(page, "146-journal-the-war-and-the-dao-heart");
+  await page.keyboard.press("KeyJ");
+
+  // those who know her speak of the Dao she walks
+  await teleport(page, "sect", 15.5, 14.5);
+  await settle();
+  await standBy(page, "elder");
+  await page.waitForTimeout(600);
+  await page.keyboard.press("KeyE");
+  await enterUntil(dialogHas("pain"), 20);
+  await shot(page, "147-elder-mo-on-the-dao-of-compassion");
+  await skipScene(page);
+
+  // the refugee camp in Willow Creek while the marsh burns
+  await teleport(page, "village", 16, 16);
+  await settle();
+  await standBy(page, "gu");
+  await settle(2000);
+  await shot(page, "148-the-refugee-camp-at-willow-creek");
+
+  // the marsh at war, its camp and picket and the horde's banners
+  await standBy(page, "spear-marsh-3");
+  await settle(2200);
+  await shot(page, "149-the-picket-line-in-the-mistmarsh");
+
+  // a captain's fate
+  await warAt(99, {}, [4, 3]);
+  await battle(page, "borte");
+  await page.waitForTimeout(1500);
+  await win();
+  await enterUntil(choiceUp, 30);
+  await shot(page, "150-the-captains-fate");
+  await page.getByTestId("choice-0").click();
+  await enterUntil(async () => (await mode(page)) !== "scene", 40);
+  await settle();
+  await nearProp("peachtree", { "scar:village:mercy": true }, "village", 2, 2);
+  await settle(2200);
+  await shot(page, "151-willow-creek-healed-by-mercy");
+
+  // what other Daos leave: steles for the sword, grey ash for slaughter
+  await warAt(400, { sword: 30 }, [2, 3], { "scar:bamboo:sword": true, "scar:lake:slaughter": true, "scar:marsh:balance": true });
+  await nearProp("warmemorial", { "scar:bamboo:sword": true }, "bamboo", 2, 2);
+  await settle(2200);
+  await shot(page, "152-the-bamboo-steles-of-the-sword");
+  await nearProp("deadtree", { "scar:lake:slaughter": true }, "lake", 2, 2);
+  await settle(2200);
+  await shot(page, "153-the-lake-scarred-by-slaughter");
+
+  // the siege of the Azure Cloud, and the Khan himself
+  await warAt(999, { balance: 40 }, [4, 3], { "attire:bannergeneral": true });
+  await page.evaluate(() => window.__pixelop!.game.wear("bannergeneral"));
+  await teleport(page, "sect", 15.5, 14.5);
+  await settle();
+  await standBy(page, "yue-sect");
+  await settle(2200);
+  await shot(page, "154-the-siege-of-the-azure-cloud");
+  await battle(page, "tuoba");
+  await page.waitForTimeout(1800);
+  await shot(page, "155-tuoba-hong-khan-of-the-iron-banner");
 });

@@ -124,7 +124,7 @@ export const SEASON_FIDGETS: Record<Season, AnimId[]> = {
 /** …and after dark. */
 const NIGHT_FIDGETS: AnimId[] = ["yawn", "stargaze"];
 /** Idles that absorb an NPC (fishing, reading, weaving…): they neither turn to greet nor fidget. */
-const ABSORBED = new Set<AnimId>(["fish", "practice", "meditate", "read", "weave", "tell", "pray", "sit", "hammer", "write", "hoe", "chop", "taichi", "kick", "umbrella"]);
+const ABSORBED = new Set<AnimId>(["fish", "practice", "meditate", "read", "weave", "tell", "pray", "sit", "hammer", "write", "hoe", "chop", "taichi", "kick", "umbrella", "bandage", "drum", "grieve", "spear", "banner"]);
 /** …and the ones a roaming beast may (sleeping takes a while). */
 const BEAST_FIDGETS: AnimId[] = ["sniff", "howl", "sniff", "sleep"];
 

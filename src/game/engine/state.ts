@@ -2,6 +2,7 @@ import { z } from "zod";
 import { AREA_IDS as AREAS, OLD_AREA_IDS, type AreaId, type OldAreaId } from "../world/ids";
 import { LEGACY_REGION_ORIGIN, TEMPLATE_SIZE, toWorld, WORLD_H, WORLD_SCALE, WORLD_W } from "../world/layout";
 import { addCultivation, breakthrough, statsFor, type Stats } from "./realms";
+import { daoStats } from "./dao";
 
 export const SKILL_IDS = ["strike", "palm", "lotus", "swords", "thunder"] as const;
 export type SkillId = (typeof SKILL_IDS)[number];
@@ -105,7 +106,8 @@ export function newGame(name = "Lin Yue"): GameState {
   };
 }
 
-export const stats = (g: GameState): Stats => statsFor(g.realm, g.stage);
+/** Her stats: what her realm gives her, as the Dao she walks reshapes it. */
+export const stats = (g: GameState): Stats => daoStats(statsFor(g.realm, g.stage), g);
 
 const clampVitals = (g: GameState): GameState => {
   const s = stats(g);
@@ -127,7 +129,7 @@ export function gainCultivation(g: GameState, amount: number): { state: GameStat
 export function applyBreakthrough(g: GameState): GameState {
   const p = breakthrough(g);
   if (p.realm === g.realm) return g;
-  const s = statsFor(p.realm, p.stage);
+  const s = stats({ ...g, ...p });
   const skills = p.realm >= 2 && !g.skills.includes("thunder") ? [...g.skills, "thunder" as const] : g.skills;
   return { ...g, ...p, hp: s.maxHp, qi: s.maxQi, skills };
 }

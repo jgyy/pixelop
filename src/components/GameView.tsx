@@ -107,6 +107,11 @@ export function GameView({ initial, intro, onQuit }: { initial: GameState; intro
             <div className="realm" style={{ color: ui.realmColour }} data-testid="realm">
               {ui.realm}
             </div>
+            {ui.dao.label && (
+              <div className="dao" style={{ color: ui.dao.colour ?? undefined }} data-testid="dao" title={ui.dao.creed ?? undefined}>
+                ☯ {ui.dao.label}
+              </div>
+            )}
             <div className="bar hp">
               <i style={{ width: pct(heroHp, ui.stats.maxHp) }} />
               <span>
@@ -145,6 +150,11 @@ export function GameView({ initial, intro, onQuit }: { initial: GameState; intro
             {ui.year && (
               <div className="errand year" data-testid="year-quest">
                 ❀ {ui.year.title}: {ui.year.objective}
+              </div>
+            )}
+            {ui.war && (
+              <div className="errand war" data-testid="war-quest">
+                ⚔ {ui.war.title}: {ui.war.objective}
               </div>
             )}
             {ui.notices.length > 0 && (
@@ -395,6 +405,45 @@ function JournalPanel({ journal, ui, game, onClose }: { journal: NonNullable<UiS
             ❀ {ui.year.chapter} · {ui.year.title}
           </h4>
           <p>{ui.year.objective}</p>
+        </section>
+      )}
+      {ui.war && (
+        <section data-testid="journal-war">
+          <h4>
+            ⚔ {ui.war.chapter} · {ui.warDone}/{ui.warCount}
+          </h4>
+          <p>
+            <strong>{ui.war.title}</strong> — {ui.war.objective}
+          </p>
+          {ui.warFronts && (
+            <ul className="fronts">
+              {ui.warFronts.map((f) => (
+                <li key={f.front} className={`front-${f.state}`}>
+                  <span className="cn">{f.hanzi}</span> {f.front} <b>{f.state === "freed" ? `Freed${f.scar ? ` · ${f.scar}` : ""}` : f.state === "burning" ? "Burning" : "—"}</b>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+      {ui.dao.paths && (
+        <section data-testid="journal-dao">
+          <h4>☯ The Dao Heart · {ui.dao.label ?? "no Dao leads yet"}</h4>
+          {ui.dao.creed && <p className="muted">“{ui.dao.creed}”</p>}
+          <ul className="daos">
+            {ui.dao.paths.map((d) => (
+              <li key={d.id} title={`${d.creed} (${d.gift})`}>
+                <span className="cn" style={{ color: d.colour }}>
+                  {d.hanzi}
+                </span>{" "}
+                {d.name}
+                <i className="daobar" aria-hidden>
+                  <i style={{ width: `${Math.min(100, (d.points / 50) * 100)}%`, background: d.colour }} />
+                </i>
+                <b>{d.points}</b>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
       <section data-testid="journal-notices">

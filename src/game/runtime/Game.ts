@@ -21,6 +21,9 @@ import { abandon, advance, BOUNTY_COUNT, bountiesDone, carried, deliveryScript, 
 import { almanacScript, landmarkScript, offeringScript, yearHasNews, yearQuest } from "../story/year";
 import { altarScript, areaUnlocked, arrivalScript, endingScript, errand, hasNews, introScript, lockReason, npcScript, preBattleScript, questLog, victoryScript, type Quest } from "../story/story";
 import { BattleScene } from "./battle";
+import { currentWar, daoJournal, daoLabel, warBreath, warChronicle, warCultivated, warDone, warHasNews, warHunt, warLandmark, warLog, warTalk, WAR_COUNT } from "../story/war";
+import { daoAside, daoHasNews } from "../story/dao";
+import { DAOS, dominantDao } from "../engine/dao";
 import { dirFrom, syncTerrain, World, type Actor } from "./world";
 import { WorldMap } from "./worldmap";
 import { caveArrival, repOf, SECT_IDS, SECTS, sectJournal, sectObjective, signScript, standing, type JournalEntry, type SectId } from "../story/sects";
@@ -61,6 +64,14 @@ export interface UiSnapshot {
   interior: { id: RoomId; name: string; hanzi: string; cave: boolean } | null;
   /** The second thread of the tale: the Turning of the Year (null before it starts and after it ends). */
   year: Quest | null;
+  /** The third thread: the War of the Iron Banner, a thousand quests long (null before it reaches her). */
+  war: Quest | null;
+  warDone: number;
+  warCount: number;
+  /** The fronts of the war as they stand (in the journal). */
+  warFronts: { front: string; hanzi: string; state: "waiting" | "burning" | "freed"; scar: string | null }[] | null;
+  /** The Dao she walks: its name and depth (null while none leads), and every Dao's weight in her heart (in the journal). */
+  dao: { label: string | null; colour: string | null; creed: string | null; paths: { id: string; name: string; hanzi: string; colour: string; points: number; creed: string; gift: string }[] | null };
   /** The notices (favours) she carries, and how many of the thousand she has fulfilled. */
   notices: { slot: number; title: string; giver: string; text: string }[];
   noticesDone: number;
@@ -88,9 +99,9 @@ const MOVE_KEYS: Record<string, [number, number]> = {
 
 const CONFIRM = new Set(["KeyE", "Enter", "Space", "NumpadEnter"]);
 /** One-shot animations that walking away interrupts. */
-const IDLE_FIDGETS = new Set<AnimId>(["stretch", "look", "gather", "nod", "point", "cheer", "drink", "read", "pray", "clap", "laugh", "rear", "flute", "salute", "twirl", "taichi", "kick", "sworddance", "flame"]);
+const IDLE_FIDGETS = new Set<AnimId>(["stretch", "look", "gather", "nod", "point", "cheer", "drink", "read", "pray", "clap", "laugh", "rear", "flute", "salute", "twirl", "taichi", "kick", "sworddance", "flame", "roar", "rally", "grieve", "bow", "banner", "horn"]);
 /** Seated or absorbed idles that a speaker keeps while talking instead of standing up. */
-const SEATED = new Set<AnimId>(["fish", "sit", "tell", "weave", "pray"]);
+const SEATED = new Set<AnimId>(["fish", "sit", "tell", "weave", "pray", "bandage", "grieve"]);
 const RUN_KEYS = ["ShiftLeft", "ShiftRight"];
 const WALK_SPEED = 3.3;
 const RUN_SPEED = 5.2;
@@ -1013,6 +1024,7 @@ export class Game {
       if (atBottleneck(this.state)) this.toast("Your qi has reached its peak! Meditate at a shrine and press B to face the tribulation.");
       this.play(victoryScript(b.enemy, b.enemyKey, this.state.area, this.state));
       this.noticeHunt(b.enemy);
+      this.warHunt(b.enemy);
     } else if (b.result === "lost" && ENEMIES[b.enemy].friendly) {
       // a friendly duel: Xiao Han lowers his blade instead of letting her fall
       const s = stats(this.state);
@@ -1219,7 +1231,7 @@ export class Game {
       } else if (!h.flying && !riding && this.idleTime > 8) {
         this.idleTime = -4;
         // first a stretch or a glance around; left alone longer, she hums, nods off or practises a pointing form
-        const pool: AnimId[] = this.fidgets++ < 1 ? ["look", "stretch"] : ["stretch", "look", "nod", "point", "cheer", "clap", "laugh", "flute", "salute", "twirl", "taichi", "kick", "sworddance", ...(this.state.flags.phxDone ? (["flame"] as AnimId[]) : []), ...this.weatherFidgets()];
+        const pool: AnimId[] = this.fidgets++ < 1 ? ["look", "stretch"] : ["stretch", "look", "nod", "point", "cheer", "clap", "laugh", "flute", "salute", "twirl", "taichi", "kick", "sworddance", ...(this.state.flags.phxDone ? (["flame"] as AnimId[]) : []), ...this.weatherFidgets(), ...this.daoFidgets()];
         // left alone long enough, she sits down where she stands until she moves again
         if (this.fidgets > 4 && h.idleAnim === "idle") h.idleAnim = "sit";
         else {
@@ -1253,6 +1265,8 @@ export class Game {
       w.syncPopulation(this.state.flags);
       this.landmarkEvents();
       if (this.mode !== "explore") return;
+      const grown = warCultivated(this.state);
+      if (grown) return this.play(grown);
     }
     const touched = w.update(dt, this.clock, h.flying === true || this.clock < this.invulnerableUntil, true);
     if (touched && touched.enemy) {
@@ -1296,17 +1310,34 @@ export class Game {
    */
   private talkTo(key: string): Step[] {
     const g = this.state;
+    // first, what they make of the Dao she walks (once for each depth of it)
+    const aside = daoAside(key, g) ?? [];
+    return [...aside, ...this.conversation(key, g)];
+  }
+
+  /** What someone says: parcels, offerings, the war's business, the tale, and favours to ask. */
+  private conversation(key: string, g: GameState): Step[] {
     const cal = calendarAt(worldTime(g));
     const pre: Step[] = [];
     for (const c of carried(g)) if (c.bounty.kind === "deliver" && c.bounty.to === key) pre.push(...deliveryScript(c));
     const offering = offeringScript(key, g, cal);
     if (offering) pre.push(...offering);
     const news = hasNews(key, g);
+    const war = warTalk(key, g);
+    if (war) return news ? [...pre, ...npcScript(key, g), ...war] : [...pre, ...war];
     if (pre.length && !news) return pre;
     const story = npcScript(key, g);
     if (news || pre.length) return [...pre, ...story];
     const b = offerFrom(key, g, (id) => areaUnlocked(id, g));
     return b ? [...story, ...offerScript(b, slotsFree(g) === 0)] : story;
+  }
+
+  /** The habits her Dao gives her: sword forms, prayers, taiji, a wolfish roar; and on a burning front, the war's own. */
+  private daoFidgets(): AnimId[] {
+    const d = dominantDao(this.state);
+    const own: AnimId[] = d ? { sword: ["sworddance", "sworddance"], mercy: ["pray", "bow"], balance: ["taichi", "taichi"], slaughter: ["roar", "kick"] }[d] as AnimId[] : [];
+    const q = currentWar(this.state);
+    return q && this.state.flags[`war:${q.front}`] && this.state.area === q.front ? [...own, "rally", "grieve"] : own;
   }
 
   /** What the hour and the season move her to do when she stands about outdoors: shiver in the snow, fly a kite in spring, gaze at the stars. */
@@ -1367,6 +1398,8 @@ export class Game {
     const cal = calendarAt(worldTime(this.state));
     const year = landmarkScript(near.key, this.state, cal, [h.x + 1.2, h.y + 0.4]);
     if (year) return this.play(year);
+    const war = warLandmark(near.key, this.state, { night: cal.dusk > 0.55, riding: this.riding, flying: !!h.flying });
+    if (war) return this.play(war);
     for (const c of carried(this.state)) {
       const b = c.bounty;
       if (b.landmark !== near.key) continue;
@@ -1377,8 +1410,21 @@ export class Game {
     }
   }
 
+  /** A foe of the horde beaten where the war wanted it beaten. */
+  private warHunt(enemy: EnemyId): void {
+    const r = warHunt(this.state, enemy, this.state.area);
+    this.state = r.state;
+    if (r.steps) this.play(r.steps);
+    else if (r.note) this.toast(r.note);
+  }
+
   /** Breaths held at a shrine count towards a notice that asked for stillness there. */
   private noticeBreath(): void {
+    if (!this.interior) {
+      const r = warBreath(this.state, this.state.area);
+      this.state = r.state;
+      if (r.steps) return this.play(r.steps);
+    }
     for (const c of carried(this.state)) {
       const b = c.bounty;
       if (b.kind !== "meditate" || b.region !== this.state.area || this.interior) continue;
@@ -1623,7 +1669,7 @@ export class Game {
     }
     if (this.mode === "explore" && this.clock >= this.markerAt) this.refreshMarkers();
     const cal = calendarAt(worldTime(this.state));
-    for (const a of this.world.actors) if (a.kind === "npc") a.marker = this.mode === "explore" && ((hasNews(a.key, this.state) || yearHasNews(a.key, this.state, cal)) || (this.bountyMarkers.get(a.key) ?? false));
+    for (const a of this.world.actors) if (a.kind === "npc") a.marker = this.mode === "explore" && ((hasNews(a.key, this.state) || yearHasNews(a.key, this.state, cal) || warHasNews(a.key, this.state) || daoHasNews(a.key, this.state)) || (this.bountyMarkers.get(a.key) ?? false));
     if (this.world.hero.outfit !== currentAttire(this.state).id) this.dressHero();
     if (this.dirty) {
       this.dirty = false;
@@ -1796,6 +1842,14 @@ export class Game {
       interior: this.interior ? { id: this.interior.def.key, name: this.interior.def.name, hanzi: this.interior.def.hanzi, cave: this.interior.def.sky === "cave" } : null,
       calendar: this.calendarSnapshot(),
       year: yearQuest(this.state, calendarAt(worldTime(this.state))),
+      war: warLog(this.state, (id) => lockReason(id, this.state)),
+      warDone: warDone(this.state),
+      warCount: WAR_COUNT,
+      warFronts: this.journalOpen && warDone(this.state) > 0 ? warChronicle(this.state) : null,
+      dao: (() => {
+        const d = dominantDao(this.state);
+        return { label: daoLabel(this.state), colour: d ? DAOS[d].colour : null, creed: d ? DAOS[d].creed : null, paths: this.journalOpen ? daoJournal(this.state) : null };
+      })(),
       notices: carried(this.state).map((c) => ({ slot: c.slot, title: c.bounty.title, giver: folk(c.bounty.giver)?.name ?? "", text: progressText(c) })),
       noticesDone: bountiesDone(this.state),
       noticeCount: BOUNTY_COUNT,

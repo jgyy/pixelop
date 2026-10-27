@@ -7,6 +7,7 @@ import { COARSE_H, COARSE_ORIGIN, COARSE_W, DOMAIN, regionRect, toCoarse, toWorl
 import { companionOf, magnifyMap, magnifyProp, pointTile } from "./magnify";
 import { LIQUID, TileMap, type TileKind } from "./tilemap";
 import { CAVE_IDS, CAVE_MOUTH } from "./caves";
+import { layWar } from "./warfront";
 import { PatchPainter, type TerrainPatch } from "./terrain";
 
 /**
@@ -1517,6 +1518,27 @@ function buildWorld(): WorldDef {
       const [i, j] = local("village", x, y);
       if (free(i, j)) kept.push({ id, i, j, when: (f) => !!f["ending:mortal"] });
     }
+  }
+
+  // 12d. the War of the Iron Banner: camps, pickets, raiders, refugees, burning fields (see world/warfront.ts)
+  {
+    const touched = new Set<number>();
+    for (const p of patches) for (const idx of p.idx) touched.add(idx);
+    const waypoints = {} as Record<AreaId, [number, number]>;
+    for (const id of AREA_IDS) waypoints[id] = toWorld(id, ...regions[id].arrive);
+    const war = layWar({
+      map: fine,
+      waypoints,
+      free: (i, j) => free(i, j) && fine.standable(i, j) && !touched.has(j * WORLD_W + i),
+      claim: (i, j) => {
+        for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) occupied.add((j + dj) * WORLD_W + i + di);
+      },
+      road: (i, j) => fixedAt(i, j) === 2,
+    });
+    fnpcs.push(...war.npcs);
+    fenemies.push(...war.enemies);
+    kept.push(...war.props);
+    patches.push(...war.patches);
   }
 
   // 13. which region owns each tile

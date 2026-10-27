@@ -12,6 +12,9 @@ import { veinFate } from "../world/caves";
 import { calendarAt, worldTime } from "../world/calendar";
 import { almanacMasterScript, yearEpilogue, yearHasNews } from "./year";
 import { originElderMeeting, originEpilogue, originIntro, originOf, originPrologue } from "./origins";
+import { warEpilogue, warNpcScript, warPreBattle, warVictory } from "./war";
+import { daoEpilogue } from "./dao";
+import { DAOS, dominantDao } from "../engine/dao";
 import { canRedeemXue, crimsonPath, elderHeartScript, elderMoVictory, endingOf, ENDINGS, endingSteps, heartFate, heartFateChoice, xueConfrontation } from "./heart";
 
 /**
@@ -245,6 +248,7 @@ export function npcScript(key: string, g: GameState): Step[] {
         say("elder", "So. The Heart chose to bloom for you. Even my old master never saw that."),
         say("elder", `You stand at ${realmLabel(g.realm, g.stage)}. Reach the peak of Spirit Severing, then step onto the dais and call down the final tribulation.`),
         say("elder", "Nine bolts. Endure them, and you will walk where I cannot follow."),
+        ...(dominantDao(g) ? [say("elder", `Go up as what you are: ${DAOS[dominantDao(g)!].name}. ${DAOS[dominantDao(g)!].creed} Heaven will ask you whether you meant it.`)] : []),
       ];
     case "qing":
       if (!f.qingGift && f.metElder)
@@ -850,7 +854,7 @@ export function npcScript(key: string, g: GameState): Step[] {
     case "restporter":
       return [named("porter", "Porter Lao", pick(g, ["Eating. Talking costs breath, and breath costs noodles.", "From the terraces to the sands with tea, from the sands to the harbour with salt. Then home to sleep for a week.", "My pole's older than me. My father's. Same shoulders, too."])), { anim: "restporter", name: "eat" }];
     default:
-      return sectNpcScript(key, g) ?? [say("narrator", "…")];
+      return warNpcScript(key, g) ?? sectNpcScript(key, g) ?? [say("narrator", "…")];
   }
 }
 
@@ -1080,6 +1084,8 @@ export function arrivalScript(area: AreaId, g: GameState): Step[] | null {
 /** Dialogue before special fights. */
 export function preBattleScript(enemy: EnemyId, key: string, g?: GameState): Step[] | null {
   if (enemy === "patriarch") return xueConfrontation(g ?? newGame(), key);
+  const war = g && warPreBattle(enemy, g);
+  if (war) return war;
   const sect = sectPreBattle(enemy);
   if (sect) return sect;
   if (enemy === "serpentKing") return [{ shake: 0.4 }, say("heroine", "The Serpent King… its scales are veined with Xue's crimson qi. Forgive me — I'll purge it!")];
@@ -1091,6 +1097,8 @@ export function victoryScript(enemy: EnemyId, key: string, area: AreaId, g: Game
   const steps: Step[] = [];
   const sect = sectVictory(enemy, key, g, won);
   if (sect) return sect;
+  const war = won ? warVictory(enemy, g) : null;
+  if (war) return war;
   if (enemy === "swordsman")
     return won
       ? [
@@ -1167,6 +1175,8 @@ export function endingScript(g?: GameState): Step[] {
         ? ["On a hill in the westwood, beside a sword that was never drawn, someone left a cup of tea for Xue Ming. It was still warm."]
         : []),
     ...(origin ? [origin] : []),
+    ...(g && warEpilogue(g) ? [warEpilogue(g)!] : []),
+    ...(g && daoEpilogue(g) ? [daoEpilogue(g)!] : []),
   ];
   return endingSteps(g ?? newGame(), epilogue);
 }
