@@ -100,7 +100,16 @@ export type AnimId =
   | "cry"
   | "levitate"
   | "roar"
-  | "plantsword";
+  | "plantsword"
+  | "march"
+  | "spear"
+  | "banner"
+  | "drum"
+  | "bandage"
+  | "horn"
+  | "grieve"
+  | "rally"
+  | "shieldwall";
 
 export interface Anim {
   fps: number;
@@ -859,6 +868,98 @@ const human: Partial<Record<AnimId, AnimSpec<HumanPose>>> = {
       return { t: i, sword: "hand", swordDir: [0, 0.1, -1], stance: i >= 4 ? "kneel" : "stand", lean: 0.1 * k, handR: [0.6, 3 + k * 2, 18 - k * 4], handL: [-0.6, 3 + k * 2, 17 - k * 4], eyes: i >= 5 ? "closed" : "fierce", mouth: "neutral", wind: [0, -0.3, 0] };
     },
   },
+  // marching in step: the spear held upright at the shoulder, the free arm swinging, knees high
+  march: {
+    n: 8,
+    fps: 10,
+    loop: true,
+    pose: (i, n) => {
+      const a = ph(i, n);
+      const s = Math.sin(a);
+      return { t: a * 2, bob: Math.abs(Math.cos(a)) * 1.1, footL: [-1.7, s * 3, Math.max(0, Math.cos(a)) * 2], footR: [1.7, -s * 3, Math.max(0, -Math.cos(a)) * 2], handL: [-4.4, 0.6 - s * 2.6, 12], handR: [4.2, 1.2, 12.6], lean: 0.02, eyes: "fierce", mouth: "neutral", wind: [0, -0.9, 0] };
+    },
+  },
+  // spear drill: crouch, thrust, recover, as a squad does on the parade ground
+  spear: {
+    n: 6,
+    fps: 8,
+    loop: true,
+    pose: (i) => {
+      const k = [0, 0.3, 1, 1, 0.6, 0.2][i];
+      return { t: i, sword: "hand", swordDir: [0.05, 1, 0.12 - k * 0.1], handR: [2.6, 1.4 + k * 5.4, 13.4], handL: [-1.4, 3.4 + k * 4, 13.6], footR: [1.7, 1.4 + k * 2.2, 0], footL: [-1.7, -1.2, 0], lean: 0.04 + k * 0.12, eyes: "fierce", mouth: k === 1 ? "open" : "neutral", wind: [0, -0.4 - k * 0.6, 0] };
+    },
+  },
+  // holding a war banner high in both hands and swinging it from side to side
+  banner: {
+    n: 8,
+    fps: 6,
+    loop: true,
+    pose: (i, n) => {
+      const sw = Math.sin(ph(i, n));
+      return { t: ph(i, n), held: "warbanner", handR: [1.6 + sw * 1.2, 2.2, 21.5], handL: [0.6 + sw * 0.6, 2, 13.4], lean: -0.04, bob: i % 4 === 1 ? 0.4 : 0, eyes: "fierce", mouth: i % 4 === 2 ? "open" : "neutral", wind: [sw * 0.6, -0.6, 0.3] };
+    },
+  },
+  // beating the war drum at the hip, the sticks rising and falling in turn
+  drum: {
+    n: 6,
+    fps: 9,
+    loop: true,
+    pose: (i) => {
+      const l = [1, 0.2, 0, 0.6, 1, 1][i];
+      const r = [0, 0.6, 1, 1, 0.2, 0][i];
+      return { t: i, held: "drum", handL: [-2.2, 3.2, 11 + l * 5], handR: [2.2, 3.2, 11 + r * 5], bob: i % 3 === 0 ? 0.5 : 0, eyes: "fierce", mouth: i % 3 === 1 ? "open" : "neutral", wind: [0, -0.3, 0] };
+    },
+  },
+  // kneeling over the wounded, winding a bandage round and round
+  bandage: {
+    n: 8,
+    fps: 6,
+    loop: true,
+    pose: (i, n) => {
+      const a = ph(i, n);
+      return { t: a, stance: "kneel", held: "bandage", lean: 0.24, handL: [-1.4 + Math.cos(a) * 1.4, 5.6 + Math.sin(a) * 0.8, 6.4 + Math.sin(a) * 1.2], handR: [1.6 - Math.cos(a) * 1.4, 5.6 - Math.sin(a) * 0.8, 6.4 - Math.sin(a) * 1.2], eyes: i === 5 ? "blink" : "open", mouth: "neutral", wind: [0, -0.2, 0] };
+    },
+  },
+  // the war horn: raised to the lips, a long call, lowered
+  horn: {
+    n: 8,
+    fps: 6,
+    loop: false,
+    pose: (i) => {
+      const k = [0, 0.5, 1, 1, 1, 1, 0.6, 0.1][i];
+      return { t: i, held: k > 0.3 ? "horn" : undefined, lean: -0.1 * k, handR: [3 - k * 2.2, 2 + k * 3.4, 12 + k * 8.6], handL: [-4.2 + k * 2.4, 1 + k * 3, 11.4 + k * 6], bob: k * 0.6, eyes: k === 1 ? "closed" : "open", mouth: k === 1 ? "open" : "neutral", wind: [0, -0.3 - k * 0.4, 0.2 * k] };
+    },
+  },
+  // kneeling at a grave, head bowed, shoulders shaking now and then
+  grieve: {
+    n: 6,
+    fps: 4,
+    loop: true,
+    pose: (i) => {
+      const sob = i === 2 || i === 4 ? 0.5 : 0;
+      return { t: i, stance: "kneel", lean: 0.34, bob: sob, handL: [-2.6, 3.6, 8.4 + sob], handR: [2.6, 3.6, 8.4 + sob], eyes: "closed", mouth: "neutral", wind: [0, -0.15, 0] };
+    },
+  },
+  // the rallying cry: the blade thrust up at heaven, a shout to the ranks behind
+  rally: {
+    n: 8,
+    fps: 8,
+    loop: false,
+    pose: (i) => {
+      const k = [0, 0.4, 0.9, 1, 1, 1, 0.7, 0.3][i];
+      return { t: i, sword: "hand", swordDir: [0.1, 0.25 - k * 0.2, 1], handR: [3.6, 1.6, 14 + k * 12], handL: [-4.6 - k, 1.4, 12 + k * 2], footL: [-2.2, -0.6, 0], footR: [2.2, 1.2, 0], lean: -0.12 * k, eyes: "fierce", mouth: k > 0.8 ? "open" : "neutral", flash: k === 1 && i === 4 ? 0.2 : 0, wind: [0, -0.8 - k * 0.6, 0.4 * k] };
+    },
+  },
+  // braced behind a raised arm (or a shield), feet planted, waiting for the charge
+  shieldwall: {
+    n: 6,
+    fps: 5,
+    loop: true,
+    pose: (i) => {
+      const brace = i % 3 === 0 ? 0.6 : 0;
+      return { t: i, stance: "stand", lean: 0.1, bob: -0.6 - brace * 0.4, handL: [-1.2, 4.8, 16.4 - brace], handR: [3.8, 2, 12.4], footL: [-2.4, 1.6, 0], footR: [2.4, -1.4, 0], eyes: "fierce", mouth: "neutral", wind: [0, -0.4, 0] };
+    },
+  },
 };
 
 // ----------------------------------------------------------------------------- beast poses
@@ -969,6 +1070,25 @@ export const STYLES = {
   summerWarden: s({ robe: ramp("#4ab06a", { lo: "#0a3a2a" }), inner: PAL.gold, trim: PAL.gold, sash: PAL.azure, hair: PAL.hairBlack, hairStyle: "topknot", hat: "crown", hatRamp: PAL.jade, cape: ramp("#78c8ff", { lo: "#1a4a8a" }), weapon: "fan", weaponRamp: PAL.jade, eye: "#2a6a3a", hem: 1.4, flare: 6.2 }),
   autumnWarden: s({ robe: ramp("#d8702a", { lo: "#5a1a10" }), inner: PAL.gold, trim: PAL.gold, sash: PAL.crimson, hair: PAL.hairSilver, hairStyle: "bun", female: true, hunch: 0.12, weapon: "staff", weaponRamp: PAL.gold, shawl: ramp("#f0c050", { lo: "#7a3a10" }), eye: "#7a3a10", hem: 1.4, flare: 6 }),
   winterWarden: s({ robe: ramp("#e8f0ff", { lo: "#4a5a8a" }), inner: PAL.navy, trim: PAL.steel, sash: PAL.navy, hair: PAL.hairWhite, beard: PAL.hairWhite, hairStyle: "long", hat: "hood", hatRamp: ramp("#ffffff", { lo: "#8a9ab8" }), cape: ramp("#c8d8f0", { lo: "#3a4a7a" }), weapon: "staff", weaponRamp: PAL.steel, glowEyes: "#9ad8ff", hunch: 0.06, hem: 1.4, flare: 6.4 }),
+  // the War of the Iron Banner: the imperial army, the folk the war drove from their homes, and the horde
+  general: s({ robe: ramp("#b02a2a", { lo: "#3a0a10" }), inner: PAL.steel, trim: PAL.gold, sash: PAL.gold, hair: PAL.hairBlack, hairStyle: "long", female: true, hat: "helmet", hatRamp: ramp("#c8ccd8", { lo: "#2a2e3e" }), cape: ramp("#d83a3a", { lo: "#4a0a10" }), weapon: "spear", eye: "#3a1a1a", flare: 4.6, hem: 3.8, shoes: PAL.black }),
+  soldier: s({ robe: ramp("#a8382e", { lo: "#3a0a10" }), inner: PAL.steel, trim: PAL.steel, sash: PAL.black, hairStyle: "topknot", hat: "helmet", hatRamp: ramp("#9aa0b0", { lo: "#22263a" }), skin: PAL.skinTan, weapon: "spear", flare: 4.2, hem: 4.6, shoes: PAL.black }),
+  medic: s({ robe: ramp("#f0f0e8", { lo: "#6a6a7a" }), inner: PAL.green, trim: PAL.red, sash: PAL.green, hair: PAL.hairBlack, hairStyle: "bun", female: true, eye: "#2a3a2a", flare: 4.8, hem: 3.8, shoes: PAL.brown, shawl: ramp("#c8e0b8", { lo: "#3a5a3a" }) }),
+  drummer: s({ robe: ramp("#c83a2a", { lo: "#4a0a10" }), inner: PAL.gold, trim: PAL.gold, sash: PAL.black, hairStyle: "topknot", scale: 0.74, eye: "#3a2a1a", hem: 4.6, flare: 4 }),
+  quartermaster: s({ robe: ramp("#8a6a3a", { lo: "#2a1a10" }), inner: PAL.paper, trim: PAL.red, sash: PAL.red, hair: PAL.hairGrey, beard: PAL.hairGrey, hairStyle: "short", hat: "scholar", hatRamp: PAL.black, weapon: "fan", weaponRamp: PAL.paper, scale: 1.04, flare: 5.6, hem: 4 }),
+  refugeeM: s({ robe: ramp("#7a7a72", { lo: "#24221e" }), inner: PAL.paper, trim: PAL.brown, sash: PAL.brown, hair: PAL.hairBlack, hairStyle: "wild", skin: PAL.skinTan, hunch: 0.08, flare: 4.2, hem: 4.8, shoes: PAL.brown }),
+  refugeeF: s({ robe: ramp("#8a7a6a", { lo: "#2a2018" }), inner: PAL.paper, trim: PAL.paper, sash: PAL.grey, hair: PAL.hairBlack, hairStyle: "bun", female: true, hat: "hood", hatRamp: ramp("#6a645a", { lo: "#1a1814" }), eye: "#3a2a1a", hunch: 0.06, flare: 4.8, hem: 3.8, shoes: PAL.brown }),
+  scout: s({ robe: ramp("#3a5a3a", { lo: "#0a1a10" }), inner: PAL.paper, trim: PAL.brown, sash: PAL.brown, hair: PAL.hairBrown, hairStyle: "twin", female: true, hat: "hood", hatRamp: ramp("#4a6a3a", { lo: "#10200a" }), weapon: "jian", eye: "#2a4a2a", flare: 4.2, hem: 4.6, shoes: PAL.brown }),
+  deserter: s({ robe: ramp("#8a7a5a", { lo: "#2a2010" }), inner: PAL.black, trim: ramp("#c8b890"), sash: PAL.red, hair: PAL.hairBlack, beard: PAL.hairBlack, hairStyle: "long", skin: PAL.skinTan, cape: ramp("#6a5a4a", { lo: "#1a120a" }), weapon: "saber", flare: 4.4, hem: 4.4, shoes: PAL.brown }),
+  envoy: s({ robe: ramp("#2a2a3a", { lo: "#06060e" }), inner: PAL.gold, trim: PAL.gold, sash: PAL.gold, hair: PAL.hairGrey, beard: PAL.hairGrey, hairStyle: "topknot", hat: "scholar", hatRamp: PAL.gold, weapon: "fan", weaponRamp: PAL.gold, flare: 5.8 }),
+  widow: s({ robe: ramp("#f4f2ee", { lo: "#7a7a8a" }), inner: PAL.white, trim: PAL.paper, sash: PAL.white, hair: PAL.hairBlack, hairStyle: "long", female: true, hat: "veil", hatRamp: ramp("#ffffff", { lo: "#9a9aaa" }), eye: "#3a3a4a", flare: 5.6 }),
+  raider: s({ robe: ramp("#7a5a3a", { lo: "#20140a" }), inner: PAL.black, trim: ramp("#d8c8a0"), sash: PAL.black, skin: PAL.skinTan, hairStyle: "wild", beard: PAL.hairBlack, hat: "hood", hatRamp: ramp("#c8b898", { lo: "#4a3a2a" }), weapon: "spear", weaponRamp: PAL.woodDark, flare: 4.2, hem: 4.6, shoes: PAL.brown, eye: "#3a1a10" }),
+  ironguard: s({ robe: ramp("#5a5e6e", { lo: "#10121a" }), inner: PAL.black, trim: PAL.steel, sash: PAL.red, skin: PAL.skinTan, hairStyle: "short", beard: PAL.hairBlack, hat: "helmet", hatRamp: ramp("#6a6e7e", { lo: "#10121a" }), cape: ramp("#2a2a32", { lo: "#000000" }), weapon: "saber", flare: 4.4, hem: 4.2, shoes: PAL.black }),
+  bannerman: s({ robe: ramp("#2a1a20", { lo: "#000000" }), inner: PAL.crimson, trim: PAL.crimson, sash: PAL.gold, skin: PAL.skinTan, hairStyle: "wild", hair: PAL.hairBlack, hat: "helmet", hatRamp: ramp("#3a2a30", { lo: "#000000" }), cape: PAL.crimson, glowEyes: "#ff7a2a", weapon: "spear", weaponRamp: PAL.black, flare: 4.6, hem: 4 }),
+  warcaptain: s({ robe: ramp("#6a4a2a", { lo: "#1a0e06" }), inner: PAL.black, trim: PAL.gold, sash: PAL.red, skin: PAL.skinTan, hairStyle: "wild", beard: PAL.hairBrown, hair: PAL.hairBrown, hat: "helmet", hatRamp: ramp("#c8a050", { lo: "#3a2a10" }), cape: ramp("#d8c8a8", { lo: "#5a4a3a" }), weapon: "saber", scale: 1.14, flare: 5 }),
+  ironmarshal: s({ robe: ramp("#4a5060", { lo: "#08080e" }), inner: PAL.gold, trim: PAL.gold, sash: PAL.black, skin: PAL.skinTan, hairStyle: "topknot", beard: PAL.hairGrey, hair: PAL.hairGrey, hat: "helmet", hatRamp: ramp("#f0c050", { lo: "#4a2a10" }), cape: ramp("#1a1a2a", { lo: "#000000" }), weapon: "spear", weaponRamp: PAL.black, scale: 1.2, flare: 5.4 }),
+  shaman: s({ robe: ramp("#5a1020", { lo: "#100004" }), inner: PAL.black, trim: PAL.gold, sash: PAL.gold, hair: PAL.hairWhite, hairStyle: "wild", hat: "hood", hatRamp: ramp("#2a0a10", { lo: "#000000" }), glowEyes: "#ff3050", weapon: "staff", weaponRamp: PAL.black, scale: 1.12, flare: 5.8, shawl: ramp("#c8b898", { lo: "#3a2a1a" }) }),
+  tuoba: s({ robe: ramp("#1a1a22", { lo: "#000000" }), inner: PAL.crimson, trim: PAL.gold, sash: PAL.gold, skin: PAL.skinTan, hairStyle: "long", hair: PAL.hairBlack, hat: "helmet", hatRamp: ramp("#ffd060", { lo: "#5a2a00" }), cape: ramp("#e8dcc0", { lo: "#4a3a2a" }), glowEyes: "#ffb040", weapon: "saber", weaponRamp: PAL.gold, scale: 1.3, flare: 6.2 }),
 } satisfies Record<string, HumanStyle>;
 
 export type HumanId = keyof typeof STYLES;
@@ -1019,6 +1139,13 @@ export const OUTFITS: Partial<Record<HumanId, Record<string, Partial<HumanStyle>
     // and the shapes she may take: a fox spirit's, a dragon's
     foxform: { robe: ramp("#fbe6d6"), inner: PAL.gold, trim: PAL.gold, sash: PAL.orange, shoes: PAL.white, shawl: ramp("#ffd8a0"), hair: ramp("#f8f0e0", { lo: "#a08a6a" }), foxEars: ramp("#fff4e0", { lo: "#c08a3a" }), tails: ramp("#fff4e0", { lo: "#c08a3a" }), eye: "#e0a020" },
     dragonform: { robe: ramp("#1a5a6a", { lo: "#04141a" }), inner: PAL.gold, trim: PAL.gold, sash: PAL.gold, shoes: PAL.gold, shawl: undefined, cape: ramp("#9ff5de", { lo: "#1a5a6a" }), hat: "crown", hatRamp: PAL.jade, hair: ramp("#9ff5de", { hi: "#ffffff", lo: "#1a5a6a" }), glowEyes: "#ffe040", flare: 5.6 },
+    // what the War of the Iron Banner makes of her
+    lamellar: { robe: ramp("#a8382e", { lo: "#3a0a10" }), inner: PAL.steel, trim: PAL.steel, sash: PAL.black, shoes: PAL.black, shawl: undefined, cape: ramp("#d83a3a", { lo: "#4a0a10" }), hat: "helmet", hatRamp: ramp("#c8ccd8", { lo: "#2a2e3e" }), hem: 4.2, flare: 4.4 },
+    bannergeneral: { robe: ramp("#2a2a3a", { lo: "#06060e" }), inner: PAL.gold, trim: PAL.gold, sash: PAL.crimson, shoes: PAL.black, shawl: undefined, cape: ramp("#f0c040", { lo: "#7a3a10" }), hat: "helmet", hatRamp: ramp("#ffd060", { lo: "#5a2a00" }), hem: 4, flare: 4.8 },
+    swordsaint: { robe: ramp("#f0f4ff", { lo: "#4a5a8a" }), inner: PAL.steel, trim: PAL.steel, sash: PAL.navy, shoes: PAL.navy, shawl: undefined, cape: ramp("#9ab8f0", { lo: "#1a2a5a" }), hat: "crown", hatRamp: PAL.steel, flare: 5 },
+    bodhisattva: { robe: ramp("#fff8ec", { lo: "#8a7a6a" }), inner: PAL.jade, trim: PAL.gold, sash: PAL.jade, shoes: PAL.white, shawl: ramp("#c8f8e8", { lo: "#3a7a6a" }), hat: "veil", hatRamp: ramp("#fffaf0"), flare: 6.2 },
+    taijisage: { robe: ramp("#f4f0e8", { lo: "#5a5a6a" }), inner: PAL.black, trim: PAL.black, sash: PAL.gold, shoes: PAL.black, shawl: ramp("#2a2a32", { lo: "#000000" }), hat: "crown", hatRamp: PAL.black, flare: 5.8 },
+    asura: { robe: ramp("#3a0a12", { lo: "#0a0004" }), inner: PAL.crimson, trim: PAL.gold, sash: PAL.gold, shoes: PAL.black, shawl: undefined, cape: ramp("#a8182a", { lo: "#2a0008" }), hat: "helmet", hatRamp: ramp("#3a2a30", { lo: "#000000" }), glowEyes: "#ff3040", hem: 3.8, flare: 4.8 },
   },
   zhou: { festival: { robe: PAL.red, inner: PAL.gold, trim: PAL.gold, sash: PAL.gold, hatRamp: PAL.red } },
   hua: { festival: { robe: ramp("#c04a6a"), inner: PAL.gold, trim: PAL.gold, sash: PAL.gold, shawl: FESTIVAL_SHAWL } },
@@ -1057,7 +1184,7 @@ export type MountId = "rider";
 export type CharId = HumanId | BeastId | MountId;
 
 const HUMAN_ANIMS: Record<HumanId, AnimId[]> = {
-  heroine: ["idle", "walk", "run", "talk", "attack", "cast", "hurt", "meditate", "fly", "victory", "defeat", "bow", "gather", "stretch", "look", "wave", "drink", "cheer", "point", "nod", "read", "sit", "pray", "clap", "laugh", "flute", "salute", "twirl", "write", "taichi", "kick", "umbrella", "eat", "torch", "kowtow", "sworddance", "flame", "sweep", "rake", "plant", "snowball", "kite", "shiver", "warmhands", "yawn", "stargaze", "offer", "think", "shrug", "cry", "levitate", "roar", "plantsword"],
+  heroine: ["idle", "walk", "run", "talk", "attack", "cast", "hurt", "meditate", "fly", "victory", "defeat", "bow", "gather", "stretch", "look", "wave", "drink", "cheer", "point", "nod", "read", "sit", "pray", "clap", "laugh", "flute", "salute", "twirl", "write", "taichi", "kick", "umbrella", "eat", "torch", "kowtow", "sworddance", "flame", "sweep", "rake", "plant", "snowball", "kite", "shiver", "warmhands", "yawn", "stargaze", "offer", "think", "shrug", "cry", "levitate", "roar", "plantsword", "rally", "banner", "bandage", "grieve", "horn"],
   elder: ["idle", "walk", "talk", "cast", "sweep", "bow", "wave", "nod", "read", "salute", "write", "taichi", "sworddance", "offer", "think", "shrug", "cry", "plantsword", "attack", "hurt", "defeat"],
   qing: ["idle", "walk", "talk", "bow", "wave", "nod", "cheer", "clap", "pour", "salute"],
   abao: ["idle", "walk", "run", "talk", "practice", "wave", "cheer", "laugh", "clap", "juggle", "salute", "kick", "snowball", "kite", "yawn", "shiver", "cry", "shrug"],
@@ -1119,6 +1246,24 @@ const HUMAN_ANIMS: Record<HumanId, AnimId[]> = {
   summerWarden: ["float", "talk", "cast", "bow", "nod", "fan"],
   autumnWarden: ["float", "talk", "cast", "bow", "nod"],
   winterWarden: ["float", "talk", "cast", "bow", "nod"],
+  general: ["idle", "walk", "talk", "point", "nod", "salute", "march", "spear", "banner", "horn", "rally", "think", "grieve", "shieldwall"],
+  soldier: ["idle", "walk", "talk", "march", "spear", "salute", "nod", "shieldwall", "yawn", "warmhands", "grieve", "cheer"],
+  medic: ["idle", "walk", "talk", "bandage", "nod", "bow", "brew", "pray", "grieve", "cry", "think"],
+  drummer: ["idle", "walk", "talk", "drum", "cheer", "salute", "cry", "yawn", "shrug"],
+  quartermaster: ["idle", "walk", "talk", "write", "read", "nod", "point", "fan", "shrug", "think"],
+  refugeeM: ["idle", "walk", "talk", "cower", "grieve", "carry", "warmhands", "shiver", "nod", "kowtow", "cheer"],
+  refugeeF: ["idle", "walk", "talk", "cower", "grieve", "cry", "pray", "carry", "warmhands", "kowtow", "cheer"],
+  scout: ["idle", "walk", "run", "talk", "look", "point", "salute", "nod", "practice", "stargaze"],
+  deserter: ["idle", "walk", "talk", "kowtow", "grieve", "salute", "nod", "plantsword", "shrug", "think"],
+  envoy: ["idle", "walk", "talk", "bow", "fan", "nod", "point", "laugh", "think"],
+  widow: ["idle", "talk", "grieve", "pray", "cry", "bow", "nod", "offer"],
+  raider: ["idle", "walk", "run", "attack", "hurt", "march", "spear", "cheer", "point"],
+  ironguard: ["idle", "walk", "run", "attack", "hurt", "march", "shieldwall"],
+  bannerman: ["idle", "walk", "run", "attack", "hurt", "march", "spear", "roar"],
+  warcaptain: ["idle", "walk", "attack", "hurt", "defeat", "talk", "roar", "point", "kowtow", "horn"],
+  ironmarshal: ["idle", "walk", "attack", "hurt", "defeat", "talk", "spear", "salute", "kowtow", "horn"],
+  shaman: ["idle", "walk", "attack", "cast", "hurt", "defeat", "talk", "roar", "kowtow"],
+  tuoba: ["idle", "walk", "attack", "cast", "hurt", "defeat", "talk", "roar", "kowtow", "plantsword", "horn", "point"],
 };
 
 const NAMES: Record<CharId, [string, string]> = {
@@ -1184,6 +1329,24 @@ const NAMES: Record<CharId, [string, string]> = {
   summerWarden: ["Lord Xiazhi", "Warden of Summer"],
   autumnWarden: ["Grandmother Shuangjiang", "Warden of Autumn"],
   winterWarden: ["Old Dongzhi", "Warden of Winter"],
+  general: ["General Yue Wushuang", "Commander of the Northern Army"],
+  soldier: ["Imperial Spearman", "Northern Army"],
+  medic: ["Field Medic Su Lan", "Northern Army Infirmary"],
+  drummer: ["Drummer Tian", "Northern Army"],
+  quartermaster: ["Quartermaster Bao", "Northern Army Stores"],
+  refugeeM: ["Refugee", "Driven from Home by the War"],
+  refugeeF: ["Refugee", "Driven from Home by the War"],
+  scout: ["Scout Feiyan", "Eyes of the Northern Army"],
+  deserter: ["Ashina", "Who Rode with the Iron Wolves"],
+  envoy: ["Envoy Kou", "Voice of the Iron Banner"],
+  widow: ["Lady Gu", "Widow of the Frontier"],
+  raider: ["Iron Wolf Raider", "The Iron Banner Horde"],
+  ironguard: ["Iron Banner Guard", "The Iron Banner Horde"],
+  bannerman: ["Black Banner Reaver", "The Iron Banner Horde"],
+  warcaptain: ["Iron Wolf Captain", "The Iron Banner Horde"],
+  ironmarshal: ["Iron Marshal", "The Iron Banner Horde"],
+  shaman: ["Blood Banner Shaman", "The Iron Banner Horde"],
+  tuoba: ["Tuoba Hong", "Khan of the Iron Banner"],
   fox: ["Fox Spirit", "Corrupted Beast"],
   wolf: ["Shadowflame Wolf", "Corrupted Beast"],
   serpent: ["Jade Serpent", "Lake Beast"],
@@ -1214,6 +1377,8 @@ export const BEAST_IDS = Object.keys(BEAST_ANIMS) as BeastId[];
 export const CHAR_IDS: CharId[] = [...HUMAN_IDS, ...BEAST_IDS, "rider"];
 
 const isHuman = (id: CharId): id is HumanId => id in STYLES;
+/** Rank-and-file foes, who never speak in a dialogue box. */
+const FACELESS = new Set<string>(["jiangshi", "cultist", "bandit", "raider", "ironguard", "bannerman"]);
 
 export function charDef(id: CharId): CharacterDef {
   const [name, title] = NAMES[id];
@@ -1229,7 +1394,7 @@ export function charDef(id: CharId): CharacterDef {
       ox: big ? Math.round(HUMAN_OX * S) : HUMAN_OX,
       oy: big ? Math.round(HUMAN_OY * S) : HUMAN_OY,
       anims: HUMAN_ANIMS[id],
-      portrait: id !== "jiangshi" && id !== "cultist" && id !== "bandit",
+      portrait: !FACELESS.has(id),
     };
   }
   if (id === "bat") return { id, name, title, w: 40, h: 32, ox: 20, oy: 26, anims: BEAST_ANIMS[id], portrait: false };

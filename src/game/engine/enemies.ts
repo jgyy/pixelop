@@ -1,6 +1,14 @@
 import type { CharId } from "../art/characters";
 
-export type EnemyId = "fox" | "wolf" | "serpent" | "serpentKing" | "cultist" | "jiangshi" | "bandit" | "swordsman" | "patriarch" | "emberwyrm" | "stonehound" | "poisoner" | "phoenixguard" | "traitor" | "elderMo";
+export type EnemyId = "fox" | "wolf" | "serpent" | "serpentKing" | "cultist" | "jiangshi" | "bandit" | "swordsman" | "patriarch" | "emberwyrm" | "stonehound" | "poisoner" | "phoenixguard" | "traitor" | "elderMo" | WarFoeId | WarBossId;
+
+/** The rank and file of the Iron Banner horde, from the first raids to its last stand. */
+export const WAR_FOES = ["raider", "ironguard", "bannerman"] as const;
+export type WarFoeId = (typeof WAR_FOES)[number];
+/** The captain who holds each front of the war, one per campaign, ending with the Khan himself. */
+export const WAR_BOSSES = ["borte", "qara", "jelme", "alaq", "toghril", "khulan", "sorqan", "hulagu", "ebugen", "tuoba"] as const;
+export type WarBossId = (typeof WAR_BOSSES)[number];
+export const isWarFoe = (id: EnemyId): id is WarFoeId | WarBossId => (WAR_FOES as readonly string[]).includes(id) || (WAR_BOSSES as readonly string[]).includes(id);
 
 export interface EnemyDef {
   id: EnemyId;
@@ -25,7 +33,93 @@ export interface EnemyDef {
   aggro: number;
 }
 
+const BOSS_LOOK: [WarBossId, string, CharId, string, string, string][] = [
+  ["borte", "Börte Ash-Hand", "warcaptain", "Firebrand Glaive", "Ash-Hand Inferno", "Börte Ash-Hand wipes soot from his glaive. “Your village burned well, girl.”"],
+  ["qara", "Qara the Firebrand", "warcaptain", "Burning Saber", "Grove-Fire Sweep", "Qara laughs through the smoke of the burning grove."],
+  ["jelme", "Jelme Red-Water", "warcaptain", "Hooked Glaive", "Red Tide Charge", "Jelme Red-Water stands knee-deep in the shallows, his glaive dripping."],
+  ["alaq", "Alaq of the Drowned Road", "warcaptain", "Marsh Glaive", "Sinking Mire Strike", "Alaq rises out of the reeds, mud to the shoulders and grinning."],
+  ["toghril", "Iron Marshal Toghril", "ironmarshal", "Siege Halberd", "Breaker of Terraces", "Iron Marshal Toghril raises his halberd. Behind him the trebuchets fall silent."],
+  ["khulan", "Admiral Khulan", "ironmarshal", "Boarding Pike", "Black Sail Tempest", "Admiral Khulan steps off her flagship onto the quay, pike first."],
+  ["sorqan", "Sorqan the Sand-King", "ironmarshal", "Dune Halberd", "Sandstorm Lance", "Sorqan's banner snaps in a wind full of sand."],
+  ["hulagu", "Hulagu of the Frozen Pass", "ironmarshal", "Ice-Bitten Halberd", "Avalanche Charge", "Hulagu shakes the snow from his helm. The pass is his, he says."],
+  ["ebugen", "Shaman Ebugen", "shaman", "Bone Staff", "Blood Banner Hex", "Ebugen's eyes burn red under the hood. The blood moon's old altars hum with him."],
+  ["tuoba", "Tuoba Hong, the Iron Banner", "tuoba", "Khan's Saber", "Ten Thousand Wolves", "Tuoba Hong, Khan of the Iron Banner, walks out of the smoke alone. “Little cultivator. Shall we end the war, you and I?”"],
+];
+
+/** The war's captains: each stronger than the last, tuned to the realm the war expects of her at their front. */
+const warBosses = Object.fromEntries(
+  BOSS_LOOK.map(([id, name, sprite, basic, special, intro], c) => [
+    id,
+    {
+      id,
+      name,
+      sprite,
+      level: 3 + c * 2,
+      hp: Math.round(240 + 190 * c + 18 * c * c),
+      atk: Math.round(21 + 5.4 * c),
+      def: Math.round(7 + 3 * c),
+      exp: 220 + 320 * c,
+      stones: 60 + 60 * c,
+      basic,
+      special: { name: special, power: 1.8, every: 3, drain: c >= 8 ? 0.25 : undefined, colour: c >= 8 ? "#ff3050" : "#ffb040" },
+      boss: true,
+      intro,
+      speed: 0,
+      aggro: 1.4,
+    } satisfies EnemyDef,
+  ]),
+) as Record<WarBossId, EnemyDef>;
+
 export const ENEMIES: Record<EnemyId, EnemyDef> = {
+  ...warBosses,
+  raider: {
+    id: "raider",
+    name: "Iron Wolf Raider",
+    sprite: "raider",
+    level: 2,
+    hp: 90,
+    atk: 17,
+    def: 4,
+    exp: 30,
+    stones: 10,
+    basic: "Hooked Spear",
+    special: { name: "Wolf-Pack Charge", power: 1.6, every: 3, colour: "#d8c8a0" },
+    intro: "An Iron Wolf raider levels his spear and howls for his pack.",
+    speed: 1.6,
+    aggro: 3.2,
+  },
+  ironguard: {
+    id: "ironguard",
+    name: "Iron Banner Guard",
+    sprite: "ironguard",
+    level: 7,
+    hp: 260,
+    atk: 34,
+    def: 13,
+    exp: 90,
+    stones: 22,
+    basic: "Iron Saber",
+    special: { name: "Iron Wall Crush", power: 1.7, every: 3, colour: "#a8b0c8" },
+    intro: "An Iron Banner guard locks his shield and comes on step by step.",
+    speed: 1.3,
+    aggro: 3,
+  },
+  bannerman: {
+    id: "bannerman",
+    name: "Black Banner Reaver",
+    sprite: "bannerman",
+    level: 13,
+    hp: 520,
+    atk: 54,
+    def: 22,
+    exp: 200,
+    stones: 40,
+    basic: "Black Spear",
+    special: { name: "Demon-Core Fury", power: 1.75, every: 3, drain: 0.15, colour: "#ff7a2a" },
+    intro: "The Black Banner reaver's eyes burn with a swallowed demon core.",
+    speed: 1.7,
+    aggro: 3.4,
+  },
   fox: {
     id: "fox",
     name: "Fox Spirit",

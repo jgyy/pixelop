@@ -1,5 +1,6 @@
 import { createRng } from "../pixel/rng";
-import { ENEMIES, type EnemyId } from "./enemies";
+import { ENEMIES, isWarFoe, type EnemyId } from "./enemies";
+import { levelIndex } from "./realms";
 import { gainCultivation, PILL_EFFECT, stats, type GameState, type SkillId } from "./state";
 import { toWorld } from "../world/layout";
 
@@ -65,7 +66,27 @@ export function openingWound(enemy: EnemyId, g: GameState): number {
   if (enemy === "patriarch" && g.flags.xueWounded) return 0.4;
   // the founder's sutra, recited by one of Mo's own, shakes his demonic qi
   if (enemy === "patriarch" && g.flags.xueShaken) return 0.2;
-  return 0;
+  return realmAura(enemy, g);
+}
+
+/**
+ * Cultivation tells in war: a soldier of the horde facing a cultivator far
+ * above his strength falters before her aura (a captain only a little), and
+ * the first blow lands on a man already half beaten.
+ */
+export function realmAura(enemy: EnemyId, g: GameState): number {
+  if (!isWarFoe(enemy)) return 0;
+  const e = ENEMIES[enemy];
+  const gap = levelIndex(g.realm, g.stage) - e.level;
+  if (e.boss) return gap >= 4 ? 0.15 : 0;
+  return gap >= 8 ? 0.5 : gap >= 4 ? 0.3 : 0;
+}
+
+/** What the battle log says about the opening wound. */
+export function woundLine(enemy: EnemyId, g: GameState): string | null {
+  if (!openingWound(enemy, g)) return null;
+  if (enemy === "patriarch") return "You strike the old wound in his art before he can raise his saber!";
+  return ENEMIES[enemy].boss ? `Your cultivation presses down on ${ENEMIES[enemy].name} like a mountain; the first blow lands on a staggering foe.` : `The ${ENEMIES[enemy].name} falters before your aura — a cultivator far beyond him!`;
 }
 
 /** Damage after defence: diminishing returns rather than flat subtraction. */
