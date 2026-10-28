@@ -23,6 +23,8 @@ import { altarScript, areaUnlocked, arrivalScript, endingScript, errand, hasNews
 import { BattleScene } from "./battle";
 import { currentWar, daoJournal, daoLabel, warBreath, warChronicle, warCultivated, warDone, warHasNews, warHunt, warLandmark, warLog, warTalk, WAR_COUNT } from "../story/war";
 import { daoAside, daoHasNews } from "../story/dao";
+import { currentRoad, roadBreath, roadChronicle, roadCultivated, roadDone, roadHasNews, roadHunt, roadLandmark, roadLog, roadTalk, ROAD_COUNT, syncRoadFlags } from "../story/road";
+import { BREATHS_PER_WU, comprehend, deepestWu, domainOpen, GREAT_DAOS, SHRINE_DAO, WU_TIERS, wuJournal, wuTotal } from "../engine/comprehension";
 import { aweAside, conditionAside, cultivationHasNews, heartDemonTrial, pointerAside, realmAside, trialDue } from "../story/cultivation";
 import { boltDamage, breathGain, conditionJournal, conditionLabel, CULT, failTribulation, foundationWound, heartDemons, insight, insightNeeded, passTribulation, shift, tendBreath, toxicity, tribulationBlock } from "../engine/cultivation";
 import { DAOS, dominantDao } from "../engine/dao";
@@ -74,6 +76,14 @@ export interface UiSnapshot {
   warCount: number;
   /** The fronts of the war as they stand (in the journal). */
   warFronts: { front: string; hanzi: string; state: "waiting" | "burning" | "freed"; scar: string | null }[] | null;
+  /** The fourth thread: the Founder's Road, a thousand quests long (null before it reaches her). */
+  road: Quest | null;
+  roadDone: number;
+  roadCount: number;
+  /** The founder's ten steles as they stand (in the journal). */
+  roadSteles: { stele: string; hanzi: string; dao: string; colour: string; state: "waiting" | "hollowed" | "restored" | "devoured" }[] | null;
+  /** The Great Daos she comprehends: the deepest one for the HUD, every one in the journal, and whether her Dao Domain has opened. */
+  wu: { label: string | null; colour: string | null; total: number; domain: boolean; paths: ReturnType<typeof wuJournal> | null };
   /** The Dao she walks: its name and depth (null while none leads), and every Dao's weight in her heart (in the journal). */
   dao: { label: string | null; colour: string | null; creed: string | null; paths: { id: string; name: string; hanzi: string; colour: string; points: number; creed: string; gift: string }[] | null };
   /** Her cultivation's condition: one line for the HUD (null while she is whole), and the full picture in the journal. */
@@ -105,9 +115,9 @@ const MOVE_KEYS: Record<string, [number, number]> = {
 
 const CONFIRM = new Set(["KeyE", "Enter", "Space", "NumpadEnter"]);
 /** One-shot animations that walking away interrupts. */
-const IDLE_FIDGETS = new Set<AnimId>(["stretch", "look", "gather", "nod", "point", "cheer", "drink", "read", "pray", "clap", "laugh", "rear", "flute", "salute", "twirl", "taichi", "kick", "sworddance", "flame", "roar", "rally", "grieve", "bow", "banner", "horn"]);
+const IDLE_FIDGETS = new Set<AnimId>(["stretch", "look", "gather", "nod", "point", "cheer", "drink", "read", "pray", "clap", "laugh", "rear", "flute", "salute", "twirl", "taichi", "kick", "sworddance", "flame", "roar", "rally", "grieve", "bow", "banner", "horn", "comprehend", "domain", "acrobat", "firecracker", "liondance"]);
 /** Seated or absorbed idles that a speaker keeps while talking instead of standing up. */
-const SEATED = new Set<AnimId>(["fish", "sit", "tell", "weave", "pray", "bandage", "grieve"]);
+const SEATED = new Set<AnimId>(["fish", "sit", "tell", "weave", "pray", "bandage", "grieve", "xiangqi", "puppet", "abacus", "row", "comprehend"]);
 const RUN_KEYS = ["ShiftLeft", "ShiftRight"];
 const WALK_SPEED = 3.3;
 const RUN_SPEED = 5.2;
@@ -1141,12 +1151,38 @@ export class Game {
       this.world.fx.burst(hx, hy - 20, 20, ["#f2c55c", "#ffffff"], 40);
       this.toast(`A flash of insight · 顿悟 · Insight ${insight(this.state)}/${insightNeeded(this.state.realm)}`);
     }
+    // sitting long where a Great Dao runs strong, she comes a little nearer it
+    this.sitWithDao(hx, hy);
     if (this.woundWas > 0 && foundationWound(this.state) === 0) this.toast("Your foundation has mended. Heaven may test you again.");
     this.woundWas = foundationWound(this.state);
     this.markDirty();
   }
   private woundWas = 0;
   private toxClock = 0;
+
+  /** Every so many breaths at an outdoor shrine, a step nearer the Great Dao that runs strong in that land (as far as her realm can hold). */
+  private sitWithDao(hx: number, hy: number): void {
+    const dao = SHRINE_DAO[this.state.area];
+    if (!dao || this.interior || !this.medShrine || this.medSitting % BREATHS_PER_WU !== 0) return;
+    const r = comprehend(this.state, dao, 1);
+    const opened = !domainOpen(this.state) && domainOpen(r.state);
+    this.state = r.state;
+    const G = GREAT_DAOS[dao];
+    if (r.capped) return;
+    this.world.fx.burst(hx, hy - 20, 16, [G.colour, "#ffffff"], 40);
+    if (r.tierUp) {
+      this.world.setAnim(this.world.hero, "comprehend", this.clock, true);
+      this.world.hero.idleAnim = "comprehend";
+      this.toast(`感悟 · You comprehend the ${G.name}: ${WU_TIERS[r.tierUp - 1].hanzi} ${WU_TIERS[r.tierUp - 1].name}`);
+      this.reactNearby("!", "bow");
+    } else this.toast(`The ${G.name} stirs in you (${G.hanzi})`);
+    if (opened) {
+      this.world.setAnim(this.world.hero, "domain", this.clock, true);
+      this.flash = 0.5;
+      this.flashColor = G.colour;
+      this.toast("道域 · Your Dao Domain unfolds: foes who step into it will stagger");
+    }
+  }
 
   /** Folk standing nearby react to what heaven does to her: a cheer, a bow, a gasp. */
   private reactNearby(icon: "!" | "heart" | "...", anim: AnimId | null): void {
@@ -1358,10 +1394,12 @@ export class Game {
 
     if (this.clock > this.syncAt) {
       this.syncAt = this.clock + 0.5;
+      // the Founder's Road reaches her as her realm does, not only as its quests are done
+      this.state = syncRoadFlags(this.state);
       w.syncPopulation(this.state.flags);
       this.landmarkEvents();
       if (this.mode !== "explore") return;
-      const grown = warCultivated(this.state);
+      const grown = warCultivated(this.state) ?? roadCultivated(this.state);
       if (grown) return this.play(grown);
     }
     const touched = w.update(dt, this.clock, h.flying === true || this.clock < this.invulnerableUntil, true);
@@ -1409,7 +1447,7 @@ export class Game {
     // first, what they make of the Dao she walks (once for each depth of it)
     // then, once each, what they make of her realm, her condition, or the bottleneck she is stuck at
     const npc = this.world.actor(key);
-    const seen = daoAside(key, g) ?? realmAside(key, g) ?? conditionAside(key, g) ?? pointerAside(key, g) ?? (npc && charDef(npc.char).portrait ? aweAside(key, npc.char as HumanId, g) : null);
+    const seen = daoAside(key, g) ?? realmAside(key, g) ?? conditionAside(key, g) ?? pointerAside(key, g) ?? (npc && charDef(npc.char).portrait ? aweAside(key, npc.char as HumanId, g, npc.name) : null);
     return [...(seen ?? []), ...this.conversation(key, g)];
   }
 
@@ -1421,7 +1459,7 @@ export class Game {
     const offering = offeringScript(key, g, cal);
     if (offering) pre.push(...offering);
     const news = hasNews(key, g);
-    const war = warTalk(key, g);
+    const war = warTalk(key, g) ?? roadTalk(key, g);
     if (war) return news ? [...pre, ...npcScript(key, g), ...war] : [...pre, ...war];
     if (pre.length && !news) return pre;
     const story = npcScript(key, g);
@@ -1435,7 +1473,9 @@ export class Game {
     const d = dominantDao(this.state);
     const own: AnimId[] = d ? { sword: ["sworddance", "sworddance"], mercy: ["pray", "bow"], balance: ["taichi", "taichi"], slaughter: ["roar", "kick"] }[d] as AnimId[] : [];
     const q = currentWar(this.state);
-    return q && this.state.flags[`war:${q.front}`] && this.state.area === q.front ? [...own, "rally", "grieve"] : own;
+    const road = currentRoad(this.state);
+    const deep: AnimId[] = wuTotal(this.state) >= 4 ? ["comprehend"] : [];
+    return q && this.state.flags[`war:${q.front}`] && this.state.area === q.front ? [...own, ...deep, "rally", "grieve"] : road && this.state.flags[`hollowed:${road.dao}`] ? [...own, ...deep, "look"] : [...own, ...deep];
   }
 
   /** What the hour and the season move her to do when she stands about outdoors: shiver in the snow, fly a kite in spring, gaze at the stars. */
@@ -1496,7 +1536,8 @@ export class Game {
     const cal = calendarAt(worldTime(this.state));
     const year = landmarkScript(near.key, this.state, cal, [h.x + 1.2, h.y + 0.4]);
     if (year) return this.play(year);
-    const war = warLandmark(near.key, this.state, { night: cal.dusk > 0.55, riding: this.riding, flying: !!h.flying });
+    const how = { night: cal.dusk > 0.55, riding: this.riding, flying: !!h.flying };
+    const war = warLandmark(near.key, this.state, how) ?? roadLandmark(near.key, this.state, how);
     if (war) return this.play(war);
     for (const c of carried(this.state)) {
       const b = c.bounty;
@@ -1510,10 +1551,12 @@ export class Game {
 
   /** A foe of the horde beaten where the war wanted it beaten. */
   private warHunt(enemy: EnemyId): void {
-    const r = warHunt(this.state, enemy, this.state.area);
-    this.state = r.state;
-    if (r.steps) this.play(r.steps);
-    else if (r.note) this.toast(r.note);
+    for (const hunt of [() => warHunt(this.state, enemy, this.state.area), () => roadHunt(this.state, enemy)]) {
+      const r = hunt();
+      this.state = r.state;
+      if (r.steps) return this.play(r.steps);
+      if (r.note) return this.toast(r.note);
+    }
   }
 
   /** Breaths held at a shrine count towards a notice that asked for stillness there. */
@@ -1522,6 +1565,9 @@ export class Game {
       const r = warBreath(this.state, this.state.area);
       this.state = r.state;
       if (r.steps) return this.play(r.steps);
+      const road = roadBreath(this.state, this.state.area);
+      this.state = road.state;
+      if (road.steps) return this.play(road.steps);
     }
     for (const c of carried(this.state)) {
       const b = c.bounty;
@@ -1779,7 +1825,7 @@ export class Game {
     }
     if (this.mode === "explore" && this.clock >= this.markerAt) this.refreshMarkers();
     const cal = calendarAt(worldTime(this.state));
-    for (const a of this.world.actors) if (a.kind === "npc") a.marker = this.mode === "explore" && ((hasNews(a.key, this.state) || yearHasNews(a.key, this.state, cal) || warHasNews(a.key, this.state) || daoHasNews(a.key, this.state) || cultivationHasNews(a.key, this.state)) || (this.bountyMarkers.get(a.key) ?? false));
+    for (const a of this.world.actors) if (a.kind === "npc") a.marker = this.mode === "explore" && ((hasNews(a.key, this.state) || yearHasNews(a.key, this.state, cal) || warHasNews(a.key, this.state) || roadHasNews(a.key, this.state) || daoHasNews(a.key, this.state) || cultivationHasNews(a.key, this.state)) || (this.bountyMarkers.get(a.key) ?? false));
     if (this.world.hero.outfit !== currentAttire(this.state).id) this.dressHero();
     this.world.heroRealm = this.state.realm;
     this.world.heroDread = heartDemons(this.state) > 60;
@@ -1959,6 +2005,16 @@ export class Game {
       warDone: warDone(this.state),
       warCount: WAR_COUNT,
       warFronts: this.journalOpen && warDone(this.state) > 0 ? warChronicle(this.state) : null,
+      road: roadLog(this.state, (id) => lockReason(id, this.state)),
+      roadDone: roadDone(this.state),
+      roadCount: ROAD_COUNT,
+      roadSteles: this.journalOpen && roadDone(this.state) > 0 ? roadChronicle(this.state) : null,
+      wu: (() => {
+        const w = deepestWu(this.state);
+        const j = wuJournal(this.state);
+        const top = w ? j.find((x) => x.id === w)! : null;
+        return { label: top ? `${top.hanzi} ${top.stage}` : null, colour: top ? top.colour : null, total: wuTotal(this.state), domain: domainOpen(this.state), paths: this.journalOpen ? j : null };
+      })(),
       dao: (() => {
         const d = dominantDao(this.state);
         return { label: daoLabel(this.state), colour: d ? DAOS[d].colour : null, creed: d ? DAOS[d].creed : null, paths: this.journalOpen ? daoJournal(this.state) : null };

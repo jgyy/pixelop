@@ -1,6 +1,6 @@
 import type { CharId } from "../art/characters";
 
-export type EnemyId = "fox" | "wolf" | "serpent" | "serpentKing" | "cultist" | "jiangshi" | "bandit" | "swordsman" | "patriarch" | "emberwyrm" | "stonehound" | "poisoner" | "phoenixguard" | "traitor" | "elderMo" | WarFoeId | WarBossId;
+export type EnemyId = "fox" | "wolf" | "serpent" | "serpentKing" | "cultist" | "jiangshi" | "bandit" | "swordsman" | "patriarch" | "emberwyrm" | "stonehound" | "poisoner" | "phoenixguard" | "traitor" | "elderMo" | HollowId | WarFoeId | WarBossId | EchoId;
 
 /** The rank and file of the Iron Banner horde, from the first raids to its last stand. */
 export const WAR_FOES = ["raider", "ironguard", "bannerman"] as const;
@@ -9,6 +9,32 @@ export type WarFoeId = (typeof WAR_FOES)[number];
 export const WAR_BOSSES = ["borte", "qara", "jelme", "alaq", "toghril", "khulan", "sorqan", "hulagu", "ebugen", "tuoba"] as const;
 export type WarBossId = (typeof WAR_BOSSES)[number];
 export const isWarFoe = (id: EnemyId): id is WarFoeId | WarBossId => (WAR_FOES as readonly string[]).includes(id) || (WAR_BOSSES as readonly string[]).includes(id);
+
+/**
+ * The Founder's Road: the Hollow Echo that guards each stele Wei Kongming
+ * has eaten (each one wears the Great Dao it was carved with, the way a coat
+ * wears a man), and at the end of the Road the Dao-Eater himself.
+ */
+export const ECHO_BOSSES = ["echoWater", "echoWood", "echoWind", "echoFire", "echoEarth", "echoMetal", "echoThunder", "echoIce", "echoLife", "kongming"] as const;
+export type EchoId = (typeof ECHO_BOSSES)[number];
+export const isEcho = (id: EnemyId): id is EchoId => (ECHO_BOSSES as readonly string[]).includes(id);
+/** The Great Dao each Echo wears. */
+export const ECHO_DAO: Record<EchoId, "water" | "wood" | "wind" | "fire" | "earth" | "metal" | "thunder" | "ice" | "lifedeath" | "void"> = {
+  echoWater: "water",
+  echoWood: "wood",
+  echoWind: "wind",
+  echoFire: "fire",
+  echoEarth: "earth",
+  echoMetal: "metal",
+  echoThunder: "thunder",
+  echoIce: "ice",
+  echoLife: "lifedeath",
+  kongming: "void",
+};
+/** The hollowed cultivators who follow the Dao-Eater, weakest first. */
+export const HOLLOWS = ["hollowshade", "hollowmonk", "hollowsage"] as const;
+export type HollowId = (typeof HOLLOWS)[number];
+export const isHollow = (id: EnemyId): id is HollowId => (HOLLOWS as readonly string[]).includes(id);
 
 export interface EnemyDef {
   id: EnemyId;
@@ -70,8 +96,97 @@ const warBosses = Object.fromEntries(
   ]),
 ) as Record<WarBossId, EnemyDef>;
 
+const ECHO_LOOK: [EchoId, string, CharId, number, string, string, string, string][] = [
+  ["echoWater", "Echo of Still Water", "echoWater", 5, "Drowning Palm", "Tide That Forgets", "#6ab8f0", "Something stands on the water where the stele was. It has the shape of a woman and the stillness of a pond that has stopped remembering rain."],
+  ["echoWood", "Echo of the Withered Grove", "echoWood", 6, "Splinter Lash", "Rot of Ten Thousand Roots", "#9ac070", "The bamboo round the stele creaks without wind. Something made of dry stems and borrowed green steps out of it."],
+  ["echoWind", "Echo of the Stopped Wind", "echoWind", 8, "Still-Air Strike", "The Breath Withheld", "#c8f0e8", "The grass of the steppe lies flat and does not move. In the middle of the stillness a figure turns, and the air goes with it."],
+  ["echoFire", "Echo of the Cold Flame", "echoFire", 9, "Grey Flame Palm", "Fire That Takes", "#a8a8a8", "Grey fire burns on the red rock without heat. Out of it walks a shape that has eaten every warmth it ever touched."],
+  ["echoEarth", "Echo of the Hollow Mountain", "echoEarth", 11, "Landslide Fist", "The Mountain Gives Way", "#c8a060", "The scree of the Dragonspine slides uphill and stands up. It has a face like a rock that has forgotten what it was holding."],
+  ["echoMetal", "Echo of the Blunted Edge", "echoMetal", 12, "Dull Blade", "Ten Thousand Rusted Swords", "#a8b0c0", "The Sword Tomb's blades turn their rust toward you all at once. One of them stands up, wearing the rest."],
+  ["echoThunder", "Echo of the Silent Storm", "echoThunder", 14, "Soundless Bolt", "Heaven Without Anger", "#b8a4ff", "Lightning strikes the pagoda hill and makes no sound. The silence takes the shape of a man and steps down off the stone."],
+  ["echoIce", "Echo of the Endless Winter", "echoIce", 15, "Rime Palm", "Winter That Never Thaws", "#bfe8ff", "Frost runs up the crag faster than water could fall. At the top it stands, a shape of ice that has decided never to melt."],
+  ["echoLife", "Echo of the Unending", "echoLife", 17, "Withering Touch", "Neither Living Nor Dead", "#f6a6c9", "In Hundred Herb Valley the herbs bloom and rot in the same breath. Between them walks something that will not do either."],
+  ["kongming", "Wei Kongming, the Dao-Eater", "kongming", 19, "Hollow Palm", "Swallow Heaven and Earth", "#e8e0ff", "Wei Kongming stands at the end of the causeway with the sea at his back. He looks tired. “Nine Daos, and I still cannot feel any of them. Teach me, then. Or let me eat you.”"],
+];
+
+/** The Road's guardians: tuned like the war's captains, to the realm the Road asks of her at each stele. */
+const echoBosses = Object.fromEntries(
+  ECHO_LOOK.map(([id, name, sprite, level, basic, special, colour, intro]) => {
+    const c = (level - 3) / 2;
+    return [
+      id,
+      {
+        id,
+        name,
+        sprite,
+        level,
+        hp: Math.round(250 + 190 * c + 18 * c * c),
+        atk: Math.round(21 + 5.4 * c),
+        def: Math.round(7 + 3 * c),
+        exp: Math.round(240 + 320 * c),
+        stones: Math.round(70 + 60 * c),
+        basic,
+        special: { name: special, power: 1.8, every: 3, drain: c >= 6 ? 0.2 : undefined, colour },
+        boss: true,
+        intro,
+        speed: 0,
+        aggro: 1.4,
+      } satisfies EnemyDef,
+    ];
+  }),
+) as Record<EchoId, EnemyDef>;
+
 export const ENEMIES: Record<EnemyId, EnemyDef> = {
   ...warBosses,
+  ...echoBosses,
+  hollowshade: {
+    id: "hollowshade",
+    name: "Hollow Shade",
+    sprite: "hollow",
+    level: 4,
+    hp: 150,
+    atk: 24,
+    def: 8,
+    exp: 55,
+    stones: 14,
+    basic: "Empty Palm",
+    special: { name: "Eaten Breath", power: 1.6, every: 3, drain: 0.1, colour: "#c8c0e0" },
+    intro: "A hollow shade drifts out from behind the broken stele, its face an empty bowl.",
+    speed: 1.2,
+    aggro: 3,
+  },
+  hollowmonk: {
+    id: "hollowmonk",
+    name: "Hollow Ascetic",
+    sprite: "hollow",
+    level: 10,
+    hp: 380,
+    atk: 42,
+    def: 17,
+    exp: 140,
+    stones: 28,
+    basic: "Begging-Bowl Strike",
+    special: { name: "Emptiness Sutra", power: 1.7, every: 3, drain: 0.15, colour: "#d8d0f0" },
+    intro: "A hollow ascetic sits up from the dust, a begging bowl in its hands with nothing at the bottom.",
+    speed: 1.3,
+    aggro: 3,
+  },
+  hollowsage: {
+    id: "hollowsage",
+    name: "Hollow Sage",
+    sprite: "hollowsage",
+    level: 15,
+    hp: 640,
+    atk: 60,
+    def: 25,
+    exp: 260,
+    stones: 44,
+    basic: "Unwritten Word",
+    special: { name: "Eat the Meaning", power: 1.8, every: 3, drain: 0.2, colour: "#e8e0ff" },
+    intro: "A hollow sage unrolls a scroll with nothing on it, and reads you aloud.",
+    speed: 1.5,
+    aggro: 3.2,
+  },
   raider: {
     id: "raider",
     name: "Iron Wolf Raider",

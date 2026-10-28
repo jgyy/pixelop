@@ -54,6 +54,11 @@ export const ATTIRE: Attire[] = [
   { id: "bodhisattva", name: "Robe of the Merciful", hanzi: "慈悲衣", from: "The war, won on the Dao of Compassion" },
   { id: "taijisage", name: "Taiji Sage's Robe", hanzi: "太极道袍", from: "The war, won on the Dao of Heaven's Balance" },
   { id: "asura", name: "Asura's Warplate", hanzi: "修罗甲", from: "The war, won on the Dao of Slaughter" },
+  // the Founder's Road
+  { id: "pilgrim", name: "Pilgrim's Hemp Robe", hanzi: "问道麻衣", from: "Daoist Qingxu (100 quests of the Founder's Road)" },
+  { id: "daomantle", name: "Mantle of the Ten Steles", hanzi: "十碑道氅", from: "The steles of the Founder's Road (500 quests)" },
+  { id: "clearsnow", name: "Robe of Clear Snow", hanzi: "清雪道袍", from: "Lian Qingxue, the Founder, at the Road's end" },
+  { id: "hollowrobe", name: "Dao-Eater's Robe", hanzi: "噬道袍", from: "Wei Kongming, devoured" },
 ];
 
 /** How an outfit she does not yet own may be earned (shown, greyed, in the wardrobe). */
@@ -91,6 +96,10 @@ export const ATTIRE_HINT: Record<string, string> = {
   bodhisattva: "End the war walking the Dao of Compassion.",
   taijisage: "End the war walking the Dao of Heaven's Balance (or no Dao at all).",
   asura: "End the war walking the Dao of Slaughter.",
+  pilgrim: "Fulfil 100 quests of the Founder's Road.",
+  daomantle: "Fulfil 500 quests of the Founder's Road.",
+  clearsnow: "Walk the Founder's Road to its end, and do not eat the Dao at the end of it.",
+  hollowrobe: "Walk the Founder's Road to its end, and eat what you find there.",
   foxform: "Lay a scholar's shade to rest, and end the Blood Moon. Hu Li has a secret.",
   dragonform: "Drink the Dragon Vein.",
 };

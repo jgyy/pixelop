@@ -10,7 +10,7 @@ import { PixelBuffer } from "../src/game/pixel/PixelBuffer";
 import { drawText, textWidth } from "../src/game/pixel/font";
 import { BufferSurface } from "../src/game/pixel/surface";
 import { BEAST_IDS, charDef, DIRS, frameAt, getAnim, getPortrait, HUMAN_IDS, OUTFITS, PORTRAIT, type AnimId, type CharId, type HumanId } from "../src/game/art/characters";
-import { getProp, PROP_IDS } from "../src/game/art/props";
+import { getProp, PROP_IDS, type PropId } from "../src/game/art/props";
 import { World } from "../src/game/runtime/world";
 import { WorldMap } from "../src/game/runtime/worldmap";
 import { renderTitle } from "../src/game/runtime/title";
@@ -282,6 +282,38 @@ const war: [CharId, AnimId, string?][] = [
   ["heroine", "roar", "asura"],
 ];
 writeGif("war-moves.gif", showcase(war.map(([id, anim, outfit]): Cell => ({ id, anim, dir: 1, label: `${charDef(id).name.split(" ").pop()} ${anim}`, outfit })), 7, 2, seconds), 12);
+// the Founder's Road and the Tidewater Reach: the street folk at play, the Road's people, and what comprehension makes of her
+const road: [CharId, AnimId, string?][] = [
+  ["liondancer", "liondance"],
+  ["liondancer", "drum"],
+  ["acrobat", "acrobat"],
+  ["acrobat", "juggle"],
+  ["storyteller", "puppet"],
+  ["merchant", "abacus"],
+  ["merchant", "hawk"],
+  ["villagerM", "firecracker"],
+  ["scholar", "xiangqi"],
+  ["boatwoman", "row"],
+  ["cook", "hawk"],
+  ["child", "firecracker"],
+  ["keeper", "read"],
+  ["keeper", "comprehend"],
+  ["kongming", "levitate"],
+  ["kongming", "domain"],
+  ["hollow", "attack"],
+  ["hollowsage", "cast"],
+  ["echoWater", "levitate"],
+  ["echoFire", "attack"],
+  ["echoThunder", "cast"],
+  ["echoIce", "levitate"],
+  ["echoLife", "cast"],
+  ["heroine", "comprehend"],
+  ["heroine", "domain"],
+  ["heroine", "comprehend", "pilgrim"],
+  ["heroine", "domain", "clearsnow"],
+  ["heroine", "liondance", "daomantle"],
+];
+writeGif("road-moves.gif", showcase(road.map(([id, anim, outfit]): Cell => ({ id, anim, dir: 1, label: `${charDef(id).name.split(" ").pop()} ${anim}`, outfit })), 7, 2, seconds), 12);
 
 
 // 2. Portraits
@@ -321,6 +353,31 @@ writePng(pb.scaled(2), path.join(OUT, "portraits.png"));
     frames.push(buf);
   }
   writeGif("props.gif", frames, 10);
+}
+// the Road's steles and the Tidewater Reach's street life, on their own
+{
+  const ids: PropId[] = ["daostele", "eatenstele", "qiwhirl", "sampan", "steamer", "xiangqitable", "puppetbooth", "pinwheels", "firecrackers", "skylanterns", "prayerwheel", "saltpan"];
+  const cols = 6;
+  const cw = 132;
+  const ch = 140;
+  const frames: PixelBuffer[] = [];
+  for (let i = 0; i < seconds * 10; i++) {
+    const t = i / 10;
+    const buf = new PixelBuffer(cols * cw, Math.ceil(ids.length / cols) * ch);
+    buf.fill(BG);
+    const s = new BufferSurface(buf);
+    ids.forEach((id, k) => {
+      const sheet = getProp(id);
+      const x = (k % cols) * cw;
+      const y = Math.floor(k / cols) * ch;
+      buf.rect(x + 1, y + 1, cw - 2, ch - 2, CELL_BG);
+      const fr = sheet.frames[Math.floor(t * sheet.fps) % sheet.frames.length];
+      buf.blit(fr, x + cw / 2 - sheet.ox, y + ch - 14 - Math.max(0, fr.height - sheet.oy) - sheet.oy);
+      drawText(s, id.toUpperCase(), x + (cw - textWidth(id.toUpperCase())) / 2, y + ch - 9, "#f2c55c");
+    });
+    frames.push(buf);
+  }
+  writeGif("road-props.gif", frames, 10);
 }
 
 function half(b: PixelBuffer): PixelBuffer {
