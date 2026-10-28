@@ -22,7 +22,10 @@ import type { AreaId, OldAreaId } from "./ids";
  * southern sea: the Golden River country, with the walled city of Jinhe at
  * its heart, a fishing village where the bamboo stream meets the sea and a
  * caravanserai under the sands. The world only grew southward, so every
- * position in an older version 5 save is still the same spot.
+ * position in an older version 5 save is still the same spot. East of it,
+ * where the sea of clouds used to begin, the Tidewater Reach has risen: the
+ * port of Hailing, Saltwind on its salt pans and Returning Cloud Isle in its
+ * lagoon (the world's size did not change; it filled in).
  *
  * The world is laid out on an "authoring" grid (the hand-built region
  * templates and the landmarks are written in it) and then magnified
@@ -119,7 +122,8 @@ export const DOMAIN: Partial<Record<AreaId, [number, number, number, number][]>>
   marsh: [[3, 236, 135, 556]],
   terraces: [[140, 238, 280, 556]],
   desert: [[290, 330, 640, 452], [290, 452, 480, 556]],
-  harbor: [[350, 150, 640, 330]],
+  // the harbour also holds the Tidewater Reach in the south-east, round the port of Hailing
+  harbor: [[350, 150, 640, 330], [470, 456, 640, 556]],
   frost: [[350, 52, 640, 146]],
 };
 

@@ -72,7 +72,7 @@ export interface HumanPose {
   /** Extra light-blue tint (qi casting) or white (hit flash) applied after. */
   flash?: number;
   /** Something held in the hands: a bamboo dizi flute, a rice bowl and chopsticks, juggling balls, a smith's hammer, a writing brush, a paper lantern, a hoe, a woodsman's axe, a carrying pole with two baskets, a shuttlecock or an oiled-paper umbrella. */
-  held?: "flute" | "bowl" | "balls" | "hammer" | "brush" | "lantern" | "hoe" | "axe" | "pole" | "shuttlecock" | "umbrella" | "pickaxe" | "torch" | "ladle" | "fireball" | "rake" | "seedling" | "snowball" | "kite" | "warbanner" | "drum" | "bandage" | "horn";
+  held?: "flute" | "bowl" | "balls" | "hammer" | "brush" | "lantern" | "hoe" | "axe" | "pole" | "shuttlecock" | "umbrella" | "pickaxe" | "torch" | "ladle" | "fireball" | "rake" | "seedling" | "snowball" | "kite" | "warbanner" | "drum" | "bandage" | "horn" | "lionhead" | "puppet" | "abacus" | "firecracker" | "xiangqi" | "oar";
   /** Where a tossed thing (the shuttlecock) is, in pose space. */
   toss?: V3;
 }
@@ -564,6 +564,59 @@ export function paintHuman(st: HumanStyle, p: HumanPose, facing: number, o: Rend
     const bell = add(U(handR), [1.6 * S, 2.2 * S, 3.2 * S]);
     const horn = ramp4("#fff0d0", "#e8c890", "#a8804a", "#5a3a1a");
     r.sweep(spline([lips, add(scale3(add(lips, bell), 0.5), [0, 0, -1.4 * S]), bell], 4), [Rr(0.4), Rr(0.8), Rr(1.6)], mat(horn, 9, { shader: (s2, tone) => (Math.sin(s2.u * 18) > 0.85 ? tone(PAL.gold) : tone(horn)) }));
+  }
+
+
+  if (p.held === "lionhead") {
+    // the lion dance's painted head: a great red-and-gold mask held overhead, eyes rolling, jaw snapping, a fringe of mane
+    const c = add(scale3(add(U(handL), U(handR)), 0.5), [0, 1.8 * S, 3 * S]);
+    const lion = ramp4("#fff0a0", "#e83a2a", "#a81a1a", "#4a0a0a");
+    r.ellipsoid(c, [Rr(8), Rr(6.4), Rr(6.6)], mat(lion, 10, { shader: (s2, tone) => (s2.n[1] > 0.6 && Math.abs(s2.n[0]) > 0.25 && Math.abs(s2.n[0]) < 0.6 && s2.n[2] > 0.1 ? "#ffffff" : s2.n[2] > 0.75 ? tone(PAL.gold) : Math.sin(s2.p[0] * 1.4) > 0.8 ? tone(PAL.gold, 1) : tone(lion)) }));
+    // the horn and the snapping jaw
+    r.sphere(add(c, [0, 1 * S, 5.4 * S]), Rr(1.2), mat(PAL.jade, 10));
+    const jaw = Math.sin(t * 2) > 0 ? 1.2 : 0;
+    r.ellipsoid(add(c, [0, 4.6 * S, -3.4 * S - jaw * S]), [Rr(4.2), Rr(2), Rr(1.2)], mat(lion, 10));
+    for (let k = -3; k <= 3; k++) r.sweep([add(c, [k * 1.6 * S, -2 * S, -4 * S]), add(c, [k * 1.8 * S + wind[0] * S, -4.4 * S + wind[1] * S, -9 * S + Math.sin(t * 3 + k) * 0.8 * S])], [Rr(0.9), Rr(0.3)], mat(k % 2 ? PAL.white : PAL.gold, 10));
+  } else if (p.held === "puppet") {
+    // a wooden control cross, and a little painted general dangling and dancing on its strings below
+    const bar = add(U(handR), [0, 1.6 * S, 0.6 * S]);
+    r.sweep([add(bar, [-2.4 * S, 0, 0]), add(bar, [2.4 * S, 0, 0])], Rr(0.35), mat(PAL.woodDark, 9));
+    const fig = add(bar, [Math.sin(t) * 1 * S, 1.4 * S, -9 * S + Math.abs(Math.sin(t * 2)) * 1.4 * S]);
+    for (const dx of [-2, 2]) r.sweep([add(bar, [dx * S, 0, 0]), add(fig, [dx * 0.6 * S, 0, 2.4 * S])], Rr(0.08), mat(PAL.white, 9));
+    r.cone(fig[0], fig[1], Rr(1.6), fig[2] - Rr(3.2), Rr(0.6), fig[2], 8, mat(PAL.crimson, 9));
+    r.sphere(add(fig, [0, 0, 1.2 * S]), Rr(1.1), mat(ramp4("#ffffff", "#f4d8c0", "#c89878", "#6a4030"), 9));
+    r.sphere(add(fig, [0, 0, 2.4 * S]), Rr(0.7), mat(PAL.black, 9));
+  } else if (p.held === "abacus") {
+    // a merchant's abacus held flat before the belly, rows of beads clicking along their rods
+    const c = add(scale3(add(U(handL), U(handR)), 0.5), [0, 1.4 * S, 0]);
+    r.box(add(c, [-3.4 * S, -1.4 * S, -0.4 * S]), add(c, [3.4 * S, 1.4 * S, 0.2 * S]), mat(PAL.woodDark, 9));
+    for (let row = 0; row < 3; row++)
+      for (let b = 0; b < 5; b++) {
+        const slide = (Math.floor(t * 3 + row * 2 + b) % 4 === 0 ? 0.6 : 0) * S;
+        r.sphere(add(c, [(-2.6 + b * 1.3) * S + slide, (-0.9 + row * 0.9) * S, 0.6 * S]), Rr(0.45), mat(row === 1 ? PAL.gold : PAL.red, 9));
+      }
+  } else if (p.held === "firecracker") {
+    // a string of red crackers dangling from the hand, the fuse spitting sparks
+    const grip = U(handR);
+    for (let k = 0; k < 6; k++) {
+      const c = add(grip, [Math.sin(t + k) * 0.3 * S, 0.4 * S, -(1.4 + k * 1.3) * S]);
+      r.sweep([add(c, [-0.9 * S, 0, 0]), add(c, [0.9 * S, 0, 0])], Rr(0.45), mat(PAL.red, 9, { shader: (s2, tone) => (Math.abs(s2.u - 0.5) > 0.4 ? tone(PAL.gold) : tone(PAL.red)) }));
+    }
+    const fuse = add(grip, [0, 0.4 * S, -9.4 * S]);
+    for (let k = 0; k < 3; k++) r.sphere(add(fuse, [Math.cos(t * 5 + k * 2) * 1.2 * S, Math.sin(t * 5 + k * 2) * 0.8 * S, -0.6 * S]), Math.max(0.8, Rr(0.6)), mat(ramp4("#ffffff", "#fff0a0", "#ffb040", "#f0601e"), 9, { outline: undefined }));
+  } else if (p.held === "xiangqi") {
+    // a little xiangqi board on the knees: red and black discs, the river across the middle
+    const c = G([0, 6.2, 5.6 - 7.5]);
+    r.box(add(c, [-3.6 * S, -2.6 * S, -0.4 * S]), add(c, [3.6 * S, 2.6 * S, 0.2 * S]), mat(PAL.wood, 9, { shader: (s2, tone) => (Math.abs(s2.p[1] - c[1]) < 0.3 * S ? tone(PAL.azure) : tone(PAL.wood)) }));
+    for (let k = 0; k < 6; k++) r.sphere(add(c, [(-2.8 + (k % 3) * 2.8) * S, (k < 3 ? -1.6 : 1.6) * S, 0.5 * S]), Rr(0.6), mat(k < 3 ? PAL.red : PAL.black, 9));
+    r.sphere(add(U(handR), [0, 0.4 * S, -0.6 * S]), Rr(0.6), mat(PAL.red, 9));
+  } else if (p.held === "oar") {
+    // a long sculling oar, gripped in both hands and dipping back behind her into the water
+    const a = U(handR);
+    const b = U(p.handL ?? REST_HAND_L);
+    const blade: V3 = [b[0] - 2 * S, b[1] - 12 * S, G([0, 0, -1])[2]];
+    r.sweep([add(a, [0, 2 * S, 1 * S]), blade], Rr(0.4), mat(PAL.wood, 9));
+    r.sweep([blade, add(blade, [0, -3 * S, -0.8 * S])], [Rr(1.3), Rr(1)], mat(PAL.woodDark, 9));
   }
 
   // ------------------------------------------------------------------ shawl, cape, tails, beard

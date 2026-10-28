@@ -1264,3 +1264,209 @@ test("capture cultivation's toll and the Golden River country", async ({ page })
   await page.waitForTimeout(500);
   await shot(page, "168-heaven-will-not-test-a-cracked-foundation");
 });
+
+test("capture the Founder's Road, the Great Daos and the Tidewater Reach", async ({ page }) => {
+  test.setTimeout(600_000);
+  const quiet = () => page.evaluate(() => ((window.__pixelop!.game as unknown as { toasts: unknown[] }).toasts = []));
+  const settle = async (ms = 2400) => {
+    await page.waitForTimeout(ms);
+    if ((await mode(page)) === "scene") await skipScene(page);
+    await quiet();
+  };
+  const noon = () => page.evaluate(() => window.__pixelop!.game.debugSetTime(0.06, "summer"));
+  const enterUntil = async (pred: () => Promise<boolean>, max = 40) => {
+    for (let i = 0; i < max && !(await pred()); i++) {
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(160);
+    }
+    await page.waitForTimeout(900);
+  };
+  const dialogHas = (t: string) => async () => ((await page.evaluate(() => document.querySelector("[data-testid=dialog]")?.textContent ?? "")) as string).includes(t);
+  const talk = async (key: string, text: string) => {
+    await standBy(page, key);
+    await page.waitForTimeout(700);
+    await page.keyboard.press("KeyE");
+    await enterUntil(dialogHas(text), 24);
+  };
+  const finish = async () => {
+    for (let i = 0; i < 60 && (await mode(page)) === "scene"; i++) {
+      if (await page.getByTestId("choice").isVisible()) await page.getByTestId("choice-0").click({ timeout: 3000 }).catch(() => page.keyboard.press("Enter"));
+      else await page.keyboard.press("Enter");
+      await page.waitForTimeout(140);
+    }
+    await quiet();
+  };
+  /** Put the Road at quest n (and her realm where it asks), with what she understands so far. */
+  const roadAt = async (n: number, level: number, wu: Record<string, number> = {}) => {
+    const realm = Math.min(4, Math.floor(level / 4));
+    await page.evaluate(
+      ([n, realm, stage, wu]) => {
+        const g = window.__pixelop!.game;
+        const counters: Record<string, number> = { ...g.state.counters, road: n as number, roadp: 0 };
+        for (const [k, v] of Object.entries(wu as Record<string, number>)) counters[`wu:${k}`] = v;
+        g.debugPatch({ counters, realm: realm as number, stage: stage as number });
+      },
+      [n, realm, level - realm * 4, wu] as const,
+    );
+    await page.waitForTimeout(700);
+  };
+  const open = { metElder: true, villageSaved: true, villageArrived: true, metZhou: true, foxesCleared: true, bambooArrived: true, metHuli: true, metWen: true, lakeArrived: true, serpentKingDefeated: true, marshArrived: true, terracesArrived: true, harborArrived: true, desertArrived: true, frostArrived: true, valleyArrived: true, patriarchDefeated: true, heartReturned: true, festivalSeen: true };
+
+  await startNewGame(page);
+  await patch(page, { flags: open, realm: 1, stage: 0, hp: 400, qi: 200 });
+  await noon();
+
+  // Hailing, the Tide City: its square, its canals, its quay
+  await goto(page, 547 * 2 + 0.5, 504 * 2 + 0.5);
+  await settle(3200);
+  await shot(page, "169-hailing-the-tide-city");
+  await goto(page, 547 * 2 + 0.5, 492 * 2 + 0.5);
+  await settle(2600);
+  await shot(page, "170-the-canals-of-hailing");
+  await talk("hlpuppeteer", "Old He");
+  await shot(page, "171-old-he-the-puppeteer");
+  await finish();
+  await standBy(page, "hlsalt");
+  await settle(2600);
+  await shot(page, "172-saltwind-and-its-salt-pans");
+  // Jinhe's fair outside the north gate, and Willow Creek's market road
+  await standBy(page, "jhlion1");
+  await settle(2600);
+  await shot(page, "173-the-fair-at-jinhes-north-gate");
+  await standBy(page, "wcchess1");
+  await settle(2600);
+  await shot(page, "174-xiangqi-under-the-willows");
+
+  // Book I of the Founder's Road: Qingxu at the stele of water
+  await roadAt(0, 4);
+  await talk("keeper-water", "Someone is eating them");
+  await shot(page, "175-daoist-qingxu-at-the-stele-of-water");
+  await finish();
+  await settle(1500);
+  const toStele = (key: string) =>
+    page.evaluate((key) => {
+      const g = window.__pixelop!.game;
+      const s = (g.world.def as unknown as { landmarks: { key: string; x: number; y: number }[] }).landmarks.find((x) => x.key === key)!;
+      for (const [dx, dy] of [
+        [3, 3],
+        [3, 0],
+        [0, 3],
+        [-3, 3],
+        [3, -3],
+      ])
+        if (g.world.def.map.standable(Math.floor(s.x + dx), Math.floor(s.y + dy))) return g.debugGoto(s.x + dx, s.y + dy);
+    }, key);
+  await toStele("stele-water");
+  await settle(2600);
+  await shot(page, "176-the-pond-that-forgot-the-rain");
+  // the hollowed who drift round it
+  await page.evaluate(() => window.__pixelop!.game.debugBattle("hollowshade", "hollow-water-0"));
+  await page.waitForTimeout(2400);
+  await shot(page, "187-a-hollow-shade");
+  await page.evaluate(() => {
+    const g = window.__pixelop!.game as unknown as { battle: { battle: { enemyHp: number } } | null };
+    if (g.battle) g.battle.battle.enemyHp = 1;
+  });
+  for (let i = 0; i < 12 && (await mode(page)) === "battle"; i++) {
+    await page.keyboard.press("Digit1");
+    await page.waitForTimeout(900);
+  }
+  await finish();
+  await settle(1200);
+  // a question of the Road
+  const koan = await page.evaluate(async () => {
+    const g = window.__pixelop!.game;
+    for (let n = 1; n < 100; n++) {
+      g.debugPatch({ counters: { ...g.state.counters, road: n } });
+      const q = (g as unknown as { snapshot(): { road: { title: string } | null } }).snapshot().road;
+      if (q && /Daoist Qingxu has a question/.test(JSON.stringify(q))) return n;
+    }
+    return 9;
+  });
+  await roadAt(koan, 5, { water: 12 });
+  await standBy(page, "keeper-water");
+  await page.waitForTimeout(700);
+  await page.keyboard.press("KeyE");
+  await enterUntil(() => page.getByTestId("choice").isVisible(), 24);
+  await shot(page, "177-a-question-of-the-road");
+  await finish();
+
+  // comprehension at a shrine
+  await patch(page, { counters: { ...(await state(page)).counters, "wu:water": 9 } });
+  await standBy(page, "lake-shrine");
+  await page.keyboard.press("KeyE");
+  await page.evaluate(() => {
+    const g = window.__pixelop!.game as unknown as { medSitting: number };
+    g.medSitting = 29;
+  });
+  await page.waitForTimeout(2600);
+  await shot(page, "178-comprehending-a-great-dao");
+  await page.keyboard.press("KeyE");
+  await settle(600);
+
+  // the journal: the Road and the Great Daos
+  await roadAt(512, 12, { water: 24, wood: 24, wind: 18, fire: 12, earth: 10, metal: 5 });
+  await page.evaluate(() => {
+    const g = window.__pixelop!.game;
+    const flags = { ...g.state.flags, "devoured:wood": true };
+    g.debugPatch({ flags });
+  });
+  await settle(800);
+  await page.keyboard.press("KeyJ");
+  await page.waitForTimeout(900);
+  await page.evaluate(() => document.querySelector("[data-testid=journal-road]")?.scrollIntoView());
+  await page.waitForTimeout(400);
+  await shot(page, "179-journal-the-road-and-the-great-daos");
+  await page.keyboard.press("KeyJ");
+
+  // the Echo of Still Water: a Dao she knows better than the thing wearing it
+  await roadAt(99, 5, { water: 24 });
+  await standBy(page, "echo-water");
+  await settle(2200);
+  await shot(page, "180-the-echo-of-still-water");
+  await page.evaluate(() => window.__pixelop!.game.debugBattle("echoWater", "echo-water"));
+  await page.waitForTimeout(2600);
+  await shot(page, "181-she-sees-through-the-echo");
+  await page.evaluate(() => {
+    const g = window.__pixelop!.game as unknown as { battle: { battle: { enemyHp: number } } | null };
+    if (g.battle) g.battle.battle.enemyHp = 1;
+  });
+  for (let i = 0; i < 12 && (await mode(page)) === "battle"; i++) {
+    await page.keyboard.press("Digit1");
+    await page.waitForTimeout(900);
+  }
+  await enterUntil(() => page.getByTestId("choice").isVisible(), 30);
+  await shot(page, "182-what-becomes-of-the-water-it-wore");
+  await page.getByTestId("choice-2").click();
+  await finish();
+  await settle(1500);
+  // the mended stele of water
+  await roadAt(100, 5, { water: 24 });
+  await toStele("stele-water");
+  await settle(2600);
+  await shot(page, "183-the-stele-of-water-mended");
+
+  // the Dao Domain, at Nascent Soul
+  await roadAt(905, 17, { water: 45, wood: 45, wind: 30, fire: 30, earth: 24, metal: 24, thunder: 24, ice: 24, lifedeath: 30 });
+  await battle(page, "hollowsage");
+  await page.waitForTimeout(2600);
+  await shot(page, "184-a-dao-domain-unfolds");
+  await page.evaluate(() => {
+    const g = window.__pixelop!.game as unknown as { battle: { battle: { enemyHp: number } } | null };
+    if (g.battle) g.battle.battle.enemyHp = 1;
+  });
+  for (let i = 0; i < 12 && (await mode(page)) === "battle"; i++) {
+    await page.keyboard.press("Digit1");
+    await page.waitForTimeout(900);
+  }
+  await settle(1500);
+
+  // Returning Cloud Isle, and the Dao-Eater at the end of the Road
+  await roadAt(999, 19, { water: 45, wood: 45, wind: 45, fire: 45, earth: 45, metal: 45, thunder: 45, ice: 45, lifedeath: 45, void: 45 });
+  await standBy(page, "echo-void");
+  await settle(2600);
+  await shot(page, "185-wei-kongming-on-returning-cloud-isle");
+  await page.evaluate(() => window.__pixelop!.game.debugBattle("kongming", "echo-void"));
+  await page.waitForTimeout(2200);
+  await shot(page, "186-the-dao-eater");
+});
