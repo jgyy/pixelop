@@ -8,6 +8,8 @@ import { companionOf, magnifyMap, magnifyProp, pointTile } from "./magnify";
 import { LIQUID, TileMap, type TileKind } from "./tilemap";
 import { CAVE_IDS, CAVE_MOUTH } from "./caves";
 import { layWar } from "./warfront";
+import { layRoad } from "./roadside";
+import { STREET_FOLK, TIDE_FOLK } from "./road";
 import { PatchPainter, type TerrainPatch } from "./terrain";
 
 /**
@@ -50,7 +52,7 @@ const GROUND: Ground[] = [...MAINLAND, "marsh", "terraces", "desert", "harbor", 
 const SKY: AreaId[] = ["sect", "peak"];
 
 /** Wild biomes: each ground region's own, the southern lands below the highway, and the far south and east the world grew into. */
-type WildId = Ground | "wastes" | "stoneforest" | "fields" | "highlands" | "marshland" | "terracehills" | "plum" | "sands" | "badlands" | "autumn" | "steppe" | "frostlands" | "coast" | "riverlands";
+type WildId = Ground | "wastes" | "stoneforest" | "fields" | "highlands" | "marshland" | "terracehills" | "plum" | "sands" | "badlands" | "autumn" | "steppe" | "frostlands" | "coast" | "riverlands" | "tidelands";
 
 interface WildStyle {
   ground: (i: number, j: number) => TileKind;
@@ -90,6 +92,8 @@ const BIOME: Record<Exclude<WildId, "marsh" | "terraces" | "desert" | "harbor" |
   frostlands: { ground: (i, j) => (fbm(i * 0.15, j * 0.15, 147) > 0.68 ? "marble" : fbm(i * 0.3, j * 0.3, 148) > 0.7 ? "grass" : "snow"), lift: 2, hills: 4, trees: ["snowpine", "snowpine", "rock", "crystal", "snowpine"], treeP: 0.1, extras: ["rock", "crystal"], extraP: 0.03 },
   coast: { ground: (i, j) => (fbm(i * 0.2, j * 0.2, 149) > 0.6 ? "sand" : "grass"), lift: 0, hills: 1.8, trees: ["pine", "palm", "rock", "pine"], treeP: 0.05, extras: ["tallgrass", "reeds"], extraP: 0.04 },
   // the Golden River country: low farmland running down to the southern sea, sandy toward the shore
+  // the Tidewater Reach: salt meadows and sandy flats round the port of Hailing, palms and reeds along the lagoon
+  tidelands: { ground: (i, j) => (fbm(i * 0.14, j * 0.14, 152) > 0.62 ? "sand" : fbm(i * 0.2, j * 0.2, 153) > 0.6 ? "meadow" : "grass"), lift: 0, hills: 1.2, trees: ["palm", "willow", "palm", "reeds", "pine"], treeP: 0.035, extras: ["reeds", "tallgrass", "butterflies"], extraP: 0.06 },
   riverlands: { ground: (i, j) => (j > 538 + fbm(i * 0.1, j * 0.1, 150) * 12 ? "sand" : fbm(i * 0.16, j * 0.16, 151) > 0.6 ? "meadow" : "grass"), lift: 0, hills: 1.4, trees: ["willow", "maple", "haystack", "cherry", "willow"], treeP: 0.04, extras: ["tallgrass", "reeds", "butterflies", "tallgrass"], extraP: 0.06 },
 };
 // the new regions' own surroundings take after the lands they stand in
@@ -114,6 +118,8 @@ const ZONES: [WildId, [number, number, number, number]][] = [
   ["coast", [565, 150, 640, 330]],
   // and the Golden River country, below the far south, down to the southern sea
   ["riverlands", [10, 458, 290, 552]],
+  // and the Tidewater Reach, the south-east, round the port of Hailing
+  ["tidelands", [470, 456, 630, 548]],
 ];
 
 /** The old highway across the whole mainland, below the four regions. */
@@ -148,6 +154,11 @@ export const HIGHWAY: [number, number][] = [
 
 /** Jinhe's walls (authoring tiles, inclusive), and the crossroads at its heart where its two streets meet. */
 const JINHE = { x0: 208, y0: 487, x1: 236, y1: 513, c: [222, 500] as [number, number] };
+
+/** Hailing, the port of the Tidewater Reach (authoring tiles, inclusive): walls, two streets crossing at its square, and a ring of canals. */
+export const HAILING = { x0: 526, y0: 484, x1: 568, y1: 520, c: [547, 502] as [number, number], canalsJ: [492, 512], canalsI: [535, 559] };
+/** Returning Cloud Isle in its lagoon, off Hailing's east gate. */
+const ISLE: { c: [number, number]; r: number; lagoon: number } = { c: [606, 531], r: 6.5, lagoon: 11 };
 
 /** The planks of the Rainbow Bridge span the gorge between these x (authoring tiles). */
 const GORGE: [number, number] = [314, 350];
@@ -203,6 +214,16 @@ const BRANCHES: { pts: [number, number][]; valley?: boolean }[] = [
   { pts: [[330, 496], [340, 470], [348, 440], [350, 404]] },
   // the south gate, down to the sea
   { pts: [[222, 513], [222, 530], [224, 540]] },
+  // the Tide Road: on east from the caravanserai, across the salt meadows, to Hailing's west gate
+  { pts: [[336, 500], [380, 503], [430, 505], [480, 503], [526, 502]] },
+  // down from the red cliffs of the badlands to Hailing's north gate
+  { pts: [[524, 404], [530, 430], [540, 458], [547, 484]] },
+  // out of the east gate to Saltwind's salt pans…
+  { pts: [[568, 502], [578, 494], [588, 486]] },
+  // …and the long causeway across the lagoon to Returning Cloud Isle
+  { pts: [[568, 504], [580, 510], [592, 520], [601, 528], [606, 531]] },
+  // the south gate, down to the quay
+  { pts: [[547, 520], [547, 528]] },
 ];
 
 const RIVERS: { pts: [number, number][]; kind: "water" | "lava"; width: number }[] = [
@@ -241,8 +262,10 @@ const mainlandMask = (i: number, j: number) => {
   const south = j >= 200 + n && j <= 448 + n + shore && i >= 6 + n * 0.6 - shore && i <= 470 + n * 0.6;
   // the Golden River country, the world's newest land, runs on to the southern sea
   const river = j >= 400 + n && j <= 546 + n + shore * 0.3 && i >= 8 + n * 0.6 - shore * 0.3 && i <= 466 + n * 0.6 + shore * 0.2;
+  // the Tidewater Reach, round the port of Hailing and its lagoon
+  const tide = j >= 440 + n && j <= 548 + n + shore * 0.3 && i >= 460 + n * 0.6 && i <= 628 + n * 0.6 + shore * 0.2;
   const east = j >= 56 + n - shore && j <= 448 + n + shore && i >= 346 + n * 0.6 && (j > 222 && j < 282 ? i <= 621 : i <= 636 + n * 0.6 + shore);
-  return old || south || east || river;
+  return old || south || east || river || tide;
 };
 
 /**
@@ -346,7 +369,7 @@ function stroke(points: [number, number][], width: number, fn: (i: number, j: nu
 }
 
 /** Props that stand in water. */
-export const FLOATS = new Set<PropId>(["lotus", "boat", "reeds", "waterwheel", "koi", "ship"]);
+export const FLOATS = new Set<PropId>(["lotus", "boat", "reeds", "waterwheel", "koi", "ship", "sampan"]);
 
 function buildWorld(): WorldDef {
   const m = new TileMap(COARSE_W, COARSE_H, "void", 0);
@@ -485,6 +508,23 @@ function buildWorld(): WorldDef {
     }
   site([100, 522], 7, "sand", 1, 0.8); // Reedwater Landing
   site([330, 500], 6.4, "sand", 1, 0.8); // the caravanserai
+  // Hailing, the port of the Tidewater Reach: level ground in its walls, two paved streets, a square, and canals with bridges where the streets cross them
+  {
+    const { x0, y0, x1, y1, c, canalsJ, canalsI } = HAILING;
+    for (let j = y0 - 3; j <= y1 + 3; j++)
+      for (let i = x0 - 3; i <= x1 + 3; i++) {
+        if (m.kind(i, j) === "void") continue;
+        const inside = i > x0 && i < x1 && j > y0 && j < y1;
+        const street = Math.abs(i - c[0]) <= 1 || Math.abs(j - c[1]) <= 1;
+        const square = Math.abs(i - c[0]) <= 4 && Math.abs(j - c[1]) <= 4;
+        const canal = inside && i > x0 + 1 && i < x1 - 1 && j > y0 + 1 && j < y1 - 1 && (canalsJ.includes(j) || canalsI.includes(i));
+        if (canal && !square) m.set(i, j, street ? "wood" : "water", street ? 1 : 0);
+        else m.set(i, j, inside && (street || square) ? "plaza" : inside && hash2(i, j, 154) > 0.84 ? "dirt" : "grass", 1);
+        fix(i, j, 1);
+      }
+  }
+  site([547, 527], 5, "plaza", 1, 0.4); // Hailing's quay
+  site([590, 482], 6.4, "sand", 1, 0.8); // Saltwind
 
   // 5. rivers, ponds, the hot spring and the lava pools
   for (const r of RIVERS)
@@ -513,6 +553,12 @@ function buildWorld(): WorldDef {
     [420, 204, 2.6, 79],
   ] as [number, number, number, number][])
     pool(x, y, r, "water", seed);
+  // the lagoon round Returning Cloud Isle, and the isle in it
+  pool(ISLE.c[0], ISLE.c[1], ISLE.lagoon, "water", 155);
+  m.disc(ISLE.c[0], ISLE.c[1], ISLE.r, "grass", 1, 0.6, 156);
+  m.disc(ISLE.c[0], ISLE.c[1], 2.4, "plaza", 1, 0, 1);
+  for (let j = ISLE.c[1] - 9; j <= ISLE.c[1] + 9; j++)
+    for (let i = ISLE.c[0] - 9; i <= ISLE.c[0] + 9; i++) if (Math.hypot(i - ISLE.c[0], j - ISLE.c[1]) < ISLE.r + 1 && m.kind(i, j) !== "void" && !LIQUID[m.kind(i, j)]) fix(i, j, 1);
   // sandy banks along the wild stretches of the rivers
   m.each((i, j) => {
     if (fixed[j * COARSE_W + i] || LIQUID[m.kind(i, j)] || m.kind(i, j) === "void") return;
@@ -913,6 +959,14 @@ function buildWorld(): WorldDef {
       { key: "willowguard", name: "Watchman Tie", char: "guard", i: 190, j: 159, dir: 2 },
       { key: "noodleseller", name: "Noodle Seller Ma", char: "cook", i: 189, j: 142, dir: 4 },
     );
+    // under the willows, the old men's xiangqi; buns steaming by the noodle cart; a pinwheel seller; and at festival time, the lion and the firecrackers
+    P("xiangqitable", 183, 144);
+    P("steamer", 191, 138);
+    P("pinwheels", 195, 143);
+    props.push({ id: "firecrackers", i: 190, j: 150, when: (f) => !!f.heartReturned }, { id: "skylanterns", i: 194, j: 150, when: (f) => !!f.heartReturned });
+    npcs.push(
+      ...STREET_FOLK.filter((f) => f.town === "willow").map((f): NpcPlacement => ({ key: f.key, name: f.name, char: f.char, i: f.at[0], j: f.at[1], dir: f.dir, anim: f.anim, when: f.festival ? (fl) => !!fl.heartReturned : undefined, outfit: festive })),
+    );
     it("market-sign", "sign", 194, 160, "Willow Creek market road. “Noodles, firewood, gossip. Fresh every morning, except the gossip, which is fresh every hour.”");
   }
   // the Azure Cloud Sect's terraces: the disciples' court, the taiji yard and the sword garden
@@ -1244,6 +1298,18 @@ function buildWorld(): WorldDef {
       { key: "apprentice", name: "Apprentice Gang", char: "villagerM", i: 214, j: 505, dir: 6, anim: "mine" },
       { key: "jinfarmer", name: "Farmer Sun", char: "villagerM", i: 223, j: 509, dir: 0, anim: "carry", route: [[cx + 1.5, cy + 3.5], [cx + 1.5, y1 + 6.5]] },
     );
+    // the fair outside the north gate: a lion-dance troupe, acrobats, a puppet theatre, xiangqi under the willows, buns, pinwheels and firecrackers
+    P("puppetbooth", cx - 5, y0 - 8);
+    P("xiangqitable", cx + 5, y0 - 6);
+    P("steamer", cx - 4, y0 - 4);
+    P("pinwheels", cx + 4, y0 - 10);
+    P("firecrackers", cx - 6, y0 - 12);
+    P("skylanterns", cx + 6, y0 - 12);
+    P("stall", cx + 3, y0 - 4);
+    P("stall", cx - 3, y0 - 10);
+    npcs.push(
+      ...STREET_FOLK.filter((f) => f.town === "jinhe").map((f): NpcPlacement => ({ key: f.key, name: f.name, char: f.char, i: cx + f.at[0], j: y0 + f.at[1], dir: f.dir, anim: f.anim })),
+    );
     it("jinhe-shrine", "shrine", 228, 509);
     it("jinhe-stele", "sign", 233, 506, "The City God of Jinhe, carved on the temple stele: “I keep the ledger of every soul within these walls. The cultivator's page is written in lightning; the porter's in sweat. Both pages weigh the same.”");
     it("jinhe-sign", "sign", cx + 2, y0 - 2, "JINHE · 金河城 · THE GOLDEN RIVER CITY. “By order of Magistrate Lu: no flying swords over the market, no duels on the square, no qi in the wells.”");
@@ -1301,6 +1367,179 @@ function buildWorld(): WorldDef {
     it("caravan-chest", "chest", x - 6, y + 5);
     mark("caravan", "Camel Bell Caravanserai", "驼铃驿", "tent", x, y);
   }
+  // Hailing, the port of the Tidewater Reach: walls and watchtowers, canals with sampans, a guild hall, the shrine of the tides,
+  // and the liveliest square in the jianghu: lion dancers, acrobats, a puppet theatre, xiangqi under the lanterns, buns and firecrackers
+  {
+    const { x0, y0, x1, y1, c, canalsJ, canalsI } = HAILING;
+    const [cx, cy] = c;
+    const gap = (v: number, at: number) => Math.abs(v - at) <= 1;
+    for (let i = x0 + 1; i < x1; i++) for (const j of [y0, y1]) if (!gap(i, cx)) P("citywall", i, j);
+    for (let j = y0 + 1; j < y1; j++) for (const i of [x0, x1]) if (!gap(j, cy) && !(i === x1 && gap(j, cy + 2))) P("citywallY", i, j);
+    for (const i of [x0, x1]) for (const j of [y0, y1]) P("watchtower", i, j);
+    P("gate", cx, y0);
+    P("gate", cx, y1);
+    // houses wherever a block has room for one, clear of canals, streets and each other
+    const built = new Set<number>();
+    const fits = (i0: number, j0: number, i1: number, j1: number) => {
+      for (let j = j0; j <= j1; j++)
+        for (let i = i0; i <= i1; i++) {
+          const k = m.kind(i, j);
+          if (k === "void" || k === "plaza" || k === "wood" || LIQUID[k] || built.has(j * COARSE_W + i) || i <= x0 || i >= x1 || j <= y0 || j >= y1) return false;
+        }
+      return true;
+    };
+    const build = (id: PropId, i: number, j: number, r: [number, number, number, number]) => {
+      if (!fits(i + r[0], j + r[1], i + r[2], j + r[3])) return false;
+      for (let jj = j + r[1] - 1; jj <= j + r[3] + 1; jj++) for (let ii = i + r[0] - 1; ii <= i + r[2] + 1; ii++) built.add(jj * COARSE_W + ii);
+      P(id, i, j);
+      return true;
+    };
+    // the guild hall, the teahouse, the tide shrine's pagoda and the opera stage first, then houses fill the rest
+    build("hall", 531, 498, [-2, -2, 2, 2]);
+    build("teahouse", 563, 497, [-2, -2, 2, 2]);
+    build("pagoda", 563, 515, [-2, -2, 2, 2]);
+    build("operastage", 553, 507, [-1, -1, 2, 2]);
+    // the tide shrine's court, the stele and the warehouse corner keep their ground too
+    for (const [id, i, j] of [
+      ["prayerwheel", 556, 515],
+      ["censer", 557, 514],
+      ["bell", 555, 518],
+      ["barrels", 529, 515],
+      ["sacks", 530, 517],
+    ] as [PropId, number, number][])
+      build(id, i, j, [0, 0, 0, 0]);
+    for (const [i, j] of [
+      [557, 517],
+      [566, 509],
+      [529, 487],
+    ] as [number, number][])
+      built.add(j * COARSE_W + i);
+    for (let j = y0 + 2; j <= y1 - 3; j += 3)
+      for (let i = x0 + 2; i <= x1 - 3; i += 3) if (hash2(i, j, 157) > 0.18) build("house", i, j, [-1, -1, 2, 2]);
+    // sampans moored along the canals
+    for (const [i, j] of [
+      [530, canalsJ[0]],
+      [541, canalsJ[0]],
+      [553, canalsJ[1]],
+      [564, canalsJ[1]],
+      [canalsI[0], 507],
+      [canalsI[1], 489],
+    ] as [number, number][])
+      P("sampan", i, j);
+    // lanterns over the streets, banners over the shops
+    for (const [i, j] of [
+      [cx - 2, y0 + 1],
+      [cx + 2, y0 + 1],
+      [cx - 2, y1 - 1],
+      [cx + 2, y1 - 1],
+      [x0 + 1, cy - 2],
+      [x0 + 1, cy + 2],
+      [x1 - 1, cy - 2],
+      [x1 - 1, cy + 2],
+    ] as [number, number][])
+      P("redlantern", i, j);
+    P("lanterns", cx, y0 + 5);
+    P("lanterns", cx, y1 - 5);
+    P("lanterns", x0 + 6, cy);
+    P("lanterns", x1 - 6, cy);
+    // the square: a fountain, the puppet theatre, the xiangqi tables, the stalls and their wares
+    P("fountain", cx, cy);
+    P("puppetbooth", cx - 3, cy + 3);
+    P("xiangqitable", cx + 3, cy - 3);
+    P("xiangqitable", cx + 3, cy + 3);
+    P("steamer", cx - 3, cy - 3);
+    P("pinwheels", cx - 4, cy - 1);
+    P("firecrackers", cx + 4, cy + 1);
+    P("skylanterns", cx, cy - 4);
+    P("stall", cx - 4, cy + 1);
+    P("stall", cx + 4, cy - 1);
+    P("shopflag", cx - 2, cy - 6);
+    P("shopflag", cx + 2, cy + 6);
+    P("shopflag", cx - 6, cy + 2);
+    P("shopflag", cx + 6, cy - 2);
+    // the quay below the south gate, and its lighthouse
+    P("lighthouse", 553, 529);
+    P("barrels", 543, 528);
+    P("sacks", 545, 530);
+    P("fishrack", 550, 530);
+    const T = (key: string, i: number, j: number, dir: number, extra: Partial<NpcPlacement> = {}): NpcPlacement => {
+      const f = TIDE_FOLK.find((x) => x.key === key)!;
+      return { key, name: f.name, char: f.char, i, j, dir, ...extra };
+    };
+    npcs.push(
+      T("hlharbor", 547, 526, 2, { anim: "point" }),
+      T("hlboatwoman", 541, canalsJ[0] + 1, 4, { anim: "row" }),
+      T("hlboatman", 553, canalsJ[1] - 1, 12, { anim: "row" }),
+      T("hllion1", cx - 1, cy + 1, 4, { anim: "liondance" }),
+      T("hllion2", cx - 2, cy + 2, 4, { anim: "drum" }),
+      T("hlacrobat", cx + 2, cy, 6, { anim: "acrobat" }),
+      T("hlacrobat2", cx + 1, cy + 2, 6, { anim: "juggle" }),
+      T("hlpuppeteer", cx - 3, cy + 5, 8, { anim: "puppet" }),
+      T("hlabacus", 539, cy - 1, 2, { anim: "abacus" }),
+      T("hlspice", 555, cy + 1, 6, { anim: "hawk" }),
+      T("hlchess1", cx + 2, cy - 3, 4, { anim: "xiangqi" }),
+      T("hlchess2", cx + 4, cy - 4, 12, { anim: "xiangqi" }),
+      T("hlfirecracker", cx + 5, cy + 2, 6, { anim: "firecracker" }),
+      T("hlhawker", cx - 2, cy - 3, 4, { anim: "hawk" }),
+      T("hlpearl", 549, 530, 0, { anim: "gather" }),
+      T("hlkids", cx + 1, y1 - 3, 2, { anim: "firecracker", wander: 1.5 }),
+      T("hlkids2", cx - 1, y0 + 3, 2, { anim: "acrobat", wander: 1.5 }),
+      T("hlmonk", 556, 517, 6, { anim: "pray" }),
+      T("hlguard", cx + 2, y0 + 2, 0, { route: [[cx + 0.5, y0 + 2.5], [cx + 0.5, y1 - 2.5]] }),
+      T("hlshrine", 604, 520, 12, { anim: "sweep" }),
+    );
+    it("hailing-shrine", "shrine", 557, 517);
+    it("hailing-sign", "sign", cx + 2, y0 - 2, "HAILING · 海陵 · THE TIDE CITY. “Lion dancers on the square, boats on the canals, firecrackers by permit only. The permit office is closed.”");
+    it("hailing-stele", "sign", 565, 509, "The tide stele of Hailing: “The founder sat on this stone the morning she went up, and looked at the isle, and laughed. Nobody knows why. The tide still comes in twice a day to find out.”");
+    it("hailing-chest", "chest", 543, 525);
+    it("hailing-herb", "herb", 551, 526);
+    mark("hailing", "Hailing, the Tide City", "海陵城", "hall", cx, cy);
+  }
+  // Saltwind, on its salt pans east of the city
+  {
+    const [x, y] = [590, 482];
+    P("saltpan", x - 4, y + 2);
+    P("saltpan", x + 2, y + 3);
+    P("saltpan", x - 1, y - 4);
+    P("house", x + 3, y - 4);
+    P("fishrack", x + 5, y + 1);
+    P("lantern", x - 5, y - 2);
+    P("prayerflags", x, y);
+    P("palm", x + 6, y + 5);
+    npcs.push(
+      { key: "hlsalt", name: "Salt-Raker Old Lu", char: "farmer", i: x - 3, j: y + 4, dir: 2, anim: "rake" },
+      { key: "hlsalt2", name: "Salt-Raker Meimei", char: "villagerF", i: x + 3, j: y + 1, dir: 6, anim: "rake" },
+    );
+    it("salt-stele", "sign", x - 2, y + 6, "Scratched on a salt-crusted post: “The sea gives, the sun takes, the salt stays. Be the salt.”");
+    it("salt-chest", "chest", x + 6, y - 3);
+    mark("saltwind", "Saltwind", "盐风村", "house", x, y);
+  }
+  // Returning Cloud Isle in its lagoon, where the founder carved her last stele
+  {
+    const [x, y] = ISLE.c;
+    P("prayerflags", x - 3, y - 2);
+    P("pine", x + 3, y - 3);
+    P("lantern", x - 2, y + 3);
+    P("lantern", x + 2, y + 3);
+    it("isle-shrine", "shrine", x + 3, y + 2);
+    mark("returningcloud", "Returning Cloud Isle", "归云屿", "pavilion", x, y - 1);
+  }
+  // wolves and bandits on the Tide Road, horses on the salt meadows, cranes over the lagoon
+  enemies.push(
+    { key: "tide-bandit-1", enemy: "bandit", i: 420, j: 508, range: 2 },
+    { key: "tide-bandit-2", enemy: "bandit", i: 500, j: 498, range: 2 },
+    { key: "tide-wolf-1", enemy: "wolf", i: 536, j: 446, range: 2 },
+    { key: "tide-serpent-1", enemy: "serpent", i: 596, j: 538, range: 1.5 },
+  );
+  for (const [k, i, j] of [
+    [0, 470, 520],
+    [1, 474, 523],
+    [2, 468, 524],
+  ] as [number, number, number][])
+    critters.push({ key: `horse-tide-${k}`, char: "horse", i, j });
+  critters.push({ key: "crane-tide-1", char: "crane", i: 598, j: 522 }, { key: "crane-tide-2", char: "crane", i: 612, j: 540 });
+  it("tide-herb-1", "herb", 452, 512);
+  it("tide-chest-1", "chest", 512, 470);
   // treasure, beasts and birds out in the Golden River country
   for (const [k, i, j] of [
     [18, 160, 470],
@@ -1762,6 +2001,30 @@ function buildWorld(): WorldDef {
     patches.push(...war.patches);
   }
 
+  // 12e. the Founder's Road: the ten steles, Qingxu, the hollowed and the Echoes (see world/roadside.ts)
+  const roadMarks: Landmark[] = [];
+  {
+    const road = layRoad(
+      {
+        map: fine,
+        free: (i, j) => free(i, j) && fine.standable(i, j),
+        claim: (i, j) => {
+          for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) occupied.add((j + dj) * WORLD_W + i + di);
+        },
+        road: (i, j) => fixedAt(i, j) === 2,
+      },
+      S,
+    );
+    fnpcs.push(...road.npcs);
+    fenemies.push(...road.enemies);
+    // nothing of the wild grows right up against a stele
+    const wild = new Set<PropId>(["pine", "cherry", "maple", "bamboo", "willow", "deadtree", "rock", "boulder", "tallgrass", "reeds", "bones", "spikes", "crystal", "karst", "haystack", "peachtree", "teabush", "snowpine", "palm"]);
+    const cleared = kept.filter((p) => !(wild.has(p.id) && !p.when && road.landmarks.some((l) => Math.hypot(p.i + 0.5 - l.x, p.j + 0.5 - l.y) < 5)));
+    kept.length = 0;
+    kept.push(...cleared, ...road.props);
+    roadMarks.push(...road.landmarks);
+  }
+
   // 13. which region owns each tile
   const regionOf = regionOwners(fine);
 
@@ -1785,7 +2048,7 @@ function buildWorld(): WorldDef {
     regionOf,
     regions,
     waypoints,
-    landmarks: landmarks.map((l) => ({ ...l, x: l.x * S + (S - 1) / 2, y: l.y * S + (S - 1) / 2 })),
+    landmarks: [...landmarks.map((l) => ({ ...l, x: l.x * S + (S - 1) / 2, y: l.y * S + (S - 1) / 2 })), ...roadMarks],
     patches,
   };
 }

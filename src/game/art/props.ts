@@ -2660,7 +2660,229 @@ const PROPS = {
       }
     },
   },
+  // the Founder's stele: a tall slab of grey-green stone on a lotus plinth, its carved verse glowing and fading like breath
+  daostele: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 8,
+    fps: 4,
+    light: { color: "#9ff5de", radius: 34, dy: 26 },
+    emit: "sparkle",
+    paint: (r, f, n) => {
+      const glow = 0.5 + 0.5 * Math.sin((f / n) * TAU);
+      const slab = ramp("#9aa8a0", { lo: "#2a3430" });
+      r.prism(0, 0, 9, 0, 3, 8, m(PAL.stone, 1));
+      for (let k = 0; k < 8; k++) {
+        const a = (k / 8) * TAU;
+        r.ellipsoid([Math.cos(a) * 6.4, Math.sin(a) * 6.4, 4], [3, 3, 1.6], m(tones("#fff0f6", "#f8bcd6", "#d88ab4", "#7a4a6a"), 2));
+      }
+      r.box([-5, -2, 4], [5, 2, 36], md(slab, 3, { shader: (sf, tone) => {
+        // columns of carved glyphs on the face, lit by what they say
+        const along = Math.abs(sf.n[1]) > 0.5 ? sf.p[0] : sf.p[1];
+        const z = sf.p[2];
+        const carved = z > 8 && z < 31 && Math.abs(along) < 3.6 && (Math.round(along * 0.9) % 2 === 0) && Math.sin(z * 1.7 + along * 3) > 0.1;
+        if (carved) return glow > 0.55 ? "#e8fff8" : tone(tones("#c8fff0", "#9ff5de", "#4ab89a", "#1a5a4a"));
+        return tone(slab);
+      } }));
+      r.box([-6, -2.6, 35], [6, 2.6, 38], m(PAL.stone, 4));
+      r.sphere([0, 0, 40], 1.6 + glow * 0.4, m(tones("#ffffff", "#c8fff0", "#9ff5de", "#4ab89a"), 5, { outline: undefined }));
+    },
+  },
+  // a stele the Dao-Eater has emptied: cracked through, its verse gone grey, grey motes leaking out of the cracks
+  eatenstele: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 6,
+    fps: 4,
+    paint: (r, f, n) => {
+      const slab = ramp("#7a7a80", { lo: "#1a1a20" });
+      r.prism(0, 0, 9, 0, 3, 8, m(PAL.stone, 1));
+      r.box([-5, -2, 4], [5, 2, 20], md(slab, 2, { shader: (sf, tone) => (Math.abs(sf.p[0] + sf.p[2] * 0.3 - 4) < 0.6 ? tone(PAL.black) : tone(slab)) }));
+      // the upper half has slid off and lies askew at its foot
+      r.box([4, -2, 0], [18, 2, 4], md(slab, 3));
+      for (let k = 0; k < 4; k++) {
+        const ph = ((f / n) + k / 4) % 1;
+        r.sphere([Math.sin(k * 2.3) * 3, Math.cos(k * 1.7) * 1.4, 20 + ph * 22], Math.max(0.6, 1.4 * (1 - ph)), m(tones("#ffffff", "#d8d4e8", "#9a96a8", "#4a4658"), 4, { outline: undefined }));
+      }
+    },
+  },
+  // where a Great Dao has been eaten out of the land: a slow grey whirl of motes over dead ground
+  qiwhirl: {
+    foot: [0, 0, 0, 0],
+    blocks: false,
+    frames: 8,
+    fps: 6,
+    flat: true,
+    paint: (r, f, n) => {
+      const a0 = (f / n) * TAU;
+      for (let k = 0; k < 14; k++) {
+        const a = a0 + (k / 14) * TAU;
+        const rad = 3 + (k % 3) * 3;
+        r.sphere([Math.cos(a + k) * rad, Math.sin(a + k) * rad, 1 + (k % 4) * 1.6], 1.3, m(tones("#ffffff", "#c8c4d8", "#8a86a0", "#3a3648"), 1, { outline: undefined }));
+      }
+    },
+  },
+  // a long string of red firecrackers hanging from a bamboo pole, sparks spitting off its lower end
+  firecrackers: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 6,
+    fps: 10,
+    light: { color: "#ffb040", radius: 18, dy: 6 },
+    paint: (r, f) => {
+      r.sweep([[0, 0, 0], [0, 0, 40]], 0.8, m(BAMBOO, 1));
+      r.sweep([[0, 0, 40], [0, 8, 40]], 0.5, m(BAMBOO, 1));
+      for (let k = 0; k < 12; k++) {
+        const z = 38 - k * 2.6;
+        const sw = Math.sin(f * 1.3 + k * 0.6) * 0.5;
+        r.sweep([[sw - 1.4, 8, z], [sw + 1.4, 8, z]], 0.8, m(PAL.red, 2, { shader: (sf, tone) => (Math.abs(sf.u - 0.5) > 0.38 ? tone(PAL.gold) : tone(PAL.red)) }));
+      }
+      for (let k = 0; k < 4; k++) {
+        const a = f * 1.7 + k * 1.6;
+        r.sphere([Math.cos(a) * 3, 8 + Math.sin(a) * 2, 6 + Math.sin(a * 2) * 2], 0.9, m(tones("#ffffff", "#fff0a0", "#ffb040", "#f0601e"), 3, { outline: undefined }));
+      }
+    },
+  },
+  // a canal sampan with a woven-bamboo awning, rocking on the water
+  sampan: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 6,
+    fps: 4,
+    paint: (r, f, n) => {
+      const rock = Math.sin((f / n) * TAU) * 0.8;
+      const hull = ramp("#8a5a3a", { lo: "#2a160a" });
+      r.ellipsoid([0, 0, 1 + rock * 0.4], [6, 15, 3], md(hull, 1));
+      r.box([-4.6, -12, 3 + rock * 0.4], [4.6, 12, 4 + rock * 0.4], m(PAL.wood, 2));
+      r.sweep([[-5, -4, 4], [-4, -4, 10], [0, -4, 12.5], [4, -4, 10], [5, -4, 4]], 1.2, m(PAL.straw, 3));
+      r.sweep([[-5, 4, 4], [-4, 4, 10], [0, 4, 12.5], [4, 4, 10], [5, 4, 4]], 1.2, m(PAL.straw, 3));
+      r.box([-4.4, -4, 9], [4.4, 4, 12], m(PAL.straw, 3));
+      r.sweep([[0, 13, 5], [rock * 2, 20, 2]], 0.6, m(PAL.woodDark, 4));
+    },
+  },
+  // a stack of bamboo steamers on a stove, clouds of steam rolling off the buns inside
+  steamer: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 4,
+    fps: 4,
+    emit: "steam",
+    light: { color: "#ffb070", radius: 20, dy: 6 },
+    paint: (r, f) => {
+      r.prism(0, 0, 7, 0, 8, 8, md(BRICK2, 1));
+      r.ellipsoid([0, 6.6, 3], [2.4, 0.8, 1.6], m(tones("#fff6c0", "#ffb040", "#f0601e", "#a81a10"), 2, { outline: undefined }));
+      for (let k = 0; k < 3; k++) r.prism(0, 0, 6 - k * 0.3, 8 + k * 3.4, 11 + k * 3.4, 10, m(PAL.straw, 3, { shader: (sf, tone) => (sf.p[2] % 3.4 < 0.6 ? tone(PAL.straw, 1) : tone(PAL.straw)) }));
+      r.cone(0, 0, 5.6, 18.2, 1, 21, 10, m(PAL.straw, 4));
+      r.sphere([0, 0, 21.4 + (f % 2) * 0.4], 0.8, m(PAL.woodDark, 5));
+    },
+  },
+  // a stone table with a xiangqi board carved in its top, and two stools
+  xiangqitable: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      r.prism(0, 0, 2.6, 0, 9, 8, m(PAL.stone, 1));
+      r.prism(0, 0, 8, 9, 11, 12, m(PAL.stone, 2, { shader: (sf, tone) => (sf.n[2] > 0.5 && (Math.abs(sf.p[0] % 2.4) < 0.25 || Math.abs(sf.p[1] % 2.4) < 0.25) ? tone(PAL.stone, 1) : tone(PAL.stone)) }));
+      for (let k = 0; k < 8; k++) r.sphere([-4.8 + (k % 4) * 3.2, k < 4 ? -2.8 : 2.8, 11.6], 1, m(k % 3 ? PAL.red : PAL.black, 3));
+      for (const s of [-1, 1]) r.prism(0, s * 13, 2.6, 0, 6, 8, m(PAL.stone, 4));
+    },
+  },
+  // a puppet theatre: a little curtained booth whose painted general and maiden bow and spin above the ledge
+  puppetbooth: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 8,
+    fps: 6,
+    paint: (r, f, n) => {
+      const a = (f / n) * TAU;
+      const curtain = ramp("#c03a32", { lo: "#3a0a10" });
+      r.box([-8, -8, 0], [8, 8, 18], md(curtain, 1, { shader: (sf, tone) => (Math.sin((sf.p[0] + sf.p[1]) * 1.2) > 0.6 ? tone(curtain, 1) : tone(curtain)) }));
+      r.box([-9, -9, 18], [9, 9, 19.5], m(PAL.gold, 2));
+      for (const [x, y] of [[-8, -8], [8, -8], [-8, 8], [8, 8]] as [number, number][]) r.sweep([[x, y, 19], [x, y, 36]], 0.7, m(PAL.woodDark, 3));
+      r.box([-9, -9, 35], [9, 9, 37], m(PAL.red, 4));
+      // two puppets dancing on the ledge
+      for (const [k, col] of [[0, PAL.gold], [1, PAL.azure]] as [number, typeof PAL.gold][]) {
+        const x = (k ? 3.4 : -3.4) + Math.sin(a + k * 3) * 1.2;
+        const z = 21 + Math.abs(Math.sin(a * 2 + k)) * 2;
+        r.cone(x, 8, 1.8, z, 0.6, z + 4.4, 8, m(col, 5));
+        r.sphere([x, 8, z + 5.4], 1.3, m(tones("#ffffff", "#f4d8c0", "#c89878", "#6a4030"), 6));
+        r.sweep([[x - 1.6, 8, z + 3.4], [x - 2.6 + Math.sin(a * 2) * 0.8, 8, z + 5]], 0.45, m(col, 5));
+      }
+    },
+  },
+  // a hawker's frame of paper pinwheels, all turning in the breeze
+  pinwheels: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 6,
+    fps: 8,
+    paint: (r, f, n) => {
+      r.sweep([[0, 0, 0], [0, 0, 30]], 0.8, m(BAMBOO, 1));
+      const spin = (f / n) * (TAU / 4);
+      const cols = [PAL.red, PAL.gold, PAL.azure, PAL.jade, PAL.rose];
+      for (let k = 0; k < 5; k++) {
+        const c: V3 = [Math.cos(k * 1.3) * 4, Math.sin(k * 1.3) * 4, 16 + k * 3];
+        r.sweep([[0, 0, c[2] - 2], c], 0.35, m(BAMBOO, 1));
+        for (let b = 0; b < 4; b++) {
+          const ang = spin + (b / 4) * TAU + k;
+          r.sweep([c, [c[0] + Math.cos(ang) * 3, c[1] + 0.6, c[2] + Math.sin(ang) * 3]], [1.4, 0.4], m(cols[(k + b) % cols.length], 2 + k, { outline: undefined }));
+        }
+      }
+    },
+  },
+  // paper sky lanterns rising slowly off a festival frame into the dusk
+  skylanterns: {
+    foot: [0, 0, 0, 0],
+    blocks: false,
+    frames: 8,
+    fps: 3,
+    light: { color: "#ffc070", radius: 30, dy: 40 },
+    paint: (r, f, n) => {
+      for (let k = 0; k < 4; k++) {
+        const ph = ((f / n) + k / 4) % 1;
+        const c: V3 = [Math.sin(k * 2.1) * 6 + ph * 2, Math.cos(k * 1.4) * 5, 10 + ph * 46];
+        r.box([c[0] - 2, c[1] - 2, c[2]], [c[0] + 2, c[1] + 2, c[2] + 4.6], m(tones("#fff6d0", "#ffd070", "#ff8a3a", "#a8401a"), 1 + k, { outline: undefined }));
+        r.sphere([c[0], c[1], c[2] + 0.6], 0.9, m(tones("#ffffff", "#fff0a0", "#ffb040", "#f0601e"), 1 + k, { outline: undefined }));
+      }
+    },
+  },
+  // a bronze prayer wheel in its little roofed frame, turning as the faithful pass
+  prayerwheel: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 8,
+    fps: 6,
+    paint: (r, f, n) => {
+      const rot = (f / n) * TAU;
+      for (const s of [-1, 1]) r.sweep([[s * 7, 0, 0], [s * 7, 0, 26]], 0.8, m(PAL.red, 1));
+      r.hipRoof(0, 0, 10, 6, 26, 4, 1, 32, m(ROOF_RED, 2));
+      r.prism(0, 0, 4.6, 6, 22, 10, m(BRONZE, 3, { shader: (sf, tone) => (Math.sin(Math.atan2(sf.p[1], sf.p[0]) * 5 + rot * 5) > 0.6 && sf.p[2] > 10 && sf.p[2] < 18 ? tone(PAL.gold) : tone(BRONZE)) }), rot);
+      r.sweep([[0, 0, 4], [0, 0, 24]], 0.6, m(PAL.woodDark, 4));
+    },
+  },
+  // salt pans: shallow square beds of brine drying white in the sun, with a raked heap of salt
+  saltpan: {
+    foot: [0, 0, 0, 0],
+    blocks: false,
+    frames: 4,
+    fps: 2,
+    flat: true,
+    paint: (r, f) => {
+      for (const [x, y] of [[-6, -6], [6, -6], [-6, 6], [6, 6]] as [number, number][]) {
+        r.box([x - 5.4, y - 5.4, 0], [x + 5.4, y + 5.4, 1], m(PAL.stone, 1));
+        r.box([x - 4.6, y - 4.6, 1], [x + 4.6, y + 4.6, 1.3], m(tones("#ffffff", "#e8f0f8", "#a8c8e0", "#5a7a9a"), 2, { shader: (sf, tone) => (Math.sin(sf.p[0] * 2 + sf.p[1] + f) > 0.92 ? "#ffffff" : tone(tones("#ffffff", "#e8f0f8", "#a8c8e0", "#5a7a9a"))) }));
+      }
+      r.cone(6, 6, 3, 1, 0.4, 4.6, 8, m(tones("#ffffff", "#f4f6fa", "#c8d0dc", "#7a8496"), 3));
+      // the sun glints off the brine, a different pan each moment
+      const [gx, gy] = [[-6, -6], [6, -6], [6, 6], [-6, 6]][f % 4];
+      r.sphere([gx + 2, gy - 1, 1.6], 0.9, m(tones("#ffffff", "#ffffff", "#e8f6ff", "#c8e0f0"), 4, { outline: undefined }));
+    },
+  },
 } satisfies Record<string, PropDef>;
+
+const BRICK2 = ramp("#8a5a4a", { lo: "#2a1410" });
 
 const BRICK = ramp("#8a8a96", { lo: "#2a2a3a" });
 
