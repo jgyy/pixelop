@@ -59,6 +59,10 @@ export const ATTIRE: Attire[] = [
   { id: "daomantle", name: "Mantle of the Ten Steles", hanzi: "十碑道氅", from: "The steles of the Founder's Road (500 quests)" },
   { id: "clearsnow", name: "Robe of Clear Snow", hanzi: "清雪道袍", from: "Lian Qingxue, the Founder, at the Road's end" },
   { id: "hollowrobe", name: "Dao-Eater's Robe", hanzi: "噬道袍", from: "Wei Kongming, devoured" },
+  // the Ten Halls
+  { id: "outerrobe", name: "Outer Disciple's Robe", hanzi: "外门弟子袍", from: "Steward Gou of the Ten Halls" },
+  { id: "innerrobe", name: "Inner Disciple's Robe", hanzi: "内门弟子袍", from: "The Ten Halls (500 quests)" },
+  { id: "tenhalls", name: "Robe of the Ten Halls", hanzi: "十殿道袍", from: "Ning Wuhen, master of the Hall of the Void" },
 ];
 
 /** How an outfit she does not yet own may be earned (shown, greyed, in the wardrobe). */
@@ -100,6 +104,9 @@ export const ATTIRE_HINT: Record<string, string> = {
   daomantle: "Fulfil 500 quests of the Founder's Road.",
   clearsnow: "Walk the Founder's Road to its end, and do not eat the Dao at the end of it.",
   hollowrobe: "Walk the Founder's Road to its end, and eat what you find there.",
+  outerrobe: "Pass the Grand Selection of the Ten Halls.",
+  innerrobe: "Fulfil 500 quests of the Ten Halls.",
+  tenhalls: "Bring the sleepers home from the Sealed Hall of the Void.",
   foxform: "Lay a scholar's shade to rest, and end the Blood Moon. Hu Li has a secret.",
   dragonform: "Drink the Dragon Vein.",
 };

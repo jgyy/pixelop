@@ -173,6 +173,11 @@ export function GameView({ initial, intro, onQuit }: { initial: GameState; intro
                 ✧ {ui.road.title}: {ui.road.objective}
               </div>
             )}
+            {ui.halls && (
+              <div className="errand halls" data-testid="halls-quest">
+                ⛩ {ui.halls.title}: {ui.halls.objective}
+              </div>
+            )}
             {ui.notices.length > 0 && (
               <div className="errand notice" data-testid="notice">
                 ✉ {ui.notices[0].text}
@@ -458,6 +463,28 @@ function JournalPanel({ journal, ui, game, onClose }: { journal: NonNullable<UiS
                     {f.hanzi}
                   </span>{" "}
                   {f.stele} <b>{f.state === "restored" ? "Mended" : f.state === "devoured" ? "Eaten" : f.state === "hollowed" ? "Hollowed" : "—"}</b>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+      {ui.halls && (
+        <section data-testid="journal-halls">
+          <h4>
+            ⛩ {ui.halls.chapter} · {ui.hallsDone}/{ui.hallsCount}
+          </h4>
+          <p>
+            <strong>{ui.halls.title}</strong> — {ui.halls.objective}
+          </p>
+          {ui.hallsList && (
+            <ul className="fronts steles">
+              {ui.hallsList.map((f) => (
+                <li key={f.hall} className={`front-${f.state === "done" ? "freed" : f.state === "studying" ? "burning" : "waiting"}`}>
+                  <span className="cn" style={{ color: f.colour }}>
+                    {f.hanzi}
+                  </span>{" "}
+                  {f.hall} <b>{f.state === "done" ? "Done" : f.state === "studying" ? "Studying" : "—"}</b>
                 </li>
               ))}
             </ul>

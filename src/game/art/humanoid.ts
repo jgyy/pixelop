@@ -72,7 +72,7 @@ export interface HumanPose {
   /** Extra light-blue tint (qi casting) or white (hit flash) applied after. */
   flash?: number;
   /** Something held in the hands: a bamboo dizi flute, a rice bowl and chopsticks, juggling balls, a smith's hammer, a writing brush, a paper lantern, a hoe, a woodsman's axe, a carrying pole with two baskets, a shuttlecock or an oiled-paper umbrella. */
-  held?: "flute" | "bowl" | "balls" | "hammer" | "brush" | "lantern" | "hoe" | "axe" | "pole" | "shuttlecock" | "umbrella" | "pickaxe" | "torch" | "ladle" | "fireball" | "rake" | "seedling" | "snowball" | "kite" | "warbanner" | "drum" | "bandage" | "horn" | "lionhead" | "puppet" | "abacus" | "firecracker" | "xiangqi" | "oar";
+  held?: "flute" | "bowl" | "balls" | "hammer" | "brush" | "lantern" | "hoe" | "axe" | "pole" | "shuttlecock" | "umbrella" | "pickaxe" | "torch" | "ladle" | "fireball" | "rake" | "seedling" | "snowball" | "kite" | "warbanner" | "drum" | "bandage" | "horn" | "lionhead" | "puppet" | "abacus" | "firecracker" | "xiangqi" | "oar" | "pillow" | "bucket" | "token" | "pointer" | "rag";
   /** Where a tossed thing (the shuttlecock) is, in pose space. */
   toss?: V3;
 }
@@ -617,6 +617,31 @@ export function paintHuman(st: HumanStyle, p: HumanPose, facing: number, o: Rend
     const blade: V3 = [b[0] - 2 * S, b[1] - 12 * S, G([0, 0, -1])[2]];
     r.sweep([add(a, [0, 2 * S, 1 * S]), blade], Rr(0.4), mat(PAL.wood, 9));
     r.sweep([blade, add(blade, [0, -3 * S, -0.8 * S])], [Rr(1.3), Rr(1)], mat(PAL.woodDark, 9));
+  }
+
+  if (p.held === "pillow") {
+    // a fat cotton pillow held overhead between both hands, squashed a little in the middle
+    const c = add(scale3(add(U(p.handL ?? REST_HAND_L), U(handR)), 0.5), [0, 0.8 * S, 1.2 * S]);
+    r.ellipsoid(c, [Rr(4.6), Rr(2.2), Rr(2.8)], mat(ramp4("#ffffff", "#f4e8f0", "#d8b8d0", "#8a6a8a"), 10, { shader: (s2, tone) => (Math.abs(s2.p[0] - c[0]) < 0.4 * S ? tone(PAL.rose) : tone(ramp4("#ffffff", "#f4e8f0", "#d8b8d0", "#8a6a8a"))) }));
+  } else if (p.held === "bucket") {
+    // a wooden water bucket hanging from the hand by its rope handle, the water inside catching the light
+    const grip = U(handR);
+    const c = add(grip, [0, 0.4 * S, -4.2 * S]);
+    r.cone(c[0], c[1], Rr(1.9), c[2] - Rr(3.6), Rr(2.5), c[2], 10, mat(PAL.wood, 9, { shader: (s2, tone) => (Math.abs(s2.p[2] - (c[2] - Rr(1.8))) < 0.4 * S ? tone(PAL.black) : tone(PAL.wood)) }));
+    r.ellipsoid([c[0], c[1], c[2] - 0.3 * S], [Rr(2.2), Rr(2.2), Rr(0.3)], mat(ramp4("#ffffff", "#9ad8ff", "#4a8ac8", "#1a3a6a"), 9));
+    for (const dx of [-2.3, 2.3]) r.sweep([grip, add(c, [dx * S, 0, 0])], Rr(0.2), mat(PAL.straw, 9));
+  } else if (p.held === "token") {
+    // a jade token on a red cord, held up for the gatekeeper to see
+    const g = U(handR);
+    r.box(add(g, [-1 * S, 0.2 * S, 0.2 * S]), add(g, [1 * S, 0.7 * S, 3 * S]), mat(PAL.jade, 9, { shader: (s2, tone) => (Math.abs(s2.p[2] - g[2] - 1.6 * S) < 0.25 * S ? tone(PAL.gold) : tone(PAL.jade)) }));
+    r.sweep([add(g, [0, 0.4 * S, 0]), add(g, [0.4 * S, 0.6 * S, -2.6 * S])], Rr(0.2), mat(PAL.red, 9));
+  } else if (p.held === "pointer") {
+    // a hall master's bamboo pointer, raised to make a point
+    const g = U(handR);
+    r.sweep([add(g, [0, -0.6 * S, -1.6 * S]), add(g, [0.6 * S, 2.4 * S, 6.4 * S])], Rr(0.3), mat(ramp4("#f0f0a0", "#b8c860", "#6a8a3a", "#2a4a1a"), 9, { shader: (s2, tone) => (Math.sin(s2.u * 24) > 0.85 ? tone(PAL.straw) : tone(ramp4("#f0f0a0", "#b8c860", "#6a8a3a", "#2a4a1a"))) }));
+  } else if (p.held === "rag") {
+    // a wet grey rag under the palm
+    r.ellipsoid(add(U(handR), [0, 0.2 * S, -0.8 * S]), [Rr(1.8), Rr(1.3), Rr(0.5)], mat(ramp4("#ffffff", "#c8ccd8", "#8a90a8", "#4a4a5a"), 9));
   }
 
   // ------------------------------------------------------------------ shawl, cape, tails, beard
