@@ -119,7 +119,16 @@ export type AnimId =
   | "xiangqi"
   | "row"
   | "comprehend"
-  | "domain";
+  | "domain"
+  | "spar"
+  | "lecture"
+  | "tiptoe"
+  | "token"
+  | "scrub"
+  | "bucket"
+  | "pillow"
+  | "pant"
+  | "climb";
 
 export interface Anim {
   fps: number;
@@ -1070,6 +1079,102 @@ const human: Partial<Record<AnimId, AnimSpec<HumanPose>>> = {
       return { t: i, lift: k * 3, handL: [-3 - k * 4.6, 1.6 + k * 2, 18 - k * 5], handR: [3 + k * 4.6, 1.6 + k * 2, 18 - k * 5], footL: [-1.4, 0, 0.6 * k], footR: [1.4, 0, 0.6 * k], lean: -0.06 * k, eyes: k > 0.6 ? "glow" : "closed", mouth: "neutral", flash: k === 1 && i === 4 ? 0.3 : 0.08 * k, wind: [0, 0, 1.6 * k] };
     },
   },
+  // sparring in the ring: a low stance, palms striking out left, right, left, the rear hand guarding
+  spar: {
+    n: 8,
+    fps: 10,
+    loop: true,
+    pose: (i) => {
+      const left = i % 4 < 2;
+      const k = i % 2 ? 1 : 0.3;
+      return { t: i, lean: 0.1, bob: k * 0.3, handL: left ? [-1.2, 3 + k * 4.6, 16.4] : [-3.4, 2.4, 14.6], handR: left ? [3.2, 2.6, 14.4] : [1.2, 3 + k * 4.6, 16.4], footL: [-2.6, 1.6, 0], footR: [2.6, -1.4, 0], eyes: "fierce", mouth: k > 0.5 ? "open" : "neutral", wind: [0, -0.4, 0] };
+    },
+  },
+  // a hall master lecturing: a bamboo pointer raised for each point made, the other hand tucked behind the back
+  lecture: {
+    n: 8,
+    fps: 5,
+    loop: true,
+    pose: (i, n) => {
+      const a = ph(i, n);
+      const up = Math.max(0, Math.sin(a));
+      return { t: a, held: "pointer", handR: [3.6, 3.4 + up * 1.6, 15 + up * 6], handL: [-2.2, -2.6, 11.6], lean: -0.04, bob: up * 0.3, mouth: i % 3 === 1 ? "open" : "neutral", eyes: i === 6 ? "blink" : "open", wind: [0, -0.3, 0] };
+    },
+  },
+  // on tiptoe at the back of a crowd, a hand shading the eyes, trying to see over ten thousand heads
+  tiptoe: {
+    n: 6,
+    fps: 5,
+    loop: true,
+    pose: (i) => {
+      const up = [0, 0.6, 1, 1, 0.6, 0][i];
+      return { t: i, lift: up * 1.6, handR: [2.2, 3.6, 22.4], footL: [-1.7, 0, up * 0.6], footR: [1.7, 0, up * 0.6], lean: -0.06 * up, eyes: "open", mouth: up > 0.8 ? "open" : "neutral", wind: [0, -0.2, 0] };
+    },
+  },
+  // holding up a jade token at arm's length: at the gate, at the dining hall, at the Sealed Hall
+  token: {
+    n: 6,
+    fps: 6,
+    loop: false,
+    pose: (i) => {
+      const k = [0, 0.4, 0.8, 1, 1, 1][i];
+      return { t: i, held: "token", handR: [2.4, 2 + k * 4, 12 + k * 7], lean: 0.04, eyes: i === 5 ? "blink" : "open", mouth: k === 1 ? "smile" : "neutral", flash: i === 4 ? 0.08 : 0, wind: [0, -0.2, 0] };
+    },
+  },
+  // on the knees, scrubbing the dining hall floor with a rag, back and forth
+  scrub: {
+    n: 8,
+    fps: 8,
+    loop: true,
+    pose: (i, n) => {
+      const a = ph(i, n);
+      const s = Math.sin(a);
+      return { t: a, stance: "kneel", held: "rag", handR: [1.6 + s * 3, 6.4, 3.4], handL: [-2.6, 5.2, 4.4], lean: 0.36, bob: Math.abs(s) * 0.3, eyes: "open", mouth: "neutral", wind: [0, -0.2, 0] };
+    },
+  },
+  // hauling a full water bucket in one hand, leaning away from its weight, the free arm out for balance
+  bucket: {
+    n: 8,
+    fps: 6,
+    loop: true,
+    pose: (i, n) => {
+      const a = ph(i, n);
+      const s = Math.sin(a);
+      return { t: a, held: "bucket", handR: [5.2, 0.4, 9.4 + Math.sin(a * 2) * 0.4], handL: [-5.8, 0.2, 13 + s * 0.6], lean: 0.04, bob: Math.abs(s) * 0.4, footL: [-1.7, s * 1.2, Math.max(0, s) * 0.8], footR: [1.7, -s * 1.2, Math.max(0, -s) * 0.8], eyes: i === 5 ? "blink" : "open", mouth: "neutral", wind: [0, -0.3, 0] };
+    },
+  },
+  // a pillow fight after curfew: the pillow swung up over the head in both hands and brought down with a whump
+  pillow: {
+    n: 8,
+    fps: 9,
+    loop: true,
+    pose: (i) => {
+      const k = [0, 0.5, 1, 0.7, 0.2, 0, 0, 0][i];
+      const down = i === 3 || i === 4 ? 6 : 0;
+      return { t: i, held: "pillow", handR: [3 - k * 1.6, 2 + k * 2.4, 19 + k * 5 - down], handL: [-3 + k * 1.6, 2 + k * 2.4, 19 + k * 5 - down], lean: down ? 0.2 : -0.08 * k, lift: i === 2 ? 0.8 : 0, eyes: k > 0.6 ? "closed" : "open", mouth: "grin", wind: [0, -0.3, 0] };
+    },
+  },
+  // hands on knees after the long run, chest heaving
+  pant: {
+    n: 6,
+    fps: 5,
+    loop: true,
+    pose: (i, n) => {
+      const a = ph(i, n);
+      return { t: a, handL: [-2.6, 3.4, 7.4], handR: [2.6, 3.4, 7.4], lean: 0.34 + Math.sin(a) * 0.04, bob: Math.sin(a) * 0.4, footL: [-2.4, 0, 0], footR: [2.4, 0, 0], eyes: i % 3 === 0 ? "closed" : "hurt", mouth: "open", wind: [0, -0.2, 0] };
+    },
+  },
+  // climbing a long stair: a knee high at every step, the arms swinging, leaning into the slope
+  climb: {
+    n: 8,
+    fps: 7,
+    loop: true,
+    pose: (i, n) => {
+      const a = ph(i, n);
+      const s = Math.sin(a);
+      return { t: a, lift: Math.abs(s) * 1.4, footL: [-1.7, 1.6 + s * 1.6, Math.max(0, s) * 4], footR: [1.7, 1.6 - s * 1.6, Math.max(0, -s) * 4], handL: [-4.2, -s * 2, 12], handR: [4.2, s * 2, 12], lean: 0.16, eyes: "open", mouth: Math.abs(s) > 0.8 ? "open" : "neutral", wind: [0, -0.4, 0] };
+    },
+  },
 };
 
 // ----------------------------------------------------------------------------- beast poses
@@ -1218,6 +1323,35 @@ export const STYLES = {
   liondancer: s({ robe: ramp("#e8c040", { lo: "#5a3a00" }), inner: PAL.red, trim: PAL.red, sash: PAL.red, skin: PAL.skinTan, hairStyle: "short", flare: 3.8, hem: 4.8, shoes: PAL.black }),
   acrobat: s({ robe: ramp("#e84a6a", { lo: "#4a0a1a" }), inner: PAL.gold, trim: PAL.gold, sash: PAL.jade, hairStyle: "twin", female: true, scale: 0.86, flare: 3.6, hem: 5, shoes: PAL.red }),
   merchant: s({ robe: ramp("#6a3a8a", { lo: "#1a0a2a" }), inner: PAL.gold, trim: PAL.gold, sash: PAL.gold, hair: PAL.hairBlack, beard: PAL.hairBlack, hairStyle: "topknot", hat: "scholar", hatRamp: PAL.black, flare: 6, hunch: 0.04 }),
+  // the Ten Halls: the court's officers, the five of Room Seven and the young master, the ten hall masters, and the troubles at the end of each hall's tale
+  wdherald: s({ robe: ramp("#e8d8a8", { lo: "#5a4a2a" }), inner: PAL.azure, trim: PAL.navy, sash: PAL.navy, hairStyle: "topknot", hat: "scholar", hatRamp: PAL.black, weapon: "fan", weaponRamp: PAL.paper, flare: 5 }),
+  yanshu: s({ robe: ramp("#c8c8d0", { lo: "#3a3a4a" }), inner: PAL.black, trim: ramp("#b8a8e8"), sash: PAL.black, skin: PAL.skinPale, hair: PAL.hairBlack, hairStyle: "topknot", hat: "scholar", hatRamp: PAL.black, weapon: "whisk", flare: 5.8, hunch: 0.04, scale: 1.08 }),
+  steward: s({ robe: ramp("#7a6a5a", { lo: "#2a1a14" }), inner: PAL.paper, trim: PAL.brown, sash: PAL.black, hair: PAL.hairGrey, beard: PAL.hairGrey, hairStyle: "short", hat: "hood", hatRamp: ramp("#4a3a2a"), weapon: "staff", weaponRamp: PAL.wood, hunch: 0.14, flare: 5, hem: 3.6, shoes: PAL.brown }),
+  fanyu: s({ robe: ramp("#3a6a9a", { lo: "#0a1a3a" }), inner: PAL.white, trim: PAL.white, sash: PAL.gold, hair: PAL.hairBlack, hairStyle: "bun", female: true, weapon: "jian", eye: "#2a2a3a", flare: 5 }),
+  outerM: s({ robe: ramp("#c8ccd4", { lo: "#4a4a5a" }), inner: PAL.azure, trim: PAL.azure, sash: PAL.navy, hairStyle: "topknot", hair: PAL.hairBlack, flare: 4.6, hem: 4 }),
+  outerF: s({ robe: ramp("#c8ccd4", { lo: "#4a4a5a" }), inner: PAL.azure, trim: PAL.azure, sash: PAL.azure, hairStyle: "bun", female: true, hair: PAL.hairBrown, eye: "#3a2a1a", flare: 4.8, hem: 3.8 }),
+  shenbai: s({ robe: ramp("#c8ccd4", { lo: "#4a4a5a" }), inner: PAL.azure, trim: PAL.brown, sash: PAL.brown, hairStyle: "short", hair: PAL.hairBrown, skin: PAL.skinTan, weapon: "staff", weaponRamp: PAL.wood, eye: "#3a2a1a", flare: 4.4, hem: 4.4, shoes: PAL.brown }),
+  yaozhi: s({ robe: ramp("#c8ccd4", { lo: "#4a4a5a" }), inner: PAL.gold, trim: PAL.gold, sash: PAL.rose, hairStyle: "long", female: true, hair: PAL.hairBlack, hat: "crown", hatRamp: PAL.gold, weapon: "fan", weaponRamp: PAL.gold, eye: "#4a2a3a", flare: 5.2, shawl: ramp("#f8e0a0", { lo: "#8a6a20" }) }),
+  tieniu: s({ robe: ramp("#c8ccd4", { lo: "#4a4a5a" }), inner: PAL.azure, trim: PAL.navy, sash: PAL.red, hairStyle: "short", hair: PAL.hairBlack, skin: PAL.skinTan, scale: 1.2, eye: "#3a2a1a", flare: 5.4, hem: 4.2, shoes: PAL.brown }),
+  meilan: s({ robe: ramp("#c8ccd4", { lo: "#4a4a5a" }), inner: PAL.azure, trim: PAL.purple, sash: PAL.purple, hairStyle: "twin", female: true, hair: PAL.hairBlack, eye: "#3a2a4a", scale: 0.92, flare: 4.8 }),
+  qiu: s({ robe: ramp("#c8ccd4", { lo: "#4a4a5a" }), inner: PAL.azure, trim: PAL.azure, sash: PAL.red, hairStyle: "topknot", hair: PAL.hairBrown, scale: 0.72, eye: "#3a2a1a", hem: 4.6, flare: 4 }),
+  murong: s({ robe: ramp("#4a3a7a", { lo: "#10082a" }), inner: PAL.white, trim: PAL.gold, sash: PAL.gold, hairStyle: "long", hair: PAL.hairBlack, hat: "crown", hatRamp: PAL.gold, weapon: "jian", weaponRamp: PAL.gold, eye: "#2a1a3a", flare: 5, cape: ramp("#8a6ac8", { lo: "#1a0a3a" }) }),
+  hmwater: s({ robe: ramp("#6ab8f0", { lo: "#0a2a5a" }), inner: PAL.white, trim: PAL.white, sash: PAL.navy, hair: PAL.hairWhite, hairStyle: "bun", female: true, hat: "veil", hatRamp: ramp("#e8f6ff"), weapon: "whisk", eye: "#2a4a6a", hunch: 0.04, flare: 6 }),
+  hmwood: s({ robe: ramp("#5a8a4a", { lo: "#102a10" }), inner: PAL.paper, trim: PAL.brown, sash: PAL.brown, hair: PAL.hairWhite, beard: PAL.hairWhite, hairStyle: "topknot", hat: "straw", hatRamp: PAL.straw, weapon: "staff", weaponRamp: PAL.wood, hunch: 0.18, scale: 0.94, flare: 5.4 }),
+  hmwind: s({ robe: ramp("#c8f0e8", { lo: "#2a5a5a" }), inner: PAL.white, trim: PAL.teal, sash: PAL.teal, hair: PAL.hairSilver, hairStyle: "wild", weapon: "fan", weaponRamp: PAL.white, flare: 5.2, shawl: ramp("#e8fff8", { lo: "#4a7a7a" }) }),
+  hmfire: s({ robe: ramp("#c8402a", { lo: "#3a0a14" }), inner: PAL.gold, trim: PAL.gold, sash: PAL.black, hair: PAL.hairAuburn, hairStyle: "bun", female: true, skin: PAL.skinTan, eye: "#8a2a1a", flare: 5, hem: 3.6, shawl: ramp("#f08a3a", { lo: "#5a1a0a" }) }),
+  hmearth: s({ robe: ramp("#a88a5a", { lo: "#2a1e0a" }), inner: PAL.stone, trim: PAL.brown, sash: PAL.brown, hair: PAL.hairBrown, hairStyle: "bald", skin: PAL.skinTan, scale: 1.3, flare: 6.2, hem: 3.6, shoes: PAL.brown }),
+  hmmetal: s({ robe: ramp("#8a92a8", { lo: "#1a1e2a" }), inner: PAL.steel, trim: ramp("#c87a4a"), sash: ramp("#c87a4a"), hair: PAL.hairGrey, beard: PAL.hairGrey, hairStyle: "topknot", skin: PAL.skinTan, weapon: "jian", weaponRamp: PAL.steel, flare: 4.8, hem: 4, shawl: ramp("#3a2a26") }),
+  hmthunder: s({ robe: ramp("#4a3a8a", { lo: "#0a0a2a" }), inner: PAL.black, trim: ramp("#e8e0ff"), sash: ramp("#e8e0ff"), hair: PAL.hairBlack, hairStyle: "long", female: true, hat: "crown", hatRamp: PAL.steel, weapon: "spear", weaponRamp: ramp("#e8e0ff"), eye: "#3a2a6a", flare: 5.4, cape: ramp("#2a2a5a", { lo: "#000000" }) }),
+  hmice: s({ robe: ramp("#e8f6ff", { lo: "#4a6a8a" }), inner: PAL.azure, trim: PAL.azure, sash: PAL.navy, skin: PAL.skinPale, hair: ramp("#bfe8ff"), hairStyle: "long", hat: "scholar", hatRamp: PAL.navy, weapon: "fan", weaponRamp: ramp("#bfe8ff"), eye: "#2a4a6a", flare: 5.8 }),
+  hmlife: s({ robe: ramp("#f0e8f0", { lo: "#5a4a5a" }), inner: PAL.moss, trim: PAL.rose, sash: PAL.moss, hair: PAL.hairGrey, hairStyle: "bun", female: true, weapon: "staff", weaponRamp: PAL.wood, eye: "#4a2a3a", hunch: 0.08, flare: 5.6, shawl: ramp("#f6a6c9", { lo: "#5a1a3a" }) }),
+  ning: s({ robe: ramp("#e8e0ff", { lo: "#3a3450" }), inner: PAL.black, trim: ramp("#b8a8e8"), sash: PAL.black, hair: PAL.hairWhite, beard: PAL.hairWhite, hairStyle: "long", hat: "crown", hatRamp: ramp("#b8a8e8"), weapon: "whisk", hunch: 0.12, flare: 6.2 }),
+  blight: s({ robe: ramp("#3a4a2a", { lo: "#0a1004" }), inner: PAL.black, trim: ramp("#8a7aa8"), sash: PAL.brown, skin: ramp("#6a5a4a"), hair: ramp("#9a8ac0"), hairStyle: "wild", glowEyes: "#d8ff9a", weapon: "staff", weaponRamp: PAL.woodDark, scale: 1.3, flare: 6.6, hem: 1.4, shawl: ramp("#c8a8e8", { lo: "#3a2a5a" }) }),
+  furnacespirit: s({ robe: ramp("#7a7470", { lo: "#1a1410" }), inner: PAL.orange, trim: ramp("#c8c0b8"), sash: PAL.black, skin: ramp("#a89890"), hair: ramp("#d8d0c8"), hairStyle: "wild", glowEyes: "#ffb040", scale: 1.3, flare: 6.6, hem: 1.6, cape: ramp("#5a5450", { lo: "#0a0808" }) }),
+  golem: s({ robe: ramp("#9a9488", { lo: "#2a2620" }), inner: PAL.stone, trim: PAL.stone, sash: PAL.brown, skin: ramp("#a8a094"), hair: PAL.hairGrey, hairStyle: "bald", glowEyes: "#ffe0a0", scale: 1.4, flare: 7, hem: 2.6 }),
+  enforcer: s({ robe: ramp("#2a2a3a", { lo: "#08080e" }), inner: PAL.crimson, trim: PAL.steel, sash: PAL.crimson, hair: PAL.hairBlack, beard: PAL.hairBlack, hairStyle: "topknot", hat: "hood", hatRamp: PAL.black, weapon: "rod", weaponRamp: PAL.steel, scale: 1.14, flare: 4.8, hem: 4 }),
+  frostwarden: s({ robe: ramp("#bfe8ff", { lo: "#2a4a6a" }), inner: PAL.white, trim: PAL.white, sash: PAL.azure, skin: ramp("#e8f6ff"), hair: PAL.hairWhite, hairStyle: "long", hat: "crown", hatRamp: ramp("#e8f6ff"), glowEyes: "#a8e0ff", weapon: "staff", weaponRamp: ramp("#e8f6ff"), scale: 1.28, flare: 6.4, hem: 1.4 }),
+  murongelder: s({ robe: ramp("#6a4a8a", { lo: "#1a0a2a" }), inner: PAL.gold, trim: PAL.gold, sash: PAL.gold, skin: ramp("#c8b8b0"), hair: PAL.hairGrey, beard: PAL.hairGrey, hairStyle: "topknot", hat: "scholar", hatRamp: PAL.gold, weapon: "fan", weaponRamp: PAL.gold, glowEyes: "#f6a6c9", scale: 1.22, flare: 6.4, hunch: 0.06 }),
 } satisfies Record<string, HumanStyle>;
 
 export type HumanId = keyof typeof STYLES;
@@ -1279,6 +1413,9 @@ export const OUTFITS: Partial<Record<HumanId, Record<string, Partial<HumanStyle>
     daomantle: { robe: ramp("#2a3a4a", { lo: "#0a1018" }), inner: PAL.jade, trim: PAL.gold, sash: PAL.jade, shoes: PAL.black, shawl: undefined, cape: ramp("#e8e0c8", { lo: "#4a4030" }), hat: "crown", hatRamp: PAL.jade, flare: 5.4 },
     clearsnow: { robe: ramp("#ffffff", { lo: "#6a7a9a" }), inner: ramp("#bfe8ff"), trim: ramp("#9ff5de"), sash: ramp("#9ff5de"), shoes: PAL.white, hat: "veil", hatRamp: ramp("#f0f8ff"), shawl: ramp("#e8f6ff", { lo: "#5a7a9a" }), flare: 6, hem: 1.8 },
     hollowrobe: { robe: ramp("#e8e4f0", { lo: "#3a3450" }), inner: PAL.black, trim: ramp("#b8a8e8"), sash: PAL.black, shoes: PAL.black, shawl: undefined, cape: ramp("#2a2440", { lo: "#000000" }), glowEyes: "#e8e0ff", flare: 6 },
+    outerrobe: { robe: ramp("#c8ccd4", { lo: "#4a4a5a" }), inner: PAL.azure, trim: PAL.azure, sash: PAL.navy, shoes: PAL.black, shawl: undefined, cape: undefined, hat: "none", flare: 4.8, hem: 3.8 },
+    innerrobe: { robe: ramp("#2a4a8a", { lo: "#0a1430" }), inner: PAL.white, trim: ramp("#9ff5de"), sash: PAL.gold, shoes: PAL.black, shawl: ramp("#c8e8ff", { lo: "#3a5a8a" }), hat: "crown", hatRamp: PAL.jade, flare: 5.4 },
+    tenhalls: { robe: ramp("#f4f0ff", { lo: "#5a5480" }), inner: ramp("#6ab8f0"), trim: ramp("#f2c55c"), sash: ramp("#b8a4ff"), shoes: PAL.white, shawl: ramp("#e8e0ff", { lo: "#4a4470" }), hat: "veil", hatRamp: ramp("#f8f4ff"), flare: 6, hem: 1.8 },
   },
   zhou: { festival: { robe: PAL.red, inner: PAL.gold, trim: PAL.gold, sash: PAL.gold, hatRamp: PAL.red } },
   hua: { festival: { robe: ramp("#c04a6a"), inner: PAL.gold, trim: PAL.gold, sash: PAL.gold, shawl: FESTIVAL_SHAWL } },
@@ -1317,7 +1454,7 @@ export type MountId = "rider";
 export type CharId = HumanId | BeastId | MountId;
 
 const HUMAN_ANIMS: Record<HumanId, AnimId[]> = {
-  heroine: ["idle", "walk", "run", "talk", "attack", "cast", "hurt", "meditate", "fly", "victory", "defeat", "bow", "gather", "stretch", "look", "wave", "drink", "cheer", "point", "nod", "read", "sit", "pray", "clap", "laugh", "flute", "salute", "twirl", "write", "taichi", "kick", "umbrella", "eat", "torch", "kowtow", "sworddance", "flame", "sweep", "rake", "plant", "snowball", "kite", "shiver", "warmhands", "yawn", "stargaze", "offer", "think", "shrug", "cry", "levitate", "roar", "plantsword", "rally", "banner", "bandage", "grieve", "horn", "comprehend", "domain", "firecracker", "acrobat", "liondance", "xiangqi", "row"],
+  heroine: ["idle", "walk", "run", "talk", "attack", "cast", "hurt", "meditate", "fly", "victory", "defeat", "bow", "gather", "stretch", "look", "wave", "drink", "cheer", "point", "nod", "read", "sit", "pray", "clap", "laugh", "flute", "salute", "twirl", "write", "taichi", "kick", "umbrella", "eat", "torch", "kowtow", "sworddance", "flame", "sweep", "rake", "plant", "snowball", "kite", "shiver", "warmhands", "yawn", "stargaze", "offer", "think", "shrug", "cry", "levitate", "roar", "plantsword", "rally", "banner", "bandage", "grieve", "horn", "comprehend", "domain", "firecracker", "acrobat", "liondance", "xiangqi", "row", "spar", "tiptoe", "token", "scrub", "bucket", "pillow", "pant", "climb", "brew", "hammer", "carry", "sleep"],
   elder: ["idle", "walk", "talk", "cast", "sweep", "bow", "wave", "nod", "read", "salute", "write", "taichi", "sworddance", "offer", "think", "shrug", "cry", "plantsword", "attack", "hurt", "defeat"],
   qing: ["idle", "walk", "talk", "bow", "wave", "nod", "cheer", "clap", "pour", "salute"],
   abao: ["idle", "walk", "run", "talk", "practice", "wave", "cheer", "laugh", "clap", "juggle", "salute", "kick", "snowball", "kite", "yawn", "shiver", "cry", "shrug"],
@@ -1414,6 +1551,34 @@ const HUMAN_ANIMS: Record<HumanId, AnimId[]> = {
   liondancer: ["idle", "walk", "talk", "liondance", "drum", "cheer", "bow", "laugh", "acrobat", "wave"],
   acrobat: ["idle", "walk", "run", "talk", "acrobat", "juggle", "twirl", "bow", "cheer", "laugh", "wave", "kick"],
   merchant: ["idle", "walk", "talk", "abacus", "hawk", "nod", "bow", "laugh", "point", "fan", "think", "shrug"],
+  wdherald: ["idle", "walk", "talk", "hawk", "bow", "point", "wave", "lecture"],
+  yanshu: ["idle", "walk", "talk", "write", "read", "nod", "bow", "think", "point", "attack", "cast", "hurt", "defeat", "kowtow", "cry", "levitate"],
+  steward: ["idle", "walk", "talk", "sweep", "nod", "point", "bucket", "yawn", "think", "shrug", "cry", "lecture"],
+  fanyu: ["idle", "walk", "talk", "nod", "point", "read", "write", "salute", "bow", "spar", "abacus"],
+  outerM: ["idle", "walk", "talk", "bow", "salute", "spar", "bucket", "scrub", "sweep", "carry", "read", "taichi", "tiptoe", "pant", "token", "attack", "hurt", "defeat", "pillow", "climb"],
+  outerF: ["idle", "walk", "talk", "bow", "salute", "spar", "bucket", "scrub", "sweep", "carry", "read", "taichi", "tiptoe", "pant", "token", "pillow", "climb"],
+  shenbai: ["idle", "walk", "talk", "sit", "hoe", "laugh", "pant", "bucket", "salute", "sleep", "eat", "cry", "nod", "pillow", "spar", "tiptoe", "climb"],
+  yaozhi: ["idle", "walk", "talk", "read", "write", "fan", "laugh", "think", "shrug", "salute", "pillow", "spar", "token", "tiptoe"],
+  tieniu: ["idle", "walk", "talk", "eat", "carry", "laugh", "salute", "cry", "sleep", "bucket", "pillow", "climb", "pant", "spar"],
+  meilan: ["idle", "walk", "talk", "write", "read", "nod", "think", "cry", "token", "pillow", "tiptoe", "sleep"],
+  qiu: ["idle", "walk", "run", "talk", "pillow", "cry", "laugh", "cheer", "kite", "salute", "tiptoe", "token", "sleep", "pant", "climb"],
+  murong: ["idle", "walk", "talk", "attack", "cast", "hurt", "defeat", "spar", "salute", "bow", "laugh", "shrug", "think", "bucket", "kowtow"],
+  hmwater: ["idle", "walk", "talk", "lecture", "pour", "nod", "bow", "meditate", "comprehend", "think"],
+  hmwood: ["idle", "walk", "talk", "lecture", "plant", "rake", "nod", "bow", "point", "comprehend"],
+  hmwind: ["idle", "walk", "attack", "cast", "hurt", "defeat", "talk", "kowtow", "lecture", "laugh", "twirl", "acrobat", "kite", "point", "levitate"],
+  hmfire: ["idle", "walk", "talk", "lecture", "brew", "flame", "point", "nod", "laugh"],
+  hmearth: ["idle", "walk", "talk", "lecture", "carry", "nod", "mine", "salute"],
+  hmmetal: ["idle", "walk", "attack", "cast", "hurt", "defeat", "talk", "kowtow", "lecture", "hammer", "nod", "salute", "plantsword", "sworddance"],
+  hmthunder: ["idle", "walk", "talk", "lecture", "salute", "nod", "point", "cast", "spear"],
+  hmice: ["idle", "walk", "talk", "lecture", "read", "write", "nod", "think", "comprehend"],
+  hmlife: ["idle", "walk", "talk", "lecture", "bandage", "brew", "pray", "nod", "cry"],
+  ning: ["idle", "walk", "talk", "meditate", "levitate", "comprehend", "bow", "cry", "nod", "lecture"],
+  blight: ["idle", "walk", "attack", "cast", "hurt", "defeat", "talk", "kowtow", "levitate"],
+  furnacespirit: ["idle", "walk", "attack", "cast", "hurt", "defeat", "talk", "kowtow", "flame", "roar"],
+  golem: ["idle", "walk", "attack", "cast", "hurt", "defeat", "talk", "kowtow", "roar"],
+  enforcer: ["idle", "walk", "attack", "cast", "hurt", "defeat", "talk", "kowtow", "point", "salute"],
+  frostwarden: ["idle", "walk", "attack", "cast", "hurt", "defeat", "talk", "kowtow", "levitate"],
+  murongelder: ["idle", "walk", "attack", "cast", "hurt", "defeat", "talk", "kowtow", "fan", "laugh", "cry"],
 };
 
 const NAMES: Record<CharId, [string, string]> = {
@@ -1514,6 +1679,34 @@ const NAMES: Record<CharId, [string, string]> = {
   liondancer: ["Lion Dancer", "Hailing's Dragon-and-Lion Troupe"],
   acrobat: ["Acrobat", "Street Performer of Hailing"],
   merchant: ["Merchant", "Moneychanger of the Port"],
+  wdherald: ["Herald of the Ten Halls", "The Sect of Ten Thousand Daos"],
+  yanshu: ["Yan Shu", "Examiner of the Ten Halls"],
+  steward: ["Steward Gou", "Keeper of the Outer Court"],
+  fanyu: ["Fan Yu", "Senior Sister of the Mission Hall"],
+  outerM: ["Outer Disciple", "The Ten Halls"],
+  outerF: ["Outer Disciple", "The Ten Halls"],
+  shenbai: ["Shen Bai", "Room Seven"],
+  yaozhi: ["Yao Zhi", "Room Seven"],
+  tieniu: ["Tie Niu", "Room Seven"],
+  meilan: ["Mei Lan", "Room Seven"],
+  qiu: ["Little Qiu", "Room Seven"],
+  murong: ["Murong Xiao", "Young Master of the Murong Clan"],
+  hmwater: ["Lan Yi", "Master of the Hall of Still Water"],
+  hmwood: ["Gu Song", "Master of the Hall of the Old Pine"],
+  hmwind: ["Feng Qi", "Master of the Hall With No Walls"],
+  hmfire: ["Zhu Yan", "Master of the Hall of the Red Furnace"],
+  hmearth: ["Hou Tu", "Master of the Hall of Bearing"],
+  hmmetal: ["Jin Ge", "Master of the Hall of the Edge"],
+  hmthunder: ["Lei Ting", "Master of the Hall of Discipline"],
+  hmice: ["Han Shuang", "Keeper of the Library of Frozen Words"],
+  hmlife: ["Wen Ru", "Keeper of the Ward of Long Sleep"],
+  ning: ["Ning Wuhen", "Master of the Hall of the Void"],
+  blight: ["Blighted Wisteria", "A Tree Spirit Drunk Dry"],
+  furnacespirit: ["Furnace Spirit", "The Great Furnace of the Red Hall"],
+  golem: ["Tunnel Warden", "Guardian of the Founder's Cellars"],
+  enforcer: ["Captain Kui", "Enforcer of the Ten Halls"],
+  frostwarden: ["Frost Warden", "Guardian of the Frozen Words"],
+  murongelder: ["Murong Hong", "Uncle of the Murong Clan"],
   fox: ["Fox Spirit", "Corrupted Beast"],
   wolf: ["Shadowflame Wolf", "Corrupted Beast"],
   serpent: ["Jade Serpent", "Lake Beast"],

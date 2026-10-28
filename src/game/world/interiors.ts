@@ -5,6 +5,7 @@ import { toCoarse } from "./layout";
 import { buildingTiles, magnifyBuilding } from "./magnify";
 import { TileMap, type TileKind } from "./tilemap";
 import type { CaveId } from "./caves";
+import { DORM_AT, HALL_CAST, ROOM_SEVEN, ROOMMATES } from "./halls";
 
 /**
  * The buildings the heroine can step inside. Each interior is a small
@@ -18,7 +19,7 @@ import type { CaveId } from "./caves";
  * same tile row or column as the building's front door.
  */
 
-export const INTERIOR_IDS = ["hall", "cottage", "teahouse", "mill", "pagoda"] as const;
+export const INTERIOR_IDS = ["hall", "cottage", "teahouse", "mill", "pagoda", "dorm"] as const;
 export type InteriorId = (typeof INTERIOR_IDS)[number];
 
 export interface InteriorDef extends AreaDef {
@@ -309,7 +310,47 @@ function buildPagoda(): InteriorDef {
   });
 }
 
-const BUILDERS: Record<InteriorId, () => InteriorDef> = { hall: buildHall, cottage: buildCottage, teahouse: buildTeahouse, mill: buildMill, pagoda: buildPagoda };
+// ----------------------------------------------------------------------------- Room Seven of the Ten Halls' Outer Court
+function buildDorm(): InteriorDef {
+  // 8 × 8 tiles inside and out: six bunks, one table, one lamp, and a window that does not quite shut
+  const b = building("house", 4, DORM_AT);
+  const m = room(b, "wood", [[4, 0], [0, 3]]);
+  m.rect(3, 4, 5, 5, "rug");
+  return interior({
+    key: "dorm",
+    name: "Room Seven",
+    hanzi: "东舍七号",
+    subtitle: "Six bunks in the Outer Court of the Ten Halls",
+    building: b,
+    map: m,
+    inward: [-1, 0],
+    night: 0.5,
+    props: [
+      P("bunkbed", 1, 1),
+      P("bunkbed", 5, 1),
+      P("bunkbed", 1, 7),
+      P("lampstand", 3, 1),
+      P("chest", 7, 1),
+      P("shelfX", 1, 4),
+      P("table", 4, 4),
+      P("cushion", 3, 5),
+      P("vase", 7, 7),
+      P("sacks", 4, 7),
+    ],
+    npcs: ROOMMATES.map((key) => {
+      const r = ROOM_SEVEN[key];
+      // each of them is here once she has her bunk, and not while they are missing from the room
+      return { key, name: HALL_CAST[key].name, char: HALL_CAST[key].char, i: r.at[0], j: r.at[1], dir: r.dir, anim: r.anim, when: (f: Record<string, boolean>) => !!f["halls:joined"] && !f[`halls:away:${key}`] };
+    }),
+    interacts: [
+      { key: "dorm-bunk", kind: "sign", i: 6, j: 1, anim: "sleep", text: "The bunk by the window: the coldest in Room Seven. Carved small on the underside of the slats, worn almost smooth: 清雪, Clear Snow. Beside it, in another hand: “Lian Qingxue slept here one winter and snored. — her roommate.” You lie down for a moment and listen to the window whistle." },
+      { key: "dorm-rota", kind: "sign", i: 1, j: 4, text: "The Outer Court's rules, pinned to the shelf in Steward Gou's square hand: “Curfew at the second watch. Hot water before dawn. No cooking in the rooms (Tie Niu). No kites on the roof (Qiu). No silk on the washing line (Yao Zhi). Bunks marked ‘away’ are not to be touched by ANYONE.”" },
+      { key: "dorm-chest", kind: "chest", i: 7, j: 1 },
+    ],
+  });
+}
+
+const BUILDERS: Record<InteriorId, () => InteriorDef> = { hall: buildHall, cottage: buildCottage, teahouse: buildTeahouse, mill: buildMill, pagoda: buildPagoda, dorm: buildDorm };
 const cache = new Map<InteriorId, InteriorDef>();
 
 /** Build (once) and return an interior. */

@@ -314,6 +314,45 @@ const road: [CharId, AnimId, string?][] = [
   ["heroine", "liondance", "daomantle"],
 ];
 writeGif("road-moves.gif", showcase(road.map(([id, anim, outfit]): Cell => ({ id, anim, dir: 1, label: `${charDef(id).name.split(" ").pop()} ${anim}`, outfit })), 7, 2, seconds), 12);
+// the Ten Halls: the hopefuls at the gate, an outer disciple's days, Room Seven after curfew, the hall masters and the halls' troubles
+const halls: [CharId, AnimId, string?][] = [
+  ["heroine", "tiptoe"],
+  ["heroine", "climb"],
+  ["heroine", "pant"],
+  ["heroine", "token", "outerrobe"],
+  ["heroine", "spar", "outerrobe"],
+  ["heroine", "scrub", "outerrobe"],
+  ["heroine", "bucket", "outerrobe"],
+  ["heroine", "pillow", "innerrobe"],
+  ["heroine", "comprehend", "tenhalls"],
+  ["shenbai", "pant"],
+  ["yaozhi", "fan"],
+  ["tieniu", "carry"],
+  ["meilan", "write"],
+  ["qiu", "pillow"],
+  ["murong", "spar"],
+  ["steward", "sweep"],
+  ["yanshu", "write"],
+  ["hmwater", "lecture"],
+  ["hmwind", "acrobat"],
+  ["hmfire", "brew"],
+  ["hmearth", "carry"],
+  ["hmmetal", "hammer"],
+  ["hmthunder", "lecture"],
+  ["hmice", "read"],
+  ["hmlife", "bandage"],
+  ["ning", "levitate"],
+  ["outerM", "scrub"],
+  ["outerF", "bucket"],
+  ["blight", "attack"],
+  ["furnacespirit", "flame"],
+  ["golem", "roar"],
+  ["enforcer", "attack"],
+  ["frostwarden", "levitate"],
+  ["murongelder", "cast"],
+  ["yanshu", "cast"],
+];
+writeGif("halls-moves.gif", showcase(halls.map(([id, anim, outfit]): Cell => ({ id, anim, dir: 1, label: `${charDef(id).name.split(" ").pop()} ${anim}`, outfit })), 7, 2, seconds), 12);
 
 
 // 2. Portraits
@@ -378,6 +417,31 @@ writePng(pb.scaled(2), path.join(OUT, "portraits.png"));
     frames.push(buf);
   }
   writeGif("road-props.gif", frames, 10);
+}
+// the Ten Halls' court and Room Seven
+{
+  const ids: PropId[] = ["affinitystone", "tenlamps", "voiddoor", "gong", "missionboard", "bunkbed"];
+  const cols = 6;
+  const cw = 132;
+  const ch = 140;
+  const frames: PixelBuffer[] = [];
+  for (let i = 0; i < seconds * 10; i++) {
+    const t = i / 10;
+    const buf = new PixelBuffer(cols * cw, Math.ceil(ids.length / cols) * ch);
+    buf.fill(BG);
+    const s = new BufferSurface(buf);
+    ids.forEach((id, k) => {
+      const sheet = getProp(id);
+      const x = (k % cols) * cw;
+      const y = Math.floor(k / cols) * ch;
+      buf.rect(x + 1, y + 1, cw - 2, ch - 2, CELL_BG);
+      const fr = sheet.frames[Math.floor(t * sheet.fps) % sheet.frames.length];
+      buf.blit(fr, x + cw / 2 - sheet.ox, y + ch - 14 - Math.max(0, fr.height - sheet.oy) - sheet.oy);
+      drawText(s, id.toUpperCase(), x + (cw - textWidth(id.toUpperCase())) / 2, y + ch - 9, "#f2c55c");
+    });
+    frames.push(buf);
+  }
+  writeGif("halls-props.gif", frames, 10);
 }
 
 function half(b: PixelBuffer): PixelBuffer {

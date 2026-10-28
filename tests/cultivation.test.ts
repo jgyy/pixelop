@@ -7,6 +7,7 @@ import { conditionAside, heartDemonTrial, pointerAside, realmAside, trialDue } f
 import { townNpcScript } from "@/game/story/town";
 import { tideNpcScript } from "@/game/story/tide";
 import { roadNpcScript } from "@/game/story/road";
+import { hallsNpcScript } from "@/game/story/halls";
 import { getWorld } from "@/game/world/continent";
 import { Game } from "@/game/runtime/Game";
 import type { Choice, Step } from "@/game/story/script";
@@ -137,7 +138,7 @@ describe("the jianghu answers her cultivation", () => {
     const failed = failTribulation(at(1), stats(at(1)));
     expect(townNpcScript("fortune", failed)!.some((s) => "say" in s && /threw you down/.test(s.text))).toBe(true);
     // every townsperson of the new lands has something of their own to say
-    for (const n of getWorld().npcs.filter((x) => x.j > 464 * 2)) expect(townNpcScript(n.key, newGame()) ?? tideNpcScript(n.key, newGame()) ?? roadNpcScript(n.key, newGame()), n.key).not.toBeNull();
+    for (const n of getWorld().npcs.filter((x) => x.j > 464 * 2)) expect(townNpcScript(n.key, newGame()) ?? tideNpcScript(n.key, newGame()) ?? roadNpcScript(n.key, newGame()) ?? hallsNpcScript(n.key, newGame()), n.key).not.toBeNull();
   });
 });
 

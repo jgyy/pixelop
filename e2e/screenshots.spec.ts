@@ -1470,3 +1470,167 @@ test("capture the Founder's Road, the Great Daos and the Tidewater Reach", async
   await page.waitForTimeout(2200);
   await shot(page, "186-the-dao-eater");
 });
+
+test("capture the Ten Halls", async ({ page }) => {
+  test.setTimeout(600_000);
+  const quiet = () => page.evaluate(() => ((window.__pixelop!.game as unknown as { toasts: unknown[] }).toasts = []));
+  const settle = async (ms = 2400) => {
+    await page.waitForTimeout(ms);
+    if ((await mode(page)) === "scene") await skipScene(page);
+    await quiet();
+  };
+  const noon = () => page.evaluate(() => window.__pixelop!.game.debugSetTime(0.06, "spring"));
+  const dialogHas = (t: string) => async () => ((await page.evaluate(() => document.querySelector("[data-testid=dialog]")?.textContent ?? "")) as string).includes(t);
+  const enterUntil = async (pred: () => Promise<boolean>, max = 40) => {
+    for (let i = 0; i < max && !(await pred()); i++) {
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(160);
+    }
+    await page.waitForTimeout(900);
+  };
+  const choiceUp = () => page.getByTestId("choice").isVisible();
+  const talk = async (key: string, until: () => Promise<boolean>) => {
+    await standBy(page, key);
+    await page.waitForTimeout(700);
+    await page.keyboard.press("KeyE");
+    await enterUntil(until, 30);
+  };
+  const finish = async () => {
+    for (let i = 0; i < 80 && (await mode(page)) === "scene"; i++) {
+      if (await choiceUp()) await page.getByTestId("choice-0").click({ timeout: 3000 }).catch(() => page.keyboard.press("Enter"));
+      else await page.keyboard.press("Enter");
+      await page.waitForTimeout(140);
+    }
+    await quiet();
+  };
+  /** Put the Ten Halls at quest n, with her realm where it asks. */
+  const hallsAt = async (n: number, level: number, wu: Record<string, number> = {}) => {
+    const realm = Math.min(4, Math.floor(level / 4));
+    await page.evaluate(
+      ([n, realm, stage, wu]) => {
+        const g = window.__pixelop!.game;
+        const counters: Record<string, number> = { ...g.state.counters, halls: n as number, hallsp: 0 };
+        for (const [k, v] of Object.entries(wu as Record<string, number>)) counters[`wu:${k}`] = v;
+        g.debugPatch({ counters, realm: realm as number, stage: stage as number });
+      },
+      [n, realm, level - realm * 4, wu] as const,
+    );
+    await page.waitForTimeout(900);
+  };
+  const open = { metElder: true, villageSaved: true, villageArrived: true, metZhou: true, foxesCleared: true, bambooArrived: true, metHuli: true, metWen: true, terracesArrived: true, marshArrived: true };
+  /** Strike until the bout is won, but never press a key once it is (the same key would answer the question that follows). */
+  const winBout = async () => {
+    for (let i = 0; i < 12 && (await mode(page)) === "battle"; i++) {
+      const done = await page.evaluate(() => !!(window.__pixelop!.game as unknown as { battle: { result?: string } | null }).battle?.result);
+      if (!done) await page.keyboard.press("Digit1");
+      await page.waitForTimeout(900);
+    }
+  };
+
+  await startNewGame(page);
+  await patch(page, { flags: open, realm: 0, stage: 2, hp: 200, qi: 120 });
+  await noon();
+
+  // the herald on Willow Creek's market road
+  await talk("wd-herald", dialogHas("Ten thousand come"));
+  await shot(page, "188-the-herald-of-the-ten-halls");
+  await finish();
+  // ten thousand at the gate
+  await goto(page, 189 * 2 + 0.5, 466 * 2 + 0.5);
+  await settle(3200);
+  await shot(page, "189-ten-thousand-at-the-gate");
+  await talk("wd-yanshu", choiceUp);
+  await shot(page, "190-the-gate-of-equal-footing");
+  await finish();
+  await talk("wdf-tieniu", choiceUp);
+  await shot(page, "191-the-stair-of-asking-heart");
+  await finish();
+  await talk("wdf-yaozhi", dialogHas("clear bit"));
+  await shot(page, "192-the-stone-of-affinity");
+  await finish();
+  await talk("wdf-shenbai", choiceUp);
+  await finish();
+  await talk("wdf-murong", choiceUp);
+  await shot(page, "193-the-ring-of-three-hundred");
+  await finish();
+  await talk("wd-hm-water", choiceUp);
+  await shot(page, "194-the-final-question");
+  await finish();
+  await talk("wd-gou", dialogHas("East row, Room Seven"));
+  await shot(page, "195-steward-gou-assigns-room-seven");
+  await finish();
+  await settle(1500);
+
+  // Room Seven, the five who share it, and the founder's bunk
+  await page.evaluate(() => window.__pixelop!.game.debugEnter("dorm"));
+  await page.waitForTimeout(1800);
+  await quiet();
+  await shot(page, "196-room-seven");
+  await standBy(page, "wd-meilan");
+  await page.waitForTimeout(500);
+  await page.keyboard.press("KeyE");
+  await enterUntil(dialogHas("snored"), 40);
+  await shot(page, "197-the-founders-bunk");
+  await finish();
+  await page.evaluate(() => window.__pixelop!.game.world.placeHero(5.5, 7.5, 0));
+  await page.waitForTimeout(600);
+  await page.keyboard.press("KeyE");
+  await enterUntil(choiceUp, 30);
+  await shot(page, "198-little-qiu-is-twelve");
+  await finish();
+
+  // the court of the Ten Halls, a lecture, a bout in the ring
+  await goto(page, 158 * 2 + 0.5, 459 * 2 + 0.5);
+  await settle(3000);
+  await shot(page, "199-the-court-of-the-ten-halls");
+  await page.evaluate(() => window.__pixelop!.game.debugBattle("wdspar", "wd-spar-0"));
+  await page.waitForTimeout(2400);
+  await shot(page, "200-a-bout-in-the-ring");
+  await page.evaluate(() => {
+    const g = window.__pixelop!.game as unknown as { battle: { battle: { enemyHp: number } } | null };
+    if (g.battle) g.battle.battle.enemyHp = 1;
+  });
+  await winBout();
+  await finish();
+
+  // a hall's tale: the Hall of the Old Pine's blighted wisteria, and what becomes of it
+  await hallsAt(190, 6, { wood: 12 });
+  await talk("wd-hm-wood", dialogHas("drunk the wisteria dry"));
+  await shot(page, "201-the-blight-wakes");
+  await finish();
+  await hallsAt(199, 6, { wood: 12 });
+  await settle(1500);
+  await page.evaluate(() => window.__pixelop!.game.debugBattle("wdblight", "wdboss-1"));
+  await page.waitForTimeout(2600);
+  await shot(page, "202-blight-of-the-thousand-year-wisteria");
+  await page.evaluate(() => {
+    const g = window.__pixelop!.game as unknown as { battle: { battle: { enemyHp: number } } | null };
+    if (g.battle) g.battle.battle.enemyHp = 1;
+  });
+  await winBout();
+  // wait for the question without pressing anything (a key pressed now would answer it)
+  for (let i = 0; i < 40 && !(await choiceUp()); i++) await page.waitForTimeout(250);
+  await page.waitForTimeout(600);
+  await shot(page, "203-what-becomes-of-the-blight");
+  await finish();
+
+  // the journal's Ten Halls page
+  await settle(1500);
+  await page.keyboard.press("KeyJ");
+  await page.waitForTimeout(900);
+  await page.evaluate(() => document.querySelector("[data-testid=journal-halls]")?.scrollIntoView());
+  await page.waitForTimeout(600);
+  await shot(page, "204-journal-the-ten-halls");
+  await page.keyboard.press("KeyJ");
+
+  // the Sealed Hall of the Void at the last, and Ning Wuhen holding the door
+  await hallsAt(998, 17, { void: 24 });
+  await page.evaluate(() => window.__pixelop!.game.debugSetTime(0.45, "winter"));
+  await settle(1500);
+  await talk("wd-ning", dialogHas("He is here"));
+  await shot(page, "205-ning-wuhen-holds-the-door");
+  await finish();
+  await page.evaluate(() => window.__pixelop!.game.debugBattle("wdyanshu", "wdboss-9"));
+  await page.waitForTimeout(2600);
+  await shot(page, "206-yan-shu-the-examiner");
+});

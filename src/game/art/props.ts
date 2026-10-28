@@ -2880,6 +2880,128 @@ const PROPS = {
       r.sphere([gx + 2, gy - 1, 1.6], 0.9, m(tones("#ffffff", "#ffffff", "#e8f6ff", "#c8e0f0"), 4, { outline: undefined }));
     },
   },
+  // the Ten Halls' Stone of Affinity: a great egg of pale stone on a lotus plinth, its heart glowing through the colours of the ten Great Daos in turn
+  affinitystone: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 10,
+    fps: 3,
+    light: { color: "#bfe8ff", radius: 30, dy: 18 },
+    emit: "sparkle",
+    paint: (r, f) => {
+      const hues = ["#6ab8f0", "#7ad07a", "#c8f0e8", "#ff8a3a", "#c8a060", "#d8e0f0", "#b8a4ff", "#bfe8ff", "#f6a6c9", "#ffffff"];
+      const glow = tones("#ffffff", hues[f], hues[f], "#4a4a6a");
+      r.prism(0, 0, 9, 0, 3, 8, m(PAL.stone, 1));
+      for (let k = 0; k < 8; k++) {
+        const a = (k / 8) * TAU;
+        r.ellipsoid([Math.cos(a) * 6.4, Math.sin(a) * 6.4, 4], [3, 3, 1.4], m(tones("#fff6fa", "#e8d8f0", "#b8a8d0", "#5a4a7a"), 2));
+      }
+      // veins of light run round the stone, lit in the colour of whichever Dao it is thinking of
+      r.ellipsoid([0, 0, 15], [7, 7, 11], md(ramp("#e8e4ec", { lo: "#5a5470" }), 3, { shader: (sf, tone) => (Math.sin(sf.p[2] * 1.3 + Math.atan2(sf.p[1], sf.p[0]) * 2) > 0.72 ? tone(glow, -1) : tone(ramp("#e8e4ec", { lo: "#5a5470" }))) }));
+      r.sphere([0, 0, 27.4], 1.8, m(glow, 4, { outline: undefined }));
+    },
+  },
+  // a two-tier bunk of plain pine for the Outer Court's dormitories: a straw mattress and a quilt on each tier, a ladder up the end
+  bunkbed: {
+    foot: [0, 0, 1, 0],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      const pine = ramp("#b88a5a", { lo: "#3a2414" });
+      for (const x of [-10, T + 10]) for (const y of [-9, 9]) r.box([x - 1.2, y - 1.2, 0], [x + 1.2, y + 1.2, 30], m(pine, 1));
+      for (const z of [7, 21]) {
+        r.box([-10, -9, z], [T + 10, 9, z + 2], md(pine, 2));
+        r.box([-9, -8, z + 2], [T + 8, 8, z + 4], m(PAL.straw, 3));
+        r.ellipsoid([-5, 0, z + 5], [3, 5, 1.6], m(PAL.paper, 4));
+        r.box([-1, -8.4, z + 4], [T + 8, 8.4, z + 5.6], m(ramp(z < 10 ? "#5a7aa8" : "#a85a6a"), 5, { shader: (s, tone) => (Math.sin(s.p[0] * 0.9) > 0.7 ? tone(PAL.white) : tone(ramp(z < 10 ? "#5a7aa8" : "#a85a6a"))) }));
+      }
+      for (let z = 4; z < 28; z += 4) r.sweep([[T + 12, -4, z], [T + 12, 4, z]], 0.5, m(pine, 6));
+      r.sweep([[T + 12, -4, 0], [T + 12, -4, 30]], 0.6, m(pine, 6));
+      r.sweep([[T + 12, 4, 0], [T + 12, 4, 30]], 0.6, m(pine, 6));
+    },
+  },
+  // the Mission Hall's board: a roofed notice board crowded with slips of paper that flutter in the breeze
+  missionboard: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 6,
+    fps: 5,
+    paint: (r, f, n) => {
+      for (const x of [-11, 11]) r.box([x - 1.2, -1.2, 0], [x + 1.2, 1.2, 30], m(PAL.woodDark, 1));
+      r.box([-11, -1, 8], [11, 1, 28], m(PAL.wood, 2));
+      r.hipRoof(0, 0, 14, 5, 30, 7, 0.5, 35, md(ROOF_TEAL, 3, { shader: roofTiles(ROOF_TEAL) }));
+      for (let k = 0; k < 12; k++) {
+        const x = -8.6 + (k % 6) * 3.4;
+        const z = 24 - Math.floor(k / 6) * 9;
+        const flap = Math.sin((f / n) * TAU + k * 1.7);
+        r.sweep([[x, -1.4, z], [x + flap * 0.8, -1.6 - Math.abs(flap) * 2.4, z - 6]], 1.1, m(k % 4 === 1 ? PAL.red : PAL.paper, 4));
+      }
+    },
+  },
+  // a bronze gong in a red frame, shivering after it is struck, its hammer hanging beside it
+  gong: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 8,
+    fps: 8,
+    paint: (r, f, n) => {
+      for (const x of [-10, 10]) r.box([x - 1.2, -1.2, 0], [x + 1.2, 1.2, 32], m(PILLAR, 1));
+      r.box([-12, -1.4, 31], [12, 1.4, 34], m(PILLAR, 2));
+      const shiver = f < n / 2 ? Math.sin(f * 3) * 0.6 * (1 - f / (n / 2)) : 0;
+      r.sweep([[-4, 0, 31], [-4, shiver, 26]], 0.3, m(PAL.black, 3));
+      r.sweep([[4, 0, 31], [4, shiver, 26]], 0.3, m(PAL.black, 3));
+      r.ellipsoid([0, shiver, 17], [8.6, 1.4, 8.6], md(BRONZE, 4, { shader: (s, tone) => (Math.abs(Math.hypot(s.p[0], s.p[2] - 17) - 5) < 0.6 ? tone(BRONZE, 1) : Math.hypot(s.p[0], s.p[2] - 17) < 2 ? tone(PAL.gold, -1) : tone(BRONZE)) }));
+      r.sweep([[12, -3, 18], [12, -3, 4]], 0.7, m(PAL.wood, 5));
+      r.sphere([12, -3, 3.4], 1.8, m(PAL.red, 5));
+    },
+  },
+  // a bronze lamp-tree with ten flames, one in the colour of each Great Dao; the tenth burns clear, and sometimes not at all
+  tenlamps: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 8,
+    fps: 6,
+    light: { color: "#ffd890", radius: 36, dy: 30 },
+    paint: (r, f, n) => {
+      const hues = ["#6ab8f0", "#7ad07a", "#c8f0e8", "#ff8a3a", "#c8a060", "#d8e0f0", "#b8a4ff", "#bfe8ff", "#f6a6c9", "#ffffff"];
+      r.prism(0, 0, 7, 0, 3, 8, m(PAL.stone, 1));
+      r.sweep([[0, 0, 3], [0, 0, 34]], 1.4, md(BRONZE, 2));
+      for (let k = 0; k < 10; k++) {
+        const a = (k / 10) * TAU;
+        const z = 14 + (k % 3) * 7;
+        const tip: V3 = [Math.cos(a) * 9, Math.sin(a) * 9, z];
+        r.sweep([[0, 0, z - 4], tip], 0.5, m(BRONZE, 3));
+        r.cone(tip[0], tip[1], 1.6, z, 2.2, z + 1.4, 8, m(BRONZE, 3));
+        const flick = Math.sin((f / n) * TAU * 2 + k * 1.3);
+        if (k === 9 && f % 4 === 1) continue;
+        r.ellipsoid([tip[0], tip[1], z + 3 + flick * 0.4], [1, 1, 2 + flick * 0.4], m(tones("#ffffff", hues[k], hues[k], "#5a4a3a"), 4 + k, { outline: undefined }));
+      }
+      r.sphere([0, 0, 36], 2, m(PAL.gold, 15));
+    },
+  },
+  // the round door of the Sealed Hall of the Void: black stone carved with a closed eye, bound in chains and talismans, breathing a faint violet light
+  voiddoor: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 8,
+    fps: 4,
+    light: { color: "#c8b8ff", radius: 24, dy: 16 },
+    paint: (r, f, n) => {
+      const pulse = 0.5 + 0.5 * Math.sin((f / n) * TAU);
+      const stone = ramp("#3a3448", { lo: "#0a0810" });
+      r.box([-13, -3, 0], [13, 3, 3], m(PAL.stone, 1));
+      r.ellipsoid([0, 0, 16], [12, 2.4, 13], md(stone, 2, { shader: (s, tone) => {
+        const d = Math.hypot(s.p[0] * 1.4, s.p[2] - 16);
+        if (Math.abs(d - 5) < 0.6 && s.p[2] < 17) return pulse > 0.5 ? "#e8e0ff" : tone(ramp("#8a7ab8"));
+        if (Math.abs(s.p[2] - 16) < 0.5 && Math.abs(s.p[0]) < 4) return tone(ramp("#8a7ab8"));
+        return tone(stone);
+      } }));
+      // chains in an X across the face, and two talismans
+      for (const s of [-1, 1]) r.sweep(spline([[-11 * s, -2.8, 26], [0, -3.4, 16], [11 * s, -2.8, 6]], 4), 0.7, m(PAL.steel, 3, { shader: (sf, tone) => (Math.sin(sf.u * 40) > 0 ? tone(PAL.steel) : tone(PAL.steel, 1)) }));
+      for (const x of [-6, 6]) r.box([x - 1.2, -3.6, 18], [x + 1.2, -3.2, 24 + Math.sin(f + x) * 0.4], m(PAL.paper, 4, { shader: (sf, tone) => (Math.abs(sf.p[0] - x) < 0.3 ? tone(PAL.red) : tone(PAL.paper)) }));
+    },
+  },
 } satisfies Record<string, PropDef>;
 
 const BRICK2 = ramp("#8a5a4a", { lo: "#2a1410" });

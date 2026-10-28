@@ -811,6 +811,101 @@ flowchart LR
 - **Who taught the Khan to eat demon cores?** The war never said. Wei Kongming did. Ashina remembers a silver-haired man in the Khan's tent the winter before the first core, Qingxu finds steppe felt in a stele's dust, and the Dao-Eater mentions his student before their duel.
 - **Passers-by spoke under the wrong name.** When the folk remarked on her cultivation, the line went out under their sprite's default name, so Jinhe's noodle seller (or Hailing's bun seller) spoke as "Cook Pang". It now uses the person's own name.
 
+### The Ten Halls: a thousand more main quests, one tale for each Great Dao
+
+Once in six years the **Sect of Ten Thousand Daos (万道宗)** opens its east gate to anyone under thirty, of any sect or none. Ten thousand come. One hundred stay. Its ten halls each teach one of the Great Daos *from the inside*, and Lin Yue, whatever robe she wore before, leaves it at the gate and queues with everyone else. This is the fifth thread of the main tale: **1000 quests in ten books, one for each hall and its Great Dao**, and every book is its own story told in hand-written beats, with an outer disciple's ordinary life between them.
+
+It begins with a herald on Willow Creek's market road. At the court west of the Great South Road she joins **the ten thousand at the gate**, steps through **the Gate of Equal Footing** (which seals every cultivation, so a Nascent Soul and a farm boy are equal for the Selection), climbs **the Stair of Asking Heart** (every step weighs what you carry in your heart), lays her hand on **the Stone of Affinity** (it glows water-blue, and then, for one breath, something with no colour at all, and the Examiner writes it down), runs three times round the walls before the incense burns out, holds her ground in **the Ring of Three Hundred**, and answers Hall Master Lan Yi's **Final Question**. Then Steward Gou gives her a grey robe, a jade token and a bunk: **Room Seven** of the Outer Court's east row, where carved under the window bunk is *“Lian Qingxue slept here one winter and snored. — her roommate.”*
+
+| Room Seven | |
+| --- | --- |
+| **Shen Bai** | a barefoot farm boy from the riverlands who ran the Selection with his grandfather's hoe |
+| **Yao Zhi** | a merchant's daughter of Jinhe's Golden Pavilion, promised to a man she will not marry |
+| **Tie Niu** | a porter's son who carried a fainting boy up the Stair, and carries everyone since |
+| **Mei Lan** | who writes everything down, and is looking for someone she will not name |
+| **Little Qiu** | who swears he is sixteen (he is twelve), and whose brother passed the Selection six years ago and “went home” and never arrived |
+
+| Hall | Great Dao | Its tale | What she faces at the end |
+| --- | --- | --- | --- |
+| I · 万人叩门 Ten Thousand at the Gate | 水 Water | the Selection, Room Seven, a stolen pill found where water goes | Murong Xiao, in the Outer Court Tournament |
+| II · 古松园 The Old Pine's Garden | 木 Wood | the garden drunk dry from below, ten trees for ten who went home | the Blight of the Thousand-Year Wisteria |
+| III · 无墙之殿 The Hall With No Walls | 风 Wind | Qiu found out and saved as a kite-boy, lights in the Sealed Hall at the third watch | Hall Master Feng Qi (catch the wind) |
+| IV · 泣炉 The Furnace That Wept | 火 Fire | a furnace burst by a void-stone, Tie Niu burned, pills that taste of someone else | the Weeping Furnace Spirit |
+| V · 殿下之土 The Ground Beneath the Halls | 土 Earth | a master who says one word a day, tunnels, a round door with a closed eye, Qiu Feng's sandal | the Warden of the Deep Tunnels |
+| VI · 未竟之剑 The Unfinished Sword | 金 Metal | forging her own blade, a sword promised to a boy who never came for it, words given and kept | Hall Master Jin Ge (the Sword-Naming) |
+| VII · 惩戒崖 The Discipline Cliff | 雷 Thunder | accused of the disappearances, a night on the Thunder Cliff, a paid witness | Enforcer Captain Kui |
+| VIII · 冻字书阁 The Library of Frozen Words | 冰 Ice | records that melt only for those who have decided, Mei Lan's true name, the founder's winter | the Frost Warden of the Library |
+| IX · 长眠之馆 The Ward of Long Sleep | 生死 Life and Death | a sleeping sickness, Shen Bai asleep, Essence Pills made of the sleepers' breath | Murong Hong, who eats them |
+| X · 门中之门 The Gate Within the Gate | 虚空 the Void | Mei Lan “goes home”, the Sect Master's empty chamber, Steward Gou's confession, ten seals | **Yan Shu, the Examiner** |
+
+```mermaid
+flowchart LR
+  H[Herald · Willow Creek] --> G[Ten thousand at the east gate]
+  G --> E[Gate of Equal Footing<br/>every cultivation sealed]
+  E --> S[Stair of Asking Heart] --> A[Stone of Affinity<br/>water, and something clear] --> R[The long run] --> RG[Ring of Three Hundred] --> Q[Lan Yi's Final Question]
+  Q --> GOU[Steward Gou: robe, token, Room Seven]
+  GOU --> ROOM((Room Seven<br/>Shen Bai · Yao Zhi · Tie Niu<br/>Mei Lan · Little Qiu))
+  ROOM --> Y{A year in a hall<br/>100 quests}
+  Y --> B[Hand-written beats ×10+<br/>the hall's own tale]
+  Y --> D[Days: lectures · chores · missions<br/>bouts in the ring · sittings · patrols<br/>a roommate's word]
+  Y --> C[The hall's second gate:<br/>realm + Lesser Mastery]
+  B & D & C --> T[The hall's trouble]
+  T --> F{What now?<br/>mercy · sword · balance · slaughter}
+  F -->|next hall| Y
+  F -->|hall X| V[The Sealed Hall of the Void:<br/>the sleepers come home]
+```
+
+```mermaid
+flowchart TD
+  subgraph mystery["The ones who went home"]
+    Q1["I · Qiu's brother 'went home' six years ago"] --> Q2["I · Gou: the Examiner signs every one"]
+    Q2 --> Q3["II · the garden drained toward the Sealed Hall"]
+    Q3 --> Q4["III · two in grey carry Lu Ping in at the third watch"]
+    Q4 --> Q5["IV · void-stone in the furnace; Essence Pills"]
+    Q5 --> Q6["V · tunnels, a round door, Qiu Feng's sandal"]
+    Q6 --> Q7["VII · framed; Kui answers to the Examiner's seal"]
+    Q7 --> Q8["VIII · every one who vanished had a void affinity; so does she"]
+    Q8 --> Q9["IX · the pills are made of the sleepers' breath"]
+    Q9 --> Q10["X · Ning Wuhen has held the door shut from inside for sixty years"]
+  end
+```
+
+- **Composed like the War and the Road:** every quest is built from its number, so the save stores only `halls` and `hallsp`; the flags the court answers to (`halls:selection`, `halls:joined`, `halls:away:<roommate>`, `halls:boss:<hall>`, `halls:hallopen`, `halls:done`) are derived from those and kept in step as she plays. Choices are remembered as `halls:fate:<hall>:<dao>`.
+- **The Selection asks nothing of her realm** (the gate seals it), so it opens at late Qi Condensation, once Elder Mo has sent her out. After that every hall asks a realm, from Foundation Establishment for the Old Pine up to Spirit Severing for the Examiner, and past each year's middle Lesser Mastery of the hall's Great Dao. Lectures, sittings, patrols and beats all deepen it.
+- **The court:** a walled compound with its square, a Hall of Ten Thousand Daos, a hall for each Great Dao (the Sealed Hall of the Void behind a chained round door), the Outer Court's dormitories, the Mission Hall's board, a sparring ring with partners always waiting, the Stone of Affinity and the selection field outside the gate. 22 hopefuls crowd the field while the Selection runs and go home after (six of them stay on as outer disciples). Room Seven is a building she can step into, the same size inside as out, with six bunks, the founder's carving and the five who live there, who leave it only when the tale takes them away (Shen Bai sleeping in the Ward, Mei Lan behind the door).
+- **Every hall's trouble is a battle:** three of them are bouts that cost nothing to lose (Murong Xiao, Feng Qi, Jin Ge); the rest are not. After each she chooses what becomes of it, and her Dao Heart leans with the choice.
+- **Outfits:** the Outer Disciple's Robe (the Selection), the Inner Disciple's Robe (500 quests) and the Robe of the Ten Halls (the end). The ending has a line for the Ten Halls.
+
+| | |
+| --- | --- |
+| ![The herald](docs/screenshots/188-the-herald-of-the-ten-halls.png) | ![Ten thousand at the gate](docs/screenshots/189-ten-thousand-at-the-gate.png) |
+| ![The Gate of Equal Footing](docs/screenshots/190-the-gate-of-equal-footing.png) | ![The Stair of Asking Heart](docs/screenshots/191-the-stair-of-asking-heart.png) |
+| ![The Stone of Affinity](docs/screenshots/192-the-stone-of-affinity.png) | ![The Ring of Three Hundred](docs/screenshots/193-the-ring-of-three-hundred.png) |
+| ![The Final Question](docs/screenshots/194-the-final-question.png) | ![Steward Gou assigns Room Seven](docs/screenshots/195-steward-gou-assigns-room-seven.png) |
+| ![Room Seven](docs/screenshots/196-room-seven.png) | ![The founder's bunk](docs/screenshots/197-the-founders-bunk.png) |
+| ![Little Qiu is twelve](docs/screenshots/198-little-qiu-is-twelve.png) | ![The court of the Ten Halls](docs/screenshots/199-the-court-of-the-ten-halls.png) |
+| ![A bout in the ring](docs/screenshots/200-a-bout-in-the-ring.png) | ![The blight wakes](docs/screenshots/201-the-blight-wakes.png) |
+| ![The Blight of the Thousand-Year Wisteria](docs/screenshots/202-blight-of-the-thousand-year-wisteria.png) | ![What becomes of the blight](docs/screenshots/203-what-becomes-of-the-blight.png) |
+| ![The journal](docs/screenshots/204-journal-the-ten-halls.png) | ![Ning Wuhen holds the door](docs/screenshots/205-ning-wuhen-holds-the-door.png) |
+| ![Yan Shu, the Examiner](docs/screenshots/206-yan-shu-the-examiner.png) | |
+
+#### New animations
+
+- **Characters (9 new moves):** `spar` (low stance, palms striking left and right), `lecture` (a bamboo pointer raised for each point), `tiptoe` (craning over a crowd, a hand shading the eyes), `token` (holding up a jade token), `scrub` (on the knees with a rag), `bucket` (hauling water, leaning from its weight), `pillow` (a pillow fight after curfew), `pant` (hands on knees after the long run) and `climb` (knees high up a long stair), with five new held things (pillow, bucket, jade token, pointer, rag). Lin Yue can also brew, hammer, carry and sleep now.
+- **28 new characters:** the Herald, Examiner Yan Shu, Steward Gou, Senior Sister Fan Yu, the five of Room Seven, Murong Xiao and his uncle, nine hall masters and Ning Wuhen, outer disciples, and the halls' troubles (the blighted wisteria, the furnace spirit, the tunnel warden, Captain Kui, the Frost Warden). Three new outfits for her.
+- **6 new animated props:** the Stone of Affinity (its veins glowing through the ten Daos' colours in turn), a ten-flamed lamp-tree whose tenth flame burns clear and sometimes not at all, the chained round door of the Sealed Hall breathing violet light, a shivering gong, the Mission Hall's board with its slips fluttering, and the dormitory's bunk beds.
+
+| The Ten Halls' people | The court's props |
+| --- | --- |
+| ![Halls moves](docs/art/halls-moves.gif) | ![Halls props](docs/art/halls-props.gif) |
+
+#### Plot holes mended
+
+- **The Dao-Eater still claimed the nine Daos he no longer had.** Each Dao Wei Kongming ate went into the Echo guarding its stele, and Lin Yue has faced and undone every Echo before she reaches him, yet Qingxu said he “has eaten nine Daos”, Kongming said “Nine Daos in me”, and his fates had the nine Daos burst out of him or be drawn out one at a time. Now Qingxu says she has taken all nine back, Kongming knows it (and counts the ones she ate herself), and his fates speak of the void he had begun to swallow.
+- **“Ten Daos burn in Lin Yue”** at the Road's end whenever she ate the Dao-Eater, even if she had eaten nothing else. The ending now counts what she actually ate.
+- **The founder's sword nobody gave her.** Qingxu greeted every beginning with “your founder's sword on your back”, though no one ever gives her one (the runaway even lays down her saber). He now greets each beginning as itself.
+- **Inside the Ten Halls' own tale:** the ten who went home before this year and the eleventh, Lu Ping, are counted consistently; the void-stone in the furnace is explained (pills were being pressed in the Red Furnace at night); and Steward Gou's forty years as steward agree everywhere.
+
 ### Animated art
 
 | Lin Yue's 65 animations | All 16 facing directions |
@@ -851,7 +946,7 @@ flowchart LR
 - **Eleven regions plus a world map:** the five new ones of the doubled world (the Mistmarsh, the Cloudmist Tea Terraces, the Yellow Sands, Wavecrest Harbour and Frostveil Monastery), and the floating Azure Cloud Sect (day, falling petals), Willow Creek Village (dusk, autumn leaves), the Whispering Bamboo Forest (fireflies), the Moonlit Lotus Lake (night, stars and moon), the Crimson Demon Valley (blood moon, embers, lava) and Heavenly Tribulation Peak (snow, storm lightning). The miniature isometric continent has roads, rivers, sea, drifting clouds and their shadows, and animated landmarks. Regions unlock as the story advances.
 - **A calendar and four seasons:** day, night and the seasons follow the save; seasonal sprites and ground, weather, NPC clothes and habits, a sun and moon, golden hours and summer showers (see [The turning year](#the-turning-year-a-thousand-notices-and-a-wardrobe)).
 - **1000 notices and a second main quest:** a thousand composed side quests from 86 folk, and the Turning of the Year, waking four seasonal Wardens.
-- **Two thousand-quest main threads:** the War of the Iron Banner and the Founder's Road, each in ten books, with the ten Great Daos to comprehend along the Road (see [The Founder's Road](#the-founders-road-a-thousand-more-main-quests-the-great-daos-and-the-tidewater-reach)).
+- **Three thousand-quest main threads:** the War of the Iron Banner, the Founder's Road and the Ten Halls, each in ten books, with the ten Great Daos to comprehend along the Road and in the Halls (see [The Founder's Road](#the-founders-road-a-thousand-more-main-quests-the-great-daos-and-the-tidewater-reach) and [The Ten Halls](#the-ten-halls-a-thousand-more-main-quests-one-tale-for-each-great-dao)).
 - **Choices that matter:** questions put to the heroine (a choice panel with hints), remembered as story flags; three sect quest lines and a five-way conclave over the Dragon Vein, standing with each sect (Hostile to Allied), and 26 terrain patches that change the world and the caves as the story goes (plus skies that change with it) (see [Three sects, the deep, and choices that matter](#three-sects-the-deep-and-choices-that-matter)).
 - **Underground:** three caves (Ember Mine, Sunken Grotto, Dragon Vein Caverns) carved as cutaways of living rock at many heights, with a cave sky of dripping stalactites, drips and glowing spores, a torch she holds up, and battles on a ledge in the dark.
 - **Narrative:** three beginnings, a prologue, six chapters, an epilogue and five endings (see [Three beginnings](#three-beginnings-a-heart-to-choose-and-five-endings)), with a quest tracker, scripted cutscenes (walk, emote, camera, flash, shake, spawn), typed-out dialogue with animated portraits, full-screen narration, first-arrival scenes, pre-boss speeches and an ending; plus four side errands shown under the quest tracker (a ghost's unfinished letter, two quarrelling brothers, a sword brought home, a dead husband's cloak) and Willow Creek's lantern festival, each ending in a new outfit.
@@ -1182,6 +1277,7 @@ flowchart LR
 - **Unit tests (Vitest):** the iso projection and ray caster (shading, depth, decal visibility, convex solids), every character × animation × direction, all portraits and props, terrain and skies. Every region layout, and then the whole continuous world, is checked by BFS: every waypoint, NPC, encounter and interactable is reachable on foot, the sky bridges connect, rivers reach the edge, and no prop stands in water or on the road. Also covered: the world map's terrain (built from the real world), save migration from per-region coordinates and from the smaller world, the grown world's size, landmarks and new folk, a complete story walkthrough from prologue to ascension, realms and battle rules, a headless run of the `Game` runtime (cutscenes, walking and collision, tap-to-walk, the elder's briefing, world-map travel, battles won and lost, boss speeches, the fox quest, meditation and tribulation, pickups, rendering every region, walking down the sky bridge into the village, seals turning the heroine back, running, startled cranes, greeting NPCs, respawning beasts, idle fidgets and the day cycle, the wayside folk's gifts, Xiao Han's duel won and lost, landmark banners, beasts sniffing, howling and dozing, opening the map while flying over water, loading a save onto open ground, walking into the Hall of Clouds through its door and back out over the threshold, learning from the archivist, reading the shelves and praying at the altar, every room rendering with its folk at work, losing a fight indoors, a beast standing its ground at the edge of its territory, a lost friendly duel costing nothing, and scripted walks staying at a walk), every room's walls, windows and reachability, every building's door on open ground in front of it, the indoor folk's one-time gifts, and the API route handlers.
 - **The year and the notices (Vitest):** the calendar (seasons, phases, passing time, a save keeps its hour), seasonal filters on props, every season by day and night with the folk in winter wool and lanterns after dark, the season banner, the whole Turning of the Year from the almanac to the four Wardens and the Raiment, the wardrobe, and the thousand notices (exactly 1000, deterministic, every giver, landmark, beast and shrine really in the world, three slots, bits in the save, milestones, a delivery taken and handed over, a night visit and a hunt fulfilled in the running game).
 - **The Founder's Road and the Great Daos (Vitest):** comprehension's five stages and the realm cap, the stat gifts, the Dao Domain and seeing through an Echo, all 1000 quests (deterministic, ten books, every NPC and landmark really in the world, rising realms), the whole Road walked to its end with the land, the outfits and the ending following, eating a Dao and what it costs, the questions whose deeper answers need deeper understanding, every Echo and the Dao-Eater in battle, Hailing's walls, canals and bridges, the busy street folk and their words, the new props and moves, and the mended plot holes (Bao never supplies himself, officers and children speak as themselves, the crimson front remembers Xue, endings where she stayed).
+- **The Ten Halls (Vitest):** all 1000 quests (ten books, at least ten hand-written beats in each, every NPC and landmark really in the world or Room Seven, rising realms), the Selection with the crowd coming and going, Room Seven filling up, the whole tale walked to its end with every hall's trouble and fate, the outfits and the ending, bouts and sittings that only count where they should, roommates never sent for while the tale has them elsewhere, the court and its troubles on reachable ground, the new props and moves, each beginning's word at the herald, and the mended plot holes (the Dao-Eater's nine Daos, the founder's sword).
 - **E2E (Playwright):** the Founder's Road opening with Qingxu at Foundation Establishment and the journal's Great Daos page, Hailing's lion dancers and its bun seller; the wardrobe, the calendar turning at the sundial and a notice taken and set aside from the journal; and  fullscreen title and health check, opening narration and walking, walking from the sect into the village in one world, Elder Mo's briefing through to world-map travel, a battle won through the UI, tea and the shop at the crossroads teahouse (with Enter skipping the typewriter text), stepping inside the crossroads teahouse to hear the storyteller and walking back out, a save/reload/continue round trip with the leaderboard, and the gallery canvases painting (now with the indoor folk and every room).
 
 ## Project layout
