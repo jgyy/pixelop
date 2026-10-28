@@ -23,7 +23,7 @@ describe("characters", () => {
           }
         }
     }
-  }, 60_000);
+  }, 240_000);
 
   it("renders all 16 facings of the heroine differently", () => {
     const frames = Array.from({ length: DIRS }, (_, d) => getAnim("heroine", "idle", d).frames[0]);

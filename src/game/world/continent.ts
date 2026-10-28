@@ -10,6 +10,7 @@ import { CAVE_IDS, CAVE_MOUTH } from "./caves";
 import { layWar } from "./warfront";
 import { layRoad } from "./roadside";
 import { STREET_FOLK, TIDE_FOLK } from "./road";
+import { DORM_AT, FIELD, GREAT_HALL_AT, HALL_BOSS_AT, HALL_BOSSES, HALL_CAST, HALL_SITES, HALLS, HOPEFULS, hallMasterKey, MISSION_AT, OUTER_FOLK, RING, SPARRERS, STONE_AT } from "./halls";
 import { PatchPainter, type TerrainPatch } from "./terrain";
 
 /**
@@ -224,6 +225,10 @@ const BRANCHES: { pts: [number, number][]; valley?: boolean }[] = [
   { pts: [[568, 504], [580, 510], [592, 520], [601, 528], [606, 531]] },
   // the south gate, down to the quay
   { pts: [[547, 520], [547, 528]] },
+  // west off the Great South Road, through the selection field, to the Ten Halls' east gate (the Gate of Equal Footing)…
+  { pts: [[222, 452], [206, 457], [192, 462], [181, 462]] },
+  // …and out of its south gate, down to the road from Jinhe's west gate
+  { pts: [[160, 481], [159, 494], [158, 506]] },
 ];
 
 const RIVERS: { pts: [number, number][]; kind: "water" | "lava"; width: number }[] = [
@@ -524,6 +529,21 @@ function buildWorld(): WorldDef {
       }
   }
   site([547, 527], 5, "plaza", 1, 0.4); // Hailing's quay
+  // the Ten Halls: level ground inside its walls, a marble square, paved streets to the east and south gates, the sparring ring, and the selection field outside
+  {
+    const { x0, y0, x1, y1, c } = HALLS;
+    for (let j = y0 - 3; j <= y1 + 3; j++)
+      for (let i = x0 - 3; i <= x1 + 3; i++) {
+        if (m.kind(i, j) === "void") continue;
+        const inside = i > x0 && i < x1 && j > y0 && j < y1;
+        const square = Math.abs(i - c[0]) <= 4 && Math.abs(j - c[1]) <= 4;
+        const street = (Math.abs(j - c[1]) <= 1 && i >= c[0]) || (Math.abs(i - c[0]) <= 1 && (j >= c[1] || j >= GREAT_HALL_AT[1] + 2));
+        const ring = Math.hypot(i - RING.c[0], j - RING.c[1]) <= RING.r;
+        m.set(i, j, inside && square ? "marble" : inside && (street || ring) ? (ring ? "dirt" : "plaza") : inside && hash2(i, j, 158) > 0.9 ? "meadow" : "grass", 1);
+        fix(i, j, 1);
+      }
+    site(FIELD.c, FIELD.r, "dirt", 1, 0.8);
+  }
   site([590, 482], 6.4, "sand", 1, 0.8); // Saltwind
 
   // 5. rivers, ponds, the hot spring and the lava pools
@@ -1494,6 +1514,96 @@ function buildWorld(): WorldDef {
     it("hailing-chest", "chest", 543, 525);
     it("hailing-herb", "herb", 551, 526);
     mark("hailing", "Hailing, the Tide City", "海陵城", "hall", cx, cy);
+  }
+  // the Sect of Ten Thousand Daos: walls and two gates, the Hall of Ten Thousand Daos at the head of its square, a hall for each Great Dao,
+  // the Outer Court's dormitories (Room Seven among them), the Mission Hall's board, the ring, and the ten thousand at the gate (see world/halls.ts)
+  {
+    const { x0, y0, x1, y1, c } = HALLS;
+    const [cx, cy] = c;
+    const gap = (v: number, at: number) => Math.abs(v - at) <= 1;
+    for (let i = x0 + 1; i < x1; i++) for (const j of [y0, y1]) if (!(j === y1 && gap(i, cx))) P("citywall", i, j);
+    for (let j = y0 + 1; j < y1; j++) for (const i of [x0, x1]) if (!(i === x1 && gap(j, cy))) P("citywallY", i, j);
+    for (const i of [x0, x1]) for (const j of [y0, y1]) P("watchtower", i, j);
+    P("gate", cx, y1);
+    P("lion", x1 + 1, cy - 2);
+    P("lion", x1 + 1, cy + 2);
+    P("hall", ...GREAT_HALL_AT);
+    for (const h of HALL_SITES) P(h.prop, ...h.at);
+    P("voiddoor", 175, 473);
+    P("house", ...DORM_AT);
+    P("house", 146, 469);
+    P("missionboard", ...MISSION_AT);
+    P("affinitystone", ...STONE_AT);
+    P("tenlamps", cx, cy);
+    P("gong", 164, 452);
+    P("noodlecart", 163, 457);
+    P("well", 150, 471);
+    P("laundry", 151, 467);
+    // the Old Pine's garden, the Red Furnace, the forge of the Edge, the Ward's herb beds, the stones of the Hall of Bearing
+    for (const [id, i, j] of [
+      ["peachtree", 158, 447],
+      ["cherry", 152, 452],
+      ["teabush", 157, 453],
+      ["teabush", 153, 454],
+      ["furnace", 176, 452],
+      ["forge", 177, 466],
+      ["herbbed", 158, 478],
+      ["boulder", 151, 459],
+      ["drum", 176, 459],
+      ["shelf", 170, 477],
+      ["dummy", RING.c[0] - 4, RING.c[1] - 2],
+      ["dummy", RING.c[0] + 4, RING.c[1] + 2],
+      ["weaponrack", RING.c[0] + 3, RING.c[1] - 4],
+      ["target", RING.c[0] - 3, RING.c[1] + 4],
+    ] as [PropId, number, number][])
+      P(id, i, j);
+    for (const [i, j] of [
+      [cx - 2, y1 - 1],
+      [cx + 2, y1 - 1],
+      [x1 - 1, cy - 2],
+      [x1 - 1, cy + 2],
+      [cx - 5, cy - 5],
+      [cx + 5, cy + 5],
+    ] as [number, number][])
+      P("redlantern", i, j);
+    // the selection field: banners, stalls and steam, and the ten thousand
+    P("banner", FIELD.c[0] - 5, FIELD.c[1] - 7);
+    P("banner", FIELD.c[0] - 5, FIELD.c[1] + 7);
+    P("stall", FIELD.c[0] + 5, FIELD.c[1] - 6);
+    P("steamer", FIELD.c[0] + 6, FIELD.c[1] + 5);
+    P("tent", FIELD.c[0] + 9, FIELD.c[1] - 1);
+    const selection = (f: Record<string, boolean>) => !!f["halls:selection"];
+    const joined = (f: Record<string, boolean>) => !!f["halls:joined"];
+    const C = (key: string, i: number, j: number, dir: number, extra: Partial<NpcPlacement> = {}): NpcPlacement => {
+      const base = HALL_CAST[key.startsWith("wdf-") ? `wd-${key.slice(4)}` : key];
+      return { key, name: base.name, char: base.char, i, j, dir, ...extra };
+    };
+    npcs.push(
+      C("wd-yanshu", x1 + 1, cy + 3, 2, { anim: "write", when: (f) => !f["halls:done"] || !!f["halls:fate:9:balance"] || !!f["halls:fate:9:mercy"] }),
+      C("wd-gou", 149, 473, 2, { anim: "sweep" }),
+      C("wd-fanyu", MISSION_AT[0] + 1, MISSION_AT[1] + 1, 4, { anim: "abacus" }),
+      C("wd-murong", RING.c[0] - 2, RING.c[1] - 3, 2, { anim: "spar", when: joined }),
+      C("wdf-murong", FIELD.c[0] - 2, FIELD.c[1] - 1, 10, { anim: "spar", when: selection }),
+      C("wdf-tieniu", FIELD.c[0] - 3, FIELD.c[1] + 1, 10, { anim: "pant", when: selection }),
+      C("wdf-yaozhi", STONE_AT[0] - 1, STONE_AT[1] + 2, 8, { anim: "fan", when: selection }),
+      C("wdf-shenbai", FIELD.c[0], FIELD.c[1] + 3, 10, { anim: "pant", when: selection }),
+      ...HALL_SITES.map((h) => C(hallMasterKey(h.dao), h.master[0], h.master[1], 2, { anim: h.dao === "void" ? "meditate" : "lecture", ...(h.dao === "void" && { when: (f: Record<string, boolean>) => !!f["halls:hallopen"] }) })),
+      ...HOPEFULS.map((p) => ({ key: p.key, name: p.name, char: p.char, i: p.at[0], j: p.at[1], dir: p.dir, anim: p.anim, when: selection })),
+      ...HOPEFULS.filter((p) => p.stays).map((p) => ({ key: `wd-outer-${p.key.slice(8)}h`, name: `Outer Disciple (${p.name.replace(/^An? /, "once a ")})`, char: p.char, i: p.stays![0], j: p.stays![1], dir: p.dir, anim: "bow" as const, when: joined })),
+      ...OUTER_FOLK.map((p) => ({ key: p.key, name: p.name, char: p.char, i: p.at[0], j: p.at[1], dir: p.dir, anim: p.anim, wander: p.wander, when: p.key === "wd-outer-0" ? (f: Record<string, boolean>) => joined(f) && !f["halls:lupinggone"] : joined })),
+    );
+    // the herald cries the Selection on Willow Creek's market road until she heeds him
+    npcs.push(C("wd-herald", 187, 141, 4, { anim: "hawk", when: (f) => !f["halls:begun"] }));
+    // sparring partners always in the ring, and each hall's trouble where it comes to a head
+    SPARRERS.forEach((key, k) => enemies.push({ key, enemy: "wdspar", i: RING.c[0] + [-1, 2, 0][k], j: RING.c[1] + [1, 0, -2][k], range: 0.5 }));
+    HALL_BOSSES.forEach((enemy, b) => enemies.push({ key: `wdboss-${b}`, enemy, i: HALL_BOSS_AT[b][0], j: HALL_BOSS_AT[b][1], range: 0, when: (f) => !!f[`halls:boss:${b}`] }));
+    it("wandao-shrine", "shrine", cx - 3, cy - 3);
+    it("wandao-sign", "sign", x1 + 2, cy + 5, "THE SECT OF TEN THOUSAND DAOS · 万道宗. “Once in six years this gate opens to anyone under thirty, of any sect or none. Leave your robe here. Inside, every hopeful stands on equal footing.” Scratched underneath, small: “Some of us went home.”");
+    it("wandao-stele", "sign", cx + 3, cy - 5, "The stele of the Ten Halls: ten Daos carved round a blank circle. “Water, Wood, Wind, Fire, Earth, Metal, Thunder, Ice, Life and Death. And the tenth, which is room for all the others.” The tenth hall's name has been chiselled smooth.");
+    it("wandao-chest", "chest", 144, 448);
+    it("wandao-herb", "herb", 154, 451);
+    mark("wandao", "The Ten Halls", "万道宗", "hall", cx, cy - 6);
+    mark("wdgate", "The Gate of Equal Footing", "平等门", "gate", x1 + 3, cy);
   }
   // Saltwind, on its salt pans east of the city
   {

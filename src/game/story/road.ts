@@ -11,6 +11,7 @@ import { echoOf, ROAD_DAOS, ROAD_SITES, steleKey, tideFolk } from "../world/road
 import { FOLK, SIGHTS } from "./bounties";
 import type { Choice, Step } from "./script";
 import { giveAttire } from "./wardrobe";
+import { originOf } from "./origins";
 
 /**
  * The Founder's Road (问道): the fourth thread of the main tale, a thousand
@@ -246,7 +247,7 @@ export const BOOKS: Record<GreatDaoId, BookInfo> = {
     folk: ["hlharbor", "hlmonk", "hlshrine", "hlpuppeteer", "hlchess1", "hlpearl", "hlboatwoman", "hlsalt"],
     sights: ["hailing", "saltwind"],
     shrines: ["harbor", "frost"],
-    keeper: "The last stele. The founder carved it on the isle at the edge of the sea, the morning she went up. He is there, disciple. Not an Echo. Him. He has eaten nine Daos and he is still empty, and he means to eat the one Dao that is nothing but emptiness, and see if that fills him.",
+    keeper: "The last stele. The founder carved it on the isle at the edge of the sea, the morning she went up. He is there, disciple. Not an Echo. Him. He ate nine Daos and poured each one into an Echo to guard its stele, and you have taken all nine back. He is emptier now than the day he was born, and he means to eat the one Dao that is nothing but emptiness, and see if that fills him.",
     hollowing: "Out on Returning Cloud Isle the sea and the sky have run into one another. There is no horizon. The tide comes in and goes out at the same moment. The people of Hailing have stopped looking east.",
     verse: "“The bowl is useful for the emptiness in it. So is the house, so is the heart. Do not fear being empty. Fear being full of nothing but yourself.”",
     victory: "The horizon comes back like a drawn breath: sea below, sky above, a line between them that every fisherman in Hailing points at and shouts about. The tide goes out properly, and the whole city goes down to the beach to watch it.",
@@ -1038,7 +1039,9 @@ function koanSteps(q: RoadQuest, g: GameState): Step[] {
   const tier = wuTier(g, q.dao);
   const usable = K.options.filter((o) => (o.wu ?? 0) <= tier);
   const locked = K.options.length - usable.length;
-  const v = { place: BOOKS[q.dao].place, daoN: daoNoun(q.dao), dao: daoWord(q.dao), Dao: GREAT_DAOS[q.dao].name, noun: sightName(BOOKS[q.dao].sights[0]) };
+  // the same landmark the question was asked at (compose picks it from the quest's number)
+  const sights = BOOKS[q.dao].sights;
+  const v = { place: BOOKS[q.dao].place, daoN: daoNoun(q.dao), dao: daoWord(q.dao), Dao: GREAT_DAOS[q.dao].name, noun: sightName(sights[Math.floor(hash2(q.id, 1, 8819) * sights.length)]) };
   const options: Choice[] = usable.map((o) => ({
     label: o.label,
     hint: [o.hint, DAOS[o.heart].name].filter(Boolean).join(" · "),
@@ -1070,7 +1073,7 @@ export function roadTalk(key: string, g: GameState): Step[] | null {
         { emote: key, icon: "!" },
         ...(first
           ? [
-              named(who.char, who.name, "There you are. Foundation built, and your founder's sword on your back. Good. Sit; my knees are older than your sect."),
+              named(who.char, who.name, `There you are. Foundation built, and ${{ disciple: "an Azure Cloud sword on your back", foundling: "Hua's girl from Willow Creek, Elder Mo's own disciple now", defector: "the girl who ran from the Blood Moon up the sky bridge, Elder Mo tells me" }[originOf(g.flags)]}. Good. Sit; my knees are older than your sect.`),
               named(who.char, who.name, "Before Lian Qingxue went up, she walked the jianghu ten years, and at ten places she understood one of the Great Daos and carved it in stone. I have copied those ten steles all my life. Someone is eating them."),
             ]
           : [named(who.char, who.name, `${B.place[0].toUpperCase()}${B.place.slice(1)}. The ${["second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth"][q.book - 1]} stele.`)]),
@@ -1187,12 +1190,25 @@ export function roadPreBattle(enemy: EnemyId, g: GameState): Step[] | null {
   if (enemy === "kongming") {
     lines.push(
       named("kongming", "Wei Kongming", g.flags["war:won"] ? "You killed Tuoba Hong. He was the only student I ever had who was grateful. He felt the cores, you know. Every one. I envied him." : "My student Tuoba Hong still makes war on your jianghu. I taught him to eat. He was better at it than me: he could taste them."),
-      named("kongming", "Wei Kongming", "Nine Daos in me, and I feel nothing. Tell me what you feel, Lin Yue, and then let us see whose emptiness is larger."),
+      named("kongming", "Wei Kongming", kongmingTaunt(g)),
     );
   }
   const d = dominantDao(g);
   if (d) lines.push({ say: "heroine", text: { sword: "Then I will show you, the only way I know.", mercy: "I will tell you. I will tell you as long as it takes. But first put it down.", balance: "It was never yours to hold. Give it back.", slaughter: "Everything you ate, I will eat out of you." }[d] });
   return lines;
+}
+
+/**
+ * What the Dao-Eater says of the nine Daos he ate. Each one went into an
+ * Echo, and she has met every Echo by the time she reaches him, so he no
+ * longer holds them: she set them free, or cut them out, or gave them back,
+ * or ate them herself.
+ */
+function kongmingTaunt(g: GameState): string {
+  const eaten = ROAD_DAOS.filter((d) => d !== "void" && g.flags[`devoured:${d}`]).length;
+  if (eaten === 9) return "Nine Daos I ate, and you ate every one of them back out of my Echoes. Now you are full and I am empty. Tell me what it feels like, Lin Yue. I have to know.";
+  if (eaten > 0) return `Nine Daos I ate, and you took them all back from my Echoes. ${eaten} of them you ate yourself. So we are not so different. Tell me what you feel, and then let us see whose emptiness is larger.`;
+  return "Nine Daos I ate, and you sent every one of them home. I felt each one leave me. It was the only thing I have ever felt. Tell me what you feel, Lin Yue, and then let us see whose emptiness is larger.";
 }
 
 /** What she may do with an Echo once it is beaten. */
@@ -1206,9 +1222,9 @@ const FATES: { heart: DaoId; label: string; line: (name: string, dao: string) =>
 /** The fates she may give Wei Kongming himself. */
 const KONGMING_FATES: { heart: DaoId; label: string; line: string }[] = [
   { heart: "mercy", label: "Sit with him until he feels something", line: "She sits down beside him on the wet stones and tells him what the Daos feel like, one by one, until the tide turns. Somewhere in the eighth he starts to cry, and cannot say why. Qingxu says it is the first thing Wei Kongming has ever felt." },
-  { heart: "sword", label: "Give him a cultivator's death", line: "She gives him a clean death, the death of a cultivator, and the nine stolen Daos burst out of him like birds out of a cage and fly home across the sea." },
-  { heart: "balance", label: "Return every Dao he ate to its stele", line: "She draws the nine Daos out of him one at a time and sends each home on the wind. He is only a man when she is done: a mortal with beautiful handwriting. Qingxu takes him on as a copyist." },
-  { heart: "slaughter", label: "Eat the Dao-Eater", line: "She eats him. All of him: the nine stolen Daos, the hunger, the emptiness. For a moment she understands everything. Then the moment is gone, and the hunger is hers." },
+  { heart: "sword", label: "Give him a cultivator's death", line: "She gives him a clean death, the death of a cultivator, and the void he had begun to swallow bursts out of him like birds out of a cage and flies home across the sea." },
+  { heart: "balance", label: "Return the void he ate to the isle", line: "She draws the void out of him, every breath of it he swallowed, and sends it home to the isle on the wind. He is only a man when she is done: a mortal with beautiful handwriting. Qingxu takes him on as a copyist." },
+  { heart: "slaughter", label: "Eat the Dao-Eater", line: "She eats him. All of him: the void he swallowed, the hunger, the emptiness. For a moment she understands everything. Then the moment is gone, and the hunger is hers." },
 ];
 
 /** After an Echo falls: what she does with it, and the land as it is left. */
@@ -1234,21 +1250,22 @@ export function roadVictory(enemy: EnemyId, g: GameState): Step[] | null {
         { mutate: (s) => heal(s, 9999, 9999) },
         { anim: "hero", name: ate ? "roar" : "comprehend", wait: true },
         narr(ate ? B.devoured : B.victory),
-        ...(last ? roadEnd(ate) : [{ toast: `The ${GREAT_DAOS[q.dao].name} ${ate ? "is yours, and the land's no longer" : "comes home"} · Book ${BOOK_NUMERALS[q.book]} of the Road is done` } as Step]),
+        ...(last ? roadEnd(ate, ROAD_DAOS.filter((d) => d !== "void" && g.flags[`devoured:${d}`]).length) : [{ toast: `The ${GREAT_DAOS[q.dao].name} ${ate ? "is yours, and the land's no longer" : "comes home"} · Book ${BOOK_NUMERALS[q.book]} of the Road is done` } as Step]),
       ],
     };
   });
   return [{ anim: "hero", name: "domain", wait: true }, narr(`${cap(theFoe(e.name))} kneels on the stones before the stele.`), { choose: options, prompt: `${cap(theFoe(e.name))} is beaten. What becomes of the ${noun} it wears?` }];
 }
 
-/** The last stele stands (or the last Dao is eaten): the Road ends. */
-function roadEnd(ate: boolean): Step[] {
+/** The last stele stands (or the last Dao is eaten): the Road ends. `eaten` is how many of the other nine she ate along the way. */
+function roadEnd(ate: boolean, eaten = 0): Step[] {
+  const burn = eaten === 9 ? "Ten Daos burn in Lin Yue now, and she cannot feel the edges of any of them." : eaten > 0 ? `The void burns in Lin Yue now, beside the ${eaten === 1 ? "one other Dao" : `${eaten} other Daos`} she ate on the Road, and she cannot feel the edges of any of them.` : "The void burns in Lin Yue now, and the hunger that came with it, and she cannot feel its edges.";
   return [
     { shake: 1 },
     { flash: "#ffffff" },
     {
       narrate: ate
-        ? ["Ten Daos burn in Lin Yue now, and she cannot feel the edges of any of them.", "Out on Returning Cloud Isle, Daoist Qingxu packs his brushes away without a word and walks back along the causeway alone.", "The jianghu will remember the Founder's Road as the year the steles went quiet."]
+        ? [burn, "Out on Returning Cloud Isle, Daoist Qingxu packs his brushes away without a word and walks back along the causeway alone.", "The jianghu will remember the Founder's Road as the year the steles went quiet."]
         : ["The tenth stele stands on Returning Cloud Isle, and far across the jianghu nine others answer it, one after another, like bells.", "Daoist Qingxu copies the founder's canon one last time, with Lin Yue's hand steadying his wrist.", "Ten Daos, a thousand steps, and one disciple who asked everyone she met what the world meant. The jianghu will be reading her answers for a long time."],
     },
     { mutate: (s) => giveAttire(s, ate ? "hollowrobe" : "clearsnow") },

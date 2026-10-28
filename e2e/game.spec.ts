@@ -277,7 +277,7 @@ test.describe("Jade Lotus Ascension", () => {
     await expect(page.getByRole("heading", { name: "Pixel Art Gallery" })).toBeVisible();
     // a sheet for every character, and one for the wardrobe
     await expect(page.locator("[data-testid^=sheet-]")).toHaveCount(CHAR_IDS.length + 1);
-    await expect(page.getByTestId("scene")).toHaveCount(20);
+    await expect(page.getByTestId("scene")).toHaveCount(21);
     expect(await page.getByTestId("prop").count()).toBeGreaterThanOrEqual(50);
     expect(await page.getByTestId("anim").count()).toBeGreaterThanOrEqual(80);
     // the first scene paints once the sheets ahead of it have (there are many of them now), so wait for it rather than a fixed time
@@ -367,6 +367,27 @@ test.describe("Jade Lotus Ascension", () => {
     await expect(page.getByTestId("journal-road")).toContainText("Book I");
     await expect(page.getByTestId("journal-road")).toContainText("Hollowed");
     await expect(page.getByTestId("journal-wu")).toContainText("Dao of Water");
+  });
+
+  test("the Ten Halls: the herald calls the Selection, the crowd queues at the gate, and the journal lists the halls", async ({ page }) => {
+    await startNewGame(page);
+    await patch(page, { flags: { metElder: true, villageSaved: true, villageArrived: true, metZhou: true }, realm: 0, stage: 1 });
+    await expect(page.getByTestId("halls-quest")).toBeHidden();
+    await patch(page, { realm: 0, stage: 2 });
+    await expect(page.getByTestId("halls-quest")).toContainText("herald");
+    await standBy(page, "wd-herald");
+    await expect(page.getByTestId("prompt")).toContainText("Herald of the Ten Halls");
+    await page.keyboard.press("KeyE");
+    await expect(page.getByTestId("dialog")).toContainText("Ten thousand come");
+    await finishDialogue(page);
+    await expect.poll(async () => (await state(page)).counters.halls).toBe(1);
+    await expect(page.getByTestId("halls-quest")).toContainText("2/1000");
+    // the ten thousand queue at the gate while the Selection runs
+    await standBy(page, "wd-yanshu");
+    await expect.poll(() => page.evaluate(() => window.__pixelop!.game.world.actor("wd-hope-0")?.anim)).toBe("tiptoe");
+    await page.keyboard.press("KeyJ");
+    await expect(page.getByTestId("journal-halls")).toContainText("Ten Thousand at the Gate");
+    await expect(page.getByTestId("journal-halls")).toContainText("Studying");
   });
 
   test("Hailing, the Tide City: lion dancers on the square and a bun seller who restores her", async ({ page }) => {

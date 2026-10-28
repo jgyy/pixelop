@@ -1104,6 +1104,10 @@ button {
 .quest .errand.road {
   color: #b8f0ff;
 }
+/* the Ten Halls */
+.quest .errand.halls {
+  color: #e8d8ff;
+}
 .hud .dao.wu {
   margin-top: -3px;
 }

@@ -1,6 +1,7 @@
 import type { CharId } from "../art/characters";
+import type { HallBossId } from "../world/halls";
 
-export type EnemyId = "fox" | "wolf" | "serpent" | "serpentKing" | "cultist" | "jiangshi" | "bandit" | "swordsman" | "patriarch" | "emberwyrm" | "stonehound" | "poisoner" | "phoenixguard" | "traitor" | "elderMo" | HollowId | WarFoeId | WarBossId | EchoId;
+export type EnemyId = "fox" | "wolf" | "serpent" | "serpentKing" | "cultist" | "jiangshi" | "bandit" | "swordsman" | "patriarch" | "emberwyrm" | "stonehound" | "poisoner" | "phoenixguard" | "traitor" | "elderMo" | HollowId | WarFoeId | WarBossId | EchoId | HallBossId | "wdspar";
 
 /** The rank and file of the Iron Banner horde, from the first raids to its last stand. */
 export const WAR_FOES = ["raider", "ironguard", "bannerman"] as const;
@@ -106,7 +107,7 @@ const ECHO_LOOK: [EchoId, string, CharId, number, string, string, string, string
   ["echoThunder", "Echo of the Silent Storm", "echoThunder", 14, "Soundless Bolt", "Heaven Without Anger", "#b8a4ff", "Lightning strikes the pagoda hill and makes no sound. The silence takes the shape of a man and steps down off the stone."],
   ["echoIce", "Echo of the Endless Winter", "echoIce", 15, "Rime Palm", "Winter That Never Thaws", "#bfe8ff", "Frost runs up the crag faster than water could fall. At the top it stands, a shape of ice that has decided never to melt."],
   ["echoLife", "Echo of the Unending", "echoLife", 17, "Withering Touch", "Neither Living Nor Dead", "#f6a6c9", "In Hundred Herb Valley the herbs bloom and rot in the same breath. Between them walks something that will not do either."],
-  ["kongming", "Wei Kongming, the Dao-Eater", "kongming", 19, "Hollow Palm", "Swallow Heaven and Earth", "#e8e0ff", "Wei Kongming stands at the end of the causeway with the sea at his back. He looks tired. “Nine Daos, and I still cannot feel any of them. Teach me, then. Or let me eat you.”"],
+  ["kongming", "Wei Kongming, the Dao-Eater", "kongming", 19, "Hollow Palm", "Swallow Heaven and Earth", "#e8e0ff", "Wei Kongming stands at the end of the causeway with the sea at his back. He looks tired. “Nine Daos I ate, and you took every one of them back from my Echoes. I am emptier than when I began. Teach me, then. Or let me eat you.”"],
 ];
 
 /** The Road's guardians: tuned like the war's captains, to the realm the Road asks of her at each stele. */
@@ -136,9 +137,73 @@ const echoBosses = Object.fromEntries(
   }),
 ) as Record<EchoId, EnemyDef>;
 
+/**
+ * The Ten Halls: the trouble at the end of each hall's tale, from a young
+ * master in the tournament ring to the Examiner at the door within the
+ * Sealed Hall of the Void. Some are only bouts (losing to Murong Xiao, Feng
+ * Qi or Jin Ge costs nothing); the rest are not.
+ */
+const HALL_LOOK: [HallBossId, string, CharId, number, string, string, string, boolean][] = [
+  ["wdmurong", "Murong Xiao, Young Master", "murong", 3, "Northern Clan Palm", "Murong Falling Star", "#c8a0ff", true],
+  ["wdblight", "Blight of the Thousand-Year Wisteria", "blight", 5, "Black Root Lash", "Thousand Thirsty Roots", "#7a9a4a", false],
+  ["wdfengqi", "Hall Master Feng Qi", "hmwind", 6, "Gust Palm", "The Wind Has No Shadow", "#c8f0e8", true],
+  ["wdfurnace", "The Weeping Furnace Spirit", "furnacespirit", 8, "Grey Ember Fist", "The Furnace Breathes In", "#a8a8a8", false],
+  ["wdwarden", "Warden of the Deep Tunnels", "golem", 9, "Landslide Arm", "The Tunnels Close", "#c8a060", false],
+  ["wdjinge", "Hall Master Jin Ge", "hmmetal", 11, "Half-Width Blade", "The Edge Agreed To", "#d8e0f0", true],
+  ["wdkui", "Enforcer Captain Kui", "enforcer", 12, "Chain-Whip", "Stolen Lightning", "#b8a4ff", false],
+  ["wdfrost", "Frost Warden of the Library", "frostwarden", 14, "Rime Palm", "The Ice Decides", "#bfe8ff", false],
+  ["wdhong", "Murong Hong", "murongelder", 15, "Twenty Breaths Palm", "Exhale of the Sleepers", "#f6a6c9", false],
+  ["wdyanshu", "Yan Shu, the Examiner", "yanshu", 18, "Brush of the Seal", "Everyone the Seal Says Goes Home", "#e8e0ff", false],
+];
+
+/** The halls' troubles: tuned like the Road's Echoes, to the realm each hall asks of her. */
+const hallBosses = Object.fromEntries(
+  HALL_LOOK.map(([id, name, sprite, level, basic, special, colour, friendly]) => {
+    const c = (level - 3) / 2;
+    return [
+      id,
+      {
+        id,
+        name,
+        sprite,
+        level,
+        hp: Math.round(240 + 185 * c + 17 * c * c),
+        atk: Math.round(20 + 5.2 * c),
+        def: Math.round(7 + 3 * c),
+        exp: Math.round(230 + 300 * c),
+        stones: Math.round(60 + 55 * c),
+        basic,
+        special: { name: special, power: 1.8, every: 3, drain: c >= 6 ? 0.2 : undefined, colour },
+        boss: true,
+        ...(friendly && { friendly: true }),
+        speed: 0,
+        aggro: 1.4,
+      } satisfies EnemyDef,
+    ];
+  }),
+) as Record<HallBossId, EnemyDef>;
+
 export const ENEMIES: Record<EnemyId, EnemyDef> = {
   ...warBosses,
   ...echoBosses,
+  ...hallBosses,
+  wdspar: {
+    id: "wdspar",
+    name: "Sparring Disciple",
+    sprite: "outerM",
+    level: 3,
+    hp: 120,
+    atk: 18,
+    def: 6,
+    exp: 40,
+    stones: 0,
+    friendly: true,
+    basic: "Outer Court Palm",
+    special: { name: "First-Year Flurry", power: 1.5, every: 3, colour: "#9ff5de" },
+    intro: "A sparring disciple of the Ten Halls bows, cups fist in palm, and comes at you grinning.",
+    speed: 0,
+    aggro: 0,
+  },
   hollowshade: {
     id: "hollowshade",
     name: "Hollow Shade",

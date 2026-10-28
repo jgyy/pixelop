@@ -24,6 +24,7 @@ import { BattleScene } from "./battle";
 import { currentWar, daoJournal, daoLabel, warBreath, warChronicle, warCultivated, warDone, warHasNews, warHunt, warLandmark, warLog, warTalk, WAR_COUNT } from "../story/war";
 import { daoAside, daoHasNews } from "../story/dao";
 import { currentRoad, roadBreath, roadChronicle, roadCultivated, roadDone, roadHasNews, roadHunt, roadLandmark, roadLog, roadTalk, ROAD_COUNT, syncRoadFlags } from "../story/road";
+import { hallsBreath, hallsChronicle, hallsCultivated, hallsDone, hallsHasNews, hallsHunt, hallsLandmark, hallsLog, hallsTalk, HALLS_COUNT, syncHallsFlags } from "../story/halls";
 import { BREATHS_PER_WU, comprehend, deepestWu, domainOpen, GREAT_DAOS, SHRINE_DAO, WU_TIERS, wuJournal, wuTotal } from "../engine/comprehension";
 import { aweAside, conditionAside, cultivationHasNews, heartDemonTrial, pointerAside, realmAside, trialDue } from "../story/cultivation";
 import { boltDamage, breathGain, conditionJournal, conditionLabel, CULT, failTribulation, foundationWound, heartDemons, insight, insightNeeded, passTribulation, shift, tendBreath, toxicity, tribulationBlock } from "../engine/cultivation";
@@ -82,6 +83,12 @@ export interface UiSnapshot {
   roadCount: number;
   /** The founder's ten steles as they stand (in the journal). */
   roadSteles: { stele: string; hanzi: string; dao: string; colour: string; state: "waiting" | "hollowed" | "restored" | "devoured" }[] | null;
+  /** The fifth thread: the Ten Halls, a thousand quests long (null before the Selection reaches her). */
+  halls: Quest | null;
+  hallsDone: number;
+  hallsCount: number;
+  /** The ten halls of the Sect of Ten Thousand Daos as they stand for her (in the journal). */
+  hallsList: { hall: string; hanzi: string; dao: string; colour: string; state: "waiting" | "studying" | "done" }[] | null;
   /** The Great Daos she comprehends: the deepest one for the HUD, every one in the journal, and whether her Dao Domain has opened. */
   wu: { label: string | null; colour: string | null; total: number; domain: boolean; paths: ReturnType<typeof wuJournal> | null };
   /** The Dao she walks: its name and depth (null while none leads), and every Dao's weight in her heart (in the journal). */
@@ -1395,11 +1402,11 @@ export class Game {
     if (this.clock > this.syncAt) {
       this.syncAt = this.clock + 0.5;
       // the Founder's Road reaches her as her realm does, not only as its quests are done
-      this.state = syncRoadFlags(this.state);
+      this.state = syncHallsFlags(syncRoadFlags(this.state));
       w.syncPopulation(this.state.flags);
       this.landmarkEvents();
       if (this.mode !== "explore") return;
-      const grown = warCultivated(this.state) ?? roadCultivated(this.state);
+      const grown = warCultivated(this.state) ?? roadCultivated(this.state) ?? hallsCultivated(this.state);
       if (grown) return this.play(grown);
     }
     const touched = w.update(dt, this.clock, h.flying === true || this.clock < this.invulnerableUntil, true);
@@ -1459,7 +1466,7 @@ export class Game {
     const offering = offeringScript(key, g, cal);
     if (offering) pre.push(...offering);
     const news = hasNews(key, g);
-    const war = warTalk(key, g) ?? roadTalk(key, g);
+    const war = warTalk(key, g) ?? roadTalk(key, g) ?? hallsTalk(key, g);
     if (war) return news ? [...pre, ...npcScript(key, g), ...war] : [...pre, ...war];
     if (pre.length && !news) return pre;
     const story = npcScript(key, g);
@@ -1537,7 +1544,7 @@ export class Game {
     const year = landmarkScript(near.key, this.state, cal, [h.x + 1.2, h.y + 0.4]);
     if (year) return this.play(year);
     const how = { night: cal.dusk > 0.55, riding: this.riding, flying: !!h.flying };
-    const war = warLandmark(near.key, this.state, how) ?? roadLandmark(near.key, this.state, how);
+    const war = warLandmark(near.key, this.state, how) ?? roadLandmark(near.key, this.state, how) ?? hallsLandmark(near.key, this.state, how);
     if (war) return this.play(war);
     for (const c of carried(this.state)) {
       const b = c.bounty;
@@ -1551,7 +1558,7 @@ export class Game {
 
   /** A foe of the horde beaten where the war wanted it beaten. */
   private warHunt(enemy: EnemyId): void {
-    for (const hunt of [() => warHunt(this.state, enemy, this.state.area), () => roadHunt(this.state, enemy)]) {
+    for (const hunt of [() => warHunt(this.state, enemy, this.state.area), () => roadHunt(this.state, enemy), () => hallsHunt(this.state, enemy)]) {
       const r = hunt();
       this.state = r.state;
       if (r.steps) return this.play(r.steps);
@@ -1568,6 +1575,9 @@ export class Game {
       const road = roadBreath(this.state, this.state.area);
       this.state = road.state;
       if (road.steps) return this.play(road.steps);
+      const halls = hallsBreath(this.state, this.state.area);
+      this.state = halls.state;
+      if (halls.steps) return this.play(halls.steps);
     }
     for (const c of carried(this.state)) {
       const b = c.bounty;
@@ -1825,7 +1835,7 @@ export class Game {
     }
     if (this.mode === "explore" && this.clock >= this.markerAt) this.refreshMarkers();
     const cal = calendarAt(worldTime(this.state));
-    for (const a of this.world.actors) if (a.kind === "npc") a.marker = this.mode === "explore" && ((hasNews(a.key, this.state) || yearHasNews(a.key, this.state, cal) || warHasNews(a.key, this.state) || roadHasNews(a.key, this.state) || daoHasNews(a.key, this.state) || cultivationHasNews(a.key, this.state)) || (this.bountyMarkers.get(a.key) ?? false));
+    for (const a of this.world.actors) if (a.kind === "npc") a.marker = this.mode === "explore" && ((hasNews(a.key, this.state) || yearHasNews(a.key, this.state, cal) || warHasNews(a.key, this.state) || roadHasNews(a.key, this.state) || hallsHasNews(a.key, this.state) || daoHasNews(a.key, this.state) || cultivationHasNews(a.key, this.state)) || (this.bountyMarkers.get(a.key) ?? false));
     if (this.world.hero.outfit !== currentAttire(this.state).id) this.dressHero();
     this.world.heroRealm = this.state.realm;
     this.world.heroDread = heartDemons(this.state) > 60;
@@ -2009,6 +2019,10 @@ export class Game {
       roadDone: roadDone(this.state),
       roadCount: ROAD_COUNT,
       roadSteles: this.journalOpen && roadDone(this.state) > 0 ? roadChronicle(this.state) : null,
+      halls: hallsLog(this.state, (id) => lockReason(id, this.state)),
+      hallsDone: hallsDone(this.state),
+      hallsCount: HALLS_COUNT,
+      hallsList: this.journalOpen && hallsDone(this.state) > 0 ? hallsChronicle(this.state) : null,
       wu: (() => {
         const w = deepestWu(this.state);
         const j = wuJournal(this.state);
