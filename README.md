@@ -678,9 +678,142 @@ flowchart TD
 
 - the continuous world is built in about 40% of the time it took before (and despite being bigger): assigning each tile to its region now runs in its own small function that the JavaScript engine can optimise, instead of inside the very large world builder
 
+### The Founder's Road: a thousand more main quests, the Great Daos, and the Tidewater Reach
+
+Before Lian Qingxue, the Azure Cloud's founder, went up to heaven, she walked the jianghu for ten years. At ten places she came to understand one of the **Great Daos of heaven and earth** and carved it into a stele: the *Canon of Clear Snow* (清雪道藏). Now someone is **eating the steles**. Wei Kongming was born unable to feel the Dao, so he learned to swallow it whole instead. He is also the man who taught a steppe chieftain called Tuoba Hong that a demon beast's core could be eaten. Each stele he empties takes its Dao out of the land around it: the millrace forgets which way is down, the bamboo stops growing, the steppe wind stops blowing, fire burns grey and gives off no heat. A Hollow Echo stands guard where the verse used to be.
+
+Daoist Qingxu has spent sixty years copying the founder's steles. Once Lin Yue has built her foundation, he asks her to walk the Road behind the Dao-Eater and mend it. This is the fourth thread of the main tale: **1000 quests in ten books, one for each Great Dao**. It runs alongside the war.
+
+| Book | Great Dao | The stele | What the land lost | Guardian |
+| --- | --- | --- | --- | --- |
+| I · 忘雨之池 The Pond That Forgot the Rain | 水 Water | the watermill, Lotus Lake | the millrace lies still | Echo of Still Water |
+| II · 止生之林 The Grove That Stopped Growing | 木 Wood | the bamboo by the Moon-Gazing Pavilion | no shoot has grown since | Echo of the Withered Grove |
+| III · 无息之原 The Steppe Without Breath | 风 Wind | the herders' camp on the steppe | the prayer flags hang straight down | Echo of the Stopped Wind |
+| IV · 寒焰 The Cold Flame | 火 Fire | the red cliffs of the badlands | fires burn grey and give no warmth | Echo of the Cold Flame |
+| V · 弃负之山 The Mountain That Let Go | 土 Earth | the foot of the Dragonspine | the mountain sheds its stones | Echo of the Hollow Mountain |
+| VI · 钝锋 The Edge That Gave Up | 金 Metal | the Sword Tomb | every blade dulls overnight | Echo of the Blunted Edge |
+| VII · 无声之雷 The Silent Storm | 雷 Thunder | the pagoda hill | lightning that makes no sound | Echo of the Silent Storm |
+| VIII · 不解之冬 The Winter That Would Not End | 冰 Ice | the Sword Sea crag | snow that cannot decide to fall | Echo of the Endless Winter |
+| IX · 不生不死 Neither Living Nor Dead | 生死 Life and Death | Hundred Herb Valley | flowers bloom and rot in a breath | Echo of the Unending |
+| X · 世尽之钵 The Bowl at the End of the World | 虚空 the Void | Returning Cloud Isle, off Hailing | the horizon is gone | **Wei Kongming, the Dao-Eater** |
+
+```mermaid
+flowchart LR
+  F[Foundation Establishment] --> S[Seek: Qingxu at the stele]
+  S -->|the land loses its Dao| Q{Quest n of 1000}
+  Q --> C[Contemplate at a shrine where the Dao runs strong]
+  Q --> O[Observe it at work: by night, by day, riding, flying]
+  Q --> A[Ask the folk what it means to them]
+  Q --> T[Put the hollowed to rest]
+  Q --> K[A question of the Road ×9]
+  Q --> U[Beyond your understanding: realm + Lesser Mastery]
+  C & O & A & T & K & U --> Q
+  Q --> R[Read the mended stele]
+  R --> E[The Hollow Echo comes for the verse]
+  E --> P{What becomes of the Dao it wore?}
+  P -->|set it free · cut it apart · give it back to the land| M[The land remembers its Dao]
+  P -->|eat it, as Kongming did| D[A great deal of the Dao, past what your realm can hold, heart demons, and the land stays hollow]
+  M & D -->|next book| S
+  M & D -->|book X| W[Wei Kongming: feel, die, return the Daos, or be eaten]
+```
+
+- **Every quest is composed from its number** (as the war is), so the save only stores `road` and `roadp`. The flags the land and the folk respond to (`roadat:`, `hollowed:`, `echo:`, `restored:`, `devoured:`) are derived from those two and kept in step as she plays.
+- **Every quest asks for a realm**: from Foundation Establishment for the first stele up to the peak of Spirit Severing for the Dao-Eater. Past the middle of each book the Road also asks for **Lesser Mastery** of that book's Great Dao.
+- **The questions of the Road** (18 of them, nine in each book) lean her Dao Heart toward Sword, Compassion, Balance or Slaughter. Some answers only appear once she understands the book's Dao deeply enough. Others have a cost: swallowing a hollow sage's pill made from an eaten Dao poisons her, and pouring her own qi into a stele leaves her drained.
+- **The land answers.** While a book is open, the stele lies broken, grey whirls of motes drift over dead ground, and hollow shades, ascetics and sages wander nearby. Qingxu waits beside the stele. Once the book is done the stele stands whole again with its verse glowing, unless she ate the Dao, in which case the land stays hollow for good. The journal lists every stele as Mended, Hollowed or Eaten.
+- **Outfits:** the Pilgrim's Hemp Robe (100 quests), the Mantle of the Ten Steles (500), and at the end either the Robe of Clear Snow or, if she ate the Dao-Eater, the Dao-Eater's Robe. The ending has a line for the Road.
+
+#### 大道感悟 The Great Daos
+
+There are ten Great Daos: Water, Wood, Wind, Fire, Earth, Metal, Thunder, Ice, Life and Death, and the Void. They are a separate thing from the four Daos of the heart. Her Dao Heart is what she chooses to be; the Great Daos are what she comes to understand about the world. Each one deepens through five stages: **入门 Entry, 小成 Lesser Mastery, 大成 Greater Mastery, 圆满 Perfection and 化境 Transcendence**.
+
+```mermaid
+stateDiagram-v2
+  [*] --> Entry: 3
+  Entry --> Lesser: 10
+  Lesser --> Greater: 24
+  Greater --> Perfection: 45
+  Perfection --> Transcendence: 75
+  note right of Entry
+    every 30 breaths at a shrine: +1 to that land's Dao
+    (lake = water, peak = thunder, Frostveil = ice …)
+    the Founder's Road: +1 to +4 a quest
+    eating an Echo's Dao: +10, past the realm's limit
+  end note
+  note left of Transcendence
+    no realm holds more than it can bear:
+    Qi Condensation only Entry …
+    Spirit Severing all the way
+  end note
+```
+
+- **Each Dao strengthens her in its own way.** Water, Ice and the Void deepen her dantian; Wood and Life and Death toughen her body; Fire, Metal and Thunder sharpen her strikes; Earth, Metal and Ice harden her guard; Wind, Thunder and the Void quicken her step. The HUD shows her deepest Dao, and the journal has a Great Daos page with each Dao's verse, its stage, and whether her realm is holding it back.
+- **道域 Dao Domain.** At Nascent Soul, once she has twelve stages across the Great Daos, what she understands opens out around her as a domain. Any foe that steps into it starts the fight staggering.
+- **Seeing through an Echo.** A cultivator who has Greater Mastery or more of the Dao an Echo wears can see straight through it. The Echo begins the battle already wounded.
+- **Comprehension in play:** a burst of light in the Dao's colour, a toast, and Lin Yue lifts off the ground in the new `comprehend` pose (the folk nearby bow). Once she has some understanding she will sometimes fall into it while idling.
+
+| | |
+| --- | --- |
+| ![Qingxu at the stele of water](docs/screenshots/175-daoist-qingxu-at-the-stele-of-water.png) | ![The pond that forgot the rain](docs/screenshots/176-the-pond-that-forgot-the-rain.png) |
+| ![A hollow shade](docs/screenshots/187-a-hollow-shade.png) | ![A question of the Road](docs/screenshots/177-a-question-of-the-road.png) |
+| ![Comprehending a Great Dao](docs/screenshots/178-comprehending-a-great-dao.png) | ![The journal](docs/screenshots/179-journal-the-road-and-the-great-daos.png) |
+| ![The Echo of Still Water](docs/screenshots/180-the-echo-of-still-water.png) | ![She sees through the Echo](docs/screenshots/181-she-sees-through-the-echo.png) |
+| ![What becomes of the water it wore](docs/screenshots/182-what-becomes-of-the-water-it-wore.png) | ![The stele mended](docs/screenshots/183-the-stele-of-water-mended.png) |
+| ![A Dao Domain unfolds](docs/screenshots/184-a-dao-domain-unfolds.png) | ![Wei Kongming on Returning Cloud Isle](docs/screenshots/185-wei-kongming-on-returning-cloud-isle.png) |
+| ![The Dao-Eater](docs/screenshots/186-the-dao-eater.png) | |
+
+#### The Tidewater Reach, and busier streets
+
+The sea of clouds in the south-east has filled in with land. The map is still the same size and every older position is the same spot. The Tide Road runs east from the Camel Bell Caravanserai across salt meadows to **Hailing, the Tide City (海陵城)**, and a road comes down to it from the red cliffs of the badlands.
+
+```mermaid
+flowchart LR
+  CB[Camel Bell Caravanserai] -->|the Tide Road| W[Hailing · west gate]
+  RC[Red Cliff Hideout] --> N[Hailing · north gate]
+  W & N --> SQ((The square))
+  SQ --- L[Lion dancers · acrobats · puppet theatre]
+  SQ --- X[Xiangqi tables · bun steamers · pinwheels · firecrackers · sky lanterns]
+  SQ --- CN[A ring of canals · bridges · sampans · boatwomen]
+  SQ --- G[Guild hall · teahouse · opera stage · tide shrine and prayer wheel]
+  SQ -->|south gate| QY[The quay and its lighthouse]
+  SQ -->|east gate| SW[Saltwind's salt pans]
+  SQ -->|the causeway| RCI[Returning Cloud Isle · the tenth stele]
+```
+
+- **Hailing:** walls and four watchtowers, two paved streets that meet at a fountain square, a ring of canals crossed by plank bridges, sampans moored along them, houses packed into every block, a guild hall, a teahouse, an opera stage, the tide shrine with its prayer wheel, and a quay with a lighthouse. It has 20 townsfolk going about their business: lion dancers and their drummer, two acrobats, Old He the puppeteer, a moneychanger at his abacus, a spice merchant shouting his wares, two old men bent over xiangqi, a firework-maker, Bao Mei selling buns (a meal restores her), boatwomen rowing the canals, a pearl diver, children with firecrackers, a tide monk and the harbourmaster. They comment on her realm, the Road, the war and what she understands.
+- **Saltwind (盐风村)** works its salt pans, which glitter in the sun. **Returning Cloud Isle (归云屿)** sits in a lagoon at the end of a long causeway, with a shrine, prayer flags and the last stele.
+- **Busier streets elsewhere:** a fair outside Jinhe's north gate (a lion-dance troupe, an acrobat, a puppet theatre, xiangqi, buns, pinwheels, firecrackers and sky lanterns), and on Willow Creek's market road, old men at xiangqi under the willows, a bun steamer, a pinwheel seller, and once the Heart is home, the village's own lion and firecrackers.
+
+| | |
+| --- | --- |
+| ![Hailing, the Tide City](docs/screenshots/169-hailing-the-tide-city.png) | ![The canals of Hailing](docs/screenshots/170-the-canals-of-hailing.png) |
+| ![Old He the puppeteer](docs/screenshots/171-old-he-the-puppeteer.png) | ![Saltwind](docs/screenshots/172-saltwind-and-its-salt-pans.png) |
+| ![The fair at Jinhe's north gate](docs/screenshots/173-the-fair-at-jinhes-north-gate.png) | ![Xiangqi under the willows](docs/screenshots/174-xiangqi-under-the-willows.png) |
+
+#### New animations
+
+- **Characters (10 new moves):** `liondance` (the painted lion's head held overhead, its jaw snapping and mane shaking), `acrobat` (a tucked somersault), `puppet` (a string puppet dancing below its control bar), `abacus`, `firecracker` (light the string, then jump back with hands over the ears), `hawk` (a street vendor calling out), `xiangqi` (seated over the board, slapping a piece down), `row` (sculling a sampan), and for Lin Yue `comprehend` and `domain`. There are six new held props (lion head, puppet, abacus, firecracker string, xiangqi board and oar). Folk who already existed have picked up the new moves too.
+- **17 new characters:** Daoist Qingxu, Wei Kongming, hollow shades and sages, nine Echoes (one for each Dao the Dao-Eater ate), and the people of the Reach (boatwoman, lion dancer, acrobat, merchant). Four new outfits for her.
+- **12 new animated props:** the founder's stele with its verse glowing, an emptied stele leaking grey motes, the grey whirl of a land whose Dao has been eaten, a long string of firecrackers throwing sparks, a rocking sampan, a stack of steaming bamboo steamers, a xiangqi table, a puppet theatre whose puppets bow and spin, a pinwheel stand, sky lanterns rising into the dusk, a prayer wheel, and salt pans that glitter.
+
+| The Road's people, and the Reach at play | The Road's props |
+| --- | --- |
+| ![Road moves](docs/art/road-moves.gif) | ![Road props](docs/art/road-props.gif) |
+
+#### Plot holes mended
+
+- **Quartermaster Bao sent supplies to himself.** Seven war quests had Bao hand over "a crate of salted pork that must reach Quartermaster Bao". The quartermaster now only ever sends.
+- **The army spoke like villagers.** One pool of lines was shared by everyone, so Medic Su Lan, Scout Feiyan, Ashina and Envoy Kou would say "My boy is in the third company… tell him his mother is well", and officers "lost their home" or "thanked the army". Officers now have their own reasons and replies, children have theirs, and only women say the mother's line.
+- **Two monsters in one valley who never noticed each other.** Book IX of the war (the Crimson Pact) could start while Patriarch Xue still held his blood altar in the same valley. If he is still alive, the General now says the shaman has made a pact with him, and when the front is won his altar is the one left standing, for her to deal with.
+- **The siege of her own sect ignored what she had done.** If Lin Yue drank the Heart, or broke Elder Mo, the General now says so at the last muster.
+- **The war healed the crimson valley at a bamboo shrine without saying why.** It now explains that the valley's own altars are fouled with blood.
+- **"When she went up"** was used in the war's line of the ending even when she chose to stay (Guardian) or went home (the Road Home). It now says "when she stood at heaven's threshold", which is true in every ending.
+- **Who taught the Khan to eat demon cores?** The war never said. Wei Kongming did. Ashina remembers a silver-haired man in the Khan's tent the winter before the first core, Qingxu finds steppe felt in a stele's dust, and the Dao-Eater mentions his student before their duel.
+- **Passers-by spoke under the wrong name.** When the folk remarked on her cultivation, the line went out under their sprite's default name, so Jinhe's noodle seller (or Hailing's bun seller) spoke as "Cook Pang". It now uses the person's own name.
+
 ### Animated art
 
-| Lin Yue's 53 animations | All 16 facing directions |
+| Lin Yue's 65 animations | All 16 facing directions |
 |---|---|
 | ![Heroine move set](docs/art/heroine-moves.gif) | ![Heroine 16 directions](docs/art/heroine-16dir.gif) |
 
@@ -712,12 +845,13 @@ flowchart TD
 - **A living world:** a day/night cycle (stars come out, shooting stars streak past, lanterns glow), dragonflies over the shallows, fireflies rising from the grass after dusk, dandelion seeds on the wind, lava bubbles that swell and pop, birds and bats wheeling overhead, butterflies over meadow flowers, koi leaping in the water, cloud shadows drifting over the land, footprints in sand, snow and ash, cranes that take flight when you come close, NPCs who turn and wave as you pass, a peddler walking the highway with his shop, beasts that shout "!" and gallop after you (and give up with a "?"), and beaten beasts that come back once you've been away for a while.
 - **2.5D isometric world:** height-mapped tile maps with cliffs, stairs, raised platforms, floating islands with rocky undersides, animated water and lava with shore foam, depth-sorted props (sliced into screen columns so they occlude correctly), contact shadows, an x-ray silhouette when the heroine walks behind something, and parallax skies.
 - **Building interiors:** five cutaway rooms behind real doors in the world, each its own small map run by the same World runtime: back walls with timber frames, wainscots and lattice windows, raised floors with rugs, daylight shafts that follow the day/night cycle, and lamplit furniture. Walking into a door goes through it; walking out over the threshold mat steps back onto the street. Saves made indoors remember the step outside, so a reload lands in the open world. You can't ride your sword or open the world map under a roof.
-- **Procedural 3D pixel sprites:** 62 humanoid characters, 9 beasts and a rider on her horse, each built from roughly 20 ray-cast solids (bell skirts, sleeves, hair strands, shawls, tails, hats, weapons) with hue-shifted 4-tone shading, face decals and selective outlines. They render in 16 directions with up to 33 animations: idle, walk, run, talk, attack, cast, hurt, meditate, sword-flight, victory, defeat, bow, wave, gather (kneel and pick), drink, cheer, point and nod, stretch and look-around idle fidgets, plus hop, practice, fishing, sweeping, dancing and dozing, and the everyday ones: reading (with a page turn), sitting, kneeling in prayer, weaving at a loom, pouring tea, clapping, laughing, a seated storyteller's sweeping gestures, and four pastimes: playing the dizi flute (with a few notes over her head), eating a bowl of noodles, juggling three bright balls and cooling off with a folding fan; and the newest: the cultivator's fist-in-palm salute, a twirl on the spot that flares the skirts, a smith's hammer ringing on the anvil, kneeling to write with a brush, a restless shade drifting above the ground, and holding up a festival lantern; and the doubled world's: hoeing, chopping firewood, walking under a carrying pole, kicking a shuttlecock, strolling under an oiled-paper umbrella and slow taiji. People can change clothes: every humanoid can wear **outfits** (style overrides painted and cached per outfit, on foot, on horseback, in battle and in their portrait). Horses walk, gallop, graze and rear, and Lin Yue rides one: horse and rider are painted into one depth buffer so they occlude each other properly. Foxes and wolves gallop with a run cycle, sniff the ground and curl up asleep with their tails wrapped round them; wolves sit back and howl; cranes peck at the grass. Dialogue portraits are rendered from the same models at 3× scale, with blink and talk frames.
+- **Procedural 3D pixel sprites:** 97 humanoid characters, 9 beasts and a rider on her horse, each built from roughly 20 ray-cast solids (bell skirts, sleeves, hair strands, shawls, tails, hats, weapons) with hue-shifted 4-tone shading, face decals and selective outlines. They render in 16 directions with up to 33 animations: idle, walk, run, talk, attack, cast, hurt, meditate, sword-flight, victory, defeat, bow, wave, gather (kneel and pick), drink, cheer, point and nod, stretch and look-around idle fidgets, plus hop, practice, fishing, sweeping, dancing and dozing, and the everyday ones: reading (with a page turn), sitting, kneeling in prayer, weaving at a loom, pouring tea, clapping, laughing, a seated storyteller's sweeping gestures, and four pastimes: playing the dizi flute (with a few notes over her head), eating a bowl of noodles, juggling three bright balls and cooling off with a folding fan; and the newest: the cultivator's fist-in-palm salute, a twirl on the spot that flares the skirts, a smith's hammer ringing on the anvil, kneeling to write with a brush, a restless shade drifting above the ground, and holding up a festival lantern; and the doubled world's: hoeing, chopping firewood, walking under a carrying pole, kicking a shuttlecock, strolling under an oiled-paper umbrella and slow taiji. People can change clothes: every humanoid can wear **outfits** (style overrides painted and cached per outfit, on foot, on horseback, in battle and in their portrait). Horses walk, gallop, graze and rear, and Lin Yue rides one: horse and rider are painted into one depth buffer so they occlude each other properly. Foxes and wolves gallop with a run cycle, sniff the ground and curl up asleep with their tails wrapped round them; wolves sit back and howl; cranes peck at the grass. Dialogue portraits are rendered from the same models at 3× scale, with blink and talk frames.
 - **Idle life:** villagers and wayfarers break into nods, stretches, sips of tea, pours from the teapot, claps, laughs, little dances and cheers when nobody needs them; sleepers breathe with drifting "Z"s; roaming beasts stop to sniff, howl or nap (and leap up the moment they spot you); Lin Yue drinks her pills, reads the steles she stops at, bows in prayer at altars and, left alone, nods, points, claps and laughs as well as stretching, and in the end sits down where she stands until you move her again. Fish shadows glide in slow circles under the water, and washing flaps on a line in Willow Creek.
-- **118 props, 77 of them animated** (buildings grow with the world, drawn 2–4× their size and painted only when first seen): swaying pines, cherry and maple trees, bamboo groves, willows, a glowing spirit tree, the multi-tier Hall of Clouds, village houses with chimney smoke, a lake pavilion, flickering lanterns and braziers that cast soft glows at night, waving banners, a bubbling alchemy cauldron, bobbing lotuses and boats, a rotating taiji dais, a pulsing blood altar, a turning waterwheel that sheds water, crackling campfires, scarecrows flapping in the wind, a five-tier pagoda with swinging wind chimes, a teahouse with a fluttering tea flag, tents, fluttering prayer flags, steaming hot-spring rocks, karst spires, temple ruins, haystacks and benches; and indoors, bookcases, hanging scrolls that stir in the draught, a brick stove with a fire and a steaming wok, a loom, a millstone with its crown wheel, grain sacks, ancestral altars with incense and candles, a bronze tree of seven oil lamps, a jade founder's statue, folding screens, a bed, an herb-drying rack, porcelain vases, a sword rack, tea tables with steaming cups, cushions and a washing line; and new: strings of festival lanterns swinging over the village square and the crossroads, bronze temple bells that swing now and then in their bell-frames, and a paper kite riding the wind over Willow Creek; and newest: a village forge with breathing bellows and a red-hot blade on the anvil, the Sword Tomb bristling with glinting blades, peach trees in blossom and fruit that shed petals, straw beehives with bees looping round them, a lonely grave with a stick of incense, drifting will-o'-wisps, and festival fireworks that climb and burst over Willow Creek once the Heart is home (props can now appear only while a story condition holds); and for the doubled world: junks at anchor, a lighthouse with a turning beam, circling koi, butterflies, tea bushes, fan palms, snow pines, a fountain, a war drum, fish-drying racks, stupas, a noodle cart, a bronze censer, stilt houses, archery targets, handcarts and wine jars. Little dust devils (and whirls of ash and sand) spin along the roads. With the year: a bronze sundial whose shadow follows the hour, snowmen, leaf piles, persimmons drying on a rack and beds of rice seedlings.
+- **146 props, 100 of them animated** (buildings grow with the world, drawn 2–4× their size and painted only when first seen): swaying pines, cherry and maple trees, bamboo groves, willows, a glowing spirit tree, the multi-tier Hall of Clouds, village houses with chimney smoke, a lake pavilion, flickering lanterns and braziers that cast soft glows at night, waving banners, a bubbling alchemy cauldron, bobbing lotuses and boats, a rotating taiji dais, a pulsing blood altar, a turning waterwheel that sheds water, crackling campfires, scarecrows flapping in the wind, a five-tier pagoda with swinging wind chimes, a teahouse with a fluttering tea flag, tents, fluttering prayer flags, steaming hot-spring rocks, karst spires, temple ruins, haystacks and benches; and indoors, bookcases, hanging scrolls that stir in the draught, a brick stove with a fire and a steaming wok, a loom, a millstone with its crown wheel, grain sacks, ancestral altars with incense and candles, a bronze tree of seven oil lamps, a jade founder's statue, folding screens, a bed, an herb-drying rack, porcelain vases, a sword rack, tea tables with steaming cups, cushions and a washing line; and new: strings of festival lanterns swinging over the village square and the crossroads, bronze temple bells that swing now and then in their bell-frames, and a paper kite riding the wind over Willow Creek; and newest: a village forge with breathing bellows and a red-hot blade on the anvil, the Sword Tomb bristling with glinting blades, peach trees in blossom and fruit that shed petals, straw beehives with bees looping round them, a lonely grave with a stick of incense, drifting will-o'-wisps, and festival fireworks that climb and burst over Willow Creek once the Heart is home (props can now appear only while a story condition holds); and for the doubled world: junks at anchor, a lighthouse with a turning beam, circling koi, butterflies, tea bushes, fan palms, snow pines, a fountain, a war drum, fish-drying racks, stupas, a noodle cart, a bronze censer, stilt houses, archery targets, handcarts and wine jars. Little dust devils (and whirls of ash and sand) spin along the roads. With the year: a bronze sundial whose shadow follows the hour, snowmen, leaf piles, persimmons drying on a rack and beds of rice seedlings.
 - **Eleven regions plus a world map:** the five new ones of the doubled world (the Mistmarsh, the Cloudmist Tea Terraces, the Yellow Sands, Wavecrest Harbour and Frostveil Monastery), and the floating Azure Cloud Sect (day, falling petals), Willow Creek Village (dusk, autumn leaves), the Whispering Bamboo Forest (fireflies), the Moonlit Lotus Lake (night, stars and moon), the Crimson Demon Valley (blood moon, embers, lava) and Heavenly Tribulation Peak (snow, storm lightning). The miniature isometric continent has roads, rivers, sea, drifting clouds and their shadows, and animated landmarks. Regions unlock as the story advances.
 - **A calendar and four seasons:** day, night and the seasons follow the save; seasonal sprites and ground, weather, NPC clothes and habits, a sun and moon, golden hours and summer showers (see [The turning year](#the-turning-year-a-thousand-notices-and-a-wardrobe)).
 - **1000 notices and a second main quest:** a thousand composed side quests from 86 folk, and the Turning of the Year, waking four seasonal Wardens.
+- **Two thousand-quest main threads:** the War of the Iron Banner and the Founder's Road, each in ten books, with the ten Great Daos to comprehend along the Road (see [The Founder's Road](#the-founders-road-a-thousand-more-main-quests-the-great-daos-and-the-tidewater-reach)).
 - **Choices that matter:** questions put to the heroine (a choice panel with hints), remembered as story flags; three sect quest lines and a five-way conclave over the Dragon Vein, standing with each sect (Hostile to Allied), and 26 terrain patches that change the world and the caves as the story goes (plus skies that change with it) (see [Three sects, the deep, and choices that matter](#three-sects-the-deep-and-choices-that-matter)).
 - **Underground:** three caves (Ember Mine, Sunken Grotto, Dragon Vein Caverns) carved as cutaways of living rock at many heights, with a cave sky of dripping stalactites, drips and glowing spores, a torch she holds up, and battles on a ledge in the dark.
 - **Narrative:** three beginnings, a prologue, six chapters, an epilogue and five endings (see [Three beginnings](#three-beginnings-a-heart-to-choose-and-five-endings)), with a quest tracker, scripted cutscenes (walk, emote, camera, flash, shake, spawn), typed-out dialogue with animated portraits, full-screen narration, first-arrival scenes, pre-boss speeches and an ending; plus four side errands shown under the quest tracker (a ghost's unfinished letter, two quarrelling brothers, a sword brought home, a dead husband's cloak) and Willow Creek's lantern festival, each ending in a new outfit.
@@ -1047,7 +1181,8 @@ flowchart LR
 
 - **Unit tests (Vitest):** the iso projection and ray caster (shading, depth, decal visibility, convex solids), every character × animation × direction, all portraits and props, terrain and skies. Every region layout, and then the whole continuous world, is checked by BFS: every waypoint, NPC, encounter and interactable is reachable on foot, the sky bridges connect, rivers reach the edge, and no prop stands in water or on the road. Also covered: the world map's terrain (built from the real world), save migration from per-region coordinates and from the smaller world, the grown world's size, landmarks and new folk, a complete story walkthrough from prologue to ascension, realms and battle rules, a headless run of the `Game` runtime (cutscenes, walking and collision, tap-to-walk, the elder's briefing, world-map travel, battles won and lost, boss speeches, the fox quest, meditation and tribulation, pickups, rendering every region, walking down the sky bridge into the village, seals turning the heroine back, running, startled cranes, greeting NPCs, respawning beasts, idle fidgets and the day cycle, the wayside folk's gifts, Xiao Han's duel won and lost, landmark banners, beasts sniffing, howling and dozing, opening the map while flying over water, loading a save onto open ground, walking into the Hall of Clouds through its door and back out over the threshold, learning from the archivist, reading the shelves and praying at the altar, every room rendering with its folk at work, losing a fight indoors, a beast standing its ground at the edge of its territory, a lost friendly duel costing nothing, and scripted walks staying at a walk), every room's walls, windows and reachability, every building's door on open ground in front of it, the indoor folk's one-time gifts, and the API route handlers.
 - **The year and the notices (Vitest):** the calendar (seasons, phases, passing time, a save keeps its hour), seasonal filters on props, every season by day and night with the folk in winter wool and lanterns after dark, the season banner, the whole Turning of the Year from the almanac to the four Wardens and the Raiment, the wardrobe, and the thousand notices (exactly 1000, deterministic, every giver, landmark, beast and shrine really in the world, three slots, bits in the save, milestones, a delivery taken and handed over, a night visit and a hunt fulfilled in the running game).
-- **E2E (Playwright):** the wardrobe, the calendar turning at the sundial and a notice taken and set aside from the journal; and  fullscreen title and health check, opening narration and walking, walking from the sect into the village in one world, Elder Mo's briefing through to world-map travel, a battle won through the UI, tea and the shop at the crossroads teahouse (with Enter skipping the typewriter text), stepping inside the crossroads teahouse to hear the storyteller and walking back out, a save/reload/continue round trip with the leaderboard, and the gallery canvases painting (now with the indoor folk and every room).
+- **The Founder's Road and the Great Daos (Vitest):** comprehension's five stages and the realm cap, the stat gifts, the Dao Domain and seeing through an Echo, all 1000 quests (deterministic, ten books, every NPC and landmark really in the world, rising realms), the whole Road walked to its end with the land, the outfits and the ending following, eating a Dao and what it costs, the questions whose deeper answers need deeper understanding, every Echo and the Dao-Eater in battle, Hailing's walls, canals and bridges, the busy street folk and their words, the new props and moves, and the mended plot holes (Bao never supplies himself, officers and children speak as themselves, the crimson front remembers Xue, endings where she stayed).
+- **E2E (Playwright):** the Founder's Road opening with Qingxu at Foundation Establishment and the journal's Great Daos page, Hailing's lion dancers and its bun seller; the wardrobe, the calendar turning at the sundial and a notice taken and set aside from the journal; and  fullscreen title and health check, opening narration and walking, walking from the sect into the village in one world, Elder Mo's briefing through to world-map travel, a battle won through the UI, tea and the shop at the crossroads teahouse (with Enter skipping the typewriter text), stepping inside the crossroads teahouse to hear the storyteller and walking back out, a save/reload/continue round trip with the leaderboard, and the gallery canvases painting (now with the indoor folk and every room).
 
 ## Project layout
 
@@ -1062,9 +1197,13 @@ src/
                        props, terrain tiles, skies
     world/             tile maps, the six region layouts, the world layout,
                        the continuous world builder (continent.ts), the building
-                       interiors (interiors.ts), the world map
-    story/             cutscene step types, quests, dialogue, scripted scenes
-    engine/            realms, enemies, battle, zod save schema (pure)
+                       interiors (interiors.ts), the world map, the war's fronts
+                       (warfront.ts) and the Founder's Road's steles (roadside.ts)
+    story/             cutscene step types, quests, dialogue, scripted scenes, the
+                       war (war.ts), the Founder's Road (road.ts), Hailing's folk (tide.ts)
+    engine/            realms, enemies, battle, the Dao Heart (dao.ts), cultivation's
+                       toll (cultivation.ts), the Great Daos (comprehension.ts),
+                       zod save schema (pure)
     runtime/           Game loop, World (open world + battle arenas), WorldMap, BattleScene, particles, title
   server/              save store (atomic JSON file / memory)
 tests/                 Vitest unit tests

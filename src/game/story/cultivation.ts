@@ -371,22 +371,23 @@ const FALLEN = ["Was it you heaven struck down? We saw it from the fields. Forgi
 /**
  * A word from a passer-by about the cultivator before them: wonder at her
  * realm, fear of her demons, or relief that heaven did not kill her. Only
- * some folk say anything, once for each realm (or failure).
+ * some folk say anything, once for each realm (or failure). `name` is who
+ * they are (a noodle seller who wears a cook's look is not Cook Pang).
  */
-export function aweAside(key: string, speaker: HumanId, g: GameState): Step[] | null {
+export function aweAside(key: string, speaker: HumanId, g: GameState, name?: string): Step[] | null {
   if (CAST[key] || CALMERS[key] || CLEANSERS[key] || WORRIERS[key]) return null;
   const h = (salt: number) => hash2(key.length * 31 + key.charCodeAt(0), key.charCodeAt(key.length - 1) + salt, 7);
   if (heartDemons(g) > 60 && !g.flags[`awe:dread:${g.realm}:${key}`] && h(g.realm) < 0.45)
-    return [{ emote: key, icon: "!" }, { say: speaker, text: DREAD[Math.floor(h(9) * DREAD.length)] }, { mutate: (s) => ({ ...s, flags: { ...s.flags, [`awe:dread:${s.realm}:${key}`]: true } }) }];
+    return [{ emote: key, icon: "!" }, { say: speaker, name, text: DREAD[Math.floor(h(9) * DREAD.length)] }, { mutate: (s) => ({ ...s, flags: { ...s.flags, [`awe:dread:${s.realm}:${key}`]: true } }) }];
   const fails = failedTribulations(g);
   if (fails > 0 && foundationWound(g) > 0 && !g.flags[`awe:fall:${fails}:${key}`] && h(fails + 20) < 0.4)
-    return [{ emote: key, icon: "..." }, { say: speaker, text: FALLEN[Math.floor(h(11) * FALLEN.length)] }, { mutate: (s) => ({ ...s, flags: { ...s.flags, [`awe:fall:${fails}:${key}`]: true } }) }];
+    return [{ emote: key, icon: "..." }, { say: speaker, name, text: FALLEN[Math.floor(h(11) * FALLEN.length)] }, { mutate: (s) => ({ ...s, flags: { ...s.flags, [`awe:fall:${fails}:${key}`]: true } }) }];
   if (g.realm < 1 || g.flags[`awe:${g.realm}:${key}`] || h(g.realm + 40) > 0.4) return null;
   const lines = AWE[g.realm].filter((l) => l !== "…");
   return [
     { emote: key, icon: "!" },
     { anim: key, name: "bow" },
-    { say: speaker, text: lines[Math.floor(h(13) * lines.length)] },
+    { say: speaker, name, text: lines[Math.floor(h(13) * lines.length)] },
     { mutate: (s) => ({ ...s, flags: { ...s.flags, [`awe:${s.realm}:${key}`]: true } }) },
   ];
 }

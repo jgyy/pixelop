@@ -1,10 +1,11 @@
 import { createRng } from "../pixel/rng";
-import { ENEMIES, isWarFoe, type EnemyId } from "./enemies";
+import { ECHO_DAO, ENEMIES, isEcho, isHollow, isWarFoe, type EchoId, type EnemyId } from "./enemies";
 import { levelIndex } from "./realms";
 import { gainCultivation, PILL_EFFECT, stats, type GameState, type SkillId } from "./state";
 import { toWorld } from "../world/layout";
 import { CULT, cultivationRate, shift, swallowPill } from "./cultivation";
 import { dominantDao } from "./dao";
+import { deepestWu, domainPress, GREAT_DAOS, wuTier } from "./comprehension";
 
 export type { SkillId } from "./state";
 
@@ -68,26 +69,41 @@ export function openingWound(enemy: EnemyId, g: GameState): number {
   if (enemy === "patriarch" && g.flags.xueWounded) return 0.4;
   // the founder's sutra, recited by one of Mo's own, shakes his demonic qi
   if (enemy === "patriarch" && g.flags.xueShaken) return 0.2;
-  return realmAura(enemy, g);
+  return Math.max(realmAura(enemy, g), echoInsight(enemy, g), domainPress(g, !!ENEMIES[enemy].boss));
 }
 
 /**
- * Cultivation tells in war: a soldier of the horde facing a cultivator far
+ * Cultivation tells in war (and on the Founder's Road): a soldier of the horde, or a hollowed cultivator, facing a cultivator far
  * above his strength falters before her aura (a captain only a little), and
  * the first blow lands on a man already half beaten.
  */
 export function realmAura(enemy: EnemyId, g: GameState): number {
-  if (!isWarFoe(enemy)) return 0;
+  if (!isWarFoe(enemy) && !isHollow(enemy) && !isEcho(enemy)) return 0;
   const e = ENEMIES[enemy];
   const gap = levelIndex(g.realm, g.stage) - e.level;
   if (e.boss) return gap >= 4 ? 0.15 : 0;
   return gap >= 8 ? 0.5 : gap >= 4 ? 0.3 : 0;
 }
 
+/**
+ * The Hollow Echoes of the Founder's Road wear a Great Dao they ate rather
+ * than understood. A cultivator who truly comprehends that Dao (Greater
+ * Mastery or deeper) sees straight through them.
+ */
+export function echoInsight(enemy: EnemyId, g: GameState): number {
+  if (!isEcho(enemy)) return 0;
+  const t = wuTier(g, ECHO_DAO[enemy]);
+  return t >= 4 ? 0.25 : t >= 3 ? 0.15 : 0;
+}
+
 /** What the battle log says about the opening wound. */
 export function woundLine(enemy: EnemyId, g: GameState): string | null {
   if (!openingWound(enemy, g)) return null;
   if (enemy === "patriarch") return "You strike the old wound in his art before he can raise his saber!";
+  const aura = realmAura(enemy, g);
+  const echo = echoInsight(enemy, g);
+  if (echo > aura && echo >= domainPress(g, !!ENEMIES[enemy].boss)) return `You understand the ${GREAT_DAOS[ECHO_DAO[enemy as EchoId]].name} better than the stolen thing wearing it. ${ENEMIES[enemy].name} stumbles before the first blow.`;
+  if (domainPress(g, !!ENEMIES[enemy].boss) > aura) return `Your Dao Domain unfolds — ${GREAT_DAOS[deepestWu(g) ?? "void"].hanzi} — and ${ENEMIES[enemy].boss ? ENEMIES[enemy].name : `the ${ENEMIES[enemy].name}`} staggers inside it.`;
   return ENEMIES[enemy].boss ? `Your cultivation presses down on ${ENEMIES[enemy].name} like a mountain; the first blow lands on a staggering foe.` : `The ${ENEMIES[enemy].name} falters before your aura — a cultivator far beyond him!`;
 }
 

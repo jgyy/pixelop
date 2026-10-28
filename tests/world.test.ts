@@ -325,7 +325,7 @@ describe("the Golden River country", () => {
   it("walls Jinhe in, with watchtowers at its corners and gates where its streets go out", () => {
     const walls = w.props.filter((p) => (p.id === "citywall" || p.id === "citywallY") && p.i >= 207 * S && p.i <= 237 * S && p.j >= 486 * S && p.j <= 514 * S);
     expect(walls.length).toBeGreaterThan(90);
-    expect(w.props.filter((p) => p.id === "watchtower")).toHaveLength(4);
+    expect(w.props.filter((p) => p.id === "watchtower" && p.i >= 207 * S && p.i <= 237 * S && p.j >= 486 * S && p.j <= 514 * S)).toHaveLength(4);
     // the four streets out of the city are open ground
     for (const [i, j] of [
       [222, 486],

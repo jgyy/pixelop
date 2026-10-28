@@ -112,6 +112,12 @@ export function GameView({ initial, intro, onQuit }: { initial: GameState; intro
                 ☯ {ui.dao.label}
               </div>
             )}
+            {ui.wu.label && (
+              <div className="dao wu" style={{ color: ui.wu.colour ?? undefined }} data-testid="wu" title={`Great Daos comprehended: ${ui.wu.total} stages${ui.wu.domain ? " · Dao Domain open" : ""}`}>
+                ✧ {ui.wu.label}
+                {ui.wu.domain ? " · 道域" : ""}
+              </div>
+            )}
             <div className="bar hp">
               <i style={{ width: pct(heroHp, ui.stats.maxHp) }} />
               <span>
@@ -160,6 +166,11 @@ export function GameView({ initial, intro, onQuit }: { initial: GameState; intro
             {ui.war && (
               <div className="errand war" data-testid="war-quest">
                 ⚔ {ui.war.title}: {ui.war.objective}
+              </div>
+            )}
+            {ui.road && (
+              <div className="errand road" data-testid="road-quest">
+                ✧ {ui.road.title}: {ui.road.objective}
               </div>
             )}
             {ui.notices.length > 0 && (
@@ -431,6 +442,28 @@ function JournalPanel({ journal, ui, game, onClose }: { journal: NonNullable<UiS
           )}
         </section>
       )}
+      {ui.road && (
+        <section data-testid="journal-road">
+          <h4>
+            ✧ {ui.road.chapter} · {ui.roadDone}/{ui.roadCount}
+          </h4>
+          <p>
+            <strong>{ui.road.title}</strong> — {ui.road.objective}
+          </p>
+          {ui.roadSteles && (
+            <ul className="fronts steles">
+              {ui.roadSteles.map((f) => (
+                <li key={f.stele} className={`front-${f.state === "restored" ? "freed" : f.state === "hollowed" || f.state === "devoured" ? "burning" : "waiting"}`}>
+                  <span className="cn" style={{ color: f.colour }}>
+                    {f.hanzi}
+                  </span>{" "}
+                  {f.stele} <b>{f.state === "restored" ? "Mended" : f.state === "devoured" ? "Eaten" : f.state === "hollowed" ? "Hollowed" : "—"}</b>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
       {ui.condition.journal && (
         <section data-testid="journal-cultivation">
           <h4>☵ Cultivation · {ui.realm}</h4>
@@ -460,6 +493,29 @@ function JournalPanel({ journal, ui, game, onClose }: { journal: NonNullable<UiS
             ))}
           </ul>
           {ui.condition.journal.block && <p className="muted">{ui.condition.journal.block}</p>}
+        </section>
+      )}
+      {ui.wu.paths && (
+        <section data-testid="journal-wu">
+          <h4>✧ The Great Daos · {ui.wu.total} stages comprehended{ui.wu.domain ? " · 道域 Dao Domain open" : ""}</h4>
+          <p className="muted">Sit long at shrines where a Dao runs strong, walk the Founder&apos;s Road, and break through: no realm holds more of a Dao than it can bear.</p>
+          <ul className="daos">
+            {ui.wu.paths.map((d) => (
+              <li key={d.id} title={`${d.verse} (${d.gift})`} className={d.tier ? "" : "dim"}>
+                <span className="cn" style={{ color: d.colour }}>
+                  {d.hanzi}
+                </span>{" "}
+                {d.name}
+                <i className="daobar" aria-hidden>
+                  <i style={{ width: `${Math.min(100, (d.points / 75) * 100)}%`, background: d.colour }} />
+                </i>
+                <b>
+                  {d.stage}
+                  {d.capped ? " · realm-bound" : ""}
+                </b>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
       {ui.dao.paths && (

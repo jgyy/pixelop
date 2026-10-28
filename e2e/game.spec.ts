@@ -280,15 +280,20 @@ test.describe("Jade Lotus Ascension", () => {
     await expect(page.getByTestId("scene")).toHaveCount(20);
     expect(await page.getByTestId("prop").count()).toBeGreaterThanOrEqual(50);
     expect(await page.getByTestId("anim").count()).toBeGreaterThanOrEqual(80);
-    await page.waitForTimeout(1500);
-    const painted = await page.evaluate(() => {
-      const c = document.querySelector<HTMLCanvasElement>("[data-testid=scene] canvas")!;
-      const d = c.getContext("2d")!.getImageData(0, 0, c.width, c.height).data;
-      let n = 0;
-      for (let i = 3; i < d.length; i += 4) if (d[i] > 0) n++;
-      return n / (c.width * c.height);
-    });
-    expect(painted).toBeGreaterThan(0.99);
+    // the first scene paints once the sheets ahead of it have (there are many of them now), so wait for it rather than a fixed time
+    await expect
+      .poll(
+        () =>
+          page.evaluate(() => {
+            const c = document.querySelector<HTMLCanvasElement>("[data-testid=scene] canvas")!;
+            const d = c.getContext("2d")!.getImageData(0, 0, c.width, c.height).data;
+            let n = 0;
+            for (let i = 3; i < d.length; i += 4) if (d[i] > 0) n++;
+            return n / (c.width * c.height);
+          }),
+        { intervals: [500], timeout: 45_000 },
+      )
+      .toBeGreaterThan(0.99);
   });
 
   test("the Scarlet Phoenix: a choice on the mesa, the journal, and down into the Ember Mine", async ({ page }) => {
@@ -343,5 +348,36 @@ test.describe("Jade Lotus Ascension", () => {
     await expect(page.getByTestId("dialog")).toContainText("Sea-Swallow");
     await finishDialogue(page);
     await expect(page.getByTestId("errand")).toContainText("peach");
+  });
+
+  test("the Founder's Road: Qingxu opens Book I at the lake once her foundation is built, and the journal shows the Great Daos", async ({ page }) => {
+    await startNewGame(page);
+    await patch(page, { flags: { metElder: true, villageSaved: true, villageArrived: true, metZhou: true, foxesCleared: true, metHuli: true, lakeArrived: true }, realm: 0, stage: 3 });
+    await expect(page.getByTestId("road-quest")).toBeHidden();
+    await patch(page, { realm: 1, stage: 0 });
+    await expect(page.getByTestId("road-quest")).toContainText("Qingxu");
+    await standBy(page, "keeper-water");
+    await expect(page.getByTestId("prompt")).toContainText("Daoist Qingxu");
+    await page.keyboard.press("KeyE");
+    await expect(page.getByTestId("dialog")).toContainText("Qingxu");
+    await finishDialogue(page);
+    await expect.poll(async () => (await state(page)).counters.road).toBe(1);
+    await expect(page.getByTestId("road-quest")).toContainText("2/1000");
+    await page.keyboard.press("KeyJ");
+    await expect(page.getByTestId("journal-road")).toContainText("Book I");
+    await expect(page.getByTestId("journal-road")).toContainText("Hollowed");
+    await expect(page.getByTestId("journal-wu")).toContainText("Dao of Water");
+  });
+
+  test("Hailing, the Tide City: lion dancers on the square and a bun seller who restores her", async ({ page }) => {
+    await startNewGame(page);
+    await patch(page, { flags: { metElder: true, villageSaved: true, metZhou: true }, realm: 1, hp: 10 });
+    await standBy(page, "hlhawker");
+    await expect(page.getByTestId("place")).toContainText("Wavecrest Harbour");
+    await expect.poll(() => page.evaluate(() => window.__pixelop!.game.world.actor("hllion1")?.anim)).toBe("liondance");
+    await page.keyboard.press("KeyE");
+    await expect(page.getByTestId("dialog")).toContainText("Bao Mei");
+    await finishDialogue(page);
+    await expect.poll(async () => (await state(page)).hp).toBeGreaterThan(10);
   });
 });

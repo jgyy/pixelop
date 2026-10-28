@@ -7,6 +7,8 @@ import { hash2 } from "../pixel/noise";
 import type { AreaId } from "../world/ids";
 import { FRONT_IDS, frontBoss, OFFICERS, warRoster, type FrontId, type WarRole } from "../world/war";
 import { FOLK, SIGHTS } from "./bounties";
+import { STYLES } from "../art/characters";
+import { crimsonPath } from "./heart";
 import type { Choice, Step } from "./script";
 import { giveAttire } from "./wardrobe";
 
@@ -247,6 +249,36 @@ const REPORT_DONE = [
   "“The horde's horses drink at dawn. Every dawn, the same place. Horses are creatures of habit, like generals.”", "“Thank the army for us. And tell them to stop trampling the vegetable beds.”", "“I saw their captain. A big man with a wolf-skin. He laughs when he burns things.”",
   "“We will rebuild. We always rebuild. That is the one thing the khans never understand about us.”", "“Here. Take these dumplings to the picket. They are cold, but war is cold.”",
 ];
+
+/**
+ * Who the folk are decides what they can say: the army's own officers and
+ * soldiers have no home to lose and no army to thank; children have no sons
+ * in the third company; only a woman's son can tell her she is well. (These
+ * once came from one shared pool, and the General would send Lin Yue to
+ * hear Medic Su Lan say that "my boy is in the third company… tell him his
+ * mother is well", or a drummer boy offer the army his counsel.)
+ */
+const ARMY_REPORT_WHY = [
+  "the picket at {noun} needs relieving and they know who can be spared", "they have the latest count of the horde's fires", "they have a dispatch that cannot go by runner",
+  "they want to know what the folk of {place} are saying", "they found something on a dead raider", "the General wants a second pair of eyes on their report",
+  "they need a cultivator's word on the wounded", "they have orders for the next push",
+];
+const ARMY_REPORT_DONE = [
+  "“Forty riders at dusk, maybe fifty. Same as yesterday. Tell the General the numbers are holding.”", "“Here — this was on a dead raider. A map, I think. Get it to the General before it gets lost again.”",
+  "“The horde's horses drink at dawn, every dawn, the same place. Horses are creatures of habit, like generals.”", "“Tell the General we can hold {noun} three more days. Four if the rice comes.”",
+  "“I saw their captain today. A big man in a wolf-skin. He laughs when he burns things. I would like to stop him laughing.”", "“Eat something before you go. No — eat. The war does not need you hungry.”",
+];
+const CHILD_REPORT_WHY = ["they saw the horde's banners pass in the night", "they know every footpath on the hills", "they counted the horde's horses", "they heard the raiders talking", "they found a hiding place the raiders do not know"];
+const CHILD_REPORT_DONE = [
+  "“I counted the horses! Forty-three. Or forty-four, one kept moving. Tell the General forty-four.”", "“The raiders went past the big rock twice. I hid. I'm good at hiding.”",
+  "“Will the army win? Mother says yes. I want you to say yes too.”", "“There's a path behind the old shrine nobody knows. Well, I know. Now you know.”",
+];
+/** The one line only a mother can say. */
+const MOTHER_LINE = "“My boy is in the third company. If you see him, tell him his mother is well.”";
+/** Characters who are children, whatever their name. */
+const CHILD_CHARS = new Set<string>(["child", "boy", "abao", "drummer"]);
+/** Characters who are the army's own (they wear its armour, keep its stores or spy for it). */
+const ARMY_ROLES = new Set<string>(["yue", "bao", "sulan", "tian", "feiyan", "ashina", "kou", "spear"]);
 
 const SCOUT_WHY = [
   "the horde's outriders were seen there", "we need to know if the bridge still stands", "count their campfires", "look for a way round their line",
@@ -754,12 +786,17 @@ function compose(id: number): WarQuest {
     }
     case "report":
     case "supply": {
-      const camp = OFFICERS.filter((o) => o.role !== "general" && (o.role !== "deserter" || book >= 1) && (o.role !== "envoy" || book >= 3)).map((o) => `${o.key}-${front}`);
+      // the quartermaster sends the supplies; he is never the one they are sent to
+      const camp = OFFICERS.filter((o) => o.role !== "general" && (o.role !== "deserter" || book >= 1) && (o.role !== "envoy" || book >= 3) && (kind !== "supply" || o.role !== "quartermaster")).map((o) => `${o.key}-${front}`);
       const pool = [...F.folk, ...F.folk, ...camp, `ref-${front}-0`];
       const to = person(at(pool, 6));
       const vv = { ...v, npc: to.name, npcS: to.name.split(" ").slice(-1)[0] };
       if (kind === "report") {
-        const why = at(REPORT_WHY, 7);
+        const army = ARMY_ROLES.has(to.key.split("-")[0]) && to.key.includes("-") && !to.key.startsWith("ref-");
+        const child = CHILD_CHARS.has(to.char);
+        const female = !!(STYLES[to.char] as { female?: boolean }).female;
+        const why = fill(at(army ? ARMY_REPORT_WHY : child ? CHILD_REPORT_WHY : REPORT_WHY, 7), v);
+        const replies = army ? ARMY_REPORT_DONE : child ? CHILD_REPORT_DONE : REPORT_DONE.filter((l) => female || l !== MOTHER_LINE);
         return {
           ...base,
           kind,
@@ -768,7 +805,7 @@ function compose(id: number): WarQuest {
           brief: `Find ${to.name} at ${to.place} — ${why}.`,
           npc: to.key,
           count: 1,
-          done: at(REPORT_DONE, 9),
+          done: fill(at(replies, 9), v),
           reward: reward(0.04),
         };
       }
@@ -829,8 +866,8 @@ function compose(id: number): WarQuest {
         ...base,
         kind: "heal",
         title: fill(at(HEAL_TITLES, 21), v),
-        objective: `The fighting has knotted the qi of the land. Meditate ${n} breaths at a lotus shrine in ${REGION_PLACE[F.shrine]}.`,
-        brief: `Where so many have died, the land's qi runs tangled and sour, and nothing grows. Sit at a shrine in ${REGION_PLACE[F.shrine]} and breathe with it, ${n} breaths.`,
+        objective: `The fighting has knotted the qi of the land. Meditate ${n} breaths at a lotus shrine in ${REGION_PLACE[F.shrine]}${F.shrine === front ? "" : ` (${F.place}'s own altars are fouled with blood; the nearest clean shrine is there)`}.`,
+        brief: `Where so many have died, the land's qi runs tangled and sour, and nothing grows. ${F.shrine === front ? "" : `There is no clean shrine left in ${F.place}; the qi runs out of it like a river, so mend it downstream. `}Sit at a shrine in ${REGION_PLACE[F.shrine]} and breathe with it, ${n} breaths.`,
         region: F.shrine,
         count: n,
         done: "The land's qi loosens under her breath, like a fist unclenching.",
@@ -958,6 +995,25 @@ function finish(q: WarQuest, g: GameState): Step[] {
   return steps;
 }
 
+/**
+ * The General's muster, as the tale stands when she gives it. The crimson
+ * valley's front comes while Patriarch Xue may still hold his altar there,
+ * and the last front is her own sect, which may by then have a broken elder,
+ * or a disciple it no longer trusts.
+ */
+function musterLine(front: FrontId, g: GameState): string {
+  const f = g.flags;
+  if (front === "valley" && !f.patriarchDefeated) return "Ebugen has gone to the Blood Moon's last patriarch. Xue still holds his altar in that valley, and the shaman has made a pact with him: the horde's dead for his blood rites, his red mist for their road. Two monsters, one valley. I need you more than ever.";
+  if (front === "sect" && f.moBroken) return "He knows the war is lost below, so he comes for its heart. Your sect has no Elder Mo to hold it now; he sweeps the Hall of Clouds with a mortal's broom and refused to leave it. Your juniors, your shrine, and an old man who will not run. Let us end it here.";
+  if (front === "sect" && crimsonPath(f)) return "He knows the war is lost below, so he comes for its heart. Your elders do not trust you, Immortal Lin, not since the moon turned red. They will fight beside you anyway. So will I. Let us end it here.";
+  return FRONTS[front].muster;
+}
+
+function openingLine(front: FrontId, g: GameState): string {
+  if (front === "valley" && !g.flags.patriarchDefeated) return "Shaman Ebugen kneels at Patriarch Xue's blood altar beside the Patriarch himself. The horde's dead rise in the red mist, and the cultists of the Blood Moon march with the Iron Banner.";
+  return FRONTS[front].opening;
+}
+
 /** She is not yet strong enough: the asker tells her so. */
 function tooWeak(q: WarQuest, who: { char: HumanId; name: string }): Step[] {
   return [named(who.char, who.name, `Not yet. What comes next would kill a cultivator below ${realmLabel(...realmOf(q.level))}. Cultivate, and come back to me.`), { toast: `The war asks for ${realmLabel(...realmOf(q.level))}` }];
@@ -1017,11 +1073,11 @@ export function warTalk(key: string, g: GameState): Step[] | null {
               { anim: key, name: "point", wait: true } as Step,
             ]
           : [named(who.char, who.name, `${epithet(g)}. We are camped at ${F.place} now.${realmWord(g, q)}`)]),
-        named(who.char, who.name, F.muster),
+        named(who.char, who.name, musterLine(q.front, g)),
         ...(word ? [named(who.char, who.name, word)] : []),
         { anim: key, name: "horn", wait: true },
         { shake: 0.8 },
-        narr(F.opening),
+        narr(openingLine(q.front, g)),
         { mutate: (s) => completeWar(s, q.id) },
         { reshape: true },
         { anim: "hero", name: "rally", wait: true },
@@ -1172,7 +1228,7 @@ export function warVictory(enemy: EnemyId, g: GameState): Step[] | null {
         { reshape: true },
         { mutate: (s) => heal(s, 9999, 9999) },
         { anim: "hero", name: "rally", wait: true },
-        narr(F.victory),
+        narr(q.front === "valley" && !g.flags.patriarchDefeated ? "Ebugen's altars are cast down, and the horde's dead lie still at last. Only one altar still smoulders in the red mist, at the valley's heart: Patriarch Xue's own. That one was never the war's to take. It is yours." : F.victory),
         narr(HEALING[scar](F.place)),
         ...(last ? warEnd() : [{ toast: `${F.place} is free · Book ${BOOK_NAMES[q.book]} of the war is done` } as Step]),
       ],
@@ -1240,7 +1296,7 @@ export function warNpcScript(key: string, g: GameState): Step[] | null {
     sulan: ["Hold still, this will sting — oh, not you. I am talking to everyone.", "I have stitched more men this month than in ten years in the herb valley.", "Bring me clean water and I will love you forever.", "The horde's wounded scream in the same words as ours."],
     tian: ["Boom! Boom-ba-boom! That one means advance. I made it up.", "My father was a drummer. He said the drum is the army's heartbeat.", "When I am big I am going to be a general. Or a cook. Cooks eat more.", "I am not scared. My hands are cold, that is all."],
     feiyan: ["I can count a horde's fires from three hills away.", "The steppe riders leave tracks like a herd of oxen. They do not care who sees.", "I go where the army cannot. It is lonely and I like it.", "Whatever you do, do not stand on a skyline. They have archers."],
-    ashina: ["I rode with the Iron Wolves for nine years. I know how they think. I wish I did not.", "The Khan was a good man once. Then he swallowed the first core.", "My clan is out there somewhere in his host. My little brother, too.", "They call me traitor on both sides. I answer to it."],
+    ashina: ["I rode with the Iron Wolves for nine years. I know how they think. I wish I did not.", "The Khan was a good man once. Then he swallowed the first core.", "My clan is out there somewhere in his host. My little brother, too.", "They call me traitor on both sides. I answer to it.", "A silver-haired man came to the Khan's tent the winter before the first core. Eyes like an empty bowl. I never learned his name. I wish I had killed him."],
     kou: ["Envoys are the only men in a war who are paid to talk. I am very good at it.", "The Khan does not want the jianghu. He wants to be afraid of nothing. Those are different.", "Tea? It is steppe tea. Salt and butter. You will hate it.", "I carry his words. They are not always my words."],
     spear: ["Halt! Who goes — oh, it is you. Sorry, Immortal.", "Four hours on, four off. My feet have stopped talking to me.", "My mother sent me pickled radish. Want some?", "When the horde charges, the ground shakes. You never forget it.", "The sergeant says a spear is just a long knife that keeps you far from the other fellow. I like that."],
     ref: [`I had a house at ${F.place}. Two rooms and a pig.`, "The army feeds us. Willow Creek's folk bring blankets. We are lucky. We know we are lucky.", "My children ask when we are going home. I tell them soon.", "We left in the night. I did not even lock the door. What a foolish thing to think of."],
@@ -1275,7 +1331,7 @@ export function warEpilogue(g: GameState): string | null {
       slaughter: "The jianghu was safe. The steppe was empty. The fields where the war was fought stayed grey for a generation, and the crows grew very old.",
     }[most];
   }
-  return `The war with the Iron Banner was still being fought when she went up — ${n} of its thousand tasks behind her, the rest left to General Yue.`;
+  return `The war with the Iron Banner was still being fought when she stood at heaven's threshold — ${n} of its thousand tasks behind her, the rest left to General Yue.`;
 }
 
 /** Her Dao heart, as the journal shows it. */

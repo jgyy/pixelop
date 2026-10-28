@@ -1100,6 +1100,16 @@ button {
 .quest .errand.war {
   color: #ffb08a;
 }
+/* the Founder's Road, and the Great Daos she comprehends */
+.quest .errand.road {
+  color: #b8f0ff;
+}
+.hud .dao.wu {
+  margin-top: -3px;
+}
+.journal ul.daos li.dim {
+  opacity: 0.55;
+}
 .hud .dao {
   font-size: 0.78em;
   margin: -2px 0 4px;
