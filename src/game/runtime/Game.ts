@@ -125,7 +125,7 @@ const MOVE_KEYS: Record<string, [number, number]> = {
 
 const CONFIRM = new Set(["KeyE", "Enter", "Space", "NumpadEnter"]);
 /** One-shot animations that walking away interrupts. */
-const IDLE_FIDGETS = new Set<AnimId>(["stretch", "look", "gather", "nod", "point", "cheer", "drink", "read", "pray", "clap", "laugh", "rear", "flute", "salute", "twirl", "taichi", "kick", "sworddance", "flame", "roar", "rally", "grieve", "bow", "banner", "horn", "comprehend", "domain", "acrobat", "firecracker", "liondance"]);
+const IDLE_FIDGETS = new Set<AnimId>(["rummage", "shade", "stretch", "look", "gather", "nod", "point", "cheer", "drink", "read", "pray", "clap", "laugh", "rear", "flute", "salute", "twirl", "taichi", "kick", "sworddance", "flame", "roar", "rally", "grieve", "bow", "banner", "horn", "comprehend", "domain", "acrobat", "firecracker", "liondance"]);
 /** Seated or absorbed idles that a speaker keeps while talking instead of standing up. */
 const SEATED = new Set<AnimId>(["fish", "sit", "tell", "weave", "pray", "bandage", "grieve", "xiangqi", "puppet", "abacus", "row", "comprehend"]);
 const RUN_KEYS = ["ShiftLeft", "ShiftRight"];
@@ -762,10 +762,14 @@ export class Game {
     }
     if (near.key === this.landmark) return;
     this.landmark = near.key;
+    this.lookOutAt = this.clock;
     this.banner = { title: near.name, hanzi: near.hanzi, subtitle: getArea(this.state.area).name, seq: ++this.seq };
     this.bannerUntil = this.clock + 3;
     this.markDirty();
   }
+
+  /** When a landmark last came into view: the next time she stands still she shades her eyes to look at it. */
+  private lookOutAt = -99;
 
   private showBanner(): void {
     const d = getArea(this.state.area);
@@ -1374,6 +1378,9 @@ export class Game {
       // Cloudmane's hooves leave little wisps of cloud
       if (riding && Math.random() < dt * 10) w.fx.emit({ x: isoX(h.x, h.y) + (Math.random() - 0.5) * 12, y: isoY(h.x, h.y, h.z) - 2, vx: -dx * 10, vy: -6, life: 0.7, color: Math.random() < 0.5 ? "#ffffff" : "#c8fff0" });
       if (h.flying && Math.random() < dt * 25) w.fx.emit({ x: isoX(h.x, h.y), y: isoY(h.x, h.y, h.z) + 2, vx: -dx * 30, vy: -4, life: 0.5, color: Math.random() < 0.5 ? "#9ff5de" : "#ffffff" });
+    } else if (h.holdUntil === undefined && this.clock - this.lookOutAt < 6 && !h.flying && !riding) {
+      this.lookOutAt = -99;
+      w.setAnim(h, "shade", this.clock, true);
     } else if (h.holdUntil === undefined) {
       w.setAnim(h, h.flying ? "fly" : h.idleAnim, this.clock);
       // left alone for a while, Lin Yue stretches or glances around (and Cloudmane rears now and then)
@@ -1886,6 +1893,9 @@ export class Game {
     this.journalOpen = false;
     this.wardrobeOpen = false;
     this.tapTarget = null;
+    // she goes through her satchel while the menu is up
+    const h = this.world.hero;
+    if (this.menuOpen && !h.flying && !this.riding) this.world.setAnim(h, "rummage", this.clock, true);
     this.markDirty();
   }
 

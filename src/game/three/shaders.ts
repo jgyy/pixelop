@@ -260,3 +260,14 @@ void main(void) {
   gl_FragColor = vec4(vGlow.rgb, vGlow.a * k * k);
 }
 `;
+
+/** Motes of smoke, embers, petals and steam off the props: square pixels, each its own colour. */
+export const DOT_FRAGMENT = /* glsl */ `
+precision highp float;
+varying vec2 vUV;
+varying vec4 vGlow;
+void main(void) {
+  if (vGlow.a < 0.02) discard;
+  gl_FragColor = vGlow;
+}
+`;

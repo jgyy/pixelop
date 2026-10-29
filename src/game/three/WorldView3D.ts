@@ -25,7 +25,8 @@ import type { Season } from "../world/calendar";
 import type { Game } from "../runtime/Game";
 import type { Actor, World } from "../runtime/world";
 import { dirInView, type View3D } from "../runtime/view";
-import { propModel, sways } from "./propModels";
+import { propHeight, propModel, sways } from "./propModels";
+import { hash2 } from "../pixel/noise";
 import { buildChunk, CHUNK, LEVEL, mapWindow, type Chunk, type Mesh as MeshData } from "./terrain";
 import * as GL from "./shaders";
 
@@ -76,6 +77,8 @@ function registerShaders(): void {
   S.jlSpriteFragmentShader = GL.SPRITE_FRAGMENT;
   S.jlGlowVertexShader = GL.GLOW_VERTEX;
   S.jlGlowFragmentShader = GL.GLOW_FRAGMENT;
+  S.jlDotVertexShader = GL.GLOW_VERTEX;
+  S.jlDotFragmentShader = GL.DOT_FRAGMENT;
 }
 
 const LIGHT_UNIFORMS = ["sunDir", "tintA", "tintB", "golden", "fogColor", "fogRange", "eye"];
@@ -143,6 +146,10 @@ export class WorldView3D implements View3D {
   private shadowMat: ShaderMaterial;
   private glowMesh: Mesh;
   private shadowMesh: Mesh;
+  private dotMesh: Mesh;
+  private dotMat: ShaderMaterial;
+  /** Props that give off smoke, embers, petals, steam… near the camera. */
+  private emitters: { id: PropId; x: number; y: number; z: number; k: number; phase: number; seed: number }[] = [];
   private workers: Worker[] = [];
   private jobs = new Map<number, { slot: ChunkSlot; version: string }>();
   private jobSeq = 0;
@@ -197,6 +204,13 @@ export class WorldView3D implements View3D {
     this.wallMat.setFloat("cells", TILE_KINDS.length * 2);
     for (const m of this.materials) m.setVector3("sunDir", SUN);
 
+    this.dotMat = mk("jlDot", { attributes: ["position", "uv", "glowColor"], uniforms: ["world", "viewProjection", "camRight", "camUp", "flatMode"] }, true);
+    this.dotMat.setFloat("flatMode", 0);
+    this.dotMat.disableDepthWrite = true;
+    this.dotMesh = this.quadMesh("motes", this.dotMat, 1, 1, 0.5, 0.5);
+    this.dotMesh.thinInstanceRegisterAttribute("glowColor", 4);
+    this.dotMesh.alwaysSelectAsActiveMesh = true;
+    this.dotMesh.renderingGroupId = 1;
     this.glowMesh = this.quadMesh("glows", this.glowMat, 1, 1, 0.5, 0.5);
     this.shadowMesh = this.quadMesh("shadows", this.shadowMat, 1, 1, 0.5, 0.5);
     for (const m of [this.glowMesh, this.shadowMesh]) {
@@ -528,6 +542,7 @@ export class WorldView3D implements View3D {
     const groups = new Map<string, { id: PropId; frame: number; season: Season | null; mats: number[] }>();
     const glows: number[] = [];
     const glowCols: number[] = [];
+    this.emitters = [];
     for (const c of loaded)
       for (const p of this.spots.get(c.key) ?? []) {
         if (Math.abs(p.x - fx) > PROP_R || Math.abs(p.y - fy) > PROP_R) continue;
@@ -542,6 +557,7 @@ export class WorldView3D implements View3D {
         if (!g) groups.set(key, (g = { id: p.id, frame, season: s, mats: [] }));
         const m = Matrix.Scaling(p.k, p.k, p.k).multiply(Matrix.Translation(p.x, p.z * LEVEL, -p.y));
         g.mats.push(...m.asArray());
+        if (def.emit && Math.abs(p.x - fx) < 34 && Math.abs(p.y - fy) < 34) this.emitters.push({ id: p.id, x: p.x, y: p.y, z: p.z, k: p.k, phase: hash2(p.i, p.j, 5) * 10, seed: p.i * 7 + p.j });
         if (def.light) {
           const L = def.light;
           const size = L.radius * Math.sqrt(p.k) * PX * 2;
@@ -592,7 +608,7 @@ export class WorldView3D implements View3D {
     const cam = this.camera;
     const right = Vector3.Cross(cam.upVector, cam.getTarget().subtract(cam.position)).normalize();
     const up = Vector3.Cross(cam.getTarget().subtract(cam.position), right).normalize();
-    for (const m of [this.glowMat, this.shadowMat]) {
+    for (const m of [this.glowMat, this.shadowMat, this.dotMat]) {
       m.setVector3("camRight", right);
       m.setVector3("camUp", up);
     }
@@ -638,8 +654,68 @@ export class WorldView3D implements View3D {
         s.mat.dispose();
         this.sprites.delete(key);
       }
+    this.motes(right);
     this.instances(this.shadowMesh, shadows, shadowCols);
     this.instances(this.glowMesh, glows, glowCols);
+  }
+
+  /**
+   * The props' motes, as the iso view drew them: six to a prop, each on its
+   * own loop of rising (or drifting, or falling) and fading, worked out from
+   * the clock alone. Screen pixels of the art become tiles across the camera
+   * and up.
+   */
+  private motes(right: Vector3): void {
+    const t = this.game.clock;
+    const mats: number[] = [];
+    const cols: number[] = [];
+    const wind = new Vector3(right.x, 0, right.z);
+    const put = (p: { x: number; y: number; z: number }, dx: number, up: number, size: number, c: string, a: number) => {
+      const s = size * PX;
+      const x = p.x + wind.x * dx * PX;
+      const zz = -p.y + wind.z * dx * PX;
+      mats.push(s, 0, 0, 0, 0, s, 0, 0, 0, 0, s, 0, x, p.z * LEVEL + (up * PX) / COS_E, zz, 1);
+      cols.push(...rgb(c), a);
+    };
+    for (const e of this.emitters) {
+      const def = propDef(e.id);
+      const K = e.k;
+      const top = propHeight(e.id) * K * TILE_U * COS_E;
+      for (let n = 0; n < 6; n++) {
+        const age = (t * 0.45 + n / 6 + e.phase) % 1;
+        const r = hash2(n, e.seed, 3);
+        switch (def.emit) {
+          case "smoke": {
+            const chimney = e.id === "house" || e.id === "hearth";
+            put(e, (e.id === "house" ? 10 * K : 0) + Math.sin(age * 4 + n) * 3 + age * 6, (chimney ? top - 4 * K : 12 * K) + age * 30 * Math.sqrt(K), (1 + Math.floor(age * 3)) * Math.sqrt(K), "#d8d4e4", 0.55 * (1 - age));
+            break;
+          }
+          case "embers":
+            put(e, (r - 0.5) * 12 + Math.sin(age * 9 + n) * 2, 14 + age * 34, 1, n % 2 ? "#ffb040" : "#ff6030", 1 - age);
+            break;
+          case "sparkle":
+            if (Math.sin(t * 5 + n * 2) > 0.2) put(e, Math.cos(r * 6.28 + t) * (6 + r * 8), top - 6 - age * 20, 1, "#e8fff4", 1 - age);
+            break;
+          case "mist":
+            put(e, (r - 0.5) * 24 + Math.sin(age * 5 + n) * 4 + age * 8, 2 + age * 36, 2 + Math.floor(age * 5), "#f4f6ff", 0.32 * (1 - age) * (age < 0.15 ? age / 0.15 : 1));
+            break;
+          case "incense":
+            if (n <= 2) put(e, Math.sin(age * 9 + n * 2 + t) * (1 + age * 4), top - 8 + age * 26, 1, "#e8e4f0", 0.6 * (1 - age));
+            break;
+          case "steam":
+            if (n <= 3) put(e, -2 + (r - 0.5) * 10 + Math.sin(age * 6 + n) * 2, 16 + age * 14, 1, "#ffffff", 0.5 * (1 - age));
+            break;
+          case "dust":
+            put(e, Math.cos(r * 6.28 + t * 0.8) * (8 + age * 10), 10 + age * 12, 1, "#fff8e8", 0.55 * (1 - age));
+            break;
+          case "petals":
+          case "leaves":
+            put(e, -10 + r * 20 + age * 26 + Math.sin(age * 8 + n) * 4, Math.max(1, top - 8 - age * (top - 4)), 1.6, def.emit === "petals" ? (n % 2 ? "#ffd0e4" : "#f8a8c8") : n % 2 ? "#f08a3a" : "#ffd070", 1 - age * 0.5);
+            break;
+        }
+      }
+    }
+    this.instances(this.dotMesh, mats, cols);
   }
 
   private ghost: SpriteSlot | null = null;

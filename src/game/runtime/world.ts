@@ -72,6 +72,8 @@ export interface Actor {
   carrier?: boolean;
   /** Their own name, when they share a look with other folk. */
   name?: string;
+  /** Clock time a folk with a favour to ask may next beckon her over. */
+  beckonAt?: number;
 }
 
 interface PropInst {
@@ -697,6 +699,13 @@ export class World {
       }
       // NPCs turn to greet the heroine as she passes, then go back to what they were doing
       const busy = ABSORBED.has(a.idleAnim);
+      // someone with a favour to ask (a ✉ or ! over their head) waves her over from a little way off
+      if (social && !busy && a.marker && d > 2.6 && d < 7 && a.holdUntil === undefined && t >= (a.beckonAt ?? 0) && charDef(a.char).anims.includes("beckon")) {
+        a.beckonAt = t + 6 + (keyHash(a.key) % 5);
+        a.dir = dirFrom(h.x - a.x, h.y - a.y);
+        this.setAnim(a, "beckon", t, true);
+        continue;
+      }
       if (social && !busy && d < 2.4) {
         if (a.holdUntil === undefined || a.anim === "wave") a.dir = dirFrom(h.x - a.x, h.y - a.y);
         if (!a.greeted && d < 2.2) {

@@ -46,8 +46,11 @@ function keepsakes(f: Record<string, boolean>): { hanzi: string; name: string; n
   const out: { hanzi: string; name: string; note: string }[] = [];
   if (f.metElder) out.push({ hanzi: "玉哨", name: "Jade Whistle", note: "Elder Mo's gift. Blow it (R) and Cloudmane comes down out of the clouds." });
   if (f.metElder) out.push({ hanzi: "御剑", name: "Sword-Riding Manual", note: "The sect's first lesson in flight (F). Crosses water the horse cannot." });
-  if (f.patriarchDefeated && !f.heartReturned) out.push({ hanzi: "玉莲心", name: "Jade Lotus Heart", note: "Taken back from the Crimson Demon Valley. It hums against her ribs, waiting to go home." });
-  if (f.heartReturned) out.push({ hanzi: "玉莲心", name: "Jade Lotus Heart (returned)", note: "It sits again on the sect's altar. She can still feel its warmth when she meditates." });
+  // what became of the Heart depends on what she chose to do with it
+  if (f["heart:planted"]) out.push({ hanzi: "莲根", name: "A Root of the Heart", note: "The Heart is planted in the valley's earth. She carries nothing, but the land hums when she walks it." });
+  else if (f["heart:devoured"] && !f.purged) out.push({ hanzi: "血月", name: "The Heart's Light", note: "She drank it. It burns red in her meridians, and the moon over the jianghu answers to it." });
+  else if (f.heartReturned) out.push({ hanzi: "玉莲心", name: "Jade Lotus Heart (returned)", note: "It sits again on the sect's shrine. She can still feel its warmth when she meditates." });
+  else if (f.patriarchDefeated) out.push({ hanzi: "玉莲心", name: "Jade Lotus Heart", note: "Taken back from the Crimson Demon Valley. It hums against her ribs, waiting to go home." });
   if (f.dawnfrost && !f.ouMail) out.push({ hanzi: "破晓", name: "Dawnfrost", note: "Xue Ming's first sword, never drawn in anger. Smith Ou would want it home." });
   if (f.yunTea && !f.wenReply) out.push({ hanzi: "茶砖", name: "Master Yun's Tea Brick", note: "“Not an apology,” he said. For Old Fisher Wen at the Lotus Lake." });
   if (f.wenReply && !f.brothersReconciled) out.push({ hanzi: "月珠", name: "Moon-Pearl", note: "Old Fisher Wen's answer, for Master Yun on the Cloudstep Isles." });
