@@ -5,6 +5,7 @@ import type { HumanId } from "../art/characters";
 import { veinFate, type VeinFate } from "../world/caves";
 import { say, type Choice, type Step } from "./script";
 import { giveAttire } from "./wardrobe";
+import { DEEP_ARRIVALS, deepHasNews, deepJournal, deepNpcScript, deepPreBattle, deepSignScript, deepVictory } from "./deeps";
 
 /**
  * The three sects of the south and east, and the Dragon Vein they all want.
@@ -84,7 +85,7 @@ export function veinQuake(): Step[] {
 
 // ----------------------------------------------------------------------------- the quest journal
 export interface JournalEntry {
-  sect: SectId | "vein" | "rumour";
+  sect: SectId | "vein" | "rumour" | "deep";
   title: string;
   objective: string;
   done: boolean;
@@ -131,6 +132,8 @@ export function sectJournal(g: GameState): JournalEntry[] {
     const fate = veinFate(f);
     out.push({ sect: "vein", title: "The Dragon Vein", objective: fate ? FATE_TEXT[fate] : "Go down into the Dragon Vein Caverns at the foot of the Dragonspine, where the three sects are gathering, and speak with the spirit of the vein.", done: !!fate });
   } else if (settled(f).length === 1) out.push({ sect: "rumour", title: "Rumour: the Dragonspine", objective: "Prospector Dong says the Dragonspine hums at night. Settle another sect's trouble and see what wakes.", done: false });
+  // the four newer deeps
+  for (const e of deepJournal(g)) out.push({ sect: "deep", ...e });
   return out;
 }
 
@@ -191,7 +194,7 @@ export function sectHasNews(key: string, g: GameState): boolean | null {
     case "lingfengV":
       return false;
     default:
-      return null;
+      return deepHasNews(key, g);
   }
 }
 
@@ -260,7 +263,7 @@ export function sectNpcScript(key: string, g: GameState): Step[] | null {
     case "lingfengV":
       return [named("lingfeng", "Ling Feng", "Power unguarded is power stolen. The Pavilion would keep it, and keep it from everyone. Including us.")];
     default:
-      return null;
+      return deepNpcScript(key, g);
   }
 }
 
@@ -653,6 +656,10 @@ function fateSteps(fate: VeinFate): Step[] {
 
 // ----------------------------------------------------------------------------- battles
 export function sectVictory(enemy: EnemyId, key: string, g: GameState, won: boolean): Step[] | null {
+  if (won) {
+    const deep = deepVictory(enemy);
+    if (deep) return deep;
+  }
   if (enemy === "phoenixguard")
     return won
       ? [{ anim: "zhuque", name: "salute" }, named("phoenix", "Disciple Zhu Que", "Ow. Ow! All right. You can back it up."), named("yanhuo", "Yan Huo", "Hm. The clouds have teeth after all. Go and find my miners, then."), rep("phoenix", 2), stones(40), { toast: "Received 40 spirit stones · Yan Huo's regard warms a little" }]
@@ -672,7 +679,9 @@ export function sectVictory(enemy: EnemyId, key: string, g: GameState, won: bool
 }
 
 /** Signs that are more than signs: places where the sect quests turn. */
-export function signScript(key: string, g: GameState): Step[] | null {
+export function signScript(key: string, g: GameState, text = ""): Step[] | null {
+  const deep = deepSignScript(key, g, text);
+  if (deep) return deep;
   if (key === "ember-vein") return emberVeinScript(g);
   if (key === "grotto-spring") return springScript(g);
   if (key === "sword-clue") return swordClueScript(g);
@@ -687,12 +696,15 @@ export function caveArrival(id: string, g: GameState): Step[] | null {
     emberMine: "It's hot enough down here to bake bread. Rails, carts, tools dropped mid-swing… and somewhere deep, something singing.",
     grotto: "Mushrooms glowing like lanterns, water dripping in the dark. And under the damp, a bitter smell, like almonds.",
     vein: "The rock itself is breathing. Every crystal in these walls is pulsing in time, like a heart.",
+    ...DEEP_ARRIVALS,
   }[id];
-  return line ? [flag(k), say("heroine", line)] : null;
+  return line ? [flag(k), ...(DEEP_ARRIVALS[id] ? [{ anim: "hero", name: "peer", wait: true } as Step] : []), say("heroine", line)] : null;
 }
 
 /** Before special fights in the sect quests. */
 export function sectPreBattle(enemy: EnemyId): Step[] | null {
+  const deep = deepPreBattle(enemy);
+  if (deep) return deep;
   if (enemy === "emberwyrm") return [{ shake: 0.6 }, say("heroine", "So that's what's singing. It's made of the vein's own fire…")];
   if (enemy === "traitor") return [named("swordsea", "Jian Wuyou", "You took my silver and I took their crescent. We're both what we are now. Draw.")];
   return null;

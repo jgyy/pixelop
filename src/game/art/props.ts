@@ -2141,6 +2141,93 @@ const PROPS = {
       }
     },
   },
+  // ---------------------------------------------------------------- the four new deeps
+  // a pillar of old blue ice where a drip froze for a thousand years, a glint running up it
+  icecolumn: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 6,
+    fps: 5,
+    light: { color: "#9ad8ff", radius: 22, dy: 20 },
+    paint: (r, f, n) => {
+      const ice = ramp("#9ad0f0", { hi: "#ffffff", lo: "#2a4a7a" });
+      const glint = ((f / n) * 44) % 44;
+      const mat = md(ice, 1, { shader: (s, tone) => (Math.abs(s.p[2] - glint) < 1.6 ? "#ffffff" : tone(ice, Math.sin(s.p[2] * 0.7 + s.p[0]) > 0.7 ? -1 : 0)) });
+      r.sweep(spline([[0, 0, 0], [1, -1, 12], [-1, 1, 26], [0, 0, 42]], 3), [5.4, 3.6, 2.8, 2.2, 3.4], mat);
+      r.cone(4, 3, 3.2, 0, 0.3, 14, 6, m(ice, 2));
+      r.cone(-4, -2, 2.6, 0, 0.3, 10, 6, m(ice, 3));
+      r.cone(-1, 4, 2, 0, 0.2, 7, 6, m(ice, 4));
+    },
+  },
+  // a stone coffin on a plinth, its lid carved with a sleeping queen and set with jade, two candles guttering at its head
+  sarcophagus: {
+    foot: [0, -1, 0, 1],
+    blocks: true,
+    frames: 6,
+    fps: 6,
+    light: { color: "#ffd070", radius: 30, dy: 14 },
+    paint: (r, f, n) => {
+      const sand = ramp("#c8aa78", { lo: "#4a3418" });
+      r.box([-9, -T * 1.4, 0], [9, T * 1.4, 4], md(sand, 1));
+      r.box([-7, -T * 1.2, 4], [7, T * 1.2, 13], m(sand, 2, { shader: (s, tone) => (Math.abs(((s.p[1] + 60) % 6) - 3) < 0.4 ? tone(sand, 1) : tone(sand)) }));
+      r.box([-7.8, -T * 1.25, 13], [7.8, T * 1.25, 15], m(ramp("#d8c090", { lo: "#5a4420" }), 3));
+      // the queen carved on the lid, hands folded over a disc of jade
+      r.ellipsoid([0, -T * 0.6, 16.4], [3, 3, 2], m(sand, 4));
+      r.ellipsoid([0, T * 0.1, 15.8], [4, T * 0.6, 1.6], m(sand, 4));
+      r.sphere([0, -T * 0.1, 17.4], 1.6, m(PAL.jade, 5));
+      for (const y of [-T * 0.9, T * 0.9]) r.sphere([0, y, 15.8], 0.9, m(PAL.jade, 5));
+      for (const x of [-11, 11]) {
+        r.prism(x, -T * 1.1, 1.1, 0, 7, 6, m(PAL.paper, 6));
+        const fl = 1 + Math.sin((f / n) * TAU * 2 + x) * 0.25;
+        r.ellipsoid([x, -T * 1.1, 8.6], [0.7, 0.7, 1.4 * fl], m(FIRE, 7, { outline: undefined }));
+      }
+    },
+  },
+  // a rock pool the tide leaves behind, ripples running across it and a crab picking its way round the rim
+  tidepool: {
+    foot: [0, 0, 0, 0],
+    blocks: false,
+    flat: true,
+    frames: 8,
+    fps: 5,
+    paint: (r, f, n) => {
+      const ph = (f / n) * TAU;
+      const rock = md(ramp("#5a6a72", { lo: "#141c24" }), 1);
+      for (let k = 0; k < 7; k++) {
+        const a = (k / 7) * TAU;
+        r.sphere([Math.cos(a) * 9, Math.sin(a) * 9, 0.5], 3 + hash2(k, 1, 3) * 1.4, rock);
+      }
+      const sea = ramp("#3a9ab0", { hi: "#c8f8ff", lo: "#0a2a3a" });
+      r.prism(0, 0, 8, 0, 1.4, 12, m(sea, 2, { outline: undefined, shader: (s, tone) => (Math.abs(Math.hypot(s.p[0], s.p[1]) - ((f / n) * 8 + 1)) < 0.6 ? "#e8ffff" : tone(sea)) }));
+      for (const [x, y, c] of [[-3, 2, PAL.rose], [3, -2, PAL.gold], [1, 4, PAL.jade]] as const) r.sphere([x, y, 0.8], 0.9, m(c, 3));
+      const ca = ph * 0.5;
+      const cx = Math.cos(ca) * 10;
+      const cy = Math.sin(ca) * 10;
+      const crab = ramp("#e0603a", { lo: "#6a1a10" });
+      r.ellipsoid([cx, cy, 3.2], [1.8, 1.4, 0.9], m(crab, 4));
+      for (const s of [-1, 1]) r.sweep([[cx + s * 1.4, cy, 3.4], [cx + s * 2.6, cy + 1, 3.8 + Math.sin(ph * 2) * 0.4]], 0.45, m(crab, 4));
+    },
+  },
+  // roots of the bamboo above, hanging through the roof of the cave like a curtain and glowing faintly where the qi runs in them
+  rootcurtain: {
+    foot: [0, 0, 0, 0],
+    blocks: false,
+    frames: 6,
+    fps: 4,
+    light: { color: "#b8f0a0", radius: 20, dy: 26 },
+    paint: (r, f, n) => {
+      const root = ramp("#8a6a4a", { lo: "#20140a" });
+      for (let k = 0; k < 7; k++) {
+        const x = -8 + k * 2.6;
+        const y = Math.sin(k * 1.7) * 3;
+        const sw = Math.sin((f / n) * TAU + k * 0.9) * 1.2;
+        const low = 6 + (k % 3) * 4;
+        const glow = (k + f) % 3 === 0;
+        r.sweep([[x, y, 44], [x + sw * 0.4, y - sw * 0.4, 30], [x + sw, y - sw, low]], [1.1, 0.8, 0.35], m(root, 1 + (k % 2), { shader: (s, tone) => (glow && Math.abs(((s.p[2] + k * 5) % 9) - 4.5) < 0.6 ? "#d8ffb0" : tone(root)) }));
+        r.sphere([x + sw, y - sw, low - 0.4], 0.7, m(ramp("#b8f0a0", { hi: "#ffffff" }), 3));
+      }
+    },
+  },
   // ---------------------------------------------------------------- underground and the sects
   // a cave mouth in a mound of mossy boulders, cold mist breathing out of the dark arch on its east face
   cavemouth: {
