@@ -108,6 +108,8 @@ export interface UiSnapshot {
   canSkip: boolean;
   /** Who is selling, while the pill shop is open. */
   shopKeeper: string | null;
+  /** The game menu (Esc / Tab) is open. */
+  menu: boolean;
 }
 
 const MOVE_KEYS: Record<string, [number, number]> = {
@@ -1047,6 +1049,8 @@ export class Game {
     // the arena wears the season outside
     this.battle.world.time = worldTime(this.state);
     this.mode = "battle";
+    this.menuOpen = false;
+    this.tally(`seen:${enemy}`);
     this.dialog = null;
     this.markDirty();
   }
@@ -1060,6 +1064,7 @@ export class Game {
     this.world.setAnim(this.world.hero, this.world.hero.flying ? "fly" : "idle", this.clock);
     if (b.result === "won") {
       this.world.defeat(b.enemyKey);
+      this.tally(`slain:${b.enemy}`);
       if (b.levelUp) this.toast(`Your cultivation rises: ${b.levelUp}!`);
       if (atBottleneck(this.state)) this.toast("Your qi has reached its peak! Meditate at a shrine and press B to face the tribulation.");
       this.play(victoryScript(b.enemy, b.enemyKey, this.state.area, this.state));
@@ -1463,6 +1468,8 @@ export class Game {
     // first, what they make of the Dao she walks (once for each depth of it)
     // then, once each, what they make of her realm, her condition, or the bottleneck she is stuck at
     const npc = this.world.actor(key);
+    // the folk she has spoken with fill the menu's book of people
+    if (npc && charDef(npc.char).portrait) this.tally(`met:${npc.char}`);
     const seen = daoAside(key, g) ?? realmAside(key, g) ?? conditionAside(key, g) ?? pointerAside(key, g) ?? (npc && charDef(npc.char).portrait ? aweAside(key, npc.char as HumanId, g, npc.name) : null);
     return [...(seen ?? []), ...this.conversation(key, g)];
   }
@@ -1618,6 +1625,7 @@ export class Game {
     if (!this.wardrobeOpen && this.mode !== "explore") return;
     this.wardrobeOpen = !this.wardrobeOpen;
     this.journalOpen = false;
+    this.menuOpen = false;
     this.markDirty();
   }
 
@@ -1759,6 +1767,12 @@ export class Game {
         return;
       }
       case "explore":
+        if (this.menuOpen) {
+          if (code === "Escape" || code === "Tab") this.toggleMenu();
+          return;
+        }
+        if (code === "Escape" && !this.journalOpen && !this.wardrobeOpen) return this.toggleMenu();
+        if (code === "Tab") return this.toggleMenu();
         if (code === "KeyJ") return this.toggleJournal();
         if (code === "KeyV") return this.toggleWardrobe();
         if (this.journalOpen && (code === "Escape" || CONFIRM.has(code))) return this.toggleJournal();
@@ -1798,6 +1812,11 @@ export class Game {
     }
     switch (this.mode) {
       case "explore":
+        // with the menu open the world goes on, but she stands still
+        if (this.menuOpen) {
+          this.world.update(dt, this.clock, true);
+          break;
+        }
         this.updateExplore(dt);
         // the body clears a little pill poison by itself as she goes about, slowly
         this.toxClock += dt;
@@ -1859,11 +1878,28 @@ export class Game {
   /** The journal of quests and sect standing is open over the world. */
   private journalOpen = false;
 
+  /** The game menu (Esc or Tab): her status, skills, bag, bestiary, the people and places she knows, and the settings. */
+  private menuOpen = false;
+  toggleMenu(): void {
+    if (!this.menuOpen && this.mode !== "explore") return;
+    this.menuOpen = !this.menuOpen;
+    this.journalOpen = false;
+    this.wardrobeOpen = false;
+    this.tapTarget = null;
+    this.markDirty();
+  }
+
+  /** Count something in the save (beasts seen and slain, people met). */
+  private tally(key: string): void {
+    this.state = { ...this.state, counters: { ...this.state.counters, [key]: (this.state.counters[key] ?? 0) + 1 } };
+  }
+
   /** Open or close the journal (J). */
   toggleJournal(): void {
     if (!this.journalOpen && this.mode !== "explore" && this.mode !== "meditate") return;
     this.journalOpen = !this.journalOpen;
     this.wardrobeOpen = false;
+    this.menuOpen = false;
     this.markDirty();
   }
   private timers: { at: number; fn: () => void }[] = [];
@@ -2073,6 +2109,7 @@ export class Game {
       toasts: this.toasts.map(({ id, text }) => ({ id, text })),
       canSkip: this.mode === "scene",
       shopKeeper: this.mode === "shop" ? this.lastSpeaker : null,
+      menu: this.menuOpen && this.mode === "explore",
     };
   }
 }

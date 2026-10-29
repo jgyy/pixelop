@@ -9,6 +9,7 @@ import { CanvasSurface } from "@/game/runtime/CanvasSurface";
 import { pushSave } from "@/lib/saveClient";
 import { DEFAULT_SETTINGS, loadSettings, saveSettings, type Settings } from "@/lib/settings";
 import type { WorldView3D } from "@/game/three/WorldView3D";
+import { GameMenu } from "./GameMenu";
 import { useCanvasLoop } from "./useCanvasLoop";
 
 declare global {
@@ -17,7 +18,7 @@ declare global {
   }
 }
 
-const CAPTURE = new Set(["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space"]);
+const CAPTURE = new Set(["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space", "Tab"]);
 const CONFIRM = new Set(["KeyE", "Enter", "Space", "NumpadEnter"]);
 const AUTOSAVE_SECONDS = 60;
 const TYPE_CPS = 60;
@@ -333,6 +334,9 @@ export function GameView({ initial, intro, onQuit }: { initial: GameState; intro
               <button className="btn" onClick={() => game.toggleJournal()} data-testid="journal-button">
                 Journal <span className="kbd">J</span>
               </button>
+              <button className="btn" onClick={() => game.toggleMenu()} data-testid="menu-button">
+                Menu <span className="kbd">Esc</span>
+              </button>
               <button className="btn" onClick={() => void save()} data-testid="save">
                 Save
               </button>
@@ -441,6 +445,8 @@ export function GameView({ initial, intro, onQuit }: { initial: GameState; intro
         {ui.journal && <JournalPanel journal={ui.journal} ui={ui} game={game} onClose={() => game.toggleJournal()} />}
 
         {ui.wardrobe && <WardrobePanel ui={ui} game={game} />}
+
+        {ui.menu && <GameMenu ui={ui} game={game} settings={settings} onSettings={setSettings} onSave={() => void save()} onQuit={() => void save().finally(onQuit)} />}
 
         {ui.battle && <EnemyBar ui={ui} />}
         {ui.battle && <BattleMenu ui={ui} act={(a) => game.battleAction(a)} />}

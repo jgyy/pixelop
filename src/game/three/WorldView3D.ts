@@ -34,10 +34,12 @@ const PX = 1 / TILE_U;
 /** The camera's turn that looks at the land exactly as the isometric view does. */
 export const ISO_ALPHA = -Math.PI / 4;
 /** How far chunks are kept loaded about the camera's focus (tiles). */
-const LOAD_R = 72;
-const DROP_R = 110;
+const LOAD_R = 64;
+const DROP_R = 100;
 /** Folk and beasts are drawn within this many tiles of the focus. */
 const ACTOR_R = 60;
+/** Props are set out within this many tiles of the focus (the haze hides the rest). */
+const PROP_R = 58;
 
 /** The sun of the iso art (up-left, toward the viewer), in the 3D frame. */
 const SUN = new Vector3(-0.0707, 0.75, -0.707).normalize();
@@ -327,7 +329,7 @@ export class WorldView3D implements View3D {
     const tintB = new Vector4(0.04, 0.024, 0.094, dark);
     const golden = new Vector4(gr, gg, gb, gold);
     const fogC = new Vector3(...fogDark);
-    const fogR = new Vector2(r * 1.6, r * 3.6);
+    const fogR = new Vector2(r * 1.4, Math.min(PROP_R - 4, r * 3));
     for (const m of this.materials) {
       m.setVector4("tintA", tintA);
       m.setVector4("tintB", tintB);
@@ -519,7 +521,8 @@ export class WorldView3D implements View3D {
     const loaded = [...this.chunks.values()].filter((c) => c.meshes.length || c.version);
     // what is shown changes with the story flags, the season, the taken chests and the animation frame
     const frameClock = Math.floor(this.time * 4);
-    const sig = `${loaded.map((c) => c.key).join(";")}|${season}|${w.taken.size}|${Object.keys(flags).filter((k) => flags[k]).length}|${frameClock}`;
+    const [fx, fy] = [this.camera.target.x, -this.camera.target.z];
+    const sig = `${Math.floor(fx / 8)},${Math.floor(fy / 8)}|${loaded.map((c) => c.key).join(";")}|${season}|${w.taken.size}|${Object.keys(flags).filter((k) => flags[k]).length}|${frameClock}`;
     if (sig === this.propSig) return;
     this.propSig = sig;
     const groups = new Map<string, { id: PropId; frame: number; season: Season | null; mats: number[] }>();
@@ -527,6 +530,7 @@ export class WorldView3D implements View3D {
     const glowCols: number[] = [];
     for (const c of loaded)
       for (const p of this.spots.get(c.key) ?? []) {
+        if (Math.abs(p.x - fx) > PROP_R || Math.abs(p.y - fy) > PROP_R) continue;
         if (p.when && !p.when(flags)) continue;
         const def = propDef(p.id);
         const taken = (p.id === "chest" || p.id === "herb") && w.isTakenAt(p.i, p.j);
