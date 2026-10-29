@@ -128,7 +128,10 @@ export type AnimId =
   | "bucket"
   | "pillow"
   | "pant"
-  | "climb";
+  | "climb"
+  | "rummage"
+  | "shade"
+  | "beckon";
 
 export interface Anim {
   fps: number;
@@ -1177,6 +1180,49 @@ const human: Partial<Record<AnimId, AnimSpec<HumanPose>>> = {
   },
 };
 
+// rummaging in the satchel at her hip, then holding up what she found (opening her bag)
+human.rummage = {
+  n: 10,
+  fps: 7,
+  loop: false,
+  pose: (i) => {
+    const dig = i >= 2 && i <= 6;
+    const up = i >= 7 ? Math.min(1, (i - 6) / 2) : 0;
+    const jig = dig ? Math.sin(i * 2.4) * 0.9 : 0;
+    return {
+      t: i,
+      lean: dig ? 0.14 : 0.05,
+      handR: up ? [3.2 - up, 3 + up * 1.6, 11 + up * 5] : [-2.6 + jig, 2.2, dig ? 8.6 : 10],
+      handL: dig ? [-4.6, 1.6 - jig * 0.5, 9.4] : [-4.4, 0.6, 11.2],
+      held: up ? "token" : undefined,
+      eyes: i === 4 ? "blink" : "open",
+      mouth: up ? "smile" : "neutral",
+      wind: [0, -0.2, 0],
+    };
+  },
+};
+// a hand at her brow against the glare, looking far off (a landmark comes into view)
+human.shade = {
+  n: 10,
+  fps: 5,
+  loop: false,
+  pose: (i) => {
+    const k = [0, 0.5, 1, 1, 1, 1, 1, 1, 0.5, 0][i];
+    const scan = Math.sin((i / 9) * Math.PI * 2) * 0.6;
+    return { t: i, lean: -0.06 * k, handR: [1.6 + scan * k, 2.8 + 2.4 * k, 11.2 + 12.6 * k], handL: [-4.4, 0.6, 11.2], footL: [-2, 0.3, 0], footR: [2, -0.3, 0], eyes: k === 1 && i === 5 ? "blink" : "open", mouth: "neutral", wind: [0, -0.2, 0.15] };
+  },
+};
+// beckoning someone over: palm up, fingers curling (folk with a favour to ask)
+human.beckon = {
+  n: 8,
+  fps: 8,
+  loop: false,
+  pose: (i, n) => {
+    const c = Math.sin(ph(i, n) * 2);
+    return { t: ph(i, n), lean: 0.05, handR: [3.4, 5.2 + c * 1.4, 15.6 - c * 1.2], handL: [-4.4, 0.6, 11.2], mouth: i % 4 === 0 ? "open" : "smile", eyes: i === 6 ? "blink" : "open", bob: i % 4 === 2 ? 0.3 : 0, wind: [0, -0.2, 0] };
+  },
+};
+
 // ----------------------------------------------------------------------------- beast poses
 const beast: Partial<Record<AnimId, AnimSpec<BeastPose>>> = {
   idle: { n: 6, fps: 6, loop: true, pose: (i, n) => ({ t: ph(i, n) }) },
@@ -1454,7 +1500,7 @@ export type MountId = "rider";
 export type CharId = HumanId | BeastId | MountId;
 
 const HUMAN_ANIMS: Record<HumanId, AnimId[]> = {
-  heroine: ["idle", "walk", "run", "talk", "attack", "cast", "hurt", "meditate", "fly", "victory", "defeat", "bow", "gather", "stretch", "look", "wave", "drink", "cheer", "point", "nod", "read", "sit", "pray", "clap", "laugh", "flute", "salute", "twirl", "write", "taichi", "kick", "umbrella", "eat", "torch", "kowtow", "sworddance", "flame", "sweep", "rake", "plant", "snowball", "kite", "shiver", "warmhands", "yawn", "stargaze", "offer", "think", "shrug", "cry", "levitate", "roar", "plantsword", "rally", "banner", "bandage", "grieve", "horn", "comprehend", "domain", "firecracker", "acrobat", "liondance", "xiangqi", "row", "spar", "tiptoe", "token", "scrub", "bucket", "pillow", "pant", "climb", "brew", "hammer", "carry", "sleep"],
+  heroine: ["idle", "walk", "run", "talk", "attack", "cast", "hurt", "meditate", "fly", "victory", "defeat", "bow", "gather", "stretch", "look", "wave", "drink", "cheer", "point", "nod", "read", "sit", "pray", "clap", "laugh", "flute", "salute", "twirl", "write", "taichi", "kick", "umbrella", "eat", "torch", "kowtow", "sworddance", "flame", "sweep", "rake", "plant", "snowball", "kite", "shiver", "warmhands", "yawn", "stargaze", "offer", "think", "shrug", "cry", "levitate", "roar", "plantsword", "rally", "banner", "bandage", "grieve", "horn", "comprehend", "domain", "firecracker", "acrobat", "liondance", "xiangqi", "row", "spar", "tiptoe", "token", "scrub", "bucket", "pillow", "pant", "climb", "brew", "hammer", "carry", "sleep", "rummage", "shade", "beckon"],
   elder: ["idle", "walk", "talk", "cast", "sweep", "bow", "wave", "nod", "read", "salute", "write", "taichi", "sworddance", "offer", "think", "shrug", "cry", "plantsword", "attack", "hurt", "defeat"],
   qing: ["idle", "walk", "talk", "bow", "wave", "nod", "cheer", "clap", "pour", "salute"],
   abao: ["idle", "walk", "run", "talk", "practice", "wave", "cheer", "laugh", "clap", "juggle", "salute", "kick", "snowball", "kite", "yawn", "shiver", "cry", "shrug"],
@@ -1580,6 +1626,9 @@ const HUMAN_ANIMS: Record<HumanId, AnimId[]> = {
   frostwarden: ["idle", "walk", "attack", "cast", "hurt", "defeat", "talk", "kowtow", "levitate"],
   murongelder: ["idle", "walk", "attack", "cast", "hurt", "defeat", "talk", "kowtow", "fan", "laugh", "cry"],
 };
+
+// folk who stand about to ask favours wave her over (anyone who can already wave can beckon)
+for (const id of Object.keys(HUMAN_ANIMS) as HumanId[]) if (id !== "heroine" && HUMAN_ANIMS[id].includes("wave") && !HUMAN_ANIMS[id].includes("beckon")) HUMAN_ANIMS[id].push("beckon");
 
 const NAMES: Record<CharId, [string, string]> = {
   heroine: ["Lin Yue", "Jade Lotus Disciple"],

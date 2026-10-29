@@ -7,6 +7,9 @@ import { PILL_PRICE, type GameState } from "@/game/engine/state";
 import { Game, type UiSnapshot } from "@/game/runtime/Game";
 import { CanvasSurface } from "@/game/runtime/CanvasSurface";
 import { pushSave } from "@/lib/saveClient";
+import { DEFAULT_SETTINGS, loadSettings, saveSettings, type Settings } from "@/lib/settings";
+import type { WorldView3D } from "@/game/three/WorldView3D";
+import { GameMenu } from "./GameMenu";
 import { useCanvasLoop } from "./useCanvasLoop";
 
 declare global {
@@ -15,13 +18,20 @@ declare global {
   }
 }
 
-const CAPTURE = new Set(["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space"]);
+const CAPTURE = new Set(["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space", "Tab"]);
 const CONFIRM = new Set(["KeyE", "Enter", "Space", "NumpadEnter"]);
 const AUTOSAVE_SECONDS = 60;
 const TYPE_CPS = 60;
 
 export function GameView({ initial, intro, onQuit }: { initial: GameState; intro: boolean; onQuit: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const skyRef = useRef<HTMLCanvasElement>(null);
+  const glRef = useRef<HTMLCanvasElement>(null);
+  const view3d = useRef<WorldView3D | null>(null);
+  const [settings, setSettings] = useState<Settings>(() => (typeof window === "undefined" ? DEFAULT_SETTINGS : loadSettings()));
+  const settingsRef = useRef(settings);
+  const [view3dOn, setView3dOn] = useState(false);
+  const drag = useRef<{ x: number; y: number; moved: boolean } | null>(null);
   const [game] = useState(() => new Game(structuredClone(initial), { intro }));
   const [ui, setUi] = useState<UiSnapshot>(() => game.snapshot());
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
@@ -34,13 +44,77 @@ export function GameView({ initial, intro, onQuit }: { initial: GameState; intro
     (s, _t, dt) => {
       game.update(dt);
       const [dx, dy] = game.getShake();
+      const v = view3d.current;
+      const sky = skyRef.current;
+      const gl = glRef.current;
+      const in3d = !!v && game.showsWorld;
+      if (sky && gl) {
+        sky.style.display = gl.style.display = in3d ? "block" : "none";
+        if (in3d) for (const c of [sky, gl]) Object.assign(c.style, { width: s.ctx.canvas.style.width, height: s.ctx.canvas.style.height });
+      }
       s.ctx.setTransform(1, 0, 0, 1, 0, 0);
-      s.rect(0, 0, s.width, s.height, "#000000");
+      if (in3d && v && sky) {
+        if (sky.width !== s.width || sky.height !== s.height) {
+          sky.width = s.width;
+          sky.height = s.height;
+        }
+        const skyCtx = sky.getContext("2d");
+        if (skyCtx) game.world.renderSky(new CanvasSurface(skyCtx), game.clock, -v.camera.alpha * 90);
+        v.resize(s.width, s.height, settingsRef.current.quality);
+        v.render(dt);
+        s.ctx.clearRect(0, 0, s.width, s.height);
+      } else s.rect(0, 0, s.width, s.height, "#000000");
       s.ctx.setTransform(1, 0, 0, 1, dx, dy);
       game.render(s);
     },
     { fit: true },
   );
+
+  // the 3D world: loaded on demand, and the pixel view stands in if this browser cannot draw it
+  useEffect(() => {
+    settingsRef.current = settings;
+    saveSettings(settings);
+  }, [settings]);
+  useEffect(() => {
+    if (settings.view !== "3d") return;
+    let alive = true;
+    let made: WorldView3D | null = null;
+    import("@/game/three/WorldView3D")
+      .then(({ WorldView3D }) => {
+        if (!alive || !glRef.current) return;
+        made = new WorldView3D(glRef.current, game);
+        view3d.current = made;
+        setView3dOn(true);
+      })
+      .catch((e) => {
+        console.warn("3D view unavailable, drawing the isometric view instead", e);
+        if (alive) setSettings((s) => ({ ...s, view: "2d" }));
+      });
+    return () => {
+      alive = false;
+      made?.dispose();
+      if (view3d.current === made) view3d.current = null;
+      setView3dOn(false);
+      game.view3d = null;
+    };
+  }, [game, settings.view]);
+
+  /** Turn the camera (radians) and zoom it (tiles), in the 3D view. */
+  const turnCamera = useCallback((dAlpha: number, dBeta = 0, dRadius = 0) => {
+    const v = view3d.current;
+    if (!v) return;
+    v.want.alpha += dAlpha;
+    v.want.beta = Math.max(0.35, Math.min(1.3, v.want.beta + dBeta));
+    v.want.radius = Math.max(7, Math.min(48, v.want.radius + dRadius));
+  }, []);
+  const resetCamera = useCallback(() => {
+    const v = view3d.current;
+    if (!v) return;
+    // come back round the shorter way
+    const iso = -Math.PI / 4;
+    const turns = Math.round((v.want.alpha - iso) / (Math.PI * 2));
+    Object.assign(v.want, { alpha: iso + turns * Math.PI * 2, beta: 0.88, radius: 21 });
+  }, []);
 
   const save = useCallback(async () => {
     setSaveMsg("Saving…");
@@ -57,6 +131,21 @@ export function GameView({ initial, intro, onQuit }: { initial: GameState; intro
       // browser shortcuts (Ctrl+F to find, Ctrl+R to reload, Cmd+C to copy) are not game keys
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (CAPTURE.has(e.code)) e.preventDefault();
+      if (view3d.current && (game.mode === "explore" || game.mode === "meditate" || game.mode === "scene")) {
+        const cam: Record<string, () => void> = {
+          KeyZ: () => turnCamera(Math.PI / 4),
+          KeyX: () => turnCamera(-Math.PI / 4),
+          PageUp: () => turnCamera(0, 0, -3),
+          PageDown: () => turnCamera(0, 0, 3),
+          Equal: () => turnCamera(0, 0, -3),
+          Minus: () => turnCamera(0, 0, 3),
+          Home: () => resetCamera(),
+        };
+        if (cam[e.code]) {
+          e.preventDefault();
+          return cam[e.code]();
+        }
+      }
       if (game.mode === "scene" && CONFIRM.has(e.code) && !typing.current.done) {
         typing.current.finish();
         return;
@@ -78,9 +167,14 @@ export function GameView({ initial, intro, onQuit }: { initial: GameState; intro
       window.clearInterval(autosave);
       if (window.__pixelop?.game === game) delete window.__pixelop;
     };
-  }, [game, save]);
+  }, [game, save, turnCamera, resetCamera]);
 
   const onCanvasPointer = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (view3d.current && (e.button === 2 || e.button === 1)) {
+      e.currentTarget.setPointerCapture(e.pointerId);
+      drag.current = { x: e.clientX, y: e.clientY, moved: false };
+      return;
+    }
     // like Enter, a tap on the scene first finishes a line still being typed out
     if (game.mode === "scene" && ui.dialog && !typing.current.done) return typing.current.finish();
     const rect = e.currentTarget.getBoundingClientRect();
@@ -96,7 +190,27 @@ export function GameView({ initial, intro, onQuit }: { initial: GameState; intro
 
   return (
     <main className="screen" data-testid="game-stage" data-mode={ui.mode}>
-      <canvas ref={canvasRef} className="pixel-canvas" aria-label="Game view" onPointerDown={onCanvasPointer} />
+      <canvas ref={skyRef} className="pixel-canvas sky-canvas" aria-hidden style={{ display: "none" }} />
+      <canvas ref={glRef} className="pixel-canvas world-3d" aria-hidden style={{ display: "none" }} data-testid="world-3d" />
+      <canvas
+        ref={canvasRef}
+        className="pixel-canvas"
+        aria-label="Game view"
+        onPointerDown={onCanvasPointer}
+        onPointerMove={(e) => {
+          const d = drag.current;
+          if (!d) return;
+          const k = settingsRef.current.invertDrag ? -1 : 1;
+          turnCamera(((e.clientX - d.x) / 220) * k, -(e.clientY - d.y) / 300);
+          d.x = e.clientX;
+          d.y = e.clientY;
+        }}
+        onPointerUp={() => void (drag.current = null)}
+        onPointerCancel={() => void (drag.current = null)}
+        onContextMenu={(e) => view3d.current && e.preventDefault()}
+        onWheel={(e) => turnCamera(0, 0, Math.sign(e.deltaY) * 2)}
+      />
+      {view3dOn && settings.compass && ui.mode === "explore" && !ui.dialog && <Compass view={view3d} />}
       <div className="overlay">
         {ui.mode !== "worldmap" && !ui.narration && (
           <div className="hud panel" data-testid="hud">
@@ -220,6 +334,9 @@ export function GameView({ initial, intro, onQuit }: { initial: GameState; intro
               <button className="btn" onClick={() => game.toggleJournal()} data-testid="journal-button">
                 Journal <span className="kbd">J</span>
               </button>
+              <button className="btn" onClick={() => game.toggleMenu()} data-testid="menu-button">
+                Menu <span className="kbd">Esc</span>
+              </button>
               <button className="btn" onClick={() => void save()} data-testid="save">
                 Save
               </button>
@@ -328,6 +445,8 @@ export function GameView({ initial, intro, onQuit }: { initial: GameState; intro
         {ui.journal && <JournalPanel journal={ui.journal} ui={ui} game={game} onClose={() => game.toggleJournal()} />}
 
         {ui.wardrobe && <WardrobePanel ui={ui} game={game} />}
+
+        {ui.menu && <GameMenu ui={ui} game={game} settings={settings} onSettings={setSettings} onSave={() => void save()} onQuit={() => void save().finally(onQuit)} />}
 
         {ui.battle && <EnemyBar ui={ui} />}
         {ui.battle && <BattleMenu ui={ui} act={(a) => game.battleAction(a)} />}
@@ -768,6 +887,34 @@ function TouchControls({ game, typing }: { game: Game; typing: React.RefObject<{
           B
         </button>
       </div>
+    </div>
+  );
+}
+
+/** A little compass ring in the 3D view: north is up the map, and the hint for turning the camera. */
+function Compass({ view }: { view: React.RefObject<WorldView3D | null> }) {
+  const [angle, setAngle] = useState(0);
+  useEffect(() => {
+    let raf = 0;
+    const tick = () => {
+      raf = requestAnimationFrame(tick);
+      const v = view.current;
+      if (v) setAngle((a) => (Math.abs(a - v.camera.alpha) > 0.01 ? v.camera.alpha : a));
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [view]);
+  // north (map −y) on screen: the camera at angle α looks back along (cos α, sin α) in X/Z
+  const deg = ((angle + Math.PI / 2) * 180) / Math.PI;
+  return (
+    <div className="compass panel" data-testid="compass" title="Z / X or right-drag to turn · wheel or +/− to zoom · Home to reset">
+      <i style={{ transform: `rotate(${deg}deg)` }}>
+        <b>北</b>
+      </i>
+      <small>
+        <span className="kbd">Z</span>
+        <span className="kbd">X</span> turn
+      </small>
     </div>
   );
 }

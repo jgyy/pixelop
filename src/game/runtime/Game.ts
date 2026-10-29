@@ -2,6 +2,7 @@ import { alpha } from "../pixel/color";
 import type { Surface } from "../pixel/surface";
 import { sRing } from "../pixel/surface";
 import { isoX, isoY, screenDirToWorld } from "../iso/projection";
+import { turnToView, type View3D } from "./view";
 import { charDef, type AnimId, type HumanId } from "../art/characters";
 import { ENEMIES, type EnemyId } from "../engine/enemies";
 import { reviveAtSect, type BattleAction } from "../engine/battle";
@@ -107,6 +108,8 @@ export interface UiSnapshot {
   canSkip: boolean;
   /** Who is selling, while the pill shop is open. */
   shopKeeper: string | null;
+  /** The game menu (Esc / Tab) is open. */
+  menu: boolean;
 }
 
 const MOVE_KEYS: Record<string, [number, number]> = {
@@ -122,7 +125,7 @@ const MOVE_KEYS: Record<string, [number, number]> = {
 
 const CONFIRM = new Set(["KeyE", "Enter", "Space", "NumpadEnter"]);
 /** One-shot animations that walking away interrupts. */
-const IDLE_FIDGETS = new Set<AnimId>(["stretch", "look", "gather", "nod", "point", "cheer", "drink", "read", "pray", "clap", "laugh", "rear", "flute", "salute", "twirl", "taichi", "kick", "sworddance", "flame", "roar", "rally", "grieve", "bow", "banner", "horn", "comprehend", "domain", "acrobat", "firecracker", "liondance"]);
+const IDLE_FIDGETS = new Set<AnimId>(["rummage", "shade", "stretch", "look", "gather", "nod", "point", "cheer", "drink", "read", "pray", "clap", "laugh", "rear", "flute", "salute", "twirl", "taichi", "kick", "sworddance", "flame", "roar", "rally", "grieve", "bow", "banner", "horn", "comprehend", "domain", "acrobat", "firecracker", "liondance"]);
 /** Seated or absorbed idles that a speaker keeps while talking instead of standing up. */
 const SEATED = new Set<AnimId>(["fish", "sit", "tell", "weave", "pray", "bandage", "grieve", "xiangqi", "puppet", "abacus", "row", "comprehend"]);
 const RUN_KEYS = ["ShiftLeft", "ShiftRight"];
@@ -188,6 +191,8 @@ export class Game {
   private flash = 0;
   private flashColor = "#ffffff";
   private cameraFocus: [number, number, number] | null = null;
+  /** The 3D view, while one draws the world (null: the isometric pixel view). */
+  view3d: View3D | null = null;
   private medTick = 0;
   /** Seconds she has sat in this session (each breath brings less), and the shrine she sits at. */
   private medSitting = 0;
@@ -277,6 +282,10 @@ export class Game {
     if (this.mode === "scene") return this.advance();
     if (this.mode !== "explore") return;
     const w = this.world;
+    if (this.view3d) {
+      this.tapTarget = this.view3d.pick(sx, sy);
+      return;
+    }
     const z = w.hero.z;
     const a = (sx - w.camX) / 16;
     const b = (sy - w.camY + z * 8) / 8;
@@ -753,10 +762,14 @@ export class Game {
     }
     if (near.key === this.landmark) return;
     this.landmark = near.key;
+    this.lookOutAt = this.clock;
     this.banner = { title: near.name, hanzi: near.hanzi, subtitle: getArea(this.state.area).name, seq: ++this.seq };
     this.bannerUntil = this.clock + 3;
     this.markDirty();
   }
+
+  /** When a landmark last came into view: the next time she stands still she shades her eyes to look at it. */
+  private lookOutAt = -99;
 
   private showBanner(): void {
     const d = getArea(this.state.area);
@@ -1040,6 +1053,8 @@ export class Game {
     // the arena wears the season outside
     this.battle.world.time = worldTime(this.state);
     this.mode = "battle";
+    this.menuOpen = false;
+    this.tally(`seen:${enemy}`);
     this.dialog = null;
     this.markDirty();
   }
@@ -1053,6 +1068,7 @@ export class Game {
     this.world.setAnim(this.world.hero, this.world.hero.flying ? "fly" : "idle", this.clock);
     if (b.result === "won") {
       this.world.defeat(b.enemyKey);
+      this.tally(`slain:${b.enemy}`);
       if (b.levelUp) this.toast(`Your cultivation rises: ${b.levelUp}!`);
       if (atBottleneck(this.state)) this.toast("Your qi has reached its peak! Meditate at a shrine and press B to face the tribulation.");
       this.play(victoryScript(b.enemy, b.enemyKey, this.state.area, this.state));
@@ -1324,6 +1340,8 @@ export class Game {
     let run = RUN_KEYS.some((k) => this.keys.has(k));
     if (sx || sy) {
       [dx, dy] = screenDirToWorld(sx, sy);
+      // under a turned 3D camera, "up" still walks up the screen
+      if (this.view3d) [dx, dy] = turnToView([dx, dy], this.view3d.ground());
       const mag = Math.min(1, Math.hypot(sx, sy));
       dx *= mag;
       dy *= mag;
@@ -1360,6 +1378,9 @@ export class Game {
       // Cloudmane's hooves leave little wisps of cloud
       if (riding && Math.random() < dt * 10) w.fx.emit({ x: isoX(h.x, h.y) + (Math.random() - 0.5) * 12, y: isoY(h.x, h.y, h.z) - 2, vx: -dx * 10, vy: -6, life: 0.7, color: Math.random() < 0.5 ? "#ffffff" : "#c8fff0" });
       if (h.flying && Math.random() < dt * 25) w.fx.emit({ x: isoX(h.x, h.y), y: isoY(h.x, h.y, h.z) + 2, vx: -dx * 30, vy: -4, life: 0.5, color: Math.random() < 0.5 ? "#9ff5de" : "#ffffff" });
+    } else if (h.holdUntil === undefined && this.clock - this.lookOutAt < 6 && !h.flying && !riding) {
+      this.lookOutAt = -99;
+      w.setAnim(h, "shade", this.clock, true);
     } else if (h.holdUntil === undefined) {
       w.setAnim(h, h.flying ? "fly" : h.idleAnim, this.clock);
       // left alone for a while, Lin Yue stretches or glances around (and Cloudmane rears now and then)
@@ -1454,6 +1475,8 @@ export class Game {
     // first, what they make of the Dao she walks (once for each depth of it)
     // then, once each, what they make of her realm, her condition, or the bottleneck she is stuck at
     const npc = this.world.actor(key);
+    // the folk she has spoken with fill the menu's book of people
+    if (npc && charDef(npc.char).portrait) this.tally(`met:${npc.char}`);
     const seen = daoAside(key, g) ?? realmAside(key, g) ?? conditionAside(key, g) ?? pointerAside(key, g) ?? (npc && charDef(npc.char).portrait ? aweAside(key, npc.char as HumanId, g, npc.name) : null);
     return [...(seen ?? []), ...this.conversation(key, g)];
   }
@@ -1609,6 +1632,7 @@ export class Game {
     if (!this.wardrobeOpen && this.mode !== "explore") return;
     this.wardrobeOpen = !this.wardrobeOpen;
     this.journalOpen = false;
+    this.menuOpen = false;
     this.markDirty();
   }
 
@@ -1750,6 +1774,12 @@ export class Game {
         return;
       }
       case "explore":
+        if (this.menuOpen) {
+          if (code === "Escape" || code === "Tab") this.toggleMenu();
+          return;
+        }
+        if (code === "Escape" && !this.journalOpen && !this.wardrobeOpen) return this.toggleMenu();
+        if (code === "Tab") return this.toggleMenu();
         if (code === "KeyJ") return this.toggleJournal();
         if (code === "KeyV") return this.toggleWardrobe();
         if (this.journalOpen && (code === "Escape" || CONFIRM.has(code))) return this.toggleJournal();
@@ -1789,6 +1819,11 @@ export class Game {
     }
     switch (this.mode) {
       case "explore":
+        // with the menu open the world goes on, but she stands still
+        if (this.menuOpen) {
+          this.world.update(dt, this.clock, true);
+          break;
+        }
         this.updateExplore(dt);
         // the body clears a little pill poison by itself as she goes about, slowly
         this.toxClock += dt;
@@ -1850,11 +1885,31 @@ export class Game {
   /** The journal of quests and sect standing is open over the world. */
   private journalOpen = false;
 
+  /** The game menu (Esc or Tab): her status, skills, bag, bestiary, the people and places she knows, and the settings. */
+  private menuOpen = false;
+  toggleMenu(): void {
+    if (!this.menuOpen && this.mode !== "explore") return;
+    this.menuOpen = !this.menuOpen;
+    this.journalOpen = false;
+    this.wardrobeOpen = false;
+    this.tapTarget = null;
+    // she goes through her satchel while the menu is up
+    const h = this.world.hero;
+    if (this.menuOpen && !h.flying && !this.riding) this.world.setAnim(h, "rummage", this.clock, true);
+    this.markDirty();
+  }
+
+  /** Count something in the save (beasts seen and slain, people met). */
+  private tally(key: string): void {
+    this.state = { ...this.state, counters: { ...this.state.counters, [key]: (this.state.counters[key] ?? 0) + 1 } };
+  }
+
   /** Open or close the journal (J). */
   toggleJournal(): void {
     if (!this.journalOpen && this.mode !== "explore" && this.mode !== "meditate") return;
     this.journalOpen = !this.journalOpen;
     this.wardrobeOpen = false;
+    this.menuOpen = false;
     this.markDirty();
   }
   private timers: { at: number; fn: () => void }[] = [];
@@ -1870,6 +1925,26 @@ export class Game {
     for (const t of due) t.fn();
   }
 
+  /** True while the world itself (not a battle or the world map) fills the screen. */
+  get showsWorld(): boolean {
+    return this.mode !== "battle" && this.mode !== "worldmap";
+  }
+
+  /** What the camera looks at: a cutscene's focus, the middle of a room, or the heroine. */
+  cameraTarget(): [number, number, number] {
+    if (this.cameraFocus) return this.cameraFocus;
+    const w = this.world;
+    const m = w.def.map;
+    if (w.interior) return [(w.hero.x + m.w / 2) / 2, (w.hero.y + m.h / 2) / 2, 1];
+    return [w.hero.x, w.hero.y, w.hero.z];
+  }
+
+  /** Where a map point lands on the pixel canvas, in whichever view is drawing the world. */
+  private screenOf(x: number, y: number, z: number): [number, number] {
+    const w = this.world;
+    return this.view3d?.project(x, y, z) ?? [isoX(x, y) + w.camX, isoY(x, y, z) + w.camY];
+  }
+
   render(s: Surface): void {
     if (this.mode === "battle" && this.battle) {
       this.battle.render(s);
@@ -1882,13 +1957,15 @@ export class Game {
       return;
     }
     const w = this.world;
-    w.updateCamera(s.width, s.height, 1 / 60, this.cameraFocus ?? undefined);
-    w.render(s, this.clock);
+    if (this.view3d) w.renderOverlay3D(s, this.clock, this.view3d);
+    else {
+      w.updateCamera(s.width, s.height, 1 / 60, this.cameraFocus ?? undefined);
+      w.render(s, this.clock);
+    }
     if (this.mode === "meditate" || this.mode === "tribulation") {
       const h = w.hero;
-      const x = isoX(h.x, h.y) + w.camX;
-      const y = isoY(h.x, h.y, h.z) + w.camY;
-      const r = 18 + Math.sin(this.clock * 2) * 2;
+      const [x, y] = this.screenOf(h.x, h.y, h.z);
+      const r = (18 + Math.sin(this.clock * 2) * 2) * (this.view3d ? Math.max(0.6, this.view3d.tileScale() / 22.6) : 1);
       sRing(s, x, y - 2, r, alpha("#9ff5de", 0.45));
       sRing(s, x, y - 2, r * 0.6, alpha("#ffffff", 0.3));
     }
@@ -1903,8 +1980,7 @@ export class Game {
     const el = this.clock - tr.start;
     const dark = Math.min(0.55, el * 0.3) * (tr.done ? Math.max(0, 1 - (el - (1.4 + tr.bolts * (tr.final ? 1.1 : 1.4) + 0.6)) * 0.8) : 1);
     s.rect(0, 0, s.width, s.height, alpha("#0a0620", dark));
-    const x = Math.round(isoX(h.x, h.y) + w.camX);
-    const y = Math.round(isoY(h.x, h.y, h.z) + w.camY);
+    const [x, y] = this.screenOf(h.x, h.y, h.z).map(Math.round);
     for (const b of this.boltFx) {
       const age = this.clock - b.at;
       if (age > 0.45) continue;
@@ -2043,6 +2119,7 @@ export class Game {
       toasts: this.toasts.map(({ id, text }) => ({ id, text })),
       canSkip: this.mode === "scene",
       shopKeeper: this.mode === "shop" ? this.lastSpeaker : null,
+      menu: this.menuOpen && this.mode === "explore",
     };
   }
 }
