@@ -8,6 +8,7 @@ import type { HumanId } from "../art/characters";
 import { say, type Step } from "./script";
 import { giveAttire } from "./wardrobe";
 import { sectHasNews, sectNpcScript, sectPreBattle, sectVictory, veinEpilogue } from "./sects";
+import { crowdNpcScript } from "./crowd";
 import { veinFate } from "../world/caves";
 import { calendarAt, worldTime } from "../world/calendar";
 import { almanacMasterScript, yearEpilogue, yearHasNews } from "./year";
@@ -858,7 +859,7 @@ export function npcScript(key: string, g: GameState): Step[] {
     case "restporter":
       return [named("porter", "Porter Lao", pick(g, ["Eating. Talking costs breath, and breath costs noodles.", "From the terraces to the sands with tea, from the sands to the harbour with salt. Then home to sleep for a week.", "My pole's older than me. My father's. Same shoulders, too."])), { anim: "restporter", name: "eat" }];
     default:
-      return warNpcScript(key, g) ?? roadNpcScript(key, g) ?? hallsNpcScript(key, g) ?? sectNpcScript(key, g) ?? townNpcScript(key, g) ?? tideNpcScript(key, g) ?? [say("narrator", "…")];
+      return warNpcScript(key, g) ?? roadNpcScript(key, g) ?? hallsNpcScript(key, g) ?? sectNpcScript(key, g) ?? townNpcScript(key, g) ?? tideNpcScript(key, g) ?? crowdNpcScript(key, g) ?? [say("narrator", "…")];
   }
 }
 

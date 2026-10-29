@@ -5,7 +5,7 @@ import { fadedSurface, type Surface } from "../pixel/surface";
 import { drawText } from "../pixel/font";
 import { HALF_W, isoX, isoY, LEVEL_H, screenToWorld } from "../iso/projection";
 import { charDef, frameAt, getAnim, WINTER, type AnimId, type CharId } from "../art/characters";
-import { getProp, glowSprite, propDef, type PropId } from "../art/props";
+import { getProp, glowSprite, propDef, propSize, type PropId } from "../art/props";
 import { drawSky } from "../art/sky";
 import { foamOverlay, LIQUID_FRAMES, liquidFrame, paintTile, type TileBuffer } from "../art/tiles";
 import { AREA_IDS, moodOf, placementTiles, type AreaDef, type AreaId, type Interactable, type PropPlacement, type SkyId, type Weather } from "../world/areas";
@@ -1578,7 +1578,8 @@ export class World {
           }
           case "petals":
           case "leaves": {
-            const sx = x0 - 10 + r * 20 + age * 26 + Math.sin(age * 8 + n) * 4;
+            const w = 10 * propSize(p.id) * K;
+            const sx = x0 - w + r * w * 2 + age * 26 + Math.sin(age * 8 + n) * 4;
             const sy = top + 8 + age * (sheet.oy - 4);
             s.rect(sx, sy, 2, 1, alpha(def.emit === "petals" ? (n % 2 ? "#ffd0e4" : "#f8a8c8") : n % 2 ? "#f08a3a" : "#ffd070", 1 - age * 0.5));
             break;
@@ -1716,8 +1717,9 @@ export class World {
       const L = propDef(p.id).light;
       if (!L || (p.when && !p.when(this.flags))) continue;
       const x = p.ax + cx;
-      const y = p.ay + cy - L.dy * p.k;
-      const radius = L.radius * Math.sqrt(p.k);
+      const K = p.k * propSize(p.id);
+      const y = p.ay + cy - L.dy * K;
+      const radius = L.radius * Math.sqrt(K);
       if (x < -radius || x > s.width + radius || y < -radius || y > s.height + radius) continue;
       const flick = 1 + Math.sin(t * 9 + p.phase) * 0.04;
       const g = glowSprite(L.color, Math.round(radius * flick));

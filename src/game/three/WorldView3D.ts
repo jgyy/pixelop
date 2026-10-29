@@ -18,7 +18,7 @@ import { parseColor } from "../pixel/color";
 import type { PixelBuffer } from "../pixel/PixelBuffer";
 import { COS_E, TILE_U } from "../iso/raster";
 import { charDef, frameAt, getAnim } from "../art/characters";
-import { propDef, type PropId } from "../art/props";
+import { propDef, propSize, type PropId } from "../art/props";
 import { LIQUID_TONES, wallSwatch } from "../art/tiles";
 import { TILE_KINDS } from "../world/tilemap";
 import type { Season } from "../world/calendar";
@@ -381,7 +381,7 @@ export class WorldView3D implements View3D {
       const key = `${Math.floor(x / CHUNK)},${Math.floor(y / CHUNK)}`;
       let arr = this.spots.get(key);
       if (!arr) this.spots.set(key, (arr = []));
-      arr.push({ id: p.id, x, y, z, k: p.k ?? 1, i: p.i, j: p.j, when: p.when });
+      arr.push({ id: p.id, x, y, z, k: (p.k ?? 1) * propSize(p.id), i: p.i, j: p.j, when: p.when });
     }
   }
 
@@ -710,7 +710,7 @@ export class WorldView3D implements View3D {
             break;
           case "petals":
           case "leaves":
-            put(e, -10 + r * 20 + age * 26 + Math.sin(age * 8 + n) * 4, Math.max(1, top - 8 - age * (top - 4)), 1.6, def.emit === "petals" ? (n % 2 ? "#ffd0e4" : "#f8a8c8") : n % 2 ? "#f08a3a" : "#ffd070", 1 - age * 0.5);
+            put(e, (r - 0.5) * 20 * K + age * 26 + Math.sin(age * 8 + n) * 4, Math.max(1, top - 8 - age * (top - 4)), 1.6, def.emit === "petals" ? (n % 2 ? "#ffd0e4" : "#f8a8c8") : n % 2 ? "#f08a3a" : "#ffd070", 1 - age * 0.5);
             break;
         }
       }
