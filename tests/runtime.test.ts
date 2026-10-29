@@ -488,6 +488,8 @@ describe("Game runtime", () => {
     const m = getWorld().map;
     // find a line out from its den along which both the beast and the heroine can stand
     const dir = ([[1, 0], [-1, 0], [0, 1], [0, -1]] as const).find(([dx, dy]) => [5, 6, 7, 8].every((k) => m.standable(spawn.i + dx * k, spawn.j + dy * k)))!;
+    // its packmate keeps to its own den: take it off the map so only this one is watched
+    game.world.defeat("wild-wolf-1~2");
     game.debugGoto(spawn.i + 0.5 + dir[0] * 8, spawn.j + 0.5 + dir[1] * 8);
     game.debugSkipTime(1.2);
     const wolf = game.world.actor("wild-wolf-1")!;

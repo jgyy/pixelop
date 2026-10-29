@@ -1,6 +1,6 @@
 import type { PixelBuffer } from "../pixel/PixelBuffer";
 import type { V3 } from "../iso/raster";
-import { BEAST_H, BEAST_OX, BEAST_OY, BEAST_W, EMBER_WYRM, FOX_STYLE, paintBat, paintCrane, paintQuad, paintSerpent, STONEHOUND_STYLE, WOLF_STYLE, type BeastPose } from "./beasts";
+import { BEAST_H, BEAST_OX, BEAST_OY, BEAST_W, DUNE_WYRM, EMBER_WYRM, FOX_STYLE, FROSTFANG_STYLE, paintBat, paintCrane, paintQuad, paintSerpent, PEARL_WYRM, RIME_WYRM, SHADOW_VIXEN_STYLE, STONEHOUND_STYLE, WOLF_STYLE, type BeastPose } from "./beasts";
 import { CLOUDMANE, gaitAt, HORSE_H, HORSE_OX, HORSE_OY, HORSE_W, paintHorse, paintRider, RIDER_H, RIDER_OX, RIDER_OY, RIDER_W, WILD_HORSE, type HorsePose } from "./horse";
 import { HUMAN_H, HUMAN_OX, HUMAN_OY, HUMAN_W, paintHuman, REST_HAND_L, REST_HAND_R, type HumanPose, type HumanStyle } from "./humanoid";
 import { PAL, ramp } from "./palette";
@@ -131,7 +131,16 @@ export type AnimId =
   | "climb"
   | "rummage"
   | "shade"
-  | "beckon";
+  | "beckon"
+  | "huddle"
+  | "chant"
+  | "rubbing"
+  | "castnet"
+  | "slingshot"
+  | "dig"
+  | "peer"
+  | "embrace"
+  | "holdup";
 
 export interface Anim {
   fps: number;
@@ -1223,6 +1232,101 @@ human.beckon = {
   },
 };
 
+// hiding: sat on the ground hugging the knees, rocking a little (children lost underground)
+human.huddle = {
+  n: 8,
+  fps: 4,
+  loop: true,
+  pose: (i, n) => {
+    const rock = Math.sin(ph(i, n)) * 0.08;
+    return { t: ph(i, n), stance: "sit", lean: 0.28 + rock, bob: -0.6, handL: [-1.6, 4.2, 8.6], handR: [1.6, 4.2, 8.6], eyes: i % 4 === 3 ? "closed" : "open", mouth: "neutral", wind: [0, -0.2, 0] };
+  },
+};
+// chanting a sutra: palms together before the chest, a small bow on every fourth beat
+human.chant = {
+  n: 8,
+  fps: 4,
+  loop: true,
+  pose: (i) => {
+    const bow = i % 4 === 0 ? 0.12 : 0.03;
+    return { t: i, lean: bow, handL: [-0.6, 4.4, 16.4 - bow * 6], handR: [0.6, 4.4, 16.4 - bow * 6], eyes: "closed", mouth: i % 2 ? "open" : "neutral", wind: [0, -0.2, 0] };
+  },
+};
+// taking a rubbing of an inscription: paper pressed flat with one hand, the ink pad dabbed over it with the other
+human.rubbing = {
+  n: 8,
+  fps: 7,
+  loop: false,
+  pose: (i) => {
+    const dab = i % 2 ? 0.9 : 0;
+    const row = Math.floor(i / 2) * 1.4;
+    return { t: i, lean: 0.1, handL: [-2.6, 7.4, 17 - row * 0.5], handR: [1.2 + row * 0.4, 6.6 + dab, 18.4 - row], held: "rag", eyes: "open", mouth: "neutral", wind: [0, -0.2, 0] };
+  },
+};
+// casting a fishing net: swung back low, then flung out wide in front
+human.castnet = {
+  n: 10,
+  fps: 8,
+  loop: false,
+  pose: (i) => {
+    const k = [0, -0.6, -1, -0.8, 0.2, 1, 1, 0.8, 0.4, 0][i];
+    const wide = k > 0 ? k : 0;
+    return { t: i, lean: k * 0.12, handL: [-2.4 - wide * 3, 2 + k * 5, 12 + k * 4], handR: [2.4 + wide * 3, 2 + k * 5, 12 + k * 4], footL: [-1.9, 0.8, 0], footR: [1.9, -0.8, 0], eyes: "open", mouth: k > 0.8 ? "open" : "neutral", wind: [0, -0.4 * k, 0] };
+  },
+};
+// a slingshot drawn back to the cheek, aimed, and let go
+human.slingshot = {
+  n: 8,
+  fps: 7,
+  loop: false,
+  pose: (i) => {
+    const draw = [0, 0.4, 0.8, 1, 1, 1, 0, 0][i];
+    return { t: i, lean: -0.04, handL: [-0.4, 7.2, 18], handR: [0.4, 7.2 - draw * 5.4, 18.6], footL: [-2, 0.6, 0], footR: [2, -0.6, 0], eyes: draw === 1 && i === 4 ? "closed" : "open", mouth: i === 6 ? "open" : "neutral", wind: [0, -0.2, 0] };
+  },
+};
+// digging in sand or soil, the hoe driven in and the spoil thrown over the shoulder
+human.dig = {
+  n: 8,
+  fps: 7,
+  loop: true,
+  pose: (i, n) => {
+    const s = Math.sin(ph(i, n));
+    return { t: ph(i, n), lean: 0.12 + s * 0.12, held: "hoe", handR: [1.6, 4 + s, 13 + s * 4], handL: [-1, 3.6 + s, 9.6 + s * 4], footL: [-1.8, 1, 0], footR: [1.8, -1, 0], eyes: "open", mouth: s > 0.8 ? "open" : "neutral", wind: [0, -0.2, 0] };
+  },
+};
+// peering into the dark with the torch held out ahead
+human.peer = {
+  n: 8,
+  fps: 5,
+  loop: false,
+  pose: (i) => {
+    const k = [0, 0.5, 1, 1, 1, 1, 0.5, 0][i];
+    const scan = Math.sin(i * 0.9) * 0.8 * k;
+    return { t: i, lean: 0.16 * k, held: "torch", handR: [2.4 + scan, 4 + k * 3.4, 15 + k * 3], handL: [-3.8, 1.6, 11.6], eyes: i === 4 ? "blink" : "open", mouth: "neutral", wind: [0, -0.2, 0] };
+  },
+};
+// arms flung open for someone coming home, then closed round them
+human.embrace = {
+  n: 10,
+  fps: 7,
+  loop: false,
+  pose: (i) => {
+    const open = [0, 0.6, 1, 1, 1, 0.6, 0.2, 0.1, 0.1, 0][i];
+    const shut = i >= 5 && i <= 8;
+    return { t: i, lean: shut ? 0.12 : -0.04 * open, handL: shut ? [-1.4, 5, 14.6] : [-4.4 - open * 4, 1.4 + open, 11.2 + open * 6], handR: shut ? [1.4, 5, 14.6] : [4.4 + open * 4, 1.4 + open, 11.2 + open * 6], eyes: shut ? "closed" : "open", mouth: "smile", wind: [0, -0.2, 0] };
+  },
+};
+// holding something found high overhead in both hands, to see it in the light (a pearl, a relic)
+human.holdup = {
+  n: 8,
+  fps: 6,
+  loop: false,
+  pose: (i) => {
+    const up = [0, 0.4, 0.8, 1, 1, 1, 0.6, 0.2][i];
+    return { t: i, lean: -0.08 * up, held: "token", handL: [-1, 2.4 + up, 12 + up * 15], handR: [1, 2.4 + up, 12 + up * 15], eyes: up === 1 && i === 4 ? "blink" : "open", mouth: up > 0.5 ? "smile" : "neutral", wind: [0, -0.2, 0.1] };
+  },
+};
+
 // ----------------------------------------------------------------------------- beast poses
 const beast: Partial<Record<AnimId, AnimSpec<BeastPose>>> = {
   idle: { n: 6, fps: 6, loop: true, pose: (i, n) => ({ t: ph(i, n) }) },
@@ -1494,13 +1598,13 @@ function winterLook(id: HumanId): Partial<HumanStyle> | undefined {
 
 /** Whether a character has a look of that name (their own outfits, or the folk's winter wool). */
 export const hasOutfit = (id: HumanId, outfit: string) => !!OUTFITS[id]?.[outfit] || (outfit === WINTER && !!winterLook(id));
-export type BeastId = "fox" | "wolf" | "serpent" | "serpentKing" | "crane" | "bat" | "horse" | "emberwyrm" | "stonehound";
+export type BeastId = "fox" | "wolf" | "serpent" | "serpentKing" | "crane" | "bat" | "horse" | "emberwyrm" | "stonehound" | "frostfang" | "rimewyrm" | "dunewyrm" | "pearlwyrm" | "shadowvixen";
 /** Lin Yue on Cloudmane, her spirit horse. */
 export type MountId = "rider";
 export type CharId = HumanId | BeastId | MountId;
 
 const HUMAN_ANIMS: Record<HumanId, AnimId[]> = {
-  heroine: ["idle", "walk", "run", "talk", "attack", "cast", "hurt", "meditate", "fly", "victory", "defeat", "bow", "gather", "stretch", "look", "wave", "drink", "cheer", "point", "nod", "read", "sit", "pray", "clap", "laugh", "flute", "salute", "twirl", "write", "taichi", "kick", "umbrella", "eat", "torch", "kowtow", "sworddance", "flame", "sweep", "rake", "plant", "snowball", "kite", "shiver", "warmhands", "yawn", "stargaze", "offer", "think", "shrug", "cry", "levitate", "roar", "plantsword", "rally", "banner", "bandage", "grieve", "horn", "comprehend", "domain", "firecracker", "acrobat", "liondance", "xiangqi", "row", "spar", "tiptoe", "token", "scrub", "bucket", "pillow", "pant", "climb", "brew", "hammer", "carry", "sleep", "rummage", "shade", "beckon"],
+  heroine: ["idle", "walk", "run", "talk", "attack", "cast", "hurt", "meditate", "fly", "victory", "defeat", "bow", "gather", "stretch", "look", "wave", "drink", "cheer", "point", "nod", "read", "sit", "pray", "clap", "laugh", "flute", "salute", "twirl", "write", "taichi", "kick", "umbrella", "eat", "torch", "kowtow", "sworddance", "flame", "sweep", "rake", "plant", "snowball", "kite", "shiver", "warmhands", "yawn", "stargaze", "offer", "think", "shrug", "cry", "levitate", "roar", "plantsword", "rally", "banner", "bandage", "grieve", "horn", "comprehend", "domain", "firecracker", "acrobat", "liondance", "xiangqi", "row", "spar", "tiptoe", "token", "scrub", "bucket", "pillow", "pant", "climb", "brew", "hammer", "carry", "sleep", "rummage", "shade", "beckon", "huddle", "chant", "rubbing", "castnet", "slingshot", "dig", "peer", "embrace", "holdup"],
   elder: ["idle", "walk", "talk", "cast", "sweep", "bow", "wave", "nod", "read", "salute", "write", "taichi", "sworddance", "offer", "think", "shrug", "cry", "plantsword", "attack", "hurt", "defeat"],
   qing: ["idle", "walk", "talk", "bow", "wave", "nod", "cheer", "clap", "pour", "salute"],
   abao: ["idle", "walk", "run", "talk", "practice", "wave", "cheer", "laugh", "clap", "juggle", "salute", "kick", "snowball", "kite", "yawn", "shiver", "cry", "shrug"],
@@ -1508,11 +1612,11 @@ const HUMAN_ANIMS: Record<HumanId, AnimId[]> = {
   discipleF: ["idle", "walk", "practice", "bow", "wave", "clap", "salute", "taichi", "sworddance", "kite", "stargaze", "yawn", "umbrella"],
   zhou: ["idle", "walk", "talk", "wave", "nod", "point", "laugh", "fan", "lantern", "think", "shrug", "bow"],
   hua: ["idle", "walk", "talk", "wave", "drink", "nod", "pour", "laugh", "lantern", "cry", "think", "bow"],
-  farmer: ["idle", "walk", "talk", "gather", "wave", "nod", "stretch", "laugh", "eat", "lantern", "hoe", "plant", "rake", "shiver", "warmhands", "umbrella", "bow", "xiangqi"],
-  child: ["idle", "walk", "run", "talk", "wave", "dance", "cheer", "clap", "laugh", "juggle", "twirl", "lantern", "kick", "kite", "snowball", "shiver", "yawn", "cry", "shrug", "firecracker", "acrobat"],
+  farmer: ["idle", "walk", "talk", "gather", "wave", "nod", "stretch", "laugh", "eat", "lantern", "hoe", "plant", "rake", "shiver", "warmhands", "umbrella", "bow", "xiangqi", "dig"],
+  child: ["idle", "walk", "run", "talk", "wave", "dance", "cheer", "clap", "laugh", "juggle", "twirl", "lantern", "kick", "kite", "snowball", "shiver", "yawn", "cry", "shrug", "firecracker", "acrobat", "huddle"],
   huli: ["idle", "walk", "talk", "cast", "bow", "wave", "dance", "flute", "twirl", "offer", "think", "cry"],
   wen: ["idle", "talk", "fish", "cast", "wave", "sleep", "flute"],
-  monk: ["idle", "walk", "talk", "sweep", "bow", "nod", "wave", "meditate", "pray", "eat", "taichi", "kowtow", "rake", "warmhands", "comprehend"],
+  monk: ["idle", "walk", "talk", "sweep", "bow", "nod", "wave", "meditate", "pray", "eat", "taichi", "kowtow", "rake", "warmhands", "comprehend", "chant"],
   teawoman: ["idle", "walk", "talk", "wave", "drink", "nod", "bow", "pour", "laugh", "umbrella", "lantern", "yawn"],
   miller: ["idle", "walk", "talk", "gather", "wave", "nod", "point", "stretch", "laugh", "eat", "rake", "yawn", "umbrella", "bow"],
   hermit: ["idle", "talk", "meditate", "cast", "nod", "bow", "flute", "comprehend"],
@@ -1524,21 +1628,21 @@ const HUMAN_ANIMS: Record<HumanId, AnimId[]> = {
   weaver: ["idle", "walk", "talk", "weave", "nod", "wave", "laugh", "lantern", "twirl", "bow"],
   millhand: ["idle", "walk", "talk", "sweep", "wave", "cheer", "laugh", "eat"],
   lampkeeper: ["idle", "talk", "pray", "bow", "nod", "meditate"],
-  scholar: ["idle", "talk", "read", "sit", "drink", "nod", "laugh", "clap", "fan", "write", "stargaze", "umbrella", "yawn", "xiangqi"],
+  scholar: ["idle", "talk", "read", "sit", "drink", "nod", "laugh", "clap", "fan", "write", "stargaze", "umbrella", "yawn", "xiangqi", "dig", "rubbing"],
   smith: ["idle", "walk", "talk", "hammer", "nod", "wave", "laugh", "drink", "salute", "mine", "think", "plantsword"],
   ghost: ["float", "talk", "write", "bow", "nod"],
   orchardist: ["idle", "walk", "talk", "gather", "wave", "nod", "laugh", "eat", "pour", "cheer", "rake", "plant", "umbrella", "bow"],
-  villagerM: ["idle", "walk", "talk", "wave", "nod", "gather", "carry", "hoe", "chop", "eat", "laugh", "stretch", "lantern", "mine", "torch", "rake", "plant", "shiver", "warmhands", "yawn", "umbrella", "think", "shrug", "bow", "fish", "firecracker", "xiangqi", "hawk"],
-  villagerF: ["idle", "walk", "talk", "wave", "nod", "gather", "pour", "laugh", "carry", "umbrella", "dance", "clap", "lantern", "kowtow", "rake", "plant", "shiver", "warmhands", "yawn", "stargaze", "think", "shrug", "bow", "hawk", "firecracker"],
-  boy: ["idle", "walk", "run", "talk", "wave", "kick", "cheer", "laugh", "juggle", "clap", "kite", "snowball", "shiver", "yawn", "firecracker", "acrobat"],
+  villagerM: ["idle", "walk", "talk", "wave", "nod", "gather", "carry", "hoe", "chop", "eat", "laugh", "stretch", "lantern", "mine", "torch", "rake", "plant", "shiver", "warmhands", "yawn", "umbrella", "think", "shrug", "bow", "fish", "firecracker", "xiangqi", "hawk", "castnet", "dig"],
+  villagerF: ["idle", "walk", "talk", "wave", "nod", "gather", "pour", "laugh", "carry", "umbrella", "dance", "clap", "lantern", "kowtow", "rake", "plant", "shiver", "warmhands", "yawn", "stargaze", "think", "shrug", "bow", "hawk", "firecracker", "embrace"],
+  boy: ["idle", "walk", "run", "talk", "wave", "kick", "cheer", "laugh", "juggle", "clap", "kite", "snowball", "shiver", "yawn", "firecracker", "acrobat", "huddle", "slingshot"],
   woodcutter: ["idle", "walk", "talk", "chop", "carry", "wave", "nod", "stretch", "drink", "laugh", "rake", "warmhands", "shiver", "bow"],
   porter: ["idle", "walk", "talk", "carry", "wave", "nod", "stretch", "eat", "drink", "yawn", "warmhands", "umbrella", "bow"],
   lady: ["idle", "walk", "talk", "umbrella", "fan", "bow", "nod", "laugh", "twirl", "flute", "stargaze", "kite"],
   guard: ["idle", "walk", "talk", "salute", "practice", "nod", "point", "stretch", "yawn", "warmhands", "lantern", "shiver", "xiangqi"],
-  fishwife: ["idle", "walk", "talk", "gather", "wave", "laugh", "point", "carry", "pour", "umbrella", "warmhands", "shiver", "bow", "hawk"],
+  fishwife: ["idle", "walk", "talk", "gather", "wave", "laugh", "point", "carry", "pour", "umbrella", "warmhands", "shiver", "bow", "hawk", "castnet", "embrace"],
   captain: ["idle", "walk", "talk", "point", "wave", "laugh", "drink", "nod", "look", "bow", "row"],
-  abbot: ["idle", "talk", "taichi", "meditate", "pray", "bow", "nod", "cast", "comprehend"],
-  novice: ["idle", "walk", "talk", "sweep", "kick", "bow", "pray", "laugh", "taichi", "snowball", "shiver", "warmhands"],
+  abbot: ["idle", "talk", "taichi", "meditate", "pray", "bow", "nod", "cast", "comprehend", "chant"],
+  novice: ["idle", "walk", "talk", "sweep", "kick", "bow", "pray", "laugh", "taichi", "snowball", "shiver", "warmhands", "chant"],
   nomad: ["idle", "walk", "talk", "wave", "point", "drink", "laugh", "flute", "look", "bow"],
   marshwitch: ["idle", "walk", "talk", "cast", "gather", "laugh", "nod", "pour", "brew"],
   teapicker: ["idle", "walk", "talk", "gather", "carry", "wave", "laugh", "dance", "cheer", "plant", "umbrella", "shiver", "bow"],
@@ -1550,7 +1654,7 @@ const HUMAN_ANIMS: Record<HumanId, AnimId[]> = {
   patriarch: ["idle", "walk", "attack", "cast", "hurt", "defeat", "talk", "kowtow", "offer", "cry", "plantsword", "roar", "sweep", "nod"],
   yanhuo: ["idle", "walk", "talk", "cast", "flame", "bow", "nod", "laugh", "salute", "point"],
   phoenix: ["idle", "walk", "talk", "practice", "flame", "salute", "attack", "hurt", "nod", "cheer", "torch"],
-  miner: ["idle", "walk", "talk", "mine", "cower", "wave", "nod", "drink", "eat", "kowtow", "torch", "carry", "bow"],
+  miner: ["idle", "walk", "talk", "mine", "cower", "wave", "nod", "drink", "eat", "kowtow", "torch", "carry", "bow", "dig"],
   baizhi: ["idle", "walk", "talk", "brew", "gather", "nod", "bow", "pour", "cast"],
   herbalist: ["idle", "walk", "talk", "gather", "brew", "wave", "cheer", "laugh", "kowtow"],
   poisoner: ["idle", "walk", "talk", "attack", "hurt", "cast", "laugh", "kowtow", "brew", "cower"],
@@ -1568,7 +1672,7 @@ const HUMAN_ANIMS: Record<HumanId, AnimId[]> = {
   drummer: ["idle", "walk", "talk", "drum", "cheer", "salute", "cry", "yawn", "shrug"],
   quartermaster: ["idle", "walk", "talk", "write", "read", "nod", "point", "fan", "shrug", "think"],
   refugeeM: ["idle", "walk", "talk", "cower", "grieve", "carry", "warmhands", "shiver", "nod", "kowtow", "cheer", "bow"],
-  refugeeF: ["idle", "walk", "talk", "cower", "grieve", "cry", "pray", "carry", "warmhands", "kowtow", "cheer", "bow"],
+  refugeeF: ["idle", "walk", "talk", "cower", "grieve", "cry", "pray", "carry", "warmhands", "kowtow", "cheer", "bow", "embrace"],
   scout: ["idle", "walk", "run", "talk", "look", "point", "salute", "nod", "practice", "stargaze"],
   deserter: ["idle", "walk", "talk", "kowtow", "grieve", "salute", "nod", "plantsword", "shrug", "think"],
   envoy: ["idle", "walk", "talk", "bow", "fan", "nod", "point", "laugh", "think"],
@@ -1626,6 +1730,9 @@ const HUMAN_ANIMS: Record<HumanId, AnimId[]> = {
   frostwarden: ["idle", "walk", "attack", "cast", "hurt", "defeat", "talk", "kowtow", "levitate"],
   murongelder: ["idle", "walk", "attack", "cast", "hurt", "defeat", "talk", "kowtow", "fan", "laugh", "cry"],
 };
+
+/** Whether a character has an animation of its own. */
+export const hasAnim = (id: HumanId, anim: AnimId) => HUMAN_ANIMS[id].includes(anim);
 
 // folk who stand about to ask favours wave her over (anyone who can already wave can beckon)
 for (const id of Object.keys(HUMAN_ANIMS) as HumanId[]) if (id !== "heroine" && HUMAN_ANIMS[id].includes("wave") && !HUMAN_ANIMS[id].includes("beckon")) HUMAN_ANIMS[id].push("beckon");
@@ -1765,6 +1872,11 @@ const NAMES: Record<CharId, [string, string]> = {
   horse: ["Wild Horse", "Highland Herd"],
   emberwyrm: ["Ember Wyrm", "Fire in the Vein"],
   stonehound: ["Stone Hound", "Guardian of the Dragon Vein"],
+  frostfang: ["Frostfang Wolf", "Hunter of the Icesoul Hollow"],
+  rimewyrm: ["Rime Wyrm", "Coiled Round the First Abbot"],
+  dunewyrm: ["Dune Wyrm", "Guardian of the Buried Queen"],
+  pearlwyrm: ["Pearl Serpent", "Hoarder of the Tidevoice Cave"],
+  shadowvixen: ["Shadow Vixen", "The Blood Moon's Last Fox"],
   rider: ["Lin Yue", "Riding Cloudmane"],
 };
 
@@ -1778,6 +1890,11 @@ const BEAST_ANIMS: Record<BeastId, AnimId[]> = {
   horse: ["idle", "walk", "run", "graze", "rear"],
   emberwyrm: ["idle", "walk", "attack", "hurt"],
   stonehound: ["idle", "walk", "run", "attack", "hurt", "howl", "sniff", "sleep"],
+  frostfang: ["idle", "walk", "run", "attack", "hurt", "howl", "sniff", "sleep"],
+  rimewyrm: ["idle", "walk", "attack", "hurt"],
+  dunewyrm: ["idle", "walk", "attack", "hurt"],
+  pearlwyrm: ["idle", "walk", "attack", "hurt"],
+  shadowvixen: ["idle", "walk", "run", "attack", "hurt", "sniff", "sleep"],
 };
 const RIDER_ANIMS: AnimId[] = ["idle", "walk", "run", "rear"];
 
@@ -1852,6 +1969,16 @@ function paintFrame(id: CharId, anim: AnimId, i: number, dir: number, outfit?: s
       return paintSerpent({ ...pose, lunge: pose.lunge, stride: undefined }, a, true, EMBER_WYRM);
     case "stonehound":
       return paintQuad(STONEHOUND_STYLE, pose, a);
+    case "frostfang":
+      return paintQuad(FROSTFANG_STYLE, pose, a);
+    case "shadowvixen":
+      return paintQuad(SHADOW_VIXEN_STYLE, pose, a);
+    case "rimewyrm":
+      return paintSerpent({ ...pose, lunge: pose.lunge, stride: undefined }, a, true, RIME_WYRM);
+    case "dunewyrm":
+      return paintSerpent({ ...pose, lunge: pose.lunge, stride: undefined }, a, true, DUNE_WYRM);
+    case "pearlwyrm":
+      return paintSerpent({ ...pose, lunge: pose.lunge, stride: undefined }, a, false, PEARL_WYRM);
     case "crane":
       return paintCrane(anim === "fly" ? pose : { t: pose.t, head: pose.head }, a);
     case "bat":
