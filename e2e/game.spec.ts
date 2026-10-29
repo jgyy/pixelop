@@ -277,7 +277,7 @@ test.describe("Jade Lotus Ascension", () => {
     await expect(page.getByRole("heading", { name: "Pixel Art Gallery" })).toBeVisible();
     // a sheet for every character, and one for the wardrobe
     await expect(page.locator("[data-testid^=sheet-]")).toHaveCount(CHAR_IDS.length + 1);
-    await expect(page.getByTestId("scene")).toHaveCount(21);
+    await expect(page.getByTestId("scene")).toHaveCount(25);
     expect(await page.getByTestId("prop").count()).toBeGreaterThanOrEqual(50);
     expect(await page.getByTestId("anim").count()).toBeGreaterThanOrEqual(80);
     // the first scene paints once the sheets ahead of it have (there are many of them now), so wait for it rather than a fixed time

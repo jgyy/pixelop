@@ -242,7 +242,7 @@ export function npcScript(key: string, g: GameState): Step[] {
       return [
         say("peddler", pick(g, [
           "Ho, cultivator! Bai's the name, the highway's my shop. Pills for the road?",
-          "I've walked this road from the red valley to the lotus lake. Never seen the foxes this wild.",
+          f.foxesCleared ? "I've walked this road from the red valley to the lotus lake. The foxes are back to stealing chickens, thank heaven. Honest thieves." : "I've walked this road from the red valley to the lotus lake. Never seen the foxes this wild.",
           "Cranes take off whenever someone hurries past. Walk softly and you can get close!",
           "They say the water from the Lotus Lake falls right off the edge of the world. I'd believe it.",
         ])),
@@ -267,6 +267,7 @@ export function npcScript(key: string, g: GameState): Step[] {
         ];
       return [say("qing", "The Alchemy Hall's finest! What can I brew for you today?"), { shop: true }];
     case "abao":
+      if (originOf(f) === "defector" && !f.metElder) return [say("abao", "You're… you're from the Blood Moon? You don't look like a demon. Elder Mo is waiting before the Hall of Clouds, up the stairs. Um. Welcome?")];
       return [say("abao", pick(g, [
         f.metElder ? "Senior Sister, the sky bridge below the sect gate goes all the way down to the mortal lands! You can walk the whole jianghu from there." : "Elder Mo is waiting before the Hall of Clouds, up the stairs!",
         "If your qi runs dry, swallow a Qi Gathering Pill with Q. Healing pills are H!",
@@ -275,9 +276,12 @@ export function npcScript(key: string, g: GameState): Step[] {
         "When your cultivation bar is full at a realm's peak, meditate at a lotus shrine and press B. Then pray to heaven!",
       ]))];
     case "feng":
-      return [say("discipleM", pick(g, ["Hah! Hyah! …Oh, Senior Sister Lin. One more thousand strikes before lunch.", "They say the Blood Moon Sect walked right past the guardian lions. How?", "Myriad Swords Return… our founder could do it. Imagine!"]))];
+      // a runaway in Blood Moon red is nobody's senior sister until Elder Mo has taken her in
+      if (originOf(f) === "defector" && !f.metElder) return [{ emote: "feng", icon: "anger" }, say("discipleM", "Blood Moon robes, inside our gate. Elder Mo says you're to be let through to him. I say I'm watching you.")];
+      return [say("discipleM", pick(g, ["Hah! Hyah! …Oh, Senior Sister Lin. One more thousand strikes before lunch.", f.patriarchDefeated ? "The guardian lions have a fresh coat of gold. Nobody's walking past them again." : originOf(f) === "defector" ? "You came in past the guardian lions the same way they did, didn't you? …Elder Mo says you're one of us now. I'm trying." : "They say the Blood Moon Sect walked right past the guardian lions. How?", "Myriad Swords Return… our founder could do it. Imagine!"]))];
     case "lan":
-      return [say("discipleF", pick(g, ["Keep your wrist loose and your heart still — that's what Elder Mo says.", "Bring the Heart back, Senior Sister. The spirit veins already feel thin.", "I'll guard the sect while you're gone! …Probably."]))];
+      if (originOf(f) === "defector" && !f.metElder) return [say("discipleF", "You're the runaway from the valley? Elder Mo is waiting for you before the Hall of Clouds. …Up the stairs. Please don't burn anything on the way.")];
+      return [say("discipleF", pick(g, ["Keep your wrist loose and your heart still — that's what Elder Mo says.", f.heartReturned ? "The Heart is home and the spirit veins feel full again. I slept through the night for the first time in months." : "Bring the Heart back, Senior Sister. The spirit veins already feel thin.", "I'll guard the sect while you're gone! …Probably."]))];
     case "zhou":
       if (!f.villageSaved) return [{ emote: "zhou", icon: "!" }, say("zhou", "A cultivator! Please, the fox spirit by the bridge — it attacks anyone who crosses! Drive it off, I beg you!")];
       if (!f.metZhou && !f.metElder)
@@ -315,7 +319,7 @@ export function npcScript(key: string, g: GameState): Step[] {
           say("hua", "Hm. The straw hat suits you better than it ever suited him. Don't tell him I said so."),
         ];
       if (crimsonPath(f)) return [{ anim: "hua", name: "cry", wait: true }, say("hua", originOf(f) === "foundling" ? "I raised you on bitter tea so you'd never want anything too sweet. Oh, Yue'er. What have you swallowed?" : "Your eyes are red, child. Not from crying. Sit down. Drink the tea anyway.")];
-      return [say("hua", pick(g, ["Shrines, herbs and honest fights — that's how cultivators grow. Patience, child.", "My husband was a sect disciple once. He never came home from the valley in the west.", "Have some more tea. No? Then off with you!"])), { mutate: (s) => ({ ...s, hp: stats(s).maxHp }) }];
+      return [say("hua", pick(g, ["Shrines, herbs and honest fights — that's how cultivators grow. Patience, child.", originOf(f) === "foundling" ? "I still set out a cup for your grandfather every evening, you know. Forty years since he went west to the valley. Habits are stubborn." : "My husband was a sect disciple once. He never came home from the valley in the west.", "Have some more tea. No? Then off with you!"])), { mutate: (s) => ({ ...s, hp: stats(s).maxHp }) }];
     case "liu":
       return [say("farmer", pick(g, ["The rice drinks the creek, and the creek drinks the mountain's qi. If the mountain sickens, so do we.", "Foxes trampled half my paddy. Hope you gave them a good scare.", "Fine weather. Too fine. Feels like the calm before a storm."]))];
     case "mei":
@@ -843,11 +847,11 @@ export function npcScript(key: string, g: GameState): Step[] {
     case "herder":
       if (!f.herderMilk)
         return [
-          named("villagerM", "Herder Altan", "A rider on the sky horse! The herd went mad when it saw yours. Sit, drink — mare's milk, fresh this morning. Warms you like a brazier."),
+          named("villagerM", "Herder Altan", "A cultivator out of the clouds, on the steppe! The herd smelled the sky on you from a li off. Sit, drink — mare's milk, fresh this morning. Warms you like a brazier."),
           { anim: "hero", name: "drink", wait: true },
           { mutate: (s) => setFlag(heal(s, 9999, 9999), "herderMilk") },
           { toast: "HP and QI fully restored" },
-          named("villagerM", "Herder Altan", "The wild horses run from walkers but they'll let a rider among them. Even one on a horse made of cloud."),
+          named("villagerM", "Herder Altan", "The wild horses run from walkers but they'll let a rider among them. If that jade whistle on your belt calls what I think it calls, ride in among them some time."),
         ];
       return [named("villagerM", "Herder Altan", pick(g, ["Grass from the bridge to the sea. Best pasture in the jianghu.", "We follow the grass. The grass follows the rain. The rain follows nobody.", "The road north climbs to Frostveil. Monks up there, barefoot in the snow. Mad as hares."]))];
     case "oyun":

@@ -209,7 +209,7 @@ export function sectNpcScript(key: string, g: GameState): Step[] | null {
     case "phxchi":
       return [named("phoenix", "Disciple Chi Yan", pick(g, ["Hah! Hyah! …Sorry, I'm practising being frightening.", f["hostile:phoenix"] ? "The Mistress says you are not welcome here. I say you have nice sleeves. Both things are true." : "Our sect came from the sun, the elders say. I came from a pig farm. We all have to start somewhere.", "The mesa's crown is a lava pool. We cook eggs in it. Don't tell the elders."]))];
     case "phxluo":
-      return [named("phoenix", "Disciple Luo Huo", pick(g, ["I keep the torches lit. Every one. Even in the day. It's tradition and I'm afraid to stop.", "From up here you can see the Yellow Sands turn gold at dusk. Worth the stairs.", "Old Tie was digging in the mine for forty years before any of us were born. If anyone gets out of that cave-in, it's him."]))];
+      return [named("phoenix", "Disciple Luo Huo", pick(g, ["I keep the torches lit. Every one. Even in the day. It's tradition and I'm afraid to stop.", "From up here you can see the Yellow Sands turn gold at dusk. Worth the stairs.", f.minersOut ? "Old Tie walked out of that cave-in on his own two feet and asked for wine. Forty years in the mine and the rock still can't keep him." : "Old Tie was digging in the mine for forty years before any of us were born. If anyone gets out of that cave-in, it's him."]))];
     case "tie":
     case "ahshi":
       return trappedMiners(g, key);
@@ -226,7 +226,7 @@ export function sectNpcScript(key: string, g: GameState): Step[] | null {
     case "baizhi":
       return baiZhi(g);
     case "linger":
-      return [named("herbalist", "Ling'er", pick(g, [f.herbDone ? "Everything's growing! I planted moon-mint upside down and even that's growing!" : "The ginseng died first. Then the lotus. Then the weeds, and nothing kills weeds.", "Master Bai can tell a herb's age by smelling it. She can tell mine too. It's rude.", "Senior Brother Ku used to teach me. Then he was sent away. Nobody will say why."])), { anim: "linger", name: "gather" }];
+      return [named("herbalist", "Ling'er", pick(g, [f.herbDone ? "Everything's growing! I planted moon-mint upside down and even that's growing!" : "The ginseng died first. Then the lotus. Then the weeds, and nothing kills weeds.", "Master Bai can tell a herb's age by smelling it. She can tell mine too. It's rude.", f.kuDealt ? (f.kuSpared ? "Senior Brother Ku sells pills at the Wayside Inn now, they say. Master Bai won't say his name, but she has read his formula twice." : "They brought Senior Brother Ku back bound. Master Bai sent him away again, and this time she told us why.") : "Senior Brother Ku used to teach me. Then he was sent away. Nobody will say why."])), { anim: "linger", name: "gather" }];
     case "herbHan":
       return [named("villagerM", "Herbalist Han", pick(g, ["Three hundred kinds of herb in this valley, and three hundred ways to die from them. Read the labels.", f["herb:drained"] ? "The marsh pools are fields now. Granny Ye came by and shouted at the furnace for an hour." : "The Mistmarsh feeds our spring. When it sickens, we sicken.", "The furnace has been burning since the valley was founded. If it goes out, we have to say sorry to it."]))];
     case "kushen":

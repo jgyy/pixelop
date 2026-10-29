@@ -1873,7 +1873,7 @@ const NAMES: Record<CharId, [string, string]> = {
   emberwyrm: ["Ember Wyrm", "Fire in the Vein"],
   stonehound: ["Stone Hound", "Guardian of the Dragon Vein"],
   frostfang: ["Frostfang Wolf", "Hunter of the Icesoul Hollow"],
-  rimewyrm: ["Rime Wyrm", "Coiled Round the Bell's Tongue"],
+  rimewyrm: ["Rime Wyrm", "Coiled Round the First Abbot"],
   dunewyrm: ["Dune Wyrm", "Guardian of the Buried Queen"],
   pearlwyrm: ["Pearl Serpent", "Hoarder of the Tidevoice Cave"],
   shadowvixen: ["Shadow Vixen", "The Blood Moon's Last Fox"],

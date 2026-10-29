@@ -365,6 +365,25 @@ const menuMoves: [CharId, AnimId, string?][] = [
 ];
 writeGif("menu-moves.gif", showcase(menuMoves.map(([id, anim, outfit]): Cell => ({ id, anim, dir: 1, label: `${charDef(id).name.split(" ").pop()} ${anim}`, outfit })), 3, 2, seconds), 12);
 
+// the four new deeps: hiding, chanting, a rubbing, a net, a slingshot, digging, peering into the dark, a homecoming, a pearl held up; and their beasts
+const deepMoves: [CharId, AnimId, string?][] = [
+  ["heroine", "peer"],
+  ["heroine", "rubbing"],
+  ["heroine", "holdup"],
+  ["boy", "huddle"],
+  ["monk", "chant"],
+  ["fishwife", "castnet"],
+  ["boy", "slingshot"],
+  ["scholar", "dig"],
+  ["villagerF", "embrace"],
+  ["frostfang", "howl"],
+  ["rimewyrm", "attack"],
+  ["dunewyrm", "idle"],
+  ["pearlwyrm", "attack"],
+  ["shadowvixen", "walk"],
+];
+writeGif("deeps-moves.gif", showcase(deepMoves.map(([id, anim, outfit]): Cell => ({ id, anim, dir: 1, label: `${charDef(id).name.split(" ").pop()} ${anim}`, outfit })), 7, 2, seconds), 12);
+
 
 // 2. Portraits
 const portraitIds = HUMAN_IDS.filter((id) => charDef(id).portrait);
@@ -594,7 +613,7 @@ for (const id of INTERIOR_IDS) {
 // 4e. Underground: each cave, looking in from just inside its mouth (and the vein's heart)
 for (const id of CAVE_IDS) {
   const def = { ...getCave(id), id: "sect" as const };
-  const world = new World(def, { x: def.arrive[0], y: def.arrive[1], dir: 10 }, { ...FLAGS, phxMine: true, herbAsk: true, veinOpened: true }, []);
+  const world = new World(def, { x: def.arrive[0], y: def.arrive[1], dir: 10 }, { ...FLAGS, phxMine: true, herbAsk: true, veinOpened: true, iceAsk: true, tombAsk: true, tideAsk: true, vixenAsk: true, patriarchDefeated: true }, []);
   world.hero.idleAnim = "torch";
   const focus: [number, number, number] = id === "vein" ? [17, 26, 7] : [def.arrive[0] - 10, def.arrive[1] - 3, 2];
   if (id === "vein") world.placeHero(18.5, 28.5, 12);
