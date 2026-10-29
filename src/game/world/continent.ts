@@ -6,12 +6,13 @@ import { roomDoors } from "./rooms";
 import { COARSE_H, COARSE_ORIGIN, COARSE_W, DOMAIN, regionRect, toCoarse, toWorld, WORLD_H, WORLD_SCALE, WORLD_W } from "./layout";
 import { companionOf, magnifyMap, magnifyProp, pointTile } from "./magnify";
 import { LIQUID, TileMap, type TileKind } from "./tilemap";
-import { CAVE_IDS, CAVE_MOUTH } from "./caves";
+import { CAVE_IDS, CAVE_MOUTH, deepFolk } from "./caves";
 import { layWar } from "./warfront";
 import { layRoad } from "./roadside";
 import { STREET_FOLK, TIDE_FOLK } from "./road";
 import { DORM_AT, FIELD, GREAT_HALL_AT, HALL_BOSS_AT, HALL_BOSSES, HALL_CAST, HALL_SITES, HALLS, HOPEFULS, hallMasterKey, MISSION_AT, OUTER_FOLK, RING, SPARRERS, STONE_AT } from "./halls";
 import { PatchPainter, type TerrainPatch } from "./terrain";
+import { flockmates, neighbours, packmates } from "./crowds";
 
 /**
  * The jianghu as one continuous map. The six hand-built regions are stamped
@@ -1898,6 +1899,8 @@ function buildWorld(): WorldDef {
     const [i0, j0, i1, j1] = placementTiles(p);
     for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) fine.block(i, j);
   }
+  // and who waits outside the four newer deeps
+  fnpcs.push(...deepFolk());
   const [mx, my] = [CAVE_MOUTH.vein.at[0] * S, CAVE_MOUTH.vein.at[1] * S];
   const buried = (f: Record<string, boolean>) => !f.veinOpened;
   for (const [dx2, dy2] of [
@@ -2137,6 +2140,22 @@ function buildWorld(): WorldDef {
 
   // 13. which region owns each tile
   const regionOf = regionOwners(fine);
+
+  // 14. a busier jianghu: a neighbour for every person, a mate for every common beast and bird (see world/crowds.ts)
+  {
+    const touched = new Set<number>();
+    for (const p of patches) for (const idx of p.idx) touched.add(idx);
+    const ground = {
+      map: fine,
+      free: (i: number, j: number) => free(i, j) && !touched.has(j * WORLD_W + i),
+      region: (i: number, j: number) => AREA_IDS[regionOf[j * WORLD_W + i]],
+    };
+    const folk = neighbours(ground, fnpcs, fenemies);
+    const mates = packmates(ground, fenemies, [...fnpcs, ...folk]);
+    fnpcs.push(...folk);
+    fenemies.push(...mates);
+    fcritters.push(...flockmates(ground, fcritters));
+  }
 
   const waypoints = {} as Record<AreaId, [number, number]>;
   for (const id of AREA_IDS) waypoints[id] = toWorld(id, ...regions[id].arrive);

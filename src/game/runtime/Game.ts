@@ -1680,7 +1680,7 @@ export class Game {
       case "sign": {
         h.dir = dirFrom(it.i + 0.5 - h.x, it.j + 0.5 - h.y);
         if (!h.flying) this.world.setAnim(h, it.anim ?? "read", this.clock, true);
-        this.play(it.key === "almanac-dial" ? almanacScript() : (signScript(it.key, this.state) ?? [{ say: "narrator", text: it.text ?? "" }]));
+        this.play(it.key === "almanac-dial" ? almanacScript() : (signScript(it.key, this.state, it.text) ?? [{ say: "narrator", text: it.text ?? "" }]));
         // an old stele, read with a cultivator's eyes, is a lesson (once in each realm)
         const lesson = `ins:stele:${it.key}:${this.state.realm}`;
         if (it.key.includes("stele") && this.state.realm >= 1 && !this.state.flags[lesson]) {
