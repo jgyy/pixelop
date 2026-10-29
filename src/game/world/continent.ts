@@ -6,7 +6,7 @@ import { roomDoors } from "./rooms";
 import { COARSE_H, COARSE_ORIGIN, COARSE_W, DOMAIN, regionRect, toCoarse, toWorld, WORLD_H, WORLD_SCALE, WORLD_W } from "./layout";
 import { companionOf, magnifyMap, magnifyProp, pointTile } from "./magnify";
 import { LIQUID, TileMap, type TileKind } from "./tilemap";
-import { CAVE_IDS, CAVE_MOUTH } from "./caves";
+import { CAVE_IDS, CAVE_MOUTH, deepFolk } from "./caves";
 import { layWar } from "./warfront";
 import { layRoad } from "./roadside";
 import { STREET_FOLK, TIDE_FOLK } from "./road";
@@ -1899,6 +1899,8 @@ function buildWorld(): WorldDef {
     const [i0, j0, i1, j1] = placementTiles(p);
     for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) fine.block(i, j);
   }
+  // and who waits outside the four newer deeps
+  fnpcs.push(...deepFolk());
   const [mx, my] = [CAVE_MOUTH.vein.at[0] * S, CAVE_MOUTH.vein.at[1] * S];
   const buried = (f: Record<string, boolean>) => !f.veinOpened;
   for (const [dx2, dy2] of [

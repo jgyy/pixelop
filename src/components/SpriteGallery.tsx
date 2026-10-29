@@ -24,7 +24,7 @@ const GROUPS: { label: string; ids: CharId[] }[] = [
   { label: "The Sword Tomb, the Pavilion & the Orchard", ids: ["smith", "ghost", "orchardist"] },
   { label: "Cloudmane & the Wild Herds", ids: ["rider", "horse"] },
   { label: "The Three Sects & the Dragon Vein", ids: ["yanhuo", "phoenix", "miner", "baizhi", "herbalist", "poisoner", "lingfeng", "swordsea", "dragon"] },
-  { label: "Beasts of the Deep", ids: ["emberwyrm", "stonehound"] },
+  { label: "Beasts of the Deep", ids: ["emberwyrm", "stonehound", "frostfang", "rimewyrm", "dunewyrm", "pearlwyrm", "shadowvixen"] },
   { label: "Blood Moon Sect, Bandits & Demonic Beasts", ids: ["patriarch", "cultist", "jiangshi", "bandit", "fox", "wolf", "serpent", "serpentKing", "crane", "bat"] },
 ];
 // everyone else who walks the jianghu (the gallery shows every character, even ones added without a group)

@@ -58,6 +58,10 @@ export interface QuadStyle {
 export const FOX_STYLE: QuadStyle = { fur: ramp("#f08a3a", { lo: "#8a2a40" }), belly: PAL.white, paws: PAL.black, eye: "#ff4060", tails: 3, tailTip: PAL.white, scale: 1, earInner: PAL.rose };
 /** A hound of living stone from the Dragon Vein's caverns, jade light glowing in its cracks. */
 export const STONEHOUND_STYLE: QuadStyle = { fur: ramp("#7a7688", { lo: "#1a1626" }), belly: ramp("#5a566a"), paws: PAL.black, eye: "#9ff5de", tails: 1, scale: 1.25, mane: ramp("#4ac8b0", { hi: "#c8fff0", lo: "#1a4a4a" }) };
+/** A white wolf of the ice under Frostveil, frost glittering in a mane the blue of glacier water. */
+export const FROSTFANG_STYLE: QuadStyle = { fur: ramp("#e8eef8", { lo: "#4a5a7a" }), belly: ramp("#c8d8ec"), paws: ramp("#6a7a9a"), eye: "#7ad8ff", tails: 1, scale: 1.3, mane: ramp("#8ad0ff", { hi: "#ffffff", lo: "#2a4a7a" }) };
+/** The last fox the Blood Moon's crimson qi still holds: black as soot, five tails, eyes like coals. */
+export const SHADOW_VIXEN_STYLE: QuadStyle = { fur: ramp("#2a1a2e", { lo: "#08040a" }), belly: ramp("#4a2a3a"), paws: PAL.black, eye: "#ff2a40", tails: 5, tailTip: ramp("#c02a3a", { hi: "#ff8a8a", lo: "#4a0a14" }), scale: 1.25, earInner: ramp("#8a1a2a") };
 export const WOLF_STYLE: QuadStyle = { fur: ramp("#4a3a6a", { lo: "#120a24" }), belly: ramp("#6a5a8a"), paws: PAL.black, eye: "#c070ff", tails: 1, scale: 1.35, mane: ramp("#b070ff", { hi: "#f0d0ff", lo: "#4a1a8a" }) };
 
 export function paintQuad(st: QuadStyle, p: BeastPose, facing: number): PixelBuffer {
@@ -145,6 +149,13 @@ export interface SerpentStyle {
 
 /** The Ember Wyrm of the mine: magma-red scales, a belly of hot gold, and fire along its spine. */
 export const EMBER_WYRM: SerpentStyle = { scales: ramp("#d8502a", { hi: "#ffd070", lo: "#3a0a1a" }), belly: ramp("#ffc860", { lo: "#8a3a10" }), fin: ramp("#3a2a2a", { lo: "#0a0608" }), eye: "#fff060", fire: true };
+
+/** The Rime Wyrm of the Icesoul Hollow: scales of old blue ice, a belly white as snow. */
+export const RIME_WYRM: SerpentStyle = { scales: ramp("#7ab8e8", { hi: "#f0faff", lo: "#1a2a5a" }), belly: ramp("#f4f8ff", { lo: "#7a8ab0" }), fin: ramp("#c8e8ff", { lo: "#3a5a8a" }), eye: "#ffffff" };
+/** The Dune Wyrm under the Yellow Sands: sand-gold scales banded with tomb bronze. */
+export const DUNE_WYRM: SerpentStyle = { scales: ramp("#d8b060", { hi: "#fff0b0", lo: "#5a3a1a" }), belly: ramp("#f0dca0", { lo: "#8a6a3a" }), fin: ramp("#8a5a2a", { lo: "#2a1408" }), eye: "#3af0a0" };
+/** The Pearl Serpent of the sea cave: deep sea-green, a nacre belly that shimmers. */
+export const PEARL_WYRM: SerpentStyle = { scales: ramp("#2a8a8a", { hi: "#9af0e0", lo: "#0a2a3a" }), belly: ramp("#f8eef4", { lo: "#a88aa8" }), fin: ramp("#e8a8c8", { lo: "#5a2a4a" }), eye: "#ffe060" };
 
 export function paintSerpent(p: BeastPose, facing: number, king = false, style?: SerpentStyle): PixelBuffer {
   const SERPENT_SCALES = style?.scales ?? JADE_SCALES;

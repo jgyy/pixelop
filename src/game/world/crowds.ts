@@ -127,7 +127,7 @@ export function crowdLook(kind: CrowdKind, n: number): HumanId {
 }
 
 /** Beasts common enough in the wilds to come in pairs (the named foes, bosses and sparring partners stay alone). */
-const PACK: ReadonlySet<EnemyId> = new Set<EnemyId>(["fox", "wolf", "serpent", "cultist", "jiangshi", "bandit", "raider", "ironguard", "bannerman", "hollowshade", "hollowmonk", "hollowsage", "stonehound"]);
+const PACK: ReadonlySet<EnemyId> = new Set<EnemyId>(["fox", "wolf", "serpent", "cultist", "jiangshi", "bandit", "raider", "ironguard", "bannerman", "hollowshade", "hollowmonk", "hollowsage", "stonehound", "frostfang", "smuggler"]);
 /** Spawns the story fights by name: they stay single. */
 const LONE = new Set(["village-fox"]);
 
