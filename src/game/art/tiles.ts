@@ -400,3 +400,39 @@ export function foamOverlay(map: TileMap, i: number, j: number): PixelBuffer | n
     }
   return b;
 }
+
+// ----------------------------------------------------------------------------- 3D view
+/** The continuous ground texture of a solid tile kind (null for void and liquids), as the 3D view paints its tile tops. */
+export function groundTexture(kind: TileKind, seed = 8): Tex | null {
+  if (kind === "void" || LIQUID[kind]) return null;
+  return TEX[kind as keyof typeof TEX](seed);
+}
+
+/** The four tones of each liquid's surface (dark → light), for the 3D view's animated water and lava. */
+export const LIQUID_TONES = { water: WATER, deep: WATER.map((c) => shade(c, 0.78)), lava: LAVA, paddy: PADDY } as const;
+
+const swatchCache = new Map<string, PixelBuffer>();
+
+/**
+ * A 16 × 32 swatch of a kind's cliff wall seen square on (16 px across a
+ * tile, 8 px per height level), unwarped from the left face of a painted
+ * column: the 3D view wraps it around the sides of raised ground.
+ */
+export function wallSwatch(kind: TileKind, rocky = false): PixelBuffer {
+  const key = `${kind}/${rocky}`;
+  let sw = swatchCache.get(key);
+  if (sw) return sw;
+  const self = kind === "void" ? "dirt" : kind;
+  const m = { kind: (i: number, j: number) => (i === 1 && j === 1 ? self : "grass"), height: (i: number, j: number) => (i === 1 && j === 1 ? 5 : 0) } as unknown as TileMap;
+  const col = paintTile(m, 1, 1, 0, 8, false, rocky);
+  sw = new PixelBuffer(16, 32);
+  for (let x = 0; x < 16; x++) {
+    const top = Math.ceil(8 + x * 0.5) + col.sink;
+    for (let y = 0; y < 32; y++) {
+      const [r, g, b, a] = col.buf.getRGBA(x, Math.min(col.buf.height - 1, top + y + 1));
+      if (a) sw.px(x, y, `#${[r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("")}`);
+    }
+  }
+  swatchCache.set(key, sw);
+  return sw;
+}

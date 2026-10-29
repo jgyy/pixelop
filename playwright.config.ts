@@ -14,6 +14,9 @@ export default defineConfig({
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
   use: {
     baseURL: `http://localhost:${PORT}`,
+    // the game logic specs run in the isometric pixel view: CI's software GL draws the 3D world far
+    // too slowly for their real-time timings (e2e/world3d.spec.ts covers the 3D view itself)
+    storageState: { cookies: [], origins: [{ origin: `http://localhost:${PORT}`, localStorage: [{ name: "jade-lotus:settings", value: JSON.stringify({ view: "2d" }) }] }] },
     trace: "retain-on-failure",
     viewport: { width: 1280, height: 800 },
   },

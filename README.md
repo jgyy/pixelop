@@ -1,10 +1,113 @@
 # 玉莲飞升 · Jade Lotus Ascension
 
-A **2.5D isometric pixel-art xianxia RPG** built as a full-stack **Next.js 16** web app. You play **Lin Yue**, an inner disciple of the Azure Cloud Sect. Her journey runs across **one continuous open world**: from the floating sect, down a sky bridge to a mortal village, through a haunted bamboo forest and a moonlit lotus lake, into the Crimson Demon Valley to reclaim the stolen Jade Lotus Heart, and finally up to Heavenly Tribulation Peak, where she rises from *Qi Condensation* to *Immortal Ascension*.
+A **3D xianxia RPG with hand-painted pixel-art sprites** (in the manner of Ragnarok Online), built as a full-stack **Next.js 16** web app with **Babylon.js**. The original **2.5D isometric pixel view** is one click away in the settings. You play **Lin Yue**, an inner disciple of the Azure Cloud Sect. Her journey runs across **one continuous open world**: from the floating sect, down a sky bridge to a mortal village, through a haunted bamboo forest and a moonlit lotus lake, into the Crimson Demon Valley to reclaim the stolen Jade Lotus Heart, and finally up to Heavenly Tribulation Peak, where she rises from *Qi Condensation* to *Immortal Ascension*.
 
 **Every pixel is generated procedurally in TypeScript.** The repo contains no image assets for the game. A small z-buffered ray caster draws characters, beasts, trees and buildings from 3D primitives, which gives every character **16 facing directions** for free. A texture painter draws the isometric terrain. The same code runs in the browser, in Node (PNG/GIF export) and in unit tests. The game fills **100% of the screen** at an integer pixel scale.
 
 ![Title screen](docs/screenshots/00-title.png)
+
+### The jianghu in 3D
+
+The world is now drawn in **3D with Babylon.js**, while Lin Yue, the folk and every beast stay **2D pixel-art sprites** that always face the camera, the way the old MMOs did it. Turn the camera with `Z` / `X` (or drag with the right mouse button), zoom with the wheel or `+` / `−`, and press `Home` to swing back to the classic isometric angle. Each sprite shows the side of itself the camera sees, out of its 16 painted directions, and "up" on the keys always walks up the screen however the camera is turned.
+
+Nothing was re-modelled for it. Every prop in the game (halls, pagodas, pines, lanterns, waterwheels, the swords of the Sword Tomb) was already described as 3D solids for the pixel ray caster, so a **mesh backend for the same `Raster` API** records those very solids as triangles. Each face is cut into texel-sized cells coloured by the prop's own pattern shaders, so plaster, timber posts, roof tiles and lattice windows come through. The ground is built from the same tile map the game walks on, with every tile top painted from the isometric tiles' world-space textures in a Web Worker, cliff walls wherever the land steps down, and animated water and lava. The seasons, snow, the hour's light, lamplight after dark, swaying trees, rising smoke and drifting petals all carry over.
+
+| | |
+|---|---|
+| ![The Azure Cloud Sect in 3D](docs/screenshots/207-3d-the-azure-cloud-sect.png) | ![The camera turned toward the sect gate](docs/screenshots/208-3d-the-camera-turns.png) |
+| ![Willow Creek](docs/screenshots/209-3d-willow-creek.png) | ![Willow Creek by night](docs/screenshots/210-3d-willow-creek-by-night.png) |
+| ![Inside the Hall of Clouds](docs/screenshots/211-3d-inside-the-hall-of-clouds.png) | ![The Sunken Grotto](docs/screenshots/212-3d-the-sunken-grotto.png) |
+| ![Frostveil in winter](docs/screenshots/213-3d-frostveil-in-winter.png) | ![The tea terraces in autumn](docs/screenshots/214-3d-the-tea-terraces-in-autumn.png) |
+
+```mermaid
+flowchart LR
+  subgraph art["The art, unchanged"]
+    P["Prop definitions<br/>(spheres, sweeps, convex solids)"]
+    T["Tile map + world-space<br/>ground textures"]
+    C["Character sprites<br/>(16 directions, every anim)"]
+  end
+  P -- "Raster API" --> RC["Pixel ray caster<br/>(isometric view, PNG/GIF export)"]
+  P -- "Raster API" --> MR["MeshRaster<br/>(triangles, cell-coloured faces)"]
+  MR --> TI["Thin-instanced prop meshes<br/>(season colours, wind sway)"]
+  T -- "map window" --> W["Web Worker<br/>paints 32×32-tile chunks"]
+  W --> CH["Ground, cliff and liquid meshes"]
+  C --> BB["Camera-facing billboards<br/>(direction picked per camera turn)"]
+  TI & CH & BB --> S["Babylon.js scene<br/>toon light · hour tint · haze"]
+  SKY["Painted sky canvas"] --> V["Screen"]
+  S --> V
+  OV["Pixel overlay: weather, sparks,<br/>emotes, HUD"] --> V
+```
+
+```mermaid
+sequenceDiagram
+  participant K as Keys / stick / tap
+  participant G as Game
+  participant V as WorldView3D (View3D)
+  K->>G: move (screen direction)
+  G->>V: ground()
+  V-->>G: camera's toward / right axes
+  G->>G: turnToView(): the iso direction, turned with the camera
+  K->>G: tap (x, y)
+  G->>V: pick(x, y)
+  V-->>G: map point under the cursor
+  G->>V: (each frame) world, actors, flags
+  V->>V: stream chunks · props · sprites · motes
+  G->>V: project(hero) for the overlay
+```
+
+### The game menu
+
+Press `Esc` or `Tab` (or **Menu**) for the game menu. The world goes on around her while it is open, but she stays put and goes through her satchel.
+
+- **Status**: realm, vitality, qi, attack, defence, speed, Dao Heart, Great Daos, attire, notices and time played.
+- **Skills**: each technique she has learned, its qi cost and its key.
+- **Bag**: pills (use them from here), spirit stones, and her keepsakes. These follow the tale, so the Jade Lotus Heart shows as carried, returned, planted or drunk depending on what she did with it.
+- **Bestiary**: every beast and foe she has fought, with its sprite, strength, signature move, where it roams and how many times she has bested it.
+- **People**: everyone she has spoken with, by portrait.
+- **Places**: the eleven regions, which are open, and why the sealed ones are sealed.
+- **Settings**: 3D or isometric pixels, 3D detail (chunky, crisp, smooth), the compass, camera drag.
+- **Controls**: every key.
+
+| | |
+|---|---|
+| ![Status](docs/screenshots/215-menu-status.png) | ![Bag](docs/screenshots/216-menu-bag.png) |
+| ![Bestiary](docs/screenshots/217-menu-bestiary.png) | ![People](docs/screenshots/218-menu-people.png) |
+| ![Places](docs/screenshots/219-menu-places.png) | ![Settings](docs/screenshots/220-menu-settings.png) |
+
+```mermaid
+stateDiagram-v2
+  [*] --> Explore
+  Explore --> Menu: Esc / Tab / Menu button
+  Menu --> Explore: Esc / Tab / Resume
+  state Menu {
+    [*] --> Status
+    Status --> Skills: →
+    Skills --> Bag: →
+    Bag --> Bestiary: →
+    Bestiary --> People: →
+    People --> Places: →
+    Places --> Settings: →
+    Settings --> Controls: →
+  }
+  Explore --> Journal: J
+  Explore --> Wardrobe: V
+  Journal --> Explore: J / Esc
+  Wardrobe --> Explore: V / Esc
+```
+
+New moves: Lin Yue **rummages** in her satchel when the menu opens and **shades her eyes** at each new landmark, and folk with a favour to ask **beckon** her over from a little way off.
+
+| Rummage, shade and beckon |
+|---|
+| ![](docs/art/menu-moves.gif) |
+
+**Plot holes mended**
+
+- After she drinks the Jade Lotus Heart, Elder Mo no longer congratulates her on her new realm moments before he duels her for it. He also keeps his pointers and his worries to himself until the duel is settled.
+- Once she has broken his cultivation, Elder Mo is a mortal: he no longer "feels" her golden core from across the hall. He gives no more cultivation pointers, and his lines speak of the broom and the scorched marble.
+- If she turned back from heaven's stair (the Guardian or Road Home endings), Elder Mo no longer thanks her for "coming back down" from a heaven she never entered.
+- A foundling who runs up the sky bridge before facing the fox is no longer greeted for the "fox blood on her sleeve", or told she has "already met" the beast.
+
 
 ### One world, no loading screens
 

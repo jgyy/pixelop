@@ -144,9 +144,18 @@ export function originElderMeeting(g: GameState, gifts: Step[]): Step[] | null {
   if (origin === "foundling")
     return [
       { face: "elder", to: "hero" },
-      say("elder", "An outer-sect token, five years old, and fox blood on the sleeve. You are Hua's girl from Willow Creek."),
-      say("heroine", "Lin Yue, Elder. A fox spirit attacked the village last night. Its eyes were red, like the moon."),
-      say("elder", "Last night the Jade Lotus Heart was stolen from our shrine. Without it the spirit veins wither, and the beasts below go mad. You have already met the first of them."),
+      // she may have run up the bridge before facing the fox at all
+      ...(g.flags.villageSaved
+        ? [
+            say("elder", "An outer-sect token, five years old, and fox blood on the sleeve. You are Hua's girl from Willow Creek."),
+            say("heroine", "Lin Yue, Elder. A fox spirit attacked the village last night. Its eyes were red, like the moon."),
+            say("elder", "Last night the Jade Lotus Heart was stolen from our shrine. Without it the spirit veins wither, and the beasts below go mad. You have already met the first of them."),
+          ]
+        : [
+            say("elder", "An outer-sect token, five years old, and mud to the knee. You are Hua's girl from Willow Creek."),
+            say("heroine", "Lin Yue, Elder. Something has been howling at our bridge all night, and the moon went red. I ran up here before it could find me."),
+            say("elder", "Last night the Jade Lotus Heart was stolen from our shrine. Without it the spirit veins wither, and the beasts below go mad. What howls at your bridge is the first of them."),
+          ]),
       say("elder", "The thief is Xue, Patriarch of the Blood Moon. He was a Willow Creek child too, once, and my sworn brother. There is no time for the outer sect. From today you are my disciple."),
       { anim: "hero", name: "kowtow", wait: true },
       ...gifts,

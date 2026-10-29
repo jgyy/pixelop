@@ -174,8 +174,6 @@ export function seasonTile(tb: TileBuffer, kind: TileKind, season: Season, i: nu
   const out = tb.buf.clone();
   const d = out.data;
   const W = out.width;
-  const grassy = GRASSY.has(kind);
-  const patchy = !grassy && kind !== "redrock";
   for (let py = 0; py < Math.min(16, out.height); py++)
     for (let px = 0; px < W; px++) {
       const k = (py * W + px) * 4;
@@ -185,23 +183,7 @@ export function seasonTile(tb: TileBuffer, kind: TileKind, season: Season, i: nu
       const a = (sx / 16 + sy / 8) / 2;
       const b = (sy / 8 - sx / 16) / 2;
       if (a < 0 || b < 0 || a >= 1 || b >= 1) continue;
-      const wx = i + a;
-      const wy = j + b;
-      let c: RGB | null = null;
-      const [h, s, l] = toHsl(d[k], d[k + 1], d[k + 2]);
-      if (season === "winter") {
-        if (patchy && vnoise(wx * 1.3, wy * 1.3, 41) < 0.3) continue;
-        const shadeK = 0.86 + l * 0.18 + (hash2(Math.floor(wx * 16), Math.floor(wy * 16), 43) < 0.08 ? -0.08 : 0);
-        c = [SNOW[0] * shadeK, SNOW[1] * shadeK, Math.min(255, SNOW[2] * (shadeK + 0.04))];
-      } else if (grassy && isLeaf(h, s, l)) {
-        if (season === "spring") {
-          const r = hash2(Math.floor(wx * 16), Math.floor(wy * 16), 47);
-          c = r < 0.018 ? [255, 236, 120] : r < 0.03 ? [255, 210, 230] : fromHsl(h - 12, s * 1.1, Math.min(0.85, l * 1.12 + 0.02));
-        } else {
-          const n = vnoise(wx * 0.9, wy * 0.9, 45);
-          c = fromHsl(n < 0.5 ? 46 : 34, Math.max(0.45, s * 0.9), l * (0.95 + n * 0.1));
-        }
-      }
+      const c = seasonTexel(d[k], d[k + 1], d[k + 2], kind, season, i + a, j + b);
       if (!c) continue;
       d[k] = c[0];
       d[k + 1] = c[1];
@@ -222,4 +204,44 @@ export function seasonTile(tb: TileBuffer, kind: TileKind, season: Season, i: nu
       }
     }
   return { buf: out, sink: tb.sink };
+}
+
+/**
+ * One ground texel at world point (wx, wy) as a season shows it, or null where
+ * the season leaves it be (shared by the iso columns and the 3D tile tops).
+ */
+export function seasonTexel(r: number, g: number, b: number, kind: TileKind, season: Season, wx: number, wy: number): RGB | null {
+  const grassy = GRASSY.has(kind);
+  const patchy = !grassy && kind !== "redrock";
+  const [h, s, l] = toHsl(r, g, b);
+  if (season === "winter") {
+    if (patchy && vnoise(wx * 1.3, wy * 1.3, 41) < 0.3) return null;
+    const shadeK = 0.86 + l * 0.18 + (hash2(Math.floor(wx * 16), Math.floor(wy * 16), 43) < 0.08 ? -0.08 : 0);
+    return [SNOW[0] * shadeK, SNOW[1] * shadeK, Math.min(255, SNOW[2] * (shadeK + 0.04))];
+  }
+  if (grassy && isLeaf(h, s, l)) {
+    if (season === "spring") {
+      const rr = hash2(Math.floor(wx * 16), Math.floor(wy * 16), 47);
+      return rr < 0.018 ? [255, 236, 120] : rr < 0.03 ? [255, 210, 230] : fromHsl(h - 12, s * 1.1, Math.min(0.85, l * 1.12 + 0.02));
+    }
+    const n = vnoise(wx * 0.9, wy * 0.9, 45);
+    return fromHsl(n < 0.5 ? 46 : 34, Math.max(0.45, s * 0.9), l * (0.95 + n * 0.1));
+  }
+  return null;
+}
+
+/**
+ * A model vertex's colour as a season shows it (the 3D view's counterpart of
+ * seasonalProp): leaves turn, and in winter snow settles wherever the
+ * surface faces up (`up` is the normal's upward component, -1..1).
+ */
+export function seasonVertex(rgb: RGB, id: PropId, season: Season | null, up: number, x: number, y: number): RGB {
+  if (!season || !seasonal(id)) return rgb;
+  const leaves = LEAFY.has(id);
+  if (season === "winter" && id !== "lotus" && id !== "reeds" && up > 0.55) return up > 0.8 ? SNOW : SNOW_SHADE;
+  if (!leaves) return rgb;
+  const [h, s, l] = toHsl(rgb[0], rgb[1], rgb[2]);
+  const blossom = isBlossom(h, s, l);
+  if (!blossom && !isLeaf(h, s, l)) return rgb;
+  return turnLeaf(season, h, s, l, Math.floor(x), Math.floor(y), id.length, blossom, EVERGREEN.has(id)) ?? rgb;
 }

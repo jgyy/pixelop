@@ -1164,3 +1164,251 @@ button {
   display: block;
   height: 100%;
 }
+
+/* ---- the 3D world: the painted sky, the Babylon canvas over it, the pixel overlay on top */
+.sky-canvas,
+.world-3d {
+  pointer-events: none;
+}
+.compass {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+.compass i {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 2px solid rgba(242, 197, 92, 0.6);
+  display: block;
+  transition: transform 0.1s linear;
+}
+.compass i b {
+  position: absolute;
+  left: 50%;
+  top: -2px;
+  transform: translateX(-50%);
+  color: #ff8a6a;
+  font-style: normal;
+  font-size: 13px;
+}
+.compass i::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 16px;
+  width: 2px;
+  height: 14px;
+  background: #f2c55c;
+  transform: translateX(-50%) rotate(180deg);
+  transform-origin: top;
+}
+
+/* ---- the game menu (Esc / Tab) */
+.game-menu {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(860px, 96%);
+  height: min(600px, 90%);
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  grid-template-rows: 1fr auto;
+  gap: 10px;
+  padding: 12px;
+  pointer-events: auto;
+  z-index: 20;
+}
+.overlay .game-menu {
+  background: #140e26;
+}
+.game-menu nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+}
+.game-menu nav .btn {
+  text-align: left;
+}
+.game-menu .menu-body {
+  overflow-y: auto;
+  padding-right: 6px;
+}
+.game-menu footer {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  align-items: center;
+}
+.game-menu footer .hint {
+  margin-right: auto;
+  font-size: 12px;
+  opacity: 0.8;
+}
+.game-menu h4 {
+  margin: 10px 0 4px;
+  color: var(--jade-light);
+}
+.menu-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.menu-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.18);
+}
+.menu-list li > div {
+  flex: 1;
+}
+.menu-list li p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  opacity: 0.85;
+}
+.menu-list li .cn {
+  width: 42px;
+  text-align: center;
+  color: var(--gold);
+}
+.menu-list li.locked {
+  opacity: 0.5;
+}
+.menu-list li.here {
+  border-color: var(--gold);
+}
+.status-tab {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: 16px;
+}
+.status-portrait {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+}
+.status-portrait .warn {
+  color: #ff8a8a;
+}
+.status-tab dl,
+.controls {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 16px;
+}
+.controls {
+  grid-template-columns: 1fr;
+}
+.status-tab dl > div,
+.controls > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  border-bottom: 1px dotted rgba(255, 255, 255, 0.12);
+  padding: 2px 0;
+}
+.status-tab dt,
+.controls dt {
+  opacity: 0.75;
+}
+.status-tab dd,
+.controls dd {
+  margin: 0;
+  text-align: right;
+}
+.portrait.small {
+  width: 72px;
+  height: 72px;
+  image-rendering: pixelated;
+}
+.bestiary,
+.people {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 8px;
+}
+.people {
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+}
+.bestiary li,
+.people li {
+  display: flex;
+  gap: 8px;
+  padding: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.18);
+}
+.people li {
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.bestiary li.boss {
+  border-color: #c84a4a;
+}
+.bestiary li > div {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 12px;
+}
+.bestiary small,
+.people small {
+  opacity: 0.8;
+  font-size: 11px;
+}
+.bestiary .thumb {
+  flex: none;
+  image-rendering: pixelated;
+  align-self: center;
+}
+.settings {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.settings label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.settings .seg {
+  display: flex;
+  gap: 4px;
+}
+@media (max-width: 640px) {
+  .game-menu {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr auto;
+  }
+  .game-menu nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .status-tab {
+    grid-template-columns: 1fr;
+  }
+}

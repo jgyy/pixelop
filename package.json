@@ -15,10 +15,11 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "screenshots": "SCREENSHOTS=1 playwright test e2e/screenshots.spec.ts",
+    "screenshots": "SCREENSHOTS=1 playwright test e2e/screenshots.spec.ts e2e/screenshots3d.spec.ts",
     "assets": "tsx scripts/export-assets.ts"
   },
   "dependencies": {
+    "@babylonjs/core": "9.29.0",
     "@fontsource/pixelify-sans": "^5.3.0",
     "next": "16.4.2",
     "react": "19.3.0",
