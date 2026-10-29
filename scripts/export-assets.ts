@@ -354,6 +354,17 @@ const halls: [CharId, AnimId, string?][] = [
 ];
 writeGif("halls-moves.gif", showcase(halls.map(([id, anim, outfit]): Cell => ({ id, anim, dir: 1, label: `${charDef(id).name.split(" ").pop()} ${anim}`, outfit })), 7, 2, seconds), 12);
 
+// the 3D jianghu: she rummages in her satchel (the menu), shades her eyes at a landmark, and the folk beckon her over
+const menuMoves: [CharId, AnimId, string?][] = [
+  ["heroine", "rummage"],
+  ["heroine", "shade"],
+  ["heroine", "beckon"],
+  ["hua", "beckon"],
+  ["zhou", "beckon"],
+  ["farmer", "beckon"],
+];
+writeGif("menu-moves.gif", showcase(menuMoves.map(([id, anim, outfit]): Cell => ({ id, anim, dir: 1, label: `${charDef(id).name.split(" ").pop()} ${anim}`, outfit })), 3, 2, seconds), 12);
+
 
 // 2. Portraits
 const portraitIds = HUMAN_IDS.filter((id) => charDef(id).portrait);

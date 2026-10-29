@@ -174,13 +174,43 @@ const CAST: Record<string, Who & { lines: RealmLines }> = {
 const realmFlag = (key: string, realm: number) => `rsn:${key}:${realm}`;
 
 /** What someone who knows her says the first time they see her at a new realm (null otherwise). */
+/**
+ * Elder Mo as the tale has left him. While the blood moon she drank stands
+ * between them he has no praise for her realm (he has a duel for her); once
+ * she has broken his cultivation he is a mortal and can no longer feel hers;
+ * and if she turned back from heaven's stair, he does not thank her for
+ * coming down from a heaven she never entered.
+ */
+const elderEstranged = (f: Record<string, boolean>) => !!f["heart:devoured"] && !f.purged && !f.moBroken;
+const BROKEN_ELDER: RealmLines = [
+  "I cannot feel your foundation any more, girl. I cannot feel anything. The juniors tell me it is deep. I believe them.",
+  "They say you carry a core of gold now. I used to see such things from across a hall. Now I see an old broom, and your shadow on the marble.",
+  "A Nascent Soul. Once I would have wept to hear it. Now I sweep. The floor does not care what realm I was.",
+  "Spirit Severing. Did you sever me too? …No. You did that with a sword. Go on. The bridge answers only to you.",
+  "So you came down again, to look at what you left. Look, then. The marble is still black where I knelt.",
+];
+const TURNED_BACK = "You stood on heaven's first step and turned round. Forty years I waited for a disciple of mine to reach that stair, and you came back down it for us. Sit. I will make tea, and you will tell me why.";
+
+function linesFor(key: string, g: GameState): string | null {
+  const a = CAST[key];
+  if (!a) return null;
+  if (key !== "elder") return a.lines[g.realm - 1];
+  const f = g.flags;
+  if (elderEstranged(f)) return null;
+  if (f.moBroken) return BROKEN_ELDER[g.realm - 1];
+  if (g.realm === 5 && (f["ending:guardian"] || f["ending:mortal"])) return TURNED_BACK;
+  return a.lines[g.realm - 1];
+}
+
 export function realmAside(key: string, g: GameState): Step[] | null {
   const a = CAST[key];
   if (!a || g.realm < 1 || g.flags[realmFlag(key, g.realm)]) return null;
+  const text = linesFor(key, g);
+  if (!text) return null;
   const r = REALMS[g.realm];
   return [
     { emote: key, icon: g.realm >= 3 ? "!" : "heart" },
-    { say: a.who, ...(a.name && { name: a.name }), text: a.lines[g.realm - 1] },
+    { say: a.who, ...(a.name && { name: a.name }), text },
     { mutate: (s) => ({ ...s, flags: { ...s.flags, [realmFlag(key, s.realm)]: true } }) },
     { toast: `${a.name ?? charDef(a.who).name} sees you at ${r.name} (${r.hanzi})` },
   ];
@@ -244,6 +274,8 @@ const pointerFlag = (key: string, realm: number) => `ptr:${key}:${realm}`;
 /** A master's pointer, when she is stuck at a bottleneck for want of insight (null otherwise). */
 export function pointerAside(key: string, g: GameState): Step[] | null {
   const p = POINTERS[key];
+  // a broken or estranged Elder Mo has no pointer to give her
+  if (key === "elder" && (g.flags.moBroken || elderEstranged(g.flags))) return null;
   if (!p || g.realm < 1 || g.realm > 4 || !atBottleneck(g) || insight(g) >= insightNeeded(g.realm) || g.flags[pointerFlag(key, g.realm)]) return null;
   return [
     { emote: key, icon: "..." },
@@ -345,7 +377,7 @@ export function conditionAside(key: string, g: GameState): Step[] | null {
     ];
   }
   const w = WORRIERS[key];
-  if (!w) return null;
+  if (!w || (key === "elder" && elderEstranged(g.flags))) return null;
   const fails = failedTribulations(g);
   if (w.fail && foundationWound(g) > 0 && fails > 0 && !g.flags[condFlag(key, "fail", fails)])
     return [{ emote: key, icon: "!" }, { say: w.who, ...(w.name && { name: w.name }), text: w.fail }, { mutate: (s) => ({ ...s, flags: { ...s.flags, [condFlag(key, "fail", fails)]: true } }) }];
