@@ -2,6 +2,7 @@ import { alpha } from "../pixel/color";
 import type { Surface } from "../pixel/surface";
 import { sRing } from "../pixel/surface";
 import { isoX, isoY, screenDirToWorld } from "../iso/projection";
+import { turnToView, type View3D } from "./view";
 import { charDef, type AnimId, type HumanId } from "../art/characters";
 import { ENEMIES, type EnemyId } from "../engine/enemies";
 import { reviveAtSect, type BattleAction } from "../engine/battle";
@@ -188,6 +189,8 @@ export class Game {
   private flash = 0;
   private flashColor = "#ffffff";
   private cameraFocus: [number, number, number] | null = null;
+  /** The 3D view, while one draws the world (null: the isometric pixel view). */
+  view3d: View3D | null = null;
   private medTick = 0;
   /** Seconds she has sat in this session (each breath brings less), and the shrine she sits at. */
   private medSitting = 0;
@@ -277,6 +280,10 @@ export class Game {
     if (this.mode === "scene") return this.advance();
     if (this.mode !== "explore") return;
     const w = this.world;
+    if (this.view3d) {
+      this.tapTarget = this.view3d.pick(sx, sy);
+      return;
+    }
     const z = w.hero.z;
     const a = (sx - w.camX) / 16;
     const b = (sy - w.camY + z * 8) / 8;
@@ -1324,6 +1331,8 @@ export class Game {
     let run = RUN_KEYS.some((k) => this.keys.has(k));
     if (sx || sy) {
       [dx, dy] = screenDirToWorld(sx, sy);
+      // under a turned 3D camera, "up" still walks up the screen
+      if (this.view3d) [dx, dy] = turnToView([dx, dy], this.view3d.ground());
       const mag = Math.min(1, Math.hypot(sx, sy));
       dx *= mag;
       dy *= mag;
@@ -1870,6 +1879,26 @@ export class Game {
     for (const t of due) t.fn();
   }
 
+  /** True while the world itself (not a battle or the world map) fills the screen. */
+  get showsWorld(): boolean {
+    return this.mode !== "battle" && this.mode !== "worldmap";
+  }
+
+  /** What the camera looks at: a cutscene's focus, the middle of a room, or the heroine. */
+  cameraTarget(): [number, number, number] {
+    if (this.cameraFocus) return this.cameraFocus;
+    const w = this.world;
+    const m = w.def.map;
+    if (w.interior) return [(w.hero.x + m.w / 2) / 2, (w.hero.y + m.h / 2) / 2, 1];
+    return [w.hero.x, w.hero.y, w.hero.z];
+  }
+
+  /** Where a map point lands on the pixel canvas, in whichever view is drawing the world. */
+  private screenOf(x: number, y: number, z: number): [number, number] {
+    const w = this.world;
+    return this.view3d?.project(x, y, z) ?? [isoX(x, y) + w.camX, isoY(x, y, z) + w.camY];
+  }
+
   render(s: Surface): void {
     if (this.mode === "battle" && this.battle) {
       this.battle.render(s);
@@ -1882,13 +1911,15 @@ export class Game {
       return;
     }
     const w = this.world;
-    w.updateCamera(s.width, s.height, 1 / 60, this.cameraFocus ?? undefined);
-    w.render(s, this.clock);
+    if (this.view3d) w.renderOverlay3D(s, this.clock, this.view3d);
+    else {
+      w.updateCamera(s.width, s.height, 1 / 60, this.cameraFocus ?? undefined);
+      w.render(s, this.clock);
+    }
     if (this.mode === "meditate" || this.mode === "tribulation") {
       const h = w.hero;
-      const x = isoX(h.x, h.y) + w.camX;
-      const y = isoY(h.x, h.y, h.z) + w.camY;
-      const r = 18 + Math.sin(this.clock * 2) * 2;
+      const [x, y] = this.screenOf(h.x, h.y, h.z);
+      const r = (18 + Math.sin(this.clock * 2) * 2) * (this.view3d ? Math.max(0.6, this.view3d.tileScale() / 22.6) : 1);
       sRing(s, x, y - 2, r, alpha("#9ff5de", 0.45));
       sRing(s, x, y - 2, r * 0.6, alpha("#ffffff", 0.3));
     }
@@ -1903,8 +1934,7 @@ export class Game {
     const el = this.clock - tr.start;
     const dark = Math.min(0.55, el * 0.3) * (tr.done ? Math.max(0, 1 - (el - (1.4 + tr.bolts * (tr.final ? 1.1 : 1.4) + 0.6)) * 0.8) : 1);
     s.rect(0, 0, s.width, s.height, alpha("#0a0620", dark));
-    const x = Math.round(isoX(h.x, h.y) + w.camX);
-    const y = Math.round(isoY(h.x, h.y, h.z) + w.camY);
+    const [x, y] = this.screenOf(h.x, h.y, h.z).map(Math.round);
     for (const b of this.boltFx) {
       const age = this.clock - b.at;
       if (age > 0.45) continue;

@@ -1164,3 +1164,48 @@ button {
   display: block;
   height: 100%;
 }
+
+/* ---- the 3D world: the painted sky, the Babylon canvas over it, the pixel overlay on top */
+.sky-canvas,
+.world-3d {
+  pointer-events: none;
+}
+.compass {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+.compass i {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 2px solid rgba(242, 197, 92, 0.6);
+  display: block;
+  transition: transform 0.1s linear;
+}
+.compass i b {
+  position: absolute;
+  left: 50%;
+  top: -2px;
+  transform: translateX(-50%);
+  color: #ff8a6a;
+  font-style: normal;
+  font-size: 13px;
+}
+.compass i::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 16px;
+  width: 2px;
+  height: 14px;
+  background: #f2c55c;
+  transform: translateX(-50%) rotate(180deg);
+  transform-origin: top;
+}

@@ -15,6 +15,7 @@ import { LIQUID, TILE_KINDS, type TileMap } from "../world/tilemap";
 import { applyPatches, patchMaxHeight } from "../world/terrain";
 import { ENEMIES, type EnemyId } from "../engine/enemies";
 import { Effects } from "./particles";
+import type { View3D } from "./view";
 import { CLIMATE, calendarAt, rainingAt, type Season } from "../world/calendar";
 import { groundTurns, seasonalProp, seasonTile } from "../art/seasons";
 
@@ -325,6 +326,13 @@ export class World {
       }
   }
 
+  /** Bumped whenever the story reshapes the land (the 3D view rebuilds its ground). */
+  terrainVersion = 0;
+  /** The story flags plus the hour and the season, as props and folk test them. */
+  get envFlags(): Record<string, boolean> {
+    return this.flags;
+  }
+
   /** Clock time the land last changed in view (the game shakes the screen for it). */
   quakeAt = -99;
   /**
@@ -399,6 +407,7 @@ export class World {
             }
           }
     }
+    this.terrainVersion++;
     let seen = 0;
     for (let k = 0; k < changed.length; k += 3) {
       const idx = changed[k];
@@ -974,12 +983,12 @@ export class World {
   }
 
   /** The season the year shows on the land of this map right now (null in rooms and caves). */
-  private yearSeason(): Season | null {
+  yearSeason(): Season | null {
     return this.interior || this.cave ? null : calendarAt(this.time).season;
   }
 
   /** Does the year reach tile (or prop anchor) (i, j)? Only the temperate lands turn with it. */
-  private seasonHere(i: number, j: number, season: Season | null): Season | null {
+  seasonHere(i: number, j: number, season: Season | null): Season | null {
     if (!season) return null;
     const m = this.def.map;
     const region = this.world ? AREA_IDS[this.world.regionOf[Math.max(0, Math.min(m.h - 1, j)) * m.w + Math.max(0, Math.min(m.w - 1, i))]] : this.def.id;
@@ -1126,7 +1135,66 @@ export class World {
     for (const a of this.actors) if (!a.hidden && a.kind !== "critter") this.drawOverhead(s, a, t, cx, cy);
   }
 
-  private isTakenAt(i: number, j: number): boolean {
+  /**
+   * The sky behind the 3D view (on its own canvas beneath it): the painted
+   * heavens of the place she stands in, drifting as the camera turns.
+   */
+  renderSky(s: Surface, t: number, pan: number): void {
+    const env = this.envAt(this.hero.x, this.hero.y, t);
+    if (this.backdrop) return s.rect(0, 0, s.width, s.height, this.backdrop);
+    const heavens = this.dayNight && !this.interior && !this.cave ? (sky: Surface) => drawHeavens(sky, env) : undefined;
+    const cx = Math.round(pan);
+    drawSky(s, env.sky, t, cx, 0, heavens);
+    if (env.sky2) drawSky(fadedSurface(s, env.k), env.sky2, t, cx, 0, heavens);
+    if (env.dusk > 0.35 && !this.interior) this.drawNightSky(s, t, env.dusk);
+  }
+
+  /** The light of the hour where she stands, for the 3D view's shaders. */
+  lightAt(t: number): Env {
+    return this.envAt(this.hero.x, this.hero.y, t);
+  }
+
+  /**
+   * What the 3D view leaves to the pixel canvas laid over it: sparks and dust
+   * (drawn about the heroine, scaled to the camera), the weather, and the
+   * marks over people's heads.
+   */
+  renderOverlay3D(s: Surface, t: number, view: View3D): void {
+    const h = this.hero;
+    const env = this.envAt(h.x, h.y, t);
+    const hp = view.project(h.x, h.y, h.z);
+    if (hp) {
+      const cx = Math.round(hp[0] - isoX(h.x, h.y));
+      const cy = Math.round(hp[1] - isoY(h.x, h.y, h.z));
+      const ctx = (s as { ctx?: CanvasRenderingContext2D }).ctx;
+      const k = Math.max(0.5, Math.min(3, view.tileScale() / (HALF_W * Math.SQRT2)));
+      if (ctx) {
+        ctx.save();
+        ctx.translate(hp[0] - k * isoX(h.x, h.y), hp[1] - k * isoY(h.x, h.y, h.z));
+        ctx.scale(k, k);
+        this.fx.draw(s, 0, 0);
+        ctx.restore();
+      } else this.fx.draw(s, cx, cy);
+      for (const [w, d] of env.weather) this.drawWeather(s, w, d, t, cx, cy);
+    }
+    if (env.rain > 0.02) this.drawShower(s, t, env);
+    for (const a of this.actors) {
+      if (a.hidden || a.kind === "critter" || (!a.emote && !a.marker)) continue;
+      if (Math.abs(a.x - h.x) + Math.abs(a.y - h.y) > 60) continue;
+      const def = charDef(a.char);
+      const seated = a.anim === "sit" || a.anim === "tell" || a.anim === "weave" || a.anim === "pray" || a.anim === "meditate" || a.anim === "fish" || a.anim === "sleep" || a.anim === "write";
+      const lift = (a.char === "rider" ? 44 : (def.oy - 6) * (def.h > 70 ? 1 : 0.62)) + 14 - (seated ? 7 : 0);
+      const p = view.project(a.x, a.y, a.z + lift / LEVEL_H);
+      if (!p) continue;
+      const [x, top] = [Math.round(p[0]), Math.round(p[1]) - 8];
+      if (x < -20 || x > s.width + 20 || top < -30 || top > s.height + 30) continue;
+      if (a.emote) drawEmote(s, a.emote.icon, x, top - 6 + Math.round(Math.sin(t * 6)), t);
+      else if (a.marker === "bounty" || a.marker === "deliver") drawNotice(s, a.marker, x, top - 4 + Math.round(Math.sin(t * 3) * 1.5));
+      else if (a.marker) drawText(s, "!", x - 1, top - 4 + Math.round(Math.sin(t * 4) * 2), "#ffd860", { outline: "#3a1a10" });
+    }
+  }
+
+  isTakenAt(i: number, j: number): boolean {
     if (!this.taken.size) return false;
     const it = this.def.interacts.find((x) => x.i === i && x.j === j && (x.kind === "chest" || x.kind === "herb"));
     return !!it && this.taken.has(it.key);
