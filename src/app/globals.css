@@ -1225,7 +1225,9 @@ button {
   padding: 12px;
   pointer-events: auto;
   z-index: 20;
-  background: rgba(18, 12, 34, 0.96);
+}
+.overlay .game-menu {
+  background: #140e26;
 }
 .game-menu nav {
   display: flex;
