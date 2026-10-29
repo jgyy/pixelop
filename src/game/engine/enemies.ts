@@ -518,7 +518,7 @@ export const ENEMIES: Record<EnemyId, EnemyDef> = {
     basic: "Frozen Coil",
     special: { name: "Breath of the Long Winter", power: 1.8, every: 3, colour: "#c8f0ff" },
     boss: true,
-    intro: "The ice of the lake cracks from below, and the Rime Wyrm uncoils from round the bell's bronze tongue!",
+    intro: "The ice of the lake cracks from below, and the Rime Wyrm uncoils from round the first abbot's bones!",
     speed: 0,
     aggro: 1.2,
   },

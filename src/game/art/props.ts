@@ -147,7 +147,7 @@ const PROPS = {
   cherry: {
     foot: [0, 0, 0, 0],
     blocks: true,
-    size: 2.1,
+    size: 2.4,
     frames: 6,
     fps: 4,
     emit: "petals",
@@ -167,7 +167,7 @@ const PROPS = {
   maple: {
     foot: [0, 0, 0, 0],
     blocks: true,
-    size: 2.2,
+    size: 2.6,
     frames: 6,
     fps: 4,
     emit: "leaves",
@@ -213,7 +213,7 @@ const PROPS = {
   willow: {
     foot: [0, 0, 0, 0],
     blocks: true,
-    size: 2.3,
+    size: 2.8,
     frames: 6,
     fps: 4,
     paint: (r, f, n) => {
@@ -1673,7 +1673,7 @@ const PROPS = {
   peachtree: {
     foot: [0, 0, 0, 0],
     blocks: true,
-    size: 1.8,
+    size: 2.0,
     frames: 6,
     fps: 4,
     emit: "petals",

@@ -106,6 +106,10 @@ const BY_REGION: Partial<Record<AreaId, string[]>> = {
   frost: ["Frostveil's bell carries across the snow for a day's walk. On a still day, two.", "The monks practise barefoot. I tried it once. I'm a cook now."],
 };
 
+/** While the Iron Banner holds a land (or since it burned it), its folk talk of nothing else. */
+const WAR = ["Keep your voice down. Their scouts were on the ridge again this morning.", "We buried the good plates under the floor. If they burn the house, at least we'll have plates.", "The soldiers say hold, so we hold. I'd rather run, but where to?"];
+const SCARRED = ["They burned the fields and the shrine with them. We're replanting the fields. The shrine will have to wait.", "My brother didn't come back from the war. I still walk to the crossroads at dusk, in case."];
+
 const NIGHT = ["Late to be about. The lanterns are lit, but the roads are dark between them.", "Can't sleep either? The moon's too bright tonight."];
 const SEASON: Record<string, string[]> = {
   spring: ["Plum blossom on the wind. Every spring I forget how sweet it smells, and every spring it reminds me."],
@@ -121,10 +125,13 @@ export function crowdNpcScript(key: string, g: GameState): Step[] | null {
   const char = crowdLook(c.kind, c.n);
   const name = crowdName(c.kind, c.n, char);
   const f = g.flags;
-  const lines = [...BY_KIND[c.kind], ...(BY_REGION[c.region] ?? [])];
+  const war = f[`war:${c.region}`];
+  const lines = war && c.kind !== "soldier" ? [...WAR] : [...BY_KIND[c.kind], ...(BY_REGION[c.region] ?? []), ...(f[`scar:${c.region}:slaughter`] ? SCARRED : [])];
   const cal = calendarAt(worldTime(g));
-  if (cal.dusk > 0.7) lines.push(...NIGHT);
-  lines.push(...SEASON[cal.season]);
+  if (!war) {
+    if (cal.dusk > 0.7) lines.push(...NIGHT);
+    lines.push(...SEASON[cal.season]);
+  }
   if (c.region === "village" && f.heartReturned) lines.push("Since the Heart came home the willows have never been greener. The whole village says so, so it must be true.");
   if (c.region === "village" && f.villageSaved && !f.heartReturned) lines.push("The fox that came into the square had red eyes. They cleared before it ran. I keep thinking about that.");
   const line = lines[Math.floor((g.playTime / 9 + g.kills + c.n * 7) % lines.length)];
