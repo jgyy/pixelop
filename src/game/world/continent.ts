@@ -12,6 +12,7 @@ import { layRoad } from "./roadside";
 import { STREET_FOLK, TIDE_FOLK } from "./road";
 import { DORM_AT, FIELD, GREAT_HALL_AT, HALL_BOSS_AT, HALL_BOSSES, HALL_CAST, HALL_SITES, HALLS, HOPEFULS, hallMasterKey, MISSION_AT, OUTER_FOLK, RING, SPARRERS, STONE_AT } from "./halls";
 import { PatchPainter, type TerrainPatch } from "./terrain";
+import { flockmates, neighbours, packmates } from "./crowds";
 
 /**
  * The jianghu as one continuous map. The six hand-built regions are stamped
@@ -2137,6 +2138,22 @@ function buildWorld(): WorldDef {
 
   // 13. which region owns each tile
   const regionOf = regionOwners(fine);
+
+  // 14. a busier jianghu: a neighbour for every person, a mate for every common beast and bird (see world/crowds.ts)
+  {
+    const touched = new Set<number>();
+    for (const p of patches) for (const idx of p.idx) touched.add(idx);
+    const ground = {
+      map: fine,
+      free: (i: number, j: number) => free(i, j) && !touched.has(j * WORLD_W + i),
+      region: (i: number, j: number) => AREA_IDS[regionOf[j * WORLD_W + i]],
+    };
+    const folk = neighbours(ground, fnpcs, fenemies);
+    const mates = packmates(ground, fenemies, [...fnpcs, ...folk]);
+    fnpcs.push(...folk);
+    fenemies.push(...mates);
+    fcritters.push(...flockmates(ground, fcritters));
+  }
 
   const waypoints = {} as Record<AreaId, [number, number]>;
   for (const id of AREA_IDS) waypoints[id] = toWorld(id, ...regions[id].arrive);

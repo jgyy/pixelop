@@ -38,6 +38,11 @@ export interface PropDef {
   emit?: Emitter;
   /** Lies flat on the floor (mats, cushions): always drawn beneath whoever stands on it. */
   flat?: boolean;
+  /**
+   * Drawn this many times the size it is modelled at, wherever it stands, while
+   * its footprint stays as it is (trees grow tall over a one-tile trunk).
+   */
+  size?: number;
   paint: (r: Raster, f: number, n: number) => void;
 }
 
@@ -83,10 +88,51 @@ function roofTiles(base: Ramp): Shader {
   };
 }
 
+/**
+ * The everyday wear of a lived-in house, outside its east-facing door: a
+ * stone step, a lean-to over the door, the New Year couplets either side of
+ * it, a red lantern, rafter ends under the eaves, curled ridge ends, a capped
+ * chimney, a flower box under the window, a water vat and a stack of firewood.
+ */
+function houseDetails(r: Raster, cx: number, cy: number, W: number, eave: number, roof: Ramp): void {
+  r.box([cx + W + 1, cy - 5, 0], [cx + W + 4, cy + 5, 1.6], m(PAL.stone, 13));
+  r.hipRoof(cx + W, cy, 5, 7.5, eave - 6, 1, 6.5, eave - 2.5, md(roof, 14, { shader: roofTiles(roof) }));
+  for (const o of [-6.5, 5]) r.box([cx + W, cy + o, 5], [cx + W + 0.7, cy + o + 1.5, eave - 7], m(PAL.red, 15, { shader: (q, tone) => (Math.abs(((q.p[2] + 1) % 3) - 1.5) < 0.45 ? tone(PAL.gold) : tone(PAL.red)) }));
+  r.box([cx + W, cy - 4.5, eave - 6.8], [cx + W + 0.7, cy + 4.5, eave - 5.4], m(PAL.red, 15));
+  r.sweep([[cx + W + 4, cy + 8, eave - 2], [cx + W + 4, cy + 8, eave - 5]], 0.2, m(PAL.black, 16));
+  r.sphere([cx + W + 4, cy + 8, eave - 7], 1.8, m(PAL.red, 16));
+  r.box([cx + W + 3.2, cy + 7.2, eave - 9.4], [cx + W + 4.8, cy + 8.8, eave - 8.6], m(PAL.gold, 16));
+  for (let o = -W + 1; o <= W - 1; o += 3.6) {
+    r.box([cx + W + 4.4, cy + o - 0.5, eave + 0.6], [cx + W + 6, cy + o + 0.5, eave + 1.6], m(PAL.woodDark, 17));
+    r.box([cx + o - 0.5, cy + W + 4.4, eave + 0.6], [cx + o + 0.5, cy + W + 6, eave + 1.6], m(PAL.woodDark, 17));
+  }
+  for (const sx of [-1, 1]) r.sweep([[cx + sx * W * 0.6, cy, eave + 16.5], [cx + sx * (W * 0.6 + 2.5), cy, eave + 17.5], [cx + sx * (W * 0.6 + 3.2), cy, eave + 20]], [1.2, 0.9, 0.5], m(PAL.black, 4));
+  r.box([cx + 5.4, cy - 9.6, eave + 20], [cx + 10.6, cy - 4.4, eave + 21.4], m(PAL.stone, 5));
+  r.box([cx + 1, cy + W, 8.4], [cx + 9, cy + W + 2.6, 10.4], m(PAL.wood, 18));
+  for (let k = 0; k < 4; k++) r.sphere([cx + 2 + k * 2, cy + W + 1.3, 11], 1.1, m(k % 2 ? PAL.red : ramp("#e8d060"), 19));
+  r.prism(cx + W + 3, cy - W + 2.5, 2.6, 0, 6, 8, m(ramp("#6a4a3a", { lo: "#20141a" }), 20));
+  r.prism(cx + W + 3, cy - W + 2.5, 2.1, 5.6, 6.1, 8, m(ramp("#4a7aa8"), 21));
+  for (let row = 0; row < 3; row++)
+    for (let k = 0; k < 3 - row; k++) r.sweep([[cx - W + 1, cy + W + 2.2 + k * 2.2 + row * 1.1, 1.1 + row * 1.9], [cx - 6, cy + W + 2.2 + k * 2.2 + row * 1.1, 1.1 + row * 1.9]], 1, m(PAL.wood, 22, { shader: (q, tone) => (q.u < 0.04 || q.u > 0.96 ? tone(PAL.straw) : tone(PAL.wood)) }));
+}
+
+/** A low railing of posts and a top rail along a straight run, as a balcony or terrace edge has. */
+function railing(r: Raster, a: V3, b: V3, mat: Mat, high = 4, gap = 3.2): void {
+  const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+  const n = Math.max(1, Math.round(len / gap));
+  for (let k = 0; k <= n; k++) {
+    const p: V3 = [a[0] + ((b[0] - a[0]) * k) / n, a[1] + ((b[1] - a[1]) * k) / n, a[2]];
+    r.sweep([p, add(p, [0, 0, high])], 0.45, mat);
+  }
+  r.sweep([add(a, [0, 0, high]), add(b, [0, 0, high])], 0.6, mat);
+  if (high > 3) r.sweep([add(a, [0, 0, high * 0.45]), add(b, [0, 0, high * 0.45])], 0.35, mat);
+}
+
 const PROPS = {
   pine: {
     foot: [0, 0, 0, 0],
     blocks: true,
+    size: 2.6,
     frames: 6,
     fps: 4,
     paint: (r, f, n) => {
@@ -101,6 +147,7 @@ const PROPS = {
   cherry: {
     foot: [0, 0, 0, 0],
     blocks: true,
+    size: 2.1,
     frames: 6,
     fps: 4,
     emit: "petals",
@@ -120,6 +167,7 @@ const PROPS = {
   maple: {
     foot: [0, 0, 0, 0],
     blocks: true,
+    size: 2.2,
     frames: 6,
     fps: 4,
     emit: "leaves",
@@ -137,6 +185,7 @@ const PROPS = {
   bamboo: {
     foot: [0, 0, 0, 0],
     blocks: true,
+    size: 1.8,
     frames: 6,
     fps: 4,
     paint: (r, f, n) => {
@@ -164,6 +213,7 @@ const PROPS = {
   willow: {
     foot: [0, 0, 0, 0],
     blocks: true,
+    size: 2.3,
     frames: 6,
     fps: 4,
     paint: (r, f, n) => {
@@ -180,6 +230,7 @@ const PROPS = {
   deadtree: {
     foot: [0, 0, 0, 0],
     blocks: true,
+    size: 2.0,
     frames: 1,
     fps: 1,
     paint: (r) => {
@@ -192,6 +243,7 @@ const PROPS = {
   spirittree: {
     foot: [0, 0, 0, 0],
     blocks: true,
+    size: 2.4,
     frames: 8,
     fps: 5,
     light: { color: "#9ff5de", radius: 46, dy: 40 },
@@ -383,6 +435,29 @@ const PROPS = {
           r.sweep([[sx * W * 0.7, sy * W * 0.7, 54.5], [sx * W * 0.86, sy * W * 0.86, 58]], [1, 0.4], m(ROOF_TEAL, 9));
         }
       r.box([W + 2, -6, 22], [W + 3.4, 6, 28], m(PAL.black, 10, { shader: (s, tone) => (Math.abs(s.p[1]) < 4 && Math.abs(s.p[2] - 25) < 1.6 ? tone(PAL.gold) : tone(PAL.black)) }));
+      // the great doors, studded with gold, with a pair of bronze rings
+      r.box([W - 3, -5.6, 4], [W - 2.4, 5.6, 23], m(PILLAR, 11, { shader: (s, tone) => (Math.abs(s.p[1]) < 0.3 ? tone(PAL.black) : Math.abs(((s.p[1] + 20) % 2.2) - 1.1) < 0.4 && Math.abs(((s.p[2] + 20) % 2.6) - 1.3) < 0.45 ? tone(PAL.gold) : tone(PILLAR)) }));
+      for (const o of [-1.4, 1.4]) r.sphere([W - 2.2, o, 13], 0.9, m(BRONZE, 12));
+      // carved brackets where each pillar meets the beam
+      for (const x of [-W + 2, -W / 3, W / 3, W - 2])
+        for (const y of [-W + 2, W - 2]) {
+          r.box([x - 2.8, y - 1.2, 28], [x + 2.8, y + 1.2, 30], m(PAL.jade, 13));
+          r.box([y - 1.2, x - 2.8, 28], [y + 1.2, x + 2.8, 30], m(PAL.jade, 13));
+        }
+      // a stone balustrade around the terrace, open before the doors
+      const rail = m(ramp("#d8d4dc", { lo: "#5a5a72" }), 14);
+      railing(r, [W + 1.4, -W - 1.4, 4], [W + 1.4, -8, 4], rail, 4, 5);
+      railing(r, [W + 1.4, 8, 4], [W + 1.4, W + 1.4, 4], rail, 4, 5);
+      railing(r, [-W - 1.4, W + 1.4, 4], [W + 1.4, W + 1.4, 4], rail, 4, 5);
+      // red lanterns under the front eaves, and dragon-fish ridge ends curling up off the top roof
+      for (const o of [-W + 6, W - 6]) {
+        r.sweep([[W + 6, o, 33], [W + 6, o, 29]], 0.25, m(PAL.black, 15));
+        r.ellipsoid([W + 6, o, 26.5], [2.4, 2.4, 2.8], m(PAL.red, 16, { shader: (s, tone) => (Math.abs(s.p[2] - 26.5) > 2.2 ? tone(PAL.gold) : tone(PAL.red)) }));
+        r.sweep([[W + 6, o, 23.6], [W + 6, o, 21.6]], 0.5, m(PAL.gold, 16));
+        r.sweep([[o, W + 6, 33], [o, W + 6, 29]], 0.25, m(PAL.black, 15));
+        r.ellipsoid([o, W + 6, 26.5], [2.4, 2.4, 2.8], m(PAL.red, 16, { shader: (s, tone) => (Math.abs(s.p[2] - 26.5) > 2.2 ? tone(PAL.gold) : tone(PAL.red)) }));
+      }
+      for (const sx of [-1, 1]) r.sweep([[sx * W * 0.3, 0, 66.5], [sx * (W * 0.3 + 2.5), 0, 67.5], [sx * (W * 0.3 + 2), 0, 71], [sx * (W * 0.3 + 0.6), 0, 72]], [1.6, 1.3, 0.9, 0.4], m(PAL.gold, 17));
     },
   },
   house: {
@@ -407,6 +482,7 @@ const PROPS = {
       r.hipRoof(cx, cy, W + 7, W + 7, 24, W * 0.6, 1, 40, md(ROOF_GREY, 3, { shader: roofTiles(ROOF_GREY) }));
       r.sweep([[cx - W * 0.6, cy, 40.5], [cx + W * 0.6, cy, 40.5]], 1.2, m(PAL.black, 4));
       r.box([cx + 6, cy - 9, 30], [cx + 10, cy - 5, 44], m(PAL.stone, 5));
+      houseDetails(r, cx, cy, W, 24, ROOF_GREY);
     },
   },
   pavilion: {
@@ -430,7 +506,13 @@ const PROPS = {
       for (let k = 0; k < 6; k++) {
         const a = (k / 6) * TAU;
         r.sweep([[cx + Math.cos(a) * (W + 7), cy + Math.sin(a) * (W + 7), 26], [cx + Math.cos(a) * (W + 11), cy + Math.sin(a) * (W + 11), 30]], [1.1, 0.4], m(ROOF_RED, 7));
+        // a railing between the pillars (one side left open for the steps), and a bell at each eave tip
+        const b = ((k + 1) / 6) * TAU;
+        if (k !== 0) railing(r, [cx + Math.cos(a) * W, cy + Math.sin(a) * W, 3], [cx + Math.cos(b) * W, cy + Math.sin(b) * W, 3], m(PILLAR, 8), 5, 2.6);
+        r.sphere([cx + Math.cos(a) * (W + 11), cy + Math.sin(a) * (W + 11), 28.6], 0.8, m(PAL.gold, 9));
       }
+      const mid = Math.PI / 6;
+      for (let s = 0; s < 3; s++) r.box([cx + Math.cos(mid) * (W + 2 + s * 2) - 1, cy + Math.sin(mid) * (W + 2) - 4, 0], [cx + Math.cos(mid) * (W + 2 + s * 2) + 1, cy + Math.sin(mid) * (W + 2) + 4, 3 - s], m(PAL.stone, 10));
     },
   },
   stall: {
@@ -830,6 +912,16 @@ const PROPS = {
         const w = W * (1 - k * 0.13);
         const hgt = 15 - k * 1.4;
         r.prism(0, 0, w * 0.72, z, z + hgt, 8, md(WALL, 2 + k, { shader: (s, tone) => (Math.abs(s.p[2] - (z + hgt * 0.55)) < 2.4 && Math.abs(Math.sin(Math.atan2(s.p[1], s.p[0]) * 4)) < 0.35 ? (k === 1 ? "#ffd890" : tone(PAL.woodDark)) : tone(PILLAR)) }), Math.PI / 8);
+        // a walkway with its railing round the second and fourth storeys
+        if (k === 1 || k === 3) {
+          const bw = w * 0.72 + 2.4;
+          r.prism(0, 0, bw, z - 0.6, z + 0.4, 8, m(PAL.woodDark, 13), Math.PI / 8);
+          for (let c = 0; c < 8; c++) {
+            const a0 = (c / 8) * TAU + Math.PI / 8;
+            const a1 = ((c + 1) / 8) * TAU + Math.PI / 8;
+            railing(r, [Math.cos(a0) * bw * 0.97, Math.sin(a0) * bw * 0.97, z + 0.4], [Math.cos(a1) * bw * 0.97, Math.sin(a1) * bw * 0.97, z + 0.4], m(PILLAR, 14), 2.6, 9);
+          }
+        }
         z += hgt;
         r.cone(0, 0, w + 4, z, w * 0.55, z + 4.5, 8, md(ROOF_TEAL, 2 + k, { shader: roofTiles(ROOF_TEAL) }), Math.PI / 8);
         // a wind chime swinging under each eave
@@ -878,6 +970,18 @@ const PROPS = {
         pts.push(add(pole, [s * 1.6 + w * 0.4, -s * 1.6 + w * 0.4, 36 - s * 0.2]));
       }
       r.sweep(pts, 3, m(PAL.paper, 9, { shader: (s, tone) => (s.u > 0.35 && s.u < 0.7 && Math.abs(s.p[2] - 36) < 1.2 ? tone(PAL.red) : tone(PAL.paper)) }));
+      // a lacquered signboard over the open front, and a lantern swinging at each end of it
+      r.box([cx - 7, cy + W + 0.6, 17], [cx + 7, cy + W + 1.6, 21], m(PAL.black, 10, { shader: (s, tone) => (s.n[1] > 0.5 && Math.abs(s.p[2] - 19) < 1 && Math.abs(((s.p[0] - cx + 21) % 4) - 2) < 1.1 ? tone(PAL.gold) : tone(PAL.black)) }));
+      for (const o of [-W + 4, W - 4]) {
+        const sw = Math.sin((f / n) * TAU + o) * 0.8;
+        r.sweep([[cx + o, cy + W + 4, 22], [cx + o + sw * 0.5, cy + W + 4 - sw * 0.5, 19]], 0.2, m(PAL.black, 11));
+        r.ellipsoid([cx + o + sw * 0.7, cy + W + 4 - sw * 0.7, 16.5], [1.8, 1.8, 2.3], m(PAL.red, 12));
+      }
+      // rafter ends under the eaves and a potted plant at the corner pillar
+      for (let o = -W + 1; o <= W - 1; o += 3.6) r.box([cx + o - 0.5, cy + W + 4.6, 22.6], [cx + o + 0.5, cy + W + 6.2, 23.6], m(PAL.woodDark, 13));
+      r.prism(cx + W + 3, cy + W + 2, 2.2, 0, 4.5, 8, m(ramp("#8a5a4a", { lo: "#2a1410" }), 14));
+      r.sphere([cx + W + 3, cy + W + 2, 7.5], 3, md(LEAVES, 15, { shader: leafShader(LEAVES, 4) }));
+      r.box([cx - W + 1, cy + W + 2, 0], [cx - W + 9, cy + W + 4, 4], m(PAL.wood, 16));
     },
   },
   tent: {
@@ -1569,6 +1673,7 @@ const PROPS = {
   peachtree: {
     foot: [0, 0, 0, 0],
     blocks: true,
+    size: 1.8,
     frames: 6,
     fps: 4,
     emit: "petals",
@@ -1837,6 +1942,14 @@ const PROPS = {
       // a ladder down to the water's edge by the door
       for (const o of [-2.4, 2.4]) r.sweep([[cx + W + 3, cy + o, 12], [cx + W + 9, cy + o, -1]], 0.5, m(PAL.wood, 5));
       for (let k = 1; k < 4; k++) r.sweep([[cx + W + 3 + k * 1.5, cy - 2.4, 12 - k * 3.2], [cx + W + 3 + k * 1.5, cy + 2.4, 12 - k * 3.2]], 0.35, m(PAL.wood, 5));
+      // a railing round the deck with a fishing net hung over it, strings of drying peppers and a gourd by the door
+      railing(r, [cx - W - 2.6, cy + W + 2.6, 13], [cx + W + 2.6, cy + W + 2.6, 13], m(PAL.wood, 6), 4.5);
+      railing(r, [cx + W + 2.6, cy + 4, 13], [cx + W + 2.6, cy + W + 2.6, 13], m(PAL.wood, 6), 4.5);
+      railing(r, [cx + W + 2.6, cy - W - 2.6, 13], [cx + W + 2.6, cy - 4, 13], m(PAL.wood, 6), 4.5);
+      r.sweep([[cx - W, cy + W + 2.8, 17.5], [cx - 2, cy + W + 3.6, 14], [cx + 4, cy + W + 3.2, 17.5]], [0.6, 1.6, 0.6], m(ramp("#8a8a6a", { lo: "#2a2a1a" }), 7, { shader: (s, tone) => (Math.abs(((s.p[0] + 40) % 1.6) - 0.8) < 0.3 || Math.abs(((s.p[2] + 40) % 1.6) - 0.8) < 0.3 ? tone(ramp("#8a8a6a"), 1) : null) }));
+      for (const o of [-W + 3, W - 3]) for (let k = 0; k < 4; k++) r.sphere([cx + W + 0.8, cy + o, 28 - k * 1.6], 0.8, m(PAL.red, 8));
+      r.sphere([cx + W + 1.2, cy - 5.6, 21], 1.4, m(ramp("#c8a050"), 9));
+      r.sphere([cx + W + 1.2, cy - 5.6, 23.2], 0.9, m(ramp("#c8a050"), 9));
     },
   },
   // a rack of fish drying in the sea wind, swinging on their strings
@@ -1863,6 +1976,7 @@ const PROPS = {
   snowpine: {
     foot: [0, 0, 0, 0],
     blocks: true,
+    size: 2.6,
     frames: 6,
     fps: 3,
     paint: (r, f, n) => {
@@ -1953,6 +2067,7 @@ const PROPS = {
   palm: {
     foot: [0, 0, 0, 0],
     blocks: true,
+    size: 2.2,
     frames: 6,
     fps: 4,
     paint: (r, f, n) => {
@@ -3093,6 +3208,8 @@ function beamPlanes(half: number, depth: number, z0: number, z1: number) {
 export type PropId = keyof typeof PROPS;
 export const PROP_IDS = Object.keys(PROPS) as PropId[];
 export const propDef = (id: PropId): PropDef => PROPS[id];
+/** How many times its modelled size a prop is drawn at (trees stand several times a person's height). */
+export const propSize = (id: PropId): number => (PROPS[id] as PropDef).size ?? 1;
 
 const CANVAS = 200;
 const ORIGIN_X = 100;
@@ -3128,19 +3245,20 @@ export function originFor(id: PropId, cx: number, cy: number, k = 1): [number, n
   return [t0 - b0 * k, u0 - b1 * k];
 }
 
-/** Paint every frame of a prop (k times its size) and crop them all to one shared bounding box. */
+/** Paint every frame of a prop (k times its placed size) and crop them all to one shared bounding box. */
 export function getProp(id: PropId, k = 1): PropSheet {
   const key = k === 1 ? id : `${id}*${k}`;
   let sheet = cache.get(key);
   if (sheet) return sheet;
   const def: PropDef = PROPS[id];
-  const W = Math.ceil(CANVAS * k);
-  const H = Math.ceil(CANVAS * k);
-  const OX = Math.round(ORIGIN_X * k);
-  const OY = Math.round(ORIGIN_Y * k);
+  const s = k * (def.size ?? 1);
+  const W = Math.ceil(CANVAS * s);
+  const H = Math.ceil(CANVAS * s);
+  const OX = Math.round(ORIGIN_X * s);
+  const OY = Math.round(ORIGIN_Y * s);
   const raw: PixelBuffer[] = [];
   for (let f = 0; f < def.frames; f++) {
-    const r = new Raster(W, H, OX, OY, WORLD_BASIS, k);
+    const r = new Raster(W, H, OX, OY, WORLD_BASIS, s);
     def.paint(r, f, def.frames);
     raw.push(r.finish());
   }
