@@ -41,7 +41,7 @@ function AnimCanvas({ id, anim, dir, outfit, label }: { id: CharId; anim: AnimId
       s.ctx.clearRect(0, 0, def.w, def.h);
       s.sprite(frameAt(a, a.loop ? t : t % (dur + 0.6)), 0, 0);
     },
-    { fps: 30 },
+    { fps: 30, lazy: true },
   );
   return (
     <div className="anim" data-testid="anim">
@@ -83,7 +83,7 @@ function Turntable({ id }: { id: CharId }) {
       s.ctx.clearRect(0, 0, def.w, def.h);
       s.sprite(frameAt(getAnim(id, anim, dir), t), 0, 0);
     },
-    { fps: 30 },
+    { fps: 30, lazy: true },
   );
   return (
     <div className="anim" data-testid="anim">
@@ -104,7 +104,7 @@ function PropCanvas({ id }: { id: PropId }) {
       s.ctx.clearRect(0, 0, w, h);
       s.sprite(sheet.frames[Math.floor(t * sheet.fps) % sheet.frames.length], 0, 0);
     },
-    { fps: 20 },
+    { fps: 20, lazy: true },
   );
   const k = w > 100 ? 2 : 3;
   return (

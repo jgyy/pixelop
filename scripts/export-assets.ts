@@ -384,6 +384,39 @@ const deepMoves: [CharId, AnimId, string?][] = [
 ];
 writeGif("deeps-moves.gif", showcase(deepMoves.map(([id, anim, outfit]): Cell => ({ id, anim, dir: 1, label: `${charDef(id).name.split(" ").pop()} ${anim}`, outfit })), 7, 2, seconds), 12);
 
+// the City of Nine Tiers, and what her realm makes of the folk: kneeling, stamping, weighing, leaning on a balcony rail, a toast, a beggar's bowl, a decree, haggling, a sedan bearer, a whisper; and the city's people
+const tierMoves: [CharId, AnimId, string?][] = [
+  ["villagerF", "kneel"],
+  ["wenqi", "stamp"],
+  ["weigher", "weigh"],
+  ["lady", "lean"],
+  ["heroine", "toast"],
+  ["refugeeF", "beg"],
+  ["tierherald", "decree"],
+  ["merchant", "haggle"],
+  ["bearer", "bear"],
+  ["teawoman", "whisper"],
+  ["heroine", "kneel"],
+  ["heroine", "haggle"],
+  ["heroine", "twirl", "climber"],
+  ["ahlou", "carry"],
+  ["forger", "write"],
+  ["suwan", "flute"],
+  ["champion", "practice"],
+  ["justiciar", "decree"],
+  ["yearelder", "levitate"],
+  ["starregistrar", "stargaze"],
+  ["loufeng", "spear"],
+  ["severed", "sworddance"],
+  ["sovereign", "decree"],
+  ["matchmaker", "whisper"],
+  ["heroine", "twirl", "heavenstep"],
+  ["nobleF", "lean"],
+  ["nobleM", "toast"],
+  ["overseer", "attack"],
+];
+writeGif("tiers-moves.gif", showcase(tierMoves.map(([id, anim, outfit]): Cell => ({ id, anim, dir: 1, label: outfit ?? `${charDef(id).name.split(" ").pop()} ${anim}`, outfit })), 7, 2, seconds), 12);
+
 
 // 2. Portraits
 const portraitIds = HUMAN_IDS.filter((id) => charDef(id).portrait);
@@ -472,6 +505,31 @@ writePng(pb.scaled(2), path.join(OUT, "portraits.png"));
     frames.push(buf);
   }
   writeGif("halls-props.gif", frames, 10);
+}
+// the storeyed buildings of the town and the city, and the City of Nine Tiers' gate, seal, sedan and steelyard
+{
+  const ids: PropId[] = ["townhouse", "towerinn", "drumtower", "mansion", "tiergate", "stairseal", "sedan", "bigscale"];
+  const cols = 4;
+  const cw = 200;
+  const ch = 210;
+  const frames: PixelBuffer[] = [];
+  for (let i = 0; i < seconds * 10; i++) {
+    const t = i / 10;
+    const buf = new PixelBuffer(cols * cw, Math.ceil(ids.length / cols) * ch);
+    buf.fill(BG);
+    const s = new BufferSurface(buf);
+    ids.forEach((id, k) => {
+      const sheet = getProp(id);
+      const x = (k % cols) * cw;
+      const y = Math.floor(k / cols) * ch;
+      buf.rect(x + 1, y + 1, cw - 2, ch - 2, CELL_BG);
+      const fr = sheet.frames[Math.floor(t * sheet.fps) % sheet.frames.length];
+      buf.blit(fr, x + cw / 2 - sheet.ox, y + ch - 14 - Math.max(0, fr.height - sheet.oy) - sheet.oy);
+      drawText(s, id.toUpperCase(), x + (cw - textWidth(id.toUpperCase())) / 2, y + ch - 9, "#f2c55c");
+    });
+    frames.push(buf);
+  }
+  writeGif("tiers-props.gif", frames, 10);
 }
 
 function half(b: PixelBuffer): PixelBuffer {
