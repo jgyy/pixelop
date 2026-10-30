@@ -200,6 +200,10 @@ export class World {
   sealed: (id: AreaId) => boolean = () => false;
   /** The region whose seal the heroine last walked into (cleared by the game). */
   bumped: AreaId | null = null;
+  /** Ground the heroine may not step onto from where she stands (a tier of the City of Nine Tiers sealed below its realm): why, or null. */
+  barred: (x: number, y: number, fromX: number, fromY: number) => string | null = () => null;
+  /** Why she was last turned back by such ground (cleared by the game). */
+  bumpedBar: string | null = null;
   /** Ambient day/night cycle (only in the open world). */
   dayNight: boolean;
   /** A building's cutaway room rather than open sky. */
@@ -532,7 +536,13 @@ export class World {
       this.bumped = r;
       return true;
     };
-    const tryAt = (x: number, y: number) => this.canStand(x, y, from, fly) && !blockedByActor(x, y) && !sealedAt(x, y);
+    const barAt = (x: number, y: number) => {
+      if (a.kind !== "hero" || !this.world) return false;
+      const why = this.barred(x, y, a.x, a.y);
+      if (why) this.bumpedBar = why;
+      return !!why;
+    };
+    const tryAt = (x: number, y: number) => this.canStand(x, y, from, fly) && !blockedByActor(x, y) && !sealedAt(x, y) && !barAt(x, y);
     if (tryAt(a.x + dx, a.y + dy)) {
       a.x += dx;
       a.y += dy;
@@ -713,7 +723,13 @@ export class World {
           a.rest = Math.max(a.rest, 2.5);
           const anims = charDef(a.char).anims;
           const shy = this.heroDread && hash2(keyHash(a.key), 3, 17) < 0.5;
+          // a mortal goes down on both knees before a cultivator far above her (Nascent Soul on; often at Core Formation); a cultivator salutes one above him
+          const awe = hash2(keyHash(a.key), this.heroRealm, 19);
           if (shy) a.emote = { icon: "...", until: t + 1.4 };
+          else if (anims.includes("kneel") && !a.holdUntil && (this.heroRealm >= 3 || (this.heroRealm === 2 && awe < 0.45))) {
+            this.setAnim(a, "kneel", t, true);
+            a.emote = { icon: "!", until: t + 1.2 };
+          } else if (this.heroRealm >= 1 && !anims.includes("kneel") && anims.includes("salute") && !a.holdUntil && awe < 0.3 + this.heroRealm * 0.15) this.setAnim(a, "salute", t, true);
           else if (this.heroRealm >= 2 && anims.includes("bow") && !a.holdUntil) {
             this.setAnim(a, "bow", t, true);
             if (this.heroRealm >= 3 && hash2(keyHash(a.key), this.heroRealm, 18) < 0.35) a.emote = { icon: "!", until: t + 1.2 };

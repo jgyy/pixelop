@@ -26,6 +26,8 @@ import { currentWar, daoJournal, daoLabel, warBreath, warChronicle, warCultivate
 import { daoAside, daoHasNews } from "../story/dao";
 import { currentRoad, roadBreath, roadChronicle, roadCultivated, roadDone, roadHasNews, roadHunt, roadLandmark, roadLog, roadTalk, ROAD_COUNT, syncRoadFlags } from "../story/road";
 import { hallsBreath, hallsChronicle, hallsCultivated, hallsDone, hallsHasNews, hallsHunt, hallsLandmark, hallsLog, hallsTalk, HALLS_COUNT, syncHallsFlags } from "../story/halls";
+import { stairBarToast, syncTiersFlags, tiersBreath, tiersChronicle, tiersCultivated, tiersDone, tiersHasNews, tiersHunt, tiersLandmark, tiersLog, tiersTalk, TIERS_COUNT } from "../story/tiers";
+import { floorRefusal, standingJournal, standingLabel } from "../story/standing";
 import { BREATHS_PER_WU, comprehend, deepestWu, domainOpen, GREAT_DAOS, SHRINE_DAO, WU_TIERS, wuJournal, wuTotal } from "../engine/comprehension";
 import { aweAside, conditionAside, cultivationHasNews, heartDemonTrial, pointerAside, realmAside, trialDue } from "../story/cultivation";
 import { boltDamage, breathGain, conditionJournal, conditionLabel, CULT, failTribulation, foundationWound, heartDemons, insight, insightNeeded, passTribulation, shift, tendBreath, toxicity, tribulationBlock } from "../engine/cultivation";
@@ -90,6 +92,14 @@ export interface UiSnapshot {
   hallsCount: number;
   /** The ten halls of the Sect of Ten Thousand Daos as they stand for her (in the journal). */
   hallsList: { hall: string; hanzi: string; dao: string; colour: string; state: "waiting" | "studying" | "done" }[] | null;
+  /** The sixth thread: the City of Nine Tiers, a thousand quests long (null before the Census reaches her). */
+  tiers: Quest | null;
+  tiersDone: number;
+  tiersCount: number;
+  /** The tiers of the city as they stand for her (in the journal). */
+  tiersList: { tier: string; hanzi: string; state: "sealed" | "open" | "climbing" | "done"; fate: string | null }[] | null;
+  /** What her realm makes her in the eyes of the jianghu: for the HUD, and the journal's standing. */
+  standing: { label: string; journal: ReturnType<typeof standingJournal> | null };
   /** The Great Daos she comprehends: the deepest one for the HUD, every one in the journal, and whether her Dao Domain has opened. */
   wu: { label: string | null; colour: string | null; total: number; domain: boolean; paths: ReturnType<typeof wuJournal> | null };
   /** The Dao she walks: its name and depth (null while none leads), and every Dao's weight in her heart (in the journal). */
@@ -649,6 +659,13 @@ export class Game {
   private makeWorld([x, y]: [number, number], dir: number): World {
     const w = new World(getWorld(), { x, y, dir }, this.state.flags, this.state.taken);
     w.sealed = (id) => !areaUnlocked(id, this.state);
+    // the tiers of the City of Nine Tiers bar anyone below their realm, on foot or on a sword
+    const bars = getWorld().bars;
+    const inside = (r: [number, number, number, number], x: number, y: number) => x >= r[0] && x < r[2] && y >= r[1] && y < r[3];
+    w.barred = (x, y, fx, fy) => {
+      for (const b of bars) if (!this.state.flags[b.flag] && inside(b.rect, x, y) && !inside(b.rect, fx, fy)) return b.why;
+      return null;
+    };
     w.updateCamera(480, 270, 0);
     // the real view may be any size: snap to it on the first frame rather than sliding across
     w.recenter();
@@ -683,6 +700,37 @@ export class Game {
     this.bannerUntil = this.clock + 3;
     const first = caveArrival(id, this.state);
     if (first) this.play(first);
+    this.markDirty();
+  }
+
+  /**
+   * Up or down the stair of a building of several storeys: the floor above is
+   * a room of its own over the same footprint, and some houses only let a
+   * cultivator of standing up (her realm, not her purse, decides).
+   */
+  private changeFloor(id: RoomId): void {
+    const it = this.interior;
+    if (!it) return;
+    const base = getRoom(id);
+    if ((base.minRealm ?? 0) > this.state.realm) {
+      this.play(floorRefusal(id, this.state));
+      return;
+    }
+    const def: InteriorDef = { ...base, id: this.state.area };
+    const [si, sj] = def.stair ?? def.exit;
+    const w = new World(def, { x: si + 0.5 + def.inward[0] * -0.2, y: sj + 1.5, dir: 2 }, this.state.flags, this.state.taken);
+    w.time = worldTime(this.state);
+    w.updateCamera(480, 270, 0);
+    w.recenter();
+    this.world = w;
+    this.interior = { def, outdoor: it.outdoor };
+    this.tapTarget = null;
+    this.idleTime = 0;
+    this.fade = 1;
+    this.fadeTarget = 0;
+    this.banner = { title: def.name, hanzi: def.hanzi, subtitle: def.subtitle, seq: ++this.seq };
+    this.bannerUntil = this.clock + 3;
+    if (def.below) this.play([{ anim: "hero", name: "climb", wait: true }]);
     this.markDirty();
   }
 
@@ -725,8 +773,10 @@ export class Game {
       if ((dx * d.dir[0] + dy * d.dir[1]) / (Math.hypot(dx, dy) || 1) < 0.6) continue;
       // only once she is up against the wall (or the room's open edge)
       if (w.canStand(h.x + d.dir[0] * 0.45, h.y + d.dir[1] * 0.45, w.def.map.height(Math.floor(h.x), Math.floor(h.y)), false)) continue;
-      if (d.to === "out") this.exitInterior();
-      else if (isRoomId(d.to) && roomOpen(d.to, this.state.flags)) this.enterInterior(d.to);
+      if (d.to === "out") {
+        if (it?.def.below) this.changeFloor(it.def.below);
+        else this.exitInterior();
+      } else if (isRoomId(d.to) && roomOpen(d.to, this.state.flags)) this.enterInterior(d.to);
       return this.world !== w;
     }
     return false;
@@ -1407,6 +1457,15 @@ export class Game {
     this.state.x = anchor.x;
     this.state.y = anchor.y;
     this.state.dir = anchor.dir;
+    if (w.bumpedBar) {
+      const why = w.bumpedBar;
+      w.bumpedBar = null;
+      this.tapTarget = null;
+      if (this.clock - this.sealToastAt > 3) {
+        this.sealToastAt = this.clock;
+        this.toast(stairBarToast(why, this.state));
+      }
+    }
     if (w.bumped) {
       const r = w.bumped;
       w.bumped = null;
@@ -1423,11 +1482,11 @@ export class Game {
     if (this.clock > this.syncAt) {
       this.syncAt = this.clock + 0.5;
       // the Founder's Road reaches her as her realm does, not only as its quests are done
-      this.state = syncHallsFlags(syncRoadFlags(this.state));
+      this.state = syncTiersFlags(syncHallsFlags(syncRoadFlags(this.state)));
       w.syncPopulation(this.state.flags);
       this.landmarkEvents();
       if (this.mode !== "explore") return;
-      const grown = warCultivated(this.state) ?? roadCultivated(this.state) ?? hallsCultivated(this.state);
+      const grown = warCultivated(this.state) ?? roadCultivated(this.state) ?? hallsCultivated(this.state) ?? tiersCultivated(this.state);
       if (grown) return this.play(grown);
     }
     const touched = w.update(dt, this.clock, h.flying === true || this.clock < this.invulnerableUntil, true);
@@ -1456,7 +1515,7 @@ export class Game {
         herb: "E · Gather the spirit herb",
         sign: "E · Read",
         altar: "E · Step onto the taiji dais",
-        door: it.to === "out" ? "E · Step outside" : `E · Enter ${doorName(it.to)}`,
+        door: it.to === "out" ? (this.interior?.def.below ? "E · Go back downstairs" : "E · Step outside") : this.interior ? "E · Climb the stair to the floor above" : `E · Enter ${doorName(it.to)}`,
       }[it.kind];
     }
     if (text !== this.prompt) {
@@ -1489,7 +1548,7 @@ export class Game {
     const offering = offeringScript(key, g, cal);
     if (offering) pre.push(...offering);
     const news = hasNews(key, g);
-    const war = warTalk(key, g) ?? roadTalk(key, g) ?? hallsTalk(key, g);
+    const war = warTalk(key, g) ?? roadTalk(key, g) ?? hallsTalk(key, g) ?? tiersTalk(key, g);
     if (war) return news ? [...pre, ...npcScript(key, g), ...war] : [...pre, ...war];
     if (pre.length && !news) return pre;
     const story = npcScript(key, g);
@@ -1567,7 +1626,7 @@ export class Game {
     const year = landmarkScript(near.key, this.state, cal, [h.x + 1.2, h.y + 0.4]);
     if (year) return this.play(year);
     const how = { night: cal.dusk > 0.55, riding: this.riding, flying: !!h.flying };
-    const war = warLandmark(near.key, this.state, how) ?? roadLandmark(near.key, this.state, how) ?? hallsLandmark(near.key, this.state, how);
+    const war = warLandmark(near.key, this.state, how) ?? roadLandmark(near.key, this.state, how) ?? hallsLandmark(near.key, this.state, how) ?? tiersLandmark(near.key, this.state, how);
     if (war) return this.play(war);
     for (const c of carried(this.state)) {
       const b = c.bounty;
@@ -1581,7 +1640,7 @@ export class Game {
 
   /** A foe of the horde beaten where the war wanted it beaten. */
   private warHunt(enemy: EnemyId): void {
-    for (const hunt of [() => warHunt(this.state, enemy, this.state.area), () => roadHunt(this.state, enemy), () => hallsHunt(this.state, enemy)]) {
+    for (const hunt of [() => warHunt(this.state, enemy, this.state.area), () => roadHunt(this.state, enemy), () => hallsHunt(this.state, enemy), () => tiersHunt(this.state, enemy)]) {
       const r = hunt();
       this.state = r.state;
       if (r.steps) return this.play(r.steps);
@@ -1601,6 +1660,9 @@ export class Game {
       const halls = hallsBreath(this.state, this.state.area);
       this.state = halls.state;
       if (halls.steps) return this.play(halls.steps);
+      const tiers = tiersBreath(this.state, this.state.area);
+      this.state = tiers.state;
+      if (tiers.steps) return this.play(tiers.steps);
     }
     for (const c of carried(this.state)) {
       const b = c.bounty;
@@ -1690,8 +1752,13 @@ export class Game {
         break;
       }
       case "door":
-        if (it.to === "out") this.exitInterior();
-        else if (isRoomId(it.to)) this.enterInterior(it.to);
+        if (it.to === "out") {
+          if (this.interior?.def.below) this.changeFloor(this.interior.def.below);
+          else this.exitInterior();
+        } else if (isRoomId(it.to)) {
+          if (this.interior) this.changeFloor(it.to);
+          else this.enterInterior(it.to);
+        }
         break;
       case "herb": {
         h.dir = dirFrom(it.i + 0.5 - h.x, it.j + 0.5 - h.y);
@@ -1870,7 +1937,7 @@ export class Game {
     }
     if (this.mode === "explore" && this.clock >= this.markerAt) this.refreshMarkers();
     const cal = calendarAt(worldTime(this.state));
-    for (const a of this.world.actors) if (a.kind === "npc") a.marker = this.mode === "explore" && ((hasNews(a.key, this.state) || yearHasNews(a.key, this.state, cal) || warHasNews(a.key, this.state) || roadHasNews(a.key, this.state) || hallsHasNews(a.key, this.state) || daoHasNews(a.key, this.state) || cultivationHasNews(a.key, this.state)) || (this.bountyMarkers.get(a.key) ?? false));
+    for (const a of this.world.actors) if (a.kind === "npc") a.marker = this.mode === "explore" && ((hasNews(a.key, this.state) || yearHasNews(a.key, this.state, cal) || warHasNews(a.key, this.state) || roadHasNews(a.key, this.state) || hallsHasNews(a.key, this.state) || tiersHasNews(a.key, this.state) || daoHasNews(a.key, this.state) || cultivationHasNews(a.key, this.state)) || (this.bountyMarkers.get(a.key) ?? false));
     if (this.world.hero.outfit !== currentAttire(this.state).id) this.dressHero();
     this.world.heroRealm = this.state.realm;
     this.world.heroDread = heartDemons(this.state) > 60;
@@ -2099,6 +2166,11 @@ export class Game {
       hallsDone: hallsDone(this.state),
       hallsCount: HALLS_COUNT,
       hallsList: this.journalOpen && hallsDone(this.state) > 0 ? hallsChronicle(this.state) : null,
+      tiers: tiersLog(this.state, (id) => lockReason(id, this.state)),
+      tiersDone: tiersDone(this.state),
+      tiersCount: TIERS_COUNT,
+      tiersList: this.journalOpen && tiersDone(this.state) > 0 ? tiersChronicle(this.state) : null,
+      standing: { label: standingLabel(this.state), journal: this.journalOpen ? standingJournal(this.state) : null },
       wu: (() => {
         const w = deepestWu(this.state);
         const j = wuJournal(this.state);

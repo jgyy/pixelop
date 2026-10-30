@@ -140,7 +140,17 @@ export type AnimId =
   | "dig"
   | "peer"
   | "embrace"
-  | "holdup";
+  | "holdup"
+  | "kneel"
+  | "stamp"
+  | "weigh"
+  | "lean"
+  | "toast"
+  | "beg"
+  | "decree"
+  | "haggle"
+  | "bear"
+  | "whisper";
 
 export interface Anim {
   fps: number;
@@ -1327,6 +1337,109 @@ human.holdup = {
   },
 };
 
+// down on both knees, forehead not quite to the stones, hands flat before them: a mortal before a cultivator far above her realm
+human.kneel = {
+  n: 8,
+  fps: 4,
+  loop: true,
+  pose: (i, n) => {
+    const tremble = Math.sin(ph(i, n) * 3) * 0.02;
+    return { t: ph(i, n), stance: "kneel", lean: 0.42 + tremble, bob: -0.4, handL: [-2.2, 5.2, 3.6], handR: [2.2, 5.2, 3.6], eyes: "closed", mouth: "neutral", wind: [0, -0.2, 0] };
+  },
+};
+// a registrar's seal raised, breathed on, and brought down hard on the ledger
+human.stamp = {
+  n: 8,
+  fps: 8,
+  loop: true,
+  pose: (i) => {
+    const k = [0, 0.5, 1, 1, 0.2, -0.2, 0, 0][i];
+    return { t: i, lean: 0.1 + (k < 0 ? 0.08 : 0), held: "seal", handR: [2.6, 4.6, 12 + k * 6], handL: [-2.8, 4.4, 10.4], mouth: i === 2 ? "open" : "neutral", eyes: i === 5 ? "closed" : "open", bob: k < 0 ? -0.3 : 0, wind: [0, -0.2, 0] };
+  },
+};
+// weighing on a steelyard: the brass weight slid out along the beam until it hangs level
+human.weigh = {
+  n: 8,
+  fps: 5,
+  loop: true,
+  pose: (i, n) => {
+    const a = ph(i, n);
+    return { t: a, held: "steelyard", handL: [-2.6, 4.6, 17], handR: [3.6 + Math.cos(a) * 1.2, 4.4, 14.8], lean: -0.04, eyes: i === 6 ? "blink" : "open", mouth: "neutral", wind: [0, -0.2, 0] };
+  },
+};
+// leaning on a balcony rail with her chin on her hand, watching the street below
+human.lean = {
+  n: 8,
+  fps: 3,
+  loop: true,
+  pose: (i, n) => {
+    const a = ph(i, n);
+    return { t: a, lean: 0.26, handL: [-2.6, 6.4, 13.6], handR: [1.2, 4.6, 19 + Math.sin(a) * 0.3], footL: [-1.6, 0.4, 0], footR: [1.8, -1.2, 0.6], eyes: i === 5 ? "blink" : "open", mouth: i < 4 ? "smile" : "neutral", wind: [Math.sin(a) * 0.3, -0.4, 0] };
+  },
+};
+// a wine cup raised high to the table, then tossed back
+human.toast = {
+  n: 10,
+  fps: 7,
+  loop: false,
+  pose: (i) => {
+    const up = [0, 0.5, 1, 1, 1, 0.6, 0.3, 0.3, 0.2, 0][i];
+    const drink = i >= 5 && i <= 7;
+    return { t: i, held: "cup", lean: drink ? -0.16 : -0.04 * up, handR: drink ? [1.2, 4.6, 21.4] : [3.4, 3 + up * 3, 13 + up * 10], handL: [-4.4, 0.6, 11.2], eyes: drink ? "closed" : "open", mouth: up === 1 && i === 3 ? "open" : "smile", wind: [0, -0.2, 0] };
+  },
+};
+// a beggar on her knees, a chipped bowl held up in both hands to whoever passes
+human.beg = {
+  n: 8,
+  fps: 4,
+  loop: true,
+  pose: (i, n) => {
+    const lift = Math.max(0, Math.sin(ph(i, n))) * 1.6;
+    return { t: ph(i, n), stance: "kneel", held: "bowl", lean: 0.12, handL: [-0.6, 5.6, 10 + lift], handR: [1.4, 5, 10.6 + lift], eyes: lift > 1 ? "open" : "closed", mouth: lift > 1 ? "open" : "neutral", wind: [0, -0.2, 0] };
+  },
+};
+// a herald reading out a decree of yellow silk, held open between both hands
+human.decree = {
+  n: 8,
+  fps: 5,
+  loop: true,
+  pose: (i) => {
+    const say = i % 2 === 0;
+    return { t: i, held: "decree", handL: [-4.6, 5.4, 17], handR: [4.6, 5.4, 17], lean: -0.06, bob: say ? 0.2 : 0, eyes: "open", mouth: say ? "open" : "neutral", wind: [0, -0.3, 0] };
+  },
+};
+// haggling: fingers held up to name a price, a hand thrown out in disbelief, a shake of the head
+human.haggle = {
+  n: 10,
+  fps: 7,
+  loop: true,
+  pose: (i) => {
+    const k = [0, 1, 1, 0.5, 0, -1, -1, -0.5, 0, 0][i];
+    return { t: i, lean: 0.06 * Math.abs(k), handR: k > 0 ? [2.6, 5.6, 19.4] : [4.4 - k * 2, 2 - k * 2, 12 - k * 2], handL: k < 0 ? [-4.4 + k * 2, 2 - k * 2, 12 - k * 2] : [-4.4, 0.6, 11.2], eyes: i === 8 ? "blink" : k < 0 ? "fierce" : "open", mouth: k !== 0 ? "open" : "neutral", wind: [0, -0.2, 0] };
+  },
+};
+// bearing a sedan chair: the carrying pole on the shoulder, steadied with both hands, stepping in time with the other bearers
+human.bear = {
+  n: 8,
+  fps: 8,
+  loop: true,
+  pose: (i, n) => {
+    const a = ph(i, n);
+    const s = Math.sin(a);
+    return { t: a * 2, lean: 0.12, bob: Math.abs(Math.cos(a)) * 0.6, footL: [-1.7, s * 2.4, Math.max(0, Math.cos(a)) * 1], footR: [1.7, -s * 2.4, Math.max(0, -Math.cos(a)) * 1], handL: [-2.2, 3.4, 20.6], handR: [2.6, 1.6, 21], eyes: "open", mouth: "neutral", wind: [0, -0.6, 0] };
+  },
+};
+// leaning in to whisper behind a cupped hand (gossip of who has climbed and who has fallen)
+human.whisper = {
+  n: 8,
+  fps: 5,
+  loop: true,
+  pose: (i) => {
+    const k = [0, 0.6, 1, 1, 1, 1, 0.6, 0][i];
+    return { t: i, lean: 0.12 * k, handR: [1.6 + k * 0.8, 4.4 + k * 2, 13 + k * 8.4], handL: [-4.4, 0.6, 11.2], eyes: k === 1 && i === 4 ? "blink" : "open", mouth: k === 1 && i % 2 ? "open" : "neutral", wind: [0, -0.2, 0] };
+  },
+};
+
 // ----------------------------------------------------------------------------- beast poses
 const beast: Partial<Record<AnimId, AnimSpec<BeastPose>>> = {
   idle: { n: 6, fps: 6, loop: true, pose: (i, n) => ({ t: ph(i, n) }) },
@@ -1502,6 +1615,28 @@ export const STYLES = {
   enforcer: s({ robe: ramp("#2a2a3a", { lo: "#08080e" }), inner: PAL.crimson, trim: PAL.steel, sash: PAL.crimson, hair: PAL.hairBlack, beard: PAL.hairBlack, hairStyle: "topknot", hat: "hood", hatRamp: PAL.black, weapon: "rod", weaponRamp: PAL.steel, scale: 1.14, flare: 4.8, hem: 4 }),
   frostwarden: s({ robe: ramp("#bfe8ff", { lo: "#2a4a6a" }), inner: PAL.white, trim: PAL.white, sash: PAL.azure, skin: ramp("#e8f6ff"), hair: PAL.hairWhite, hairStyle: "long", hat: "crown", hatRamp: ramp("#e8f6ff"), glowEyes: "#a8e0ff", weapon: "staff", weaponRamp: ramp("#e8f6ff"), scale: 1.28, flare: 6.4, hem: 1.4 }),
   murongelder: s({ robe: ramp("#6a4a8a", { lo: "#1a0a2a" }), inner: PAL.gold, trim: PAL.gold, sash: PAL.gold, skin: ramp("#c8b8b0"), hair: PAL.hairGrey, beard: PAL.hairGrey, hairStyle: "topknot", hat: "scholar", hatRamp: PAL.gold, weapon: "fan", weaponRamp: PAL.gold, glowEyes: "#f6a6c9", scale: 1.22, flare: 6.4, hunch: 0.06 }),
+  // the City of Nine Tiers: the porter girl and the registrar who walk it with her, the folk of each tier, and the trouble at the top of each stair
+  ahlou: s({ robe: ramp("#8a6a4a", { lo: "#2a1a10" }), inner: PAL.paper, trim: PAL.red, sash: PAL.red, hairStyle: "twin", female: true, hair: PAL.hairBlack, skin: PAL.skinTan, hat: "straw", hatRamp: PAL.straw, eye: "#3a2a1a", scale: 0.84, hem: 4.8, flare: 4, shoes: PAL.brown }),
+  wenqi: s({ robe: ramp("#b8c0d0", { lo: "#3a4058" }), inner: PAL.navy, trim: PAL.navy, sash: PAL.navy, hairStyle: "topknot", hair: PAL.hairBlack, hat: "scholar", hatRamp: PAL.black, eye: "#2a2a3a", flare: 5, hem: 3.4 }),
+  weigher: s({ robe: ramp("#ece6d8", { lo: "#6a6458" }), inner: PAL.black, trim: PAL.gold, sash: PAL.black, hair: PAL.hairWhite, beard: PAL.hairWhite, hairStyle: "bald", skin: PAL.skinPale, hunch: 0.1, flare: 5.6, eye: "#3a3a3a" }),
+  tierwarden: s({ robe: ramp("#5a5a72", { lo: "#141428" }), inner: PAL.steel, trim: PAL.gold, sash: PAL.red, hairStyle: "topknot", hair: PAL.hairBlack, hat: "helmet", hatRamp: PAL.steel, weapon: "spear", weaponRamp: PAL.steel, scale: 1.08, flare: 4.4, hem: 3.6, cape: ramp("#8a2a2a", { lo: "#2a0a0a" }) }),
+  overseer: s({ robe: ramp("#6a5a3a", { lo: "#1a1408" }), inner: PAL.black, trim: PAL.brown, sash: PAL.black, hair: PAL.hairBlack, beard: PAL.hairBlack, hairStyle: "short", skin: PAL.skinTan, weapon: "rod", weaponRamp: PAL.woodDark, scale: 1.2, flare: 4.6, hem: 3.8, shoes: PAL.brown }),
+  debtsmith: s({ robe: ramp("#c8783a", { lo: "#3a1408" }), inner: PAL.black, trim: PAL.gold, sash: PAL.brown, hair: PAL.hairGrey, beard: PAL.hairGrey, hairStyle: "topknot", skin: PAL.skinTan, weapon: "saber", weaponRamp: ramp("#e8a060"), scale: 1.18, flare: 4.8, hem: 3.6 }),
+  inquisitor: s({ robe: ramp("#d8dce8", { lo: "#4a5068" }), inner: PAL.black, trim: PAL.steel, sash: PAL.steel, hair: PAL.hairSilver, hairStyle: "long", hat: "crown", hatRamp: PAL.steel, weapon: "whisk", eye: "#3a3a5a", flare: 5.4, mask: ramp("#e8ecf4") }),
+  matchmaker: s({ robe: ramp("#d83a4a", { lo: "#4a0a1a" }), inner: PAL.gold, trim: PAL.gold, sash: PAL.gold, hair: PAL.hairBlack, hairStyle: "bun", female: true, hat: "crown", hatRamp: PAL.gold, weapon: "fan", weaponRamp: PAL.red, eye: "#4a1a2a", flare: 5.8, shawl: ramp("#ffb0c0", { lo: "#8a2a4a" }) }),
+  champion: s({ robe: ramp("#e8b83a", { lo: "#4a2a08" }), inner: PAL.red, trim: PAL.red, sash: PAL.black, hair: PAL.hairBlack, beard: PAL.hairBlack, hairStyle: "wild", skin: PAL.skinTan, hat: "helmet", hatRamp: PAL.gold, weapon: "saber", weaponRamp: PAL.gold, scale: 1.2, flare: 5, hem: 3.4 }),
+  justiciar: s({ robe: ramp("#6a3a8a", { lo: "#1a0a2a" }), inner: PAL.black, trim: PAL.gold, sash: PAL.black, hair: PAL.hairGrey, beard: PAL.hairGrey, hairStyle: "topknot", hat: "scholar", hatRamp: PAL.black, weapon: "staff", weaponRamp: PAL.gold, scale: 1.12, flare: 6, hunch: 0.04 }),
+  yearelder: s({ robe: ramp("#f0f4ff", { lo: "#5a6480" }), inner: PAL.jade, trim: PAL.jade, sash: PAL.jade, hair: PAL.hairWhite, beard: PAL.hairWhite, hairStyle: "long", skin: ramp("#f4e0d0"), weapon: "whisk", hunch: 0.16, flare: 6.4, eye: "#4a6a5a" }),
+  starregistrar: s({ robe: ramp("#2a3a7a", { lo: "#060a20" }), inner: PAL.gold, trim: ramp("#fff0a0"), sash: PAL.gold, hair: PAL.hairBlack, hairStyle: "long", female: true, hat: "veil", hatRamp: ramp("#c8d0ff"), weapon: "fan", weaponRamp: PAL.navy, eye: "#2a2a6a", flare: 6, cape: ramp("#1a2a5a", { lo: "#000010" }) }),
+  loufeng: s({ robe: ramp("#3a3a5a", { lo: "#08081a" }), inner: ramp("#e8e0ff"), trim: ramp("#e8e0ff"), sash: PAL.purple, hair: PAL.hairBlack, hairStyle: "bun", female: true, hat: "helmet", hatRamp: ramp("#b8b0e8"), weapon: "spear", weaponRamp: ramp("#e8e0ff"), eye: "#3a2a4a", scale: 1.1, flare: 4.8, cape: ramp("#5a4a9a", { lo: "#10082a" }) }),
+  sovereign: s({ robe: ramp("#f8f0d8", { lo: "#6a5a3a" }), inner: PAL.gold, trim: PAL.gold, sash: PAL.crimson, hair: PAL.hairBlack, beard: PAL.hairBlack, hairStyle: "topknot", hat: "crown", hatRamp: PAL.gold, weapon: "jian", weaponRamp: PAL.gold, scale: 1.18, flare: 6.6, cape: ramp("#f2c55c", { lo: "#5a3a10" }) }),
+  nobleM: s({ robe: ramp("#3a7a6a", { lo: "#0a2a20" }), inner: PAL.gold, trim: PAL.gold, sash: PAL.gold, hairStyle: "topknot", hair: PAL.hairBlack, hat: "scholar", hatRamp: PAL.gold, weapon: "fan", weaponRamp: PAL.paper, flare: 5.6 }),
+  nobleF: s({ robe: ramp("#c86a9a", { lo: "#3a0a2a" }), inner: PAL.white, trim: PAL.gold, sash: PAL.gold, hairStyle: "bun", female: true, hair: PAL.hairBlack, hat: "crown", hatRamp: PAL.gold, eye: "#4a2a3a", flare: 6, shawl: ramp("#f8e0f0", { lo: "#8a5a7a" }) }),
+  severed: s({ robe: ramp("#4a4a6a", { lo: "#0a0a1a" }), inner: PAL.black, trim: ramp("#c8c0ff"), sash: ramp("#c8c0ff"), hairStyle: "topknot", hair: PAL.hairBlack, hat: "helmet", hatRamp: PAL.steel, weapon: "jian", weaponRamp: ramp("#e8e0ff"), mask: ramp("#d8d4e8"), scale: 1.06, flare: 4.6 }),
+  bearer: s({ robe: ramp("#c83a3a", { lo: "#3a0a0a" }), inner: PAL.paper, trim: PAL.gold, sash: PAL.black, hairStyle: "short", hair: PAL.hairBlack, skin: PAL.skinTan, hat: "straw", hatRamp: PAL.straw, hem: 4.6, flare: 4, shoes: PAL.brown }),
+  tierherald: s({ robe: ramp("#f2d050", { lo: "#5a3a08" }), inner: PAL.red, trim: PAL.red, sash: PAL.red, hairStyle: "topknot", hair: PAL.hairBlack, hat: "scholar", hatRamp: PAL.red, flare: 5.2 }),
+  forger: s({ robe: ramp("#5a5a6a", { lo: "#141420" }), inner: PAL.paper, trim: PAL.black, sash: PAL.black, hairStyle: "bun", female: true, hair: PAL.hairGrey, hat: "hood", hatRamp: ramp("#3a3a4a"), eye: "#3a3a4a", hunch: 0.06, flare: 4.8, hem: 3.8 }),
+  suwan: s({ robe: ramp("#9ad8c0", { lo: "#1a4a3a" }), inner: PAL.white, trim: PAL.jade, sash: PAL.rose, hairStyle: "long", female: true, hair: PAL.hairBlack, eye: "#2a3a3a", scale: 0.94, flare: 5.2, shawl: ramp("#e8fff4", { lo: "#4a7a6a" }) }),
 } satisfies Record<string, HumanStyle>;
 
 export type HumanId = keyof typeof STYLES;
@@ -1566,6 +1701,9 @@ export const OUTFITS: Partial<Record<HumanId, Record<string, Partial<HumanStyle>
     outerrobe: { robe: ramp("#c8ccd4", { lo: "#4a4a5a" }), inner: PAL.azure, trim: PAL.azure, sash: PAL.navy, shoes: PAL.black, shawl: undefined, cape: undefined, hat: "none", flare: 4.8, hem: 3.8 },
     innerrobe: { robe: ramp("#2a4a8a", { lo: "#0a1430" }), inner: PAL.white, trim: ramp("#9ff5de"), sash: PAL.gold, shoes: PAL.black, shawl: ramp("#c8e8ff", { lo: "#3a5a8a" }), hat: "crown", hatRamp: PAL.jade, flare: 5.4 },
     tenhalls: { robe: ramp("#f4f0ff", { lo: "#5a5480" }), inner: ramp("#6ab8f0"), trim: ramp("#f2c55c"), sash: ramp("#b8a4ff"), shoes: PAL.white, shawl: ramp("#e8e0ff", { lo: "#4a4470" }), hat: "veil", hatRamp: ramp("#f8f4ff"), flare: 6, hem: 1.8 },
+    climber: { robe: ramp("#3a5a9a", { lo: "#0a1a3a" }), inner: PAL.paper, trim: PAL.red, sash: PAL.straw, shoes: PAL.brown, hat: "straw", hatRamp: PAL.straw, flare: 4.4, hem: 4.2 },
+    heavenstep: { robe: ramp("#fff8e8", { lo: "#6a5a3a" }), inner: ramp("#8a6a4a"), trim: PAL.gold, sash: ramp("#3a5a9a"), shoes: PAL.white, shawl: ramp("#f4e2a0", { lo: "#8a6a30" }), flare: 6.2, hem: 1.6 },
+    stairthrone: { robe: ramp("#2a2018", { lo: "#000000" }), inner: PAL.gold, trim: PAL.gold, sash: PAL.crimson, shoes: PAL.black, hat: "crown", hatRamp: PAL.gold, cape: ramp("#f2c55c", { lo: "#5a3a10" }), flare: 6.6, hem: 1.4 },
   },
   zhou: { festival: { robe: PAL.red, inner: PAL.gold, trim: PAL.gold, sash: PAL.gold, hatRamp: PAL.red } },
   hua: { festival: { robe: ramp("#c04a6a"), inner: PAL.gold, trim: PAL.gold, sash: PAL.gold, shawl: FESTIVAL_SHAWL } },
@@ -1728,11 +1866,46 @@ const HUMAN_ANIMS: Record<HumanId, AnimId[]> = {
   golem: ["idle", "walk", "attack", "cast", "hurt", "defeat", "talk", "kowtow", "roar"],
   enforcer: ["idle", "walk", "attack", "cast", "hurt", "defeat", "talk", "kowtow", "point", "salute"],
   frostwarden: ["idle", "walk", "attack", "cast", "hurt", "defeat", "talk", "kowtow", "levitate"],
-  murongelder: ["idle", "walk", "attack", "cast", "hurt", "defeat", "talk", "kowtow", "fan", "laugh", "cry"],
+  murongelder: ["idle", "walk", "attack", "cast", "hurt", "defeat", "talk", "kowtow", "fan", "laugh", "cry"],  ahlou: ["idle", "walk", "run", "talk", "carry", "bear", "bow", "wave", "laugh", "cry", "kneel", "beg", "embrace", "huddle", "cheer", "nod", "climb", "pant", "whisper"],
+  wenqi: ["idle", "walk", "talk", "stamp", "read", "write", "nod", "bow", "think", "shrug", "whisper", "kneel", "point"],
+  weigher: ["idle", "walk", "talk", "weigh", "stamp", "nod", "bow", "read", "think", "attack", "cast", "hurt", "defeat", "kowtow"],
+  tierwarden: ["idle", "walk", "talk", "salute", "spear", "nod", "point", "march", "bow", "kneel", "yawn"],
+  overseer: ["idle", "walk", "talk", "point", "attack", "cast", "hurt", "defeat", "kowtow", "laugh", "roar", "haggle"],
+  debtsmith: ["idle", "walk", "talk", "hammer", "abacus", "attack", "cast", "hurt", "defeat", "kowtow", "laugh", "haggle"],
+  inquisitor: ["idle", "walk", "talk", "read", "stamp", "point", "attack", "cast", "hurt", "defeat", "kowtow", "think"],
+  matchmaker: ["idle", "walk", "talk", "fan", "laugh", "whisper", "haggle", "attack", "cast", "hurt", "defeat", "kowtow", "toast"],
+  champion: ["idle", "walk", "talk", "practice", "roar", "salute", "attack", "cast", "hurt", "defeat", "kowtow", "toast", "laugh"],
+  justiciar: ["idle", "walk", "talk", "read", "stamp", "decree", "point", "attack", "cast", "hurt", "defeat", "kowtow", "think"],
+  yearelder: ["idle", "walk", "talk", "meditate", "levitate", "laugh", "toast", "attack", "cast", "hurt", "defeat", "kowtow", "cry"],
+  starregistrar: ["idle", "walk", "talk", "stargaze", "read", "write", "fan", "attack", "cast", "hurt", "defeat", "kowtow", "levitate"],
+  loufeng: ["idle", "walk", "talk", "salute", "spear", "march", "attack", "cast", "hurt", "defeat", "kowtow", "cry", "embrace", "kneel"],
+  sovereign: ["idle", "walk", "talk", "decree", "levitate", "domain", "attack", "cast", "hurt", "defeat", "kowtow", "laugh", "point"],
+  nobleM: ["idle", "walk", "talk", "fan", "toast", "lean", "whisper", "haggle", "nod", "bow", "laugh", "read", "xiangqi"],
+  nobleF: ["idle", "walk", "talk", "fan", "toast", "lean", "whisper", "umbrella", "nod", "bow", "laugh", "twirl", "flute"],
+  severed: ["idle", "walk", "talk", "salute", "practice", "sworddance", "attack", "cast", "hurt", "defeat", "kneel", "march"],
+  bearer: ["idle", "walk", "talk", "bear", "carry", "bow", "kneel", "nod", "yawn", "pant", "wave"],
+  tierherald: ["idle", "walk", "talk", "decree", "hawk", "bow", "point", "nod", "wave"],
+  forger: ["idle", "walk", "talk", "write", "stamp", "whisper", "think", "nod", "bow", "cry", "kneel", "cower"],
+  suwan: ["idle", "walk", "talk", "flute", "cry", "bow", "nod", "lean", "twirl", "embrace", "think", "kneel"],
 };
 
 /** Whether a character has an animation of its own. */
 export const hasAnim = (id: HumanId, anim: AnimId) => HUMAN_ANIMS[id].includes(anim);
+
+// the jianghu's new manners: mortals kneel to a cultivator far above them, gossip behind a hand, haggle and raise a cup
+const MORE: [AnimId, HumanId[]][] = [
+  ["kneel", ["heroine", "villagerM", "villagerF", "farmer", "porter", "fishwife", "cook", "peddler", "refugeeM", "refugeeF", "miner", "teapicker", "orchardist", "woodcutter", "merchant", "teawoman", "miller", "millhand", "weaver", "boatwoman", "herbalist", "guard", "lady", "scholar", "storyteller", "nomad"]],
+  ["whisper", ["heroine", "villagerM", "villagerF", "lady", "merchant", "cook", "teawoman", "fishwife", "peddler", "scholar", "storyteller", "guard", "porter"]],
+  ["haggle", ["heroine", "merchant", "peddler", "villagerF", "villagerM", "cook", "fishwife", "teawoman", "nomad"]],
+  ["toast", ["heroine", "swordsman", "scholar", "merchant", "villagerM", "captain", "nomad", "storyteller", "lady", "cook"]],
+  ["lean", ["heroine", "lady", "scholar", "villagerF", "teawoman"]],
+  ["weigh", ["heroine", "merchant", "peddler", "herbalist"]],
+  ["stamp", ["quartermaster", "scholar", "archivist", "guard"]],
+  ["beg", ["refugeeM", "refugeeF"]],
+  ["decree", ["wdherald", "envoy"]],
+  ["bear", ["porter", "villagerM", "soldier"]],
+];
+for (const [anim, ids] of MORE) for (const id of ids) if (!HUMAN_ANIMS[id].includes(anim)) HUMAN_ANIMS[id].push(anim);
 
 // folk who stand about to ask favours wave her over (anyone who can already wave can beckon)
 for (const id of Object.keys(HUMAN_ANIMS) as HumanId[]) if (id !== "heroine" && HUMAN_ANIMS[id].includes("wave") && !HUMAN_ANIMS[id].includes("beckon")) HUMAN_ANIMS[id].push("beckon");
@@ -1863,6 +2036,27 @@ const NAMES: Record<CharId, [string, string]> = {
   enforcer: ["Captain Kui", "Enforcer of the Ten Halls"],
   frostwarden: ["Frost Warden", "Guardian of the Frozen Words"],
   murongelder: ["Murong Hong", "Uncle of the Murong Clan"],
+  ahlou: ["Ah Lou", "Porter of the Mud Tier"],
+  wenqi: ["Registrar Wen Qi", "Registry of Heaven's Stair"],
+  weigher: ["Weigher Bai Gu", "Master of the Weighing Hall"],
+  tierwarden: ["Tier Warden", "Guard of the Stair"],
+  overseer: ["Overseer Kuang", "Warden of the Mud Tier"],
+  debtsmith: ["Guildmaster Tong", "The Copper Guild"],
+  inquisitor: ["Inquisitor Sima", "Examiner of Tablets"],
+  matchmaker: ["Madam Qiao", "The Red Thread House"],
+  champion: ["Lei Ba", "Champion of the Golden Tier"],
+  justiciar: ["Justiciar Yan Heng", "Tribunal of Realms"],
+  yearelder: ["Elder Mei Shou", "The Cloud Tier"],
+  starregistrar: ["Star-Registrar Qu Xing", "The Star Registry"],
+  loufeng: ["Lou Feng", "Captain of the Ninth Gate"],
+  sovereign: ["Gao Qiong", "Sovereign of the Stair"],
+  nobleM: ["Young Lord", "The Upper Tiers"],
+  nobleF: ["Lady of the Tiers", "The Upper Tiers"],
+  severed: ["Severed Guard", "The Thunder Tier"],
+  bearer: ["Sedan Bearer", "The Stair Road"],
+  tierherald: ["Herald of the Stair", "City of Nine Tiers"],
+  forger: ["Faceless Liu", "Forger of Tablets"],
+  suwan: ["Su Wan", "Daughter of the Jade Tier"],
   fox: ["Fox Spirit", "Corrupted Beast"],
   wolf: ["Shadowflame Wolf", "Corrupted Beast"],
   serpent: ["Jade Serpent", "Lake Beast"],
@@ -1904,7 +2098,7 @@ export const CHAR_IDS: CharId[] = [...HUMAN_IDS, ...BEAST_IDS, "rider"];
 
 const isHuman = (id: CharId): id is HumanId => id in STYLES;
 /** Rank-and-file foes, who never speak in a dialogue box. */
-const FACELESS = new Set<string>(["jiangshi", "cultist", "bandit", "raider", "ironguard", "bannerman", "hollow", "hollowsage"]);
+const FACELESS = new Set<string>(["jiangshi", "cultist", "bandit", "raider", "ironguard", "bannerman", "hollow", "hollowsage", "inquisitor", "severed"]);
 
 export function charDef(id: CharId): CharacterDef {
   const [name, title] = NAMES[id];

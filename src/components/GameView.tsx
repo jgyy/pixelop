@@ -221,6 +221,9 @@ export function GameView({ initial, intro, onQuit }: { initial: GameState; intro
             <div className="realm" style={{ color: ui.realmColour }} data-testid="realm">
               {ui.realm}
             </div>
+            <div className="dao standing" data-testid="standing" title="What your realm makes you in the eyes of the jianghu, and the tier of the City of Nine Tiers your tablet opens">
+              ☖ {ui.standing.label}
+            </div>
             {ui.dao.label && (
               <div className="dao" style={{ color: ui.dao.colour ?? undefined }} data-testid="dao" title={ui.dao.creed ?? undefined}>
                 ☯ {ui.dao.label}
@@ -290,6 +293,11 @@ export function GameView({ initial, intro, onQuit }: { initial: GameState; intro
             {ui.halls && (
               <div className="errand halls" data-testid="halls-quest">
                 ⛩ {ui.halls.title}: {ui.halls.objective}
+              </div>
+            )}
+            {ui.tiers && (
+              <div className="errand tiers" data-testid="tiers-quest">
+                ☖ {ui.tiers.title}: {ui.tiers.objective}
               </div>
             )}
             {ui.notices.length > 0 && (
@@ -608,6 +616,38 @@ function JournalPanel({ journal, ui, game, onClose }: { journal: NonNullable<UiS
               ))}
             </ul>
           )}
+        </section>
+      )}
+      {ui.tiers && (
+        <section data-testid="journal-tiers">
+          <h4>
+            ☖ {ui.tiers.chapter} · {ui.tiersDone}/{ui.tiersCount}
+          </h4>
+          <p>
+            <strong>{ui.tiers.title}</strong> — {ui.tiers.objective}
+          </p>
+          {ui.tiersList && (
+            <ul className="fronts steles">
+              {ui.tiersList.map((f) => (
+                <li key={f.tier} className={`front-${f.state === "done" ? "freed" : f.state === "climbing" ? "burning" : "waiting"}`}>
+                  <span className="cn">{f.hanzi}</span> {f.tier} <b>{f.state === "done" ? (f.fate ?? "Done") : f.state === "climbing" ? "Climbing" : f.state === "open" ? "Open to your tablet" : "Sealed"}</b>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+      {ui.standing.journal && (
+        <section data-testid="journal-standing">
+          <h4>☖ Standing · 身份</h4>
+          <p>
+            Mortals call you <strong>{ui.standing.journal.title}</strong>; cultivators call you <strong>{ui.standing.journal.peer}</strong>. Your realm is {ui.standing.journal.realm}, and in the City of Nine Tiers your tablet opens{" "}
+            <strong>
+              {ui.standing.journal.tierHanzi} {ui.standing.journal.tier}
+            </strong>
+            .
+          </p>
+          <p className="muted">The higher your realm, the lower the folk bow (from Core Formation on, a mortal may kneel), the more your word weighs, and the more doors open: the upper floors of the Pavilion of Nine Fragrances, the Willow Inn&apos;s top storey, the tiers of the city.</p>
         </section>
       )}
       {ui.condition.journal && (

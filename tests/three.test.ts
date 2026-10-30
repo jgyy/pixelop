@@ -89,9 +89,10 @@ describe("prop models", () => {
       const g = propModel(id);
       expect(g.indices.length, id).toBeGreaterThan(0);
       expect(g.positions.every(Number.isFinite), id).toBe(true);
-      expect(Math.max(...g.indices), id).toBeLessThan(g.positions.length / 3);
+      // (reduced rather than spread: the storeyed buildings have more vertices than a call's arguments can hold)
+      expect(g.indices.reduce((a, b) => Math.max(a, b), 0), id).toBeLessThan(g.positions.length / 3);
       const ys = g.positions.filter((_, k) => k % 3 === 1);
-      expect(Math.min(...ys), id).toBeGreaterThan(-3);
+      expect(ys.reduce((a, b) => Math.min(a, b), Infinity), id).toBeGreaterThan(-3);
     }
   });
 

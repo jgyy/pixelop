@@ -1108,6 +1108,15 @@ button {
 .quest .errand.halls {
   color: #e8d8ff;
 }
+/* the City of Nine Tiers, and her standing */
+.quest .errand.tiers {
+  color: #ffe6a8;
+}
+.hud .dao.standing {
+  margin-top: -3px;
+  color: #ffe6a8;
+  font-size: 0.85em;
+}
 .hud .dao.wu {
   margin-top: -3px;
 }
