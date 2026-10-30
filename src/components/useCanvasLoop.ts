@@ -12,6 +12,8 @@ export interface LoopOptions {
   fps?: number;
   /** Resize the canvas every frame so it fills its parent at an integer pixel scale. */
   fit?: boolean;
+  /** Only paint while the canvas is on screen (a gallery of hundreds of sprites need not paint the ones scrolled away). */
+  lazy?: boolean;
 }
 
 /**
@@ -27,6 +29,7 @@ export function useCanvasLoop(canvasRef: RefObject<HTMLCanvasElement | null>, dr
   });
   const fps = opts.fps ?? 60;
   const fit = !!opts.fit;
+  const lazy = !!opts.lazy;
   useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
@@ -55,18 +58,24 @@ export function useCanvasLoop(canvasRef: RefObject<HTMLCanvasElement | null>, dr
       }
     };
     if (fit) resize();
+    let shown = !lazy || typeof IntersectionObserver === "undefined";
+    const io = shown ? null : new IntersectionObserver((es) => (shown = es.some((e) => e.isIntersecting)), { rootMargin: "200px" });
+    io?.observe(canvas);
     const tick = (now: number) => {
       raf = requestAnimationFrame(tick);
       const dt = Math.min(0.1, (now - last) / 1000);
       last = now;
       acc += dt;
-      if (acc < step * 0.95) return;
+      if (acc < step * 0.95 || !shown) return;
       if (fit) resize();
       drawRef.current(surface, (now - start) / 1000, acc);
       acc = 0;
     };
     raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [canvasRef, fps, fit]);
+    return () => {
+      cancelAnimationFrame(raf);
+      io?.disconnect();
+    };
+  }, [canvasRef, fps, fit, lazy]);
   return scaleRef;
 }

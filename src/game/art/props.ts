@@ -3440,7 +3440,7 @@ const PROPS = {
       r.hipRoof(0, 0, 30, 6, 52, 26, 0.6, 58, m(ROOF_GREY, 5, { shader: roofTiles(ROOF_GREY) }));
     },
   },
-  // heaven's stair sealed: a curtain of gold light across a tier's stair, the character 阶 turning slowly in it (it bars anyone below the tier's realm)
+  // heaven's stair sealed: a curtain of gold light strung across a tier's stair, strands rippling, the seal of the tier glowing in its middle (it bars anyone below the tier's realm)
   stairseal: {
     foot: [0, 0, 0, 0],
     blocks: false,
@@ -3449,16 +3449,22 @@ const PROPS = {
     light: { color: "#ffe08a", radius: 36, dy: 20 },
     paint: (r, f, n) => {
       const ph = (f / n) * TAU;
-      r.box([-18, -0.6, 0], [18, 0.6, 40], m(ramp("#fff0a0", { lo: "#c08a30" }), 1, {
-        shader: (q, tone) => {
-          const wave = Math.sin(q.p[0] * 0.4 + ph) + Math.sin(q.p[2] * 0.3 - ph * 2);
-          if (Math.hypot(q.p[0], q.p[2] - 22) < 7 && Math.abs(Math.hypot(q.p[0], q.p[2] - 22) - 5) < 0.8) return "#ffffff";
-          if (Math.abs(q.p[0]) < 3.4 && Math.abs(q.p[2] - 22) < 0.6) return "#ffffff";
-          if (Math.abs(q.p[0] - Math.sin(ph) * 2) < 0.5 && Math.abs(q.p[2] - 22) < 3.6) return "#ffffff";
-          return wave > 1.2 ? tone(PAL.gold, -1) : wave < -1.2 ? "#fff8d8" : tone(PAL.gold);
-        },
-      }));
-      for (let k = 0; k < 4; k++) r.sphere([Math.cos(ph + k * 1.6) * 16, 0, 6 + ((k * 10 + f * 3) % 36)], 1, m(PAL.gold, 2, { outline: undefined }));
+      const light = m(ramp("#fff6c8", { lo: "#d8a040" }), 1, { outline: undefined });
+      // strands of light hanging from the top of the gate to the stair, each rippling in its own time
+      for (let k = 0; k <= 10; k++) {
+        const x = -15 + k * 3;
+        const pts: V3[] = [];
+        for (let z = 0; z <= 30; z += 5) pts.push([x + Math.sin(ph + k * 0.9 + z * 0.15) * 0.7, 0, z]);
+        r.sweep(pts, 0.32, light);
+      }
+      r.sweep([[-16, 0, 31], [16, 0, 31]], 0.6, m(PAL.gold, 2));
+      // the tier's seal: a ring of gold with a bar through it, turning slowly
+      const rr = 5.2;
+      const ring: V3[] = [];
+      for (let a = 0; a <= 16; a++) ring.push([Math.cos((a / 16) * TAU) * rr * Math.cos(ph * 0.5), Math.sin((a / 16) * TAU) * rr * Math.sin(ph * 0.5) * 0.3, 16 + Math.sin((a / 16) * TAU) * rr]);
+      r.sweep(ring, 0.55, m(PAL.gold, 3, { outline: undefined }));
+      r.sweep([[-3.4, 0, 16], [3.4, 0, 16]], 0.5, m(PAL.gold, 3, { outline: undefined }));
+      for (let k = 0; k < 4; k++) r.sphere([Math.cos(ph + k * 1.6) * 14, 0, 4 + ((k * 8 + f * 3) % 26)], 0.8, m(PAL.gold, 4, { outline: undefined }));
     },
   },
   // a lacquered sedan chair with its carrying poles, the curtain stirring (the upper tiers do not walk the stair)

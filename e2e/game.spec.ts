@@ -277,7 +277,7 @@ test.describe("Jade Lotus Ascension", () => {
     await expect(page.getByRole("heading", { name: "Pixel Art Gallery" })).toBeVisible();
     // a sheet for every character, and one for the wardrobe
     await expect(page.locator("[data-testid^=sheet-]")).toHaveCount(CHAR_IDS.length + 1);
-    await expect(page.getByTestId("scene")).toHaveCount(25);
+    await expect(page.getByTestId("scene")).toHaveCount(29);
     expect(await page.getByTestId("prop").count()).toBeGreaterThanOrEqual(50);
     expect(await page.getByTestId("anim").count()).toBeGreaterThanOrEqual(80);
     // the first scene paints once the sheets ahead of it have (there are many of them now), so wait for it rather than a fixed time
@@ -388,6 +388,43 @@ test.describe("Jade Lotus Ascension", () => {
     await page.keyboard.press("KeyJ");
     await expect(page.getByTestId("journal-halls")).toContainText("Ten Thousand at the Gate");
     await expect(page.getByTestId("journal-halls")).toContainText("Studying");
+  });
+
+  test("the City of Nine Tiers: the herald's census, the seal on the stair, and the journal's tiers and standing", async ({ page }) => {
+    await startNewGame(page);
+    await patch(page, { flags: { metElder: true, villageSaved: true, villageArrived: true, metZhou: true }, realm: 0, stage: 2 });
+    await expect(page.getByTestId("tiers-quest")).toContainText("herald");
+    await expect(page.getByTestId("standing")).toContainText("Miss Cultivator");
+    await standBy(page, "tj-herald");
+    await expect(page.getByTestId("prompt")).toContainText("Herald of the Stair");
+    await page.keyboard.press("KeyE");
+    await expect(page.getByTestId("dialog")).toContainText("Sovereign of the Stair");
+    await finishDialogue(page);
+    await expect.poll(async () => (await state(page)).counters.tiers).toBe(1);
+    await expect(page.getByTestId("tiers-quest")).toContainText("2/1000");
+    // the Copper Stair's seal turns back a Qi Condensation tablet
+    await standBy(page, "tj-warden-1");
+    await page.keyboard.press("KeyE");
+    await expect(page.getByTestId("dialog")).toContainText("will not part");
+    await finishDialogue(page);
+    await page.keyboard.press("KeyJ");
+    await expect(page.getByTestId("journal-tiers")).toContainText("Weighed and Found Light");
+    await expect(page.getByTestId("journal-standing")).toContainText("The Mud Tier");
+  });
+
+  test("the Pavilion of Nine Fragrances: the ground floor for anyone, the floor above for Foundation and beyond", async ({ page }) => {
+    await startNewGame(page);
+    await patch(page, { flags: { metElder: true, villageSaved: true, metZhou: true }, realm: 0, stage: 3 });
+    await page.evaluate(() => window.__pixelop!.game.debugEnter("fragrance" as never));
+    await expect(page.getByTestId("place")).toContainText("Pavilion of Nine Fragrances");
+    await standBy(page, "fragrance-stair");
+    await page.keyboard.press("KeyE");
+    await expect(page.getByTestId("dialog")).toContainText("Foundation and above");
+    await finishDialogue(page);
+    await patch(page, { realm: 1, stage: 0 });
+    await standBy(page, "fragrance-stair");
+    await page.keyboard.press("KeyE");
+    await expect(page.getByTestId("place")).toContainText("Upper Floor");
   });
 
   test("Hailing, the Tide City: lion dancers on the square and a bun seller who restores her", async ({ page }) => {

@@ -1458,7 +1458,7 @@ function buildWorld(): WorldDef {
     P("lion", cx + 3, TIANJIE_C[1] - 1);
     npcs.push(C("tj-gao", cx, TIANJIE_C[1] - 3, 0, { anim: "decree", when: (f) => !f["tiers:boss:9"] && !f["tiers:done"] }));
     // the herald cries the Census of the Stair at Jinhe's south gate until she heeds him
-    npcs.push(C("tj-herald", cx + 2, JINHE.y1 - 2, 2, { anim: "decree", when: (f) => !f["tiers:begun"] }));
+    npcs.push(C("tj-herald", cx - 2, JINHE.y1 + 3, 2, { anim: "decree", when: (f) => !f["tiers:begun"] }));
     // the Weighing Hall in the flats west of the city, its great steelyard, and the weigher at its door
     P("hall", ...WEIGH_HALL_AT);
     P("bigscale", ...SCALE_AT);

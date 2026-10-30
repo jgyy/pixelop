@@ -49,7 +49,7 @@ export const STRUCTURE_SCALE: Partial<Record<PropId, number>> = {
   drumtower: 2,
   mansion: 3,
   tiergate: 2,
-  stairseal: 3,
+  stairseal: 2,
   bigscale: 2,
 };
 
