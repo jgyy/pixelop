@@ -72,7 +72,7 @@ export interface HumanPose {
   /** Extra light-blue tint (qi casting) or white (hit flash) applied after. */
   flash?: number;
   /** Something held in the hands: a bamboo dizi flute, a rice bowl and chopsticks, juggling balls, a smith's hammer, a writing brush, a paper lantern, a hoe, a woodsman's axe, a carrying pole with two baskets, a shuttlecock or an oiled-paper umbrella. */
-  held?: "flute" | "bowl" | "balls" | "hammer" | "brush" | "lantern" | "hoe" | "axe" | "pole" | "shuttlecock" | "umbrella" | "pickaxe" | "torch" | "ladle" | "fireball" | "rake" | "seedling" | "snowball" | "kite" | "warbanner" | "drum" | "bandage" | "horn" | "lionhead" | "puppet" | "abacus" | "firecracker" | "xiangqi" | "oar" | "pillow" | "bucket" | "token" | "pointer" | "rag";
+  held?: "flute" | "bowl" | "balls" | "hammer" | "brush" | "lantern" | "hoe" | "axe" | "pole" | "shuttlecock" | "umbrella" | "pickaxe" | "torch" | "ladle" | "fireball" | "rake" | "seedling" | "snowball" | "kite" | "warbanner" | "drum" | "bandage" | "horn" | "lionhead" | "puppet" | "abacus" | "firecracker" | "xiangqi" | "oar" | "pillow" | "bucket" | "token" | "pointer" | "rag" | "seal" | "steelyard" | "cup" | "decree" | "ledger";
   /** Where a tossed thing (the shuttlecock) is, in pose space. */
   toss?: V3;
 }
@@ -642,6 +642,41 @@ export function paintHuman(st: HumanStyle, p: HumanPose, facing: number, o: Rend
   } else if (p.held === "rag") {
     // a wet grey rag under the palm
     r.ellipsoid(add(U(handR), [0, 0.2 * S, -0.8 * S]), [Rr(1.8), Rr(1.3), Rr(0.5)], mat(ramp4("#ffffff", "#c8ccd8", "#8a90a8", "#4a4a5a"), 9));
+  }
+
+  if (p.held === "seal") {
+    // a registrar's square seal of red jade, its knob carved as a crouching lion, the face wet with cinnabar
+    const g = U(handR);
+    r.box(add(g, [-1.1 * S, -1.1 * S, -2.6 * S]), add(g, [1.1 * S, 1.1 * S, -0.6 * S]), mat(ramp4("#ffb0a0", "#d8503a", "#9a2a20", "#4a0a10"), 9, { shader: (s2, tone) => (s2.n[2] < -0.5 ? tone(PAL.red) : tone(ramp4("#ffb0a0", "#d8503a", "#9a2a20", "#4a0a10"))) }));
+    r.sphere(add(g, [0, 0, 0.1 * S]), Rr(0.9), mat(PAL.gold, 9));
+  } else if (p.held === "steelyard") {
+    // a steelyard balance: a long beam hung from the left hand, a pan at the short end and the brass weight slid out along the long one
+    const g = U(p.handL ?? REST_HAND_L);
+    const tilt = Math.sin(t) * 0.8;
+    const a = add(g, [-2.4 * S, 1.2 * S, -1 * S + tilt * S]);
+    const b = add(g, [7 * S, 1.2 * S, -1 * S - tilt * S]);
+    r.sweep([a, b], Rr(0.3), mat(PAL.woodDark, 9, { shader: (s2, tone) => (Math.sin(s2.u * 50) > 0.8 ? tone(PAL.gold) : tone(PAL.woodDark)) }));
+    const pan = add(a, [0, 0, -4 * S]);
+    for (const o of [-1, 1]) r.sweep([a, add(pan, [o * 1.4 * S, 0, 0.4 * S])], Rr(0.12), mat(PAL.black, 9));
+    r.ellipsoid(pan, [Rr(2), Rr(2), Rr(0.5)], mat(PAL.gold, 9));
+    const wt = add(a, [(6.2 + Math.cos(t) * 1.4) * S, 1.2 * S - 1.2 * S, -1.6 * S]);
+    r.sphere(wt, Rr(0.9), mat(PAL.gold, 9));
+  } else if (p.held === "cup") {
+    // a little wine cup of white porcelain, raised in the right hand
+    const g = add(U(handR), [0, 0.3 * S, 0.6 * S]);
+    r.cone(g[0], g[1], Rr(0.7), g[2] - Rr(0.6), Rr(1.3), g[2] + Rr(1), 8, mat(ramp4("#ffffff", "#eef2fa", "#a8b4cc", "#56627a"), 9, { shader: (s2, tone) => (s2.n[2] > 0.6 ? "#b8402a" : tone(ramp4("#ffffff", "#eef2fa", "#a8b4cc", "#56627a"))) }));
+  } else if (p.held === "decree") {
+    // an imperial decree of yellow silk unrolled between both hands, its rollers capped in jade
+    const a = U(p.handL ?? REST_HAND_L);
+    const b = U(handR);
+    const silk = ramp4("#fff8c8", "#f2d050", "#c09020", "#6a4a10");
+    const mid = scale3(add(a, b), 0.5);
+    r.box([Math.min(a[0], b[0]), mid[1] - 0.2 * S, mid[2] - 4.6 * S], [Math.max(a[0], b[0]), mid[1] + 0.25 * S, mid[2] + 0.6 * S], mat(silk, 9, { shader: (s2, tone) => (Math.abs(((s2.p[0] - mid[0]) / S + 30) % 1.6 - 0.8) < 0.18 && s2.p[2] < mid[2] - 0.4 * S && s2.p[2] > mid[2] - 4 * S ? "#3a2410" : tone(silk)) }));
+    for (const e of [a, b]) r.sweep([add(e, [0, 0, 1 * S]), add(e, [0, 0, -5.4 * S])], Rr(0.45), mat(PAL.jade, 9));
+  } else if (p.held === "ledger") {
+    // a thread-bound ledger open across the forearm, its columns of names in black and red
+    const g = add(U(p.handL ?? REST_HAND_L), [1.6 * S, 1.2 * S, 1 * S]);
+    r.box(add(g, [-2.4 * S, -1.6 * S, 0]), add(g, [2.4 * S, 1.6 * S, 0.5 * S]), mat(PAL.paper, 9, { shader: (s2, tone) => (s2.n[2] > 0.5 && Math.abs(((s2.p[0] - g[0]) / S + 30) % 0.9 - 0.45) < 0.1 ? (Math.abs(s2.p[0] - g[0]) < 0.25 * S ? tone(PAL.navy) : "#3a3040") : tone(PAL.paper)) }));
   }
 
   // ------------------------------------------------------------------ shawl, cape, tails, beard

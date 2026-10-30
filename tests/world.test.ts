@@ -175,7 +175,7 @@ describe("the continuous world", () => {
 
   it("is four times the version 4 world across, and has grown south beyond that, with its landmarks on open land", () => {
     expect(WORLD_W).toBe(324 * 4);
-    expect(WORLD_H).toBe(560 * WORLD_SCALE);
+    expect(WORLD_H).toBe(660 * WORLD_SCALE);
     expect(WORLD_H).toBeGreaterThan(232 * 4);
     expect(walkable.size).toBeGreaterThan(600000);
     expect(w.landmarks.length).toBeGreaterThanOrEqual(18);
@@ -294,7 +294,8 @@ describe("building interiors", () => {
   it("each building's door stands on open ground in the world, right in front of the building", () => {
     const w = getWorld();
     const r = reachable(w.map, w.waypoints.sect);
-    for (const id of INTERIOR_IDS) {
+    // (an upper floor has no street door of its own: its stair is inside, on the floor below)
+    for (const id of INTERIOR_IDS.filter((x) => !getInterior(x).below)) {
       const d = getInterior(id);
       const [i, j] = d.door;
       expect(w.interacts.some((it) => it.kind === "door" && it.to === id && it.i === i && it.j === j), id).toBe(true);
@@ -311,7 +312,8 @@ describe("the Golden River country", () => {
   const w = getWorld();
   const m = w.map;
   const S = WORLD_SCALE;
-  const inCity = (i: number, j: number) => i > 208 * S && i < 237 * S && j > 487 * S && j < 514 * S;
+  // the city has grown past its old walls (208–236 × 487–513) to a new ring of them
+  const inCity = (i: number, j: number) => i > 201 * S && i < 243 * S && j > 482 * S && j < 518 * S;
 
   it("grew the world south without moving any of the old lands", () => {
     for (const id of AREA_IDS) expect(w.waypoints[id][1], id).toBeLessThan(464 * S);
@@ -323,24 +325,25 @@ describe("the Golden River country", () => {
   });
 
   it("walls Jinhe in, with watchtowers at its corners and gates where its streets go out", () => {
-    const walls = w.props.filter((p) => (p.id === "citywall" || p.id === "citywallY") && p.i >= 207 * S && p.i <= 237 * S && p.j >= 486 * S && p.j <= 514 * S);
-    expect(walls.length).toBeGreaterThan(90);
-    expect(w.props.filter((p) => p.id === "watchtower" && p.i >= 207 * S && p.i <= 237 * S && p.j >= 486 * S && p.j <= 514 * S)).toHaveLength(4);
+    const walls = w.props.filter((p) => (p.id === "citywall" || p.id === "citywallY") && p.i >= 200 * S && p.i <= 244 * S && p.j >= 481 * S && p.j <= 519 * S);
+    expect(walls.length).toBeGreaterThan(130);
+    expect(w.props.filter((p) => p.id === "watchtower" && p.i >= 199 * S && p.i <= 246 * S && p.j >= 479 * S && p.j <= 521 * S)).toHaveLength(4);
     // the four streets out of the city are open ground
     for (const [i, j] of [
-      [222, 486],
-      [222, 514],
-      [206, 500],
-      [238, 500],
+      [222, 481],
+      [222, 519],
+      [199, 500],
+      [245, 500],
     ])
       expect(m.standable(i * S, j * S), `${i},${j}`).toBe(true);
   });
 
   it("fills its streets with people and its quarters with buildings", () => {
+    // twice the city it was: twice the folk and twice the buildings, the new ones storeys high
     const folk = w.npcs.filter((n) => inCity(n.i, n.j));
-    expect(folk.length).toBeGreaterThanOrEqual(25);
-    const buildings = w.props.filter((p) => inCity(p.i, p.j) && ["house", "hall", "teahouse", "pagoda", "operastage", "forge"].includes(p.id));
-    expect(buildings.length).toBeGreaterThanOrEqual(14);
+    expect(folk.length).toBeGreaterThanOrEqual(50);
+    const buildings = w.props.filter((p) => inCity(p.i, p.j) && ["house", "hall", "teahouse", "pagoda", "operastage", "forge", "townhouse", "towerinn", "drumtower", "mansion"].includes(p.id));
+    expect(buildings.length).toBeGreaterThanOrEqual(28);
     for (const key of ["laoji", "ahhong", "caravanmaster", "caravanguard"]) expect(w.npcs.some((n) => n.key === key), key).toBe(true);
   });
 });

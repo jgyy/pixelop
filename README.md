@@ -109,6 +109,151 @@ New moves: Lin Yue **rummages** in her satchel when the menu opens and **shades 
 - A foundling who runs up the sky bridge before facing the fox is no longer greeted for the "fox blood on her sleeve", or told she has "already met" the beast.
 
 
+### The City of Nine Tiers: a thousand more main quests, a town and a city twice the size, and a jianghu that weighs her realm
+
+Across a strait of cloud south of Jinhe stands **天阶城 Tianjie, the City of Nine Tiers**: a whole mountain cut into nine terraces round a summit. Its law is the **Stair Code (阶律)**: *as a cultivator stands, so may she stand.* Each realm earns a tier and each tier has a gate. Below the gate, a word weighs what its speaker weighs. Mortals carry for everyone on the Mud Tier at the city's foot. Every spring the **Weighing Hall** weighs them on a great steelyard, and the ones found light go to the sleeping house and do not wake. Their years run up the mountain into the **Stair Array**, which holds the city up. The Sovereign of the Stair means to fill the Array at the next conjunction and lift the whole city into heaven.
+
+This is the sixth thread of the main tale: **1000 quests in ten books, one for each tier and the summit**, each book its own story told in hand-written beats (110 of them, 20 with a question answered four ways). Lin Yue is weighed and given a jade tablet. She climbs the city with **Ah Lou**, a fourteen-year-old porter whose father was weighed light, and **Registrar Wen Qi**, a clerk who has begun to read the second column of his own ledgers.
+
+| Book | Tier | Her tablet must read | The tale | Its trouble |
+| --- | --- | --- | --- | --- |
+| I · 称骨 Weighed and Found Light | 泥阶 the Mud Tier | Qi Condensation, late | the porters, the sleeping house, the porters' strike | Overseer Kuang |
+| II · 铜债 The Debt of Copper | 铜阶 the Copper Tier | Foundation Establishment | pills priced in years, a bonded smith's bottleneck | Guildmaster Tong, the Debt-Smith |
+| III · 假牌 The Forged Tablet | 银阶 the Silver Tier | Foundation, late | Faceless Liu forges Silver tablets for mortal children | Inquisitor Sima |
+| IV · 红线 The Red Thread | 玉阶 the Jade Tier | Core Formation | a Jade daughter promised to a 460-year-old elder | Madam Qiao of the Red Thread |
+| V · 挑战律 The Law of Challenge | 金阶 the Golden Tier | Core, late | clans hire champions so no challenge is ever won | Lei Ba, Champion (a bout) |
+| VI · 言重 The Weight of a Word | 紫阶 the Violet Tier | Nascent Soul | testimony weighed by realm, and a mortal's weighs nothing | Justiciar Yan Heng |
+| VII · 借春 A Thousand Borrowed Springs | 云阶 the Cloud Tier | Nascent Soul, late | the Year Market, where elders buy porters' springs | Elder Mei Shou, Eater of Years |
+| VIII · 星命 The Chart of Every Child | 星阶 the Star Tier | Spirit Severing | every child's tier written at birth, and the conjunction | Star-Registrar Qu Xing |
+| IX · 无后 Nothing Behind Me | 雷阶 the Thunder Tier | Spirit Severing, middle | the Severed Guard, and Ah Lou's mother | Lou Feng, Captain of the Ninth Gate |
+| X · 天阶 Heaven's Step | the summit | Spirit Severing, late | the Sovereign's Ascent, and the great beam under the palace | Gao Qiong, Sovereign of the Stair |
+
+```mermaid
+flowchart LR
+  H[Herald at Jinhe's south gate] --> B[Over the Nine-Arch Bridge]
+  B --> W[The Weighing Hall: a jade tablet]
+  W --> Q{Quest n of 1000}
+  Q --> P[Petitions of the tier's patron]
+  Q --> A[Ah Lou's word]
+  Q --> V[Vouch for a mortal at the gate]
+  Q --> R[Wen Qi's Registry]
+  Q --> E[Errands across the strait]
+  Q --> C[Bouts in the Stair Ring]
+  Q --> S[Long sittings]
+  Q --> L[See a place as the Registry asks]
+  P & A & V & R & E & C & S & L --> Q
+  Q --> G[Step 50: the tier weighs her again]
+  G --> T[The tier's trouble]
+  T --> F{Its fate: mercy · sword · balance · slaughter}
+  F -->|next tier| Q
+  F -->|Heaven's Step| X[The Stair stilled, or taken]
+```
+
+**The gates answer to her realm, not to the tale.** Each tier is a terrace two levels above the one below it, so every terrace wall is a cliff and only the avenue's stairs climb them. At the head of each stair stands a gate, its warden at the foot, and a curtain of gold light that will not part for anyone below the tier's realm, on foot or on a sword. A Qi Condensation girl can only walk the Mud Tier. A Spirit Severing cultivator who arrives late in her story can walk straight up to Heaven's Step, though its people will not deal with her until the tale reaches them. The bars are new world data (`WorldDef.bars`) that the runtime checks as she moves, and the toast tells her what her tablet reads and what the seal wants.
+
+```mermaid
+flowchart TB
+  subgraph city["天阶城 The City of Nine Tiers (heights 1 → 19)"]
+    mud["泥阶 Mud Tier · anyone"] -->|"Foundation"| copper["铜阶 Copper"]
+    copper -->|"Foundation, late"| silver["银阶 Silver"]
+    silver -->|"Core"| jade["玉阶 Jade"]
+    jade -->|"Core, late"| gold["金阶 Gold"]
+    gold -->|"Nascent Soul"| violet["紫阶 Violet"]
+    violet -->|"Nascent, late"| cloud["云阶 Cloud"]
+    cloud -->|"Spirit Severing"| star["星阶 Star"]
+    star -->|"Spirit Severing, middle"| thunder["雷阶 Thunder"]
+    thunder -->|"Spirit Severing, late"| step["天阶 Heaven's Step"]
+  end
+  jinhe["金河城 Jinhe · south gate"] -->|"九孔桥 the Nine-Arch Bridge, over the strait of cloud"| mud
+  flats["the flats: Weighing Hall · Stair Ring · shanties"] --- mud
+```
+
+| | |
+| --- | --- |
+| ![The City of Nine Tiers, from its foot](docs/screenshots/237-3d-the-city-of-nine-tiers.png) | ![The Nine-Arch Bridge across the strait of cloud](docs/screenshots/238-3d-the-nine-arch-bridge.png) |
+| ![Gates and seals up the avenue](docs/screenshots/239-3d-the-stair-and-its-gates.png) | ![Heaven's Step](docs/screenshots/240-3d-heavens-step.png) |
+| ![The herald's census](docs/screenshots/245-the-census-of-the-stair.png) | ![The Weighing Hall](docs/screenshots/246-the-weighing-hall.png) |
+| ![Ah Lou and the overseer](docs/screenshots/247-ah-lou-and-the-overseer.png) | ![The seal on the Copper Stair](docs/screenshots/248-the-seal-on-the-copper-stair.png) |
+| ![Su Wan's letter](docs/screenshots/249-a-letter-each-way.png) | ![A feather's testimony](docs/screenshots/250-to-stand-on-the-pan.png) |
+| ![A song she used to sing](docs/screenshots/251-a-song-she-used-to-sing.png) | ![The Sovereign of the Stair](docs/screenshots/252-the-sovereign-of-the-stair.png) |
+
+- **Every quest is composed from its number**, as the other threads are, so the save holds only `tiers` and `tiersp`. The flags the city answers to (`tiers:gate:<k>`, `tiers:book:<k>`, `tiers:boss:<k>`, `tiers:fate:<k>:<dao>`) are derived from those and from her realm.
+- **Ah Lou and Wen Qi climb with her.** One of each stands on the tier of the book she is on. Ah Lou is mortal and climbs as Lin Yue's bearer, vouched for at every gate.
+- **Ten troubles and their fates.** Each tier's tale ends with a fight and a choice that leans her Dao Heart. The last one decides the city: let the Array go and the city sink to the land, re-carve the Stair Code, cut the great beam in two, or take the city for herself.
+- **Outfits:** the Porter's Blue Jacket (500 quests, sewn by the Mud Tier), and at the end the Robe of Heaven's Step, or the Robe of the Stair's Throne. The ending has a line for the city.
+
+#### 身份 Standing: what her realm makes her
+
+Her realm is no longer a private matter. It changes how the whole jianghu treats her.
+
+- **Forms of address.** Mortals call her *Miss Cultivator*, then *Young Immortal*, *Venerable Immortal*, *Ancestor*, *Exalted One* and *Heavenly Immortal*. Cultivators call her *Junior Sister*, *Fellow Daoist*, *Senior*, *Senior Ancestor*. Lines everywhere fill these in (`{title}`, `{peer}`, `{realm}`, `{tier}`). The HUD shows her standing under her realm, and the journal has a Standing page.
+- **The folk notice.** All of the jianghu's ordinary folk now speak to her realm as well as their own lives: a farmer asks a Foundation cultivator to stand in his paddy, a sect disciple calls a golden core *Senior* and begs a pointer, a soldier salutes. From Core Formation a mortal may go down on both knees as she passes, and from Nascent Soul they all do. Cultivators salute instead. If her heart demons show, the mortals back away.
+- **Doors open with her realm.** The Pavilion of Nine Fragrances lets only Foundation and above up its stair. The Willow Inn's top floor is kept for Willow Creek's own golden core. In the City of Nine Tiers every gate is her realm's.
+- **The new quarters' folk** (48 in Jinhe and Willow Creek, and the inns' guests) each have a line for each realm. Madam Liu of the East Ward, who never looked at the foundling, kneels to the Ancestor. The Grain Guild extends credit to Foundation. The matchmaker's list for a Nascent Soul is very short.
+
+| | |
+| --- | --- |
+| ![The ward kneels to an Ancestor](docs/screenshots/253-3d-the-ward-kneels-to-an-ancestor.png) | ![Madam Liu kneels](docs/screenshots/254-madam-liu-kneels.png) |
+| ![Not up there, miss](docs/screenshots/256-not-up-there-miss.png) | ![The upper floor](docs/screenshots/257-the-upper-floor.png) |
+| ![The Willow Inn's top floor](docs/screenshots/255-the-willow-inns-top-floor.png) | ![The journal: standing and the tiers](docs/screenshots/258-journal-standing-and-the-tiers.png) |
+
+```mermaid
+flowchart LR
+  R["Her realm"] --> T["What they call her<br/>Miss → Young Immortal → Venerable → Ancestor → Exalted One"]
+  R --> K["How they greet her<br/>wave → bow → kneel (mortals) · salute (cultivators)"]
+  R --> D["Which doors open<br/>upper floors · the tiers' gates"]
+  R --> W["How much her word weighs<br/>vouching at the gates · testimony on the Violet Tier"]
+  T & K & D & W --> F["Every folk's lines: crowd chatter, the new quarters, the inns, the tiers"]
+```
+
+#### A town and a city twice the size, in storeys
+
+- **Jinhe** has grown past its old walls. A new wall stands a ring further out, with four new watchtowers and gates, and the line of the old wall is now a lane. The new quarters between are built up in storeys: shophouses with balconies over the street, a drum tower, a salt commissioner's long two-storey mansion, the dyers' row, and the **Pavilion of Nine Fragrances**, a three-storey restaurant. It has 26 new townsfolk (bearers with a sedan chair, gossips, a lantern-lighter, a letter-writer, a matchmaker, a blind beggar, the drum-keeper and more), and twice the buildings it had.
+- **Willow Creek** has spilled east across its market road into the **East Ward (柳溪东坊)**, as big as the village itself, below the creek. It has a two-storey street, the three-storey **Willow Inn**, the Liu clan's hall, a drum tower, cottages, stalls and 22 new villagers. It is the village's ground outright (`HOLDS` in `world/layout.ts`), though the lake's shore is nearer half of it.
+- **Storeys inside too.** The two inns have a floor above. Walk to the stair and press `E` to climb, and walk out of the upper floor's front to come back down. Each upper floor is a room of its own over the same footprint, with no street door, and only her realm opens it.
+
+| | |
+| --- | --- |
+| ![Jinhe, twice the size](docs/screenshots/241-3d-jinhe-twice-the-size.png) | ![The Pavilion of Nine Fragrances](docs/screenshots/242-3d-the-pavilion-of-nine-fragrances.png) |
+| ![Willow Creek's East Ward](docs/screenshots/243-3d-willow-creeks-east-ward.png) | ![The Willow Inn](docs/screenshots/244-3d-the-willow-inn.png) |
+
+| Pavilion of Nine Fragrances | Its upper floor | The Willow Inn | Its top floor |
+| --- | --- | --- | --- |
+| ![](docs/art/room-fragrance.gif) | ![](docs/art/room-fragranceup.gif) | ![](docs/art/room-willowinn.gif) | ![](docs/art/room-willowinnup.gif) |
+
+| The East Ward | Jinhe | The City of Nine Tiers | Heaven's Step |
+| --- | --- | --- | --- |
+| ![](docs/art/site-eastward.gif) | ![](docs/art/site-jinhe.gif) | ![](docs/art/site-tianjie.gif) | ![](docs/art/site-summit.gif) |
+
+```mermaid
+stateDiagram-v2
+  [*] --> Street
+  Street --> GroundFloor: walk into the door / E
+  GroundFloor --> Street: threshold mat
+  GroundFloor --> UpperFloor: E at the stair (realm ≥ the house's rule)
+  GroundFloor --> GroundFloor: E at the stair, realm too low (“Not up there, miss”)
+  UpperFloor --> GroundFloor: the front edge / E (back down the stair)
+```
+
+#### The world grew south again
+
+The authoring grid grew from 560 to **660 rows** (the world map is now 1296 × 1320 tiles), and every older position is still the same spot. The Golden River country's south gate road runs on to the cliffs over a strait of cloud. The **Nine-Arch Bridge** crosses it to **the Stairlands**, a new biome of karst pinnacles and terraced green around the city, with the mud flats at its foot, the Weighing Hall, the Stair Ring (where any cultivator may be challenged, and losing costs nothing) and the shanties.
+
+#### New animations and art
+
+- **10 new moves:** `kneel` (both knees, forehead toward the stones), `stamp` (a registrar's seal raised and brought down), `weigh` (the brass weight slid along a steelyard), `lean` (on a balcony rail, chin on hand), `toast` (a wine cup raised and tossed back), `beg` (a bowl held up from the knees), `decree` (yellow silk read aloud), `haggle` (fingers up, a hand thrown out, a shake of the head), `bear` (a sedan chair's pole on the shoulder) and `whisper` (behind a cupped hand). Lin Yue can kneel, toast, lean, haggle, whisper and weigh, and the jianghu's folk have picked them up too. There are five new held props: a seal, a steelyard, a wine cup, a decree and a ledger.
+- **21 new characters:** Ah Lou, Wen Qi, Weigher Bai Gu, the tier wardens, the ten troubles, the upper tiers' gentry, the Severed Guard, sedan bearers, the herald, Faceless Liu and Su Wan. Three new outfits for her. A new crowd kind, the gentry, who talk of nothing but rank.
+- **8 new props, the multi-storey buildings among them:** a two-storey shophouse (an open shopfront below, a jettied upper floor with a balcony, a skirt roof between), a three-storey restaurant (a gallery and railing round each upper floor, a gilt signboard, wine flags, lanterns swinging under every eave), a drum tower (a brick podium with arched passages, a pavilion of two roofs and a drum that is struck), a long two-storey mansion with a colonnade and gallery, the tiers' gates, the gold-light seals, a lacquered sedan chair and the Weighing Hall's great steelyard. All of them are in 3D too, from the same solids.
+
+| The Nine Tiers' moves and people | The storeyed buildings and the city's props |
+| --- | --- |
+| ![](docs/art/tiers-moves.gif) | ![](docs/art/tiers-props.gif) |
+
+#### Fixes and housekeeping
+
+- The art gallery now paints a sprite only while it is on screen, so the page with every character, prop and room stays quick however many there are.
+- Prop models are checked with a reduce rather than a spread in the tests, because the storeyed buildings have more vertices than a function call's arguments can hold.
+
 ### Tall trees, lived-in houses, a busier jianghu and four new deeps
 
 **Trees of a real size.** The trees were barely taller than Lin Yue. Now they stand three to four times her height. Pines and snow pines are drawn 2.6× the size they are modelled at, willows 2.8×, maples 2.6×, cherries 2.4×, the spirit tree 2.4×, palms 2.2×, peach trees and dead trees 2× and bamboo 1.8×. Their trunks still stand on one tile, so the roads and paths stay as walkable as before, and the canopy spreads over the ground around them. A prop's new `size` scales its sprite, its 3D model, its light and its falling petals and leaves together, in the pixel view and in 3D.
@@ -204,7 +349,7 @@ flowchart TD
 
 ### One world, no loading screens
 
-The whole jianghu is a single **1296 × 1120 tile map**: twice as wide and more than twice as deep as it was, which was itself twice the world before (it has since grown south to the sea, see [the Golden River country](#the-golden-river-country)). The old lands are now its north-western quarter, and **five new regions** lie beyond them (see [The world doubled again](#the-world-doubled-again)). Whistle for **Cloudmane**, Lin Yue's spirit horse, to cover it at a gallop. You can walk from the sect gate down a long sky bridge that rests on Cloudrest Isle half way, along the old highway past the bamboo, and on to the waterfall where the Lotus Lake spills off the edge of the world. South of the highway lie the ashen wastes, a stone forest with a ruined temple, scarecrow fields under a seven-tier pagoda and the snowy highlands with a hot spring and a bandit camp. East of the sect, plank walkways lead out to the floating Cloudstep Isles. Sealed regions sit behind walls of mist, talismans, demonic qi or heaven's light until the story opens them.
+The whole jianghu is a single **1296 × 1320 tile map**: twice as wide and more than twice as deep as it was, which was itself twice the world before (it has since grown south to the sea, see [the Golden River country](#the-golden-river-country), and across the strait beyond it to the City of Nine Tiers). The old lands are now its north-western quarter, and **five new regions** lie beyond them (see [The world doubled again](#the-world-doubled-again)). Whistle for **Cloudmane**, Lin Yue's spirit horse, to cover it at a gallop. You can walk from the sect gate down a long sky bridge that rests on Cloudrest Isle half way, along the old highway past the bamboo, and on to the waterfall where the Lotus Lake spills off the edge of the world. South of the highway lie the ashen wastes, a stone forest with a ruined temple, scarecrow fields under a seven-tier pagoda and the snowy highlands with a hot spring and a bandit camp. East of the sect, plank walkways lead out to the floating Cloudstep Isles. Sealed regions sit behind walls of mist, talismans, demonic qi or heaven's light until the story opens them.
 
 ![The whole continuous world](docs/art/world-overview.png)
 
@@ -1473,6 +1618,7 @@ flowchart LR
 - **Unit tests (Vitest):** the iso projection and ray caster (shading, depth, decal visibility, convex solids), every character × animation × direction, all portraits and props, terrain and skies. Every region layout, and then the whole continuous world, is checked by BFS: every waypoint, NPC, encounter and interactable is reachable on foot, the sky bridges connect, rivers reach the edge, and no prop stands in water or on the road. Also covered: the world map's terrain (built from the real world), save migration from per-region coordinates and from the smaller world, the grown world's size, landmarks and new folk, a complete story walkthrough from prologue to ascension, realms and battle rules, a headless run of the `Game` runtime (cutscenes, walking and collision, tap-to-walk, the elder's briefing, world-map travel, battles won and lost, boss speeches, the fox quest, meditation and tribulation, pickups, rendering every region, walking down the sky bridge into the village, seals turning the heroine back, running, startled cranes, greeting NPCs, respawning beasts, idle fidgets and the day cycle, the wayside folk's gifts, Xiao Han's duel won and lost, landmark banners, beasts sniffing, howling and dozing, opening the map while flying over water, loading a save onto open ground, walking into the Hall of Clouds through its door and back out over the threshold, learning from the archivist, reading the shelves and praying at the altar, every room rendering with its folk at work, losing a fight indoors, a beast standing its ground at the edge of its territory, a lost friendly duel costing nothing, and scripted walks staying at a walk), every room's walls, windows and reachability, every building's door on open ground in front of it, the indoor folk's one-time gifts, and the API route handlers.
 - **The year and the notices (Vitest):** the calendar (seasons, phases, passing time, a save keeps its hour), seasonal filters on props, every season by day and night with the folk in winter wool and lanterns after dark, the season banner, the whole Turning of the Year from the almanac to the four Wardens and the Raiment, the wardrobe, and the thousand notices (exactly 1000, deterministic, every giver, landmark, beast and shrine really in the world, three slots, bits in the save, milestones, a delivery taken and handed over, a night visit and a hunt fulfilled in the running game).
 - **The Founder's Road and the Great Daos (Vitest):** comprehension's five stages and the realm cap, the stat gifts, the Dao Domain and seeing through an Echo, all 1000 quests (deterministic, ten books, every NPC and landmark really in the world, rising realms), the whole Road walked to its end with the land, the outfits and the ending following, eating a Dao and what it costs, the questions whose deeper answers need deeper understanding, every Echo and the Dao-Eater in battle, Hailing's walls, canals and bridges, the busy street folk and their words, the new props and moves, and the mended plot holes (Bao never supplies himself, officers and children speak as themselves, the crimson front remembers Xue, endings where she stayed).
+- **The City of Nine Tiers and standing (Vitest):** all 1000 quests (ten books, at least ten hand-written beats and two questions in each, every NPC and landmark really in the world, rising realms, never below a book's own gate), the whole tale walked to its end with every fate, the outfits and the ending, the gates opening to her realm alone, the terraces at their heights with a stair and a seal at every gate, folk on every tier, the bars holding her below her realm in the running game, the forms of address, crowds that kneel and call her Senior, a line for every realm from every new townsperson, Jinhe's new walls and Willow Creek's East Ward, the inns' upper floors and the realm they ask, the storeyed props and the ten new moves.
 - **The Ten Halls (Vitest):** all 1000 quests (ten books, at least ten hand-written beats in each, every NPC and landmark really in the world or Room Seven, rising realms), the Selection with the crowd coming and going, Room Seven filling up, the whole tale walked to its end with every hall's trouble and fate, the outfits and the ending, bouts and sittings that only count where they should, roommates never sent for while the tale has them elsewhere, the court and its troubles on reachable ground, the new props and moves, each beginning's word at the herald, and the mended plot holes (the Dao-Eater's nine Daos, the founder's sword).
 - **E2E (Playwright):** the Founder's Road opening with Qingxu at Foundation Establishment and the journal's Great Daos page, Hailing's lion dancers and its bun seller; the wardrobe, the calendar turning at the sundial and a notice taken and set aside from the journal; and  fullscreen title and health check, opening narration and walking, walking from the sect into the village in one world, Elder Mo's briefing through to world-map travel, a battle won through the UI, tea and the shop at the crossroads teahouse (with Enter skipping the typewriter text), stepping inside the crossroads teahouse to hear the storyteller and walking back out, a save/reload/continue round trip with the leaderboard, and the gallery canvases painting (now with the indoor folk and every room).
 
@@ -1492,7 +1638,8 @@ src/
                        interiors (interiors.ts), the world map, the war's fronts
                        (warfront.ts) and the Founder's Road's steles (roadside.ts)
     story/             cutscene step types, quests, dialogue, scripted scenes, the
-                       war (war.ts), the Founder's Road (road.ts), Hailing's folk (tide.ts)
+                       war (war.ts), the Founder's Road (road.ts), Hailing's folk (tide.ts),
+                       the City of Nine Tiers (tiers.ts, tiersBooks.ts) and standing (standing.ts)
     engine/            realms, enemies, battle, the Dao Heart (dao.ts), cultivation's
                        toll (cultivation.ts), the Great Daos (comprehension.ts),
                        zod save schema (pure)

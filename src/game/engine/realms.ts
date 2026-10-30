@@ -49,6 +49,16 @@ export function realmLabel(realm: number, stage: number): string {
   return r.stages === 1 ? r.name : `${r.name} · ${STAGE_NAMES[stage]}`;
 }
 
+/** [realm, stage] for an overall level index. */
+export function realmAtLevel(level: number): [number, number] {
+  let n = level;
+  for (let r = 0; r < REALMS.length; r++) {
+    if (n < REALMS[r].stages) return [r, n];
+    n -= REALMS[r].stages;
+  }
+  return [REALMS.length - 1, 0];
+}
+
 export function isAtPeak(p: Progress): boolean {
   return p.stage >= REALMS[p.realm].stages - 1;
 }

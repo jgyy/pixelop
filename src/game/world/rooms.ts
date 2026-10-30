@@ -20,7 +20,8 @@ export const roomOpen = (id: RoomId, f: Record<string, boolean>) => getRoom(id).
 
 /** The open-world doors and cave mouths, as interactables to stand before each one. */
 export function roomDoors(): Interactable[] {
-  return ROOM_IDS.map((id) => {
+  // an upper floor has no door onto the street: its stair is inside, on the floor below
+  return ROOM_IDS.filter((id) => !getRoom(id).below).map((id) => {
     const d = getRoom(id);
     return { key: `door-${id}`, kind: "door", i: d.door[0], j: d.door[1], to: id, ...(d.opens && { when: d.opens }) };
   });
