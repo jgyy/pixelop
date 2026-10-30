@@ -3,6 +3,7 @@ import { calendarAt, worldTime } from "../world/calendar";
 import { crowdLook, crowdName, parseCrowdKey, type CrowdKind } from "../world/crowds";
 import type { AreaId } from "../world/ids";
 import type { Step } from "./script";
+import { crowdRealm } from "./standing";
 
 /**
  * What the jianghu's ordinary folk (the neighbours of world/crowds.ts) say
@@ -90,6 +91,12 @@ const BY_KIND: Record<CrowdKind, string[]> = {
     "Mother says not to talk to cultivators. You don't count, you smiled.",
     "I found a stone shaped like a turtle! You can hold it. Don't keep it.",
   ],
+  noble: [
+    "My tablet says Silver, my father's says Gold, and my grandfather's says nothing at all, because he is a portrait.",
+    "One climbs, or one is climbed upon. Mother says there is no third way. Mother has never looked for one.",
+    "The view is better from the upper tiers. The air is thinner. One gets used to both.",
+    "Do you know what tier you were born to? I was born to this one. I am told it is a blessing.",
+  ],
 };
 
 const BY_REGION: Partial<Record<AreaId, string[]>> = {
@@ -135,5 +142,7 @@ export function crowdNpcScript(key: string, g: GameState): Step[] | null {
   if (c.region === "village" && f.heartReturned) lines.push("Since the Heart came home the willows have never been greener. The whole village says so, so it must be true.");
   if (c.region === "village" && f.villageSaved && !f.heartReturned) lines.push("The fox that came into the square had red eyes. They cleared before it ran. I keep thinking about that.");
   const line = lines[Math.floor((g.playTime / 9 + g.kills + c.n * 7) % lines.length)];
-  return [{ say: char, name, text: line }];
+  // and what her realm makes of them, and they of her: a kneel, a bow, a word (see story/standing.ts)
+  const realm = war ? null : crowdRealm(key, c.kind, c.n, g, char, name);
+  return realm ? [...realm, { say: char, name, text: line }] : [{ say: char, name, text: line }];
 }

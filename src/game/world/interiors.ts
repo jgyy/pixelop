@@ -19,7 +19,7 @@ import { DORM_AT, HALL_CAST, ROOM_SEVEN, ROOMMATES } from "./halls";
  * same tile row or column as the building's front door.
  */
 
-export const INTERIOR_IDS = ["hall", "cottage", "teahouse", "mill", "pagoda", "dorm"] as const;
+export const INTERIOR_IDS = ["hall", "cottage", "teahouse", "mill", "pagoda", "dorm", "fragrance", "fragranceup", "willowinn", "willowinnup"] as const;
 export type InteriorId = (typeof INTERIOR_IDS)[number];
 
 export interface InteriorDef extends AreaDef {
@@ -34,8 +34,16 @@ export interface InteriorDef extends AreaDef {
   inward: [number, number];
   /** Where she stands outside after leaving, in world tiles. */
   outside: [number, number];
-  /** The tile inside the room that leads back out. */
+  /** The tile inside the room that leads back out (on an upper floor: back down the stair). */
   exit: [number, number];
+  /** A floor above, reached by the stair at `stair` (multi-storey buildings). */
+  upstairs?: InteriorId;
+  /** The floor below, for an upper floor (it has no door of its own onto the street). */
+  below?: InteriorId;
+  /** Where the stair stands in this room. */
+  stair?: [number, number];
+  /** The realm she must have reached before the house lets her up (0 Qi Condensation, 1 Foundation, 2 Core Formation…). */
+  minRealm?: number;
 }
 
 /**
@@ -71,6 +79,10 @@ interface Spec {
   /** Unit vector from the door into the building: [-1, 0] for a door on the east face, [0, -1] on the south face. */
   inward: [number, number];
   night?: number;
+  upstairs?: InteriorId;
+  below?: InteriorId;
+  stair?: [number, number];
+  minRealm?: number;
 }
 
 function interior(sp: Spec): InteriorDef {
@@ -105,13 +117,17 @@ function interior(sp: Spec): InteriorDef {
     props: [...sp.props, P("mat", ei, ej)],
     npcs: sp.npcs,
     enemies: [],
-    interacts: [...sp.interacts, { key: `${sp.key}-exit`, kind: "door", i: ei, j: ej, to: "out" }],
+    interacts: [...sp.interacts, { key: `${sp.key}-exit`, kind: "door", i: ei, j: ej, to: "out" }, ...(sp.upstairs && sp.stair ? [{ key: `${sp.key}-stair`, kind: "door" as const, i: sp.stair[0], j: sp.stair[1], to: sp.upstairs }] : [])],
     building: { id: sp.building.id, i: sp.building.i, j: sp.building.j, k: sp.building.k, at: sp.building.at },
     source: sp.building.source,
     door,
     inward: sp.inward,
     outside: [door[0] + 0.5 - di * 0.7, door[1] + 0.5 - dj * 0.7],
     exit: [ei, ej],
+    ...(sp.upstairs && { upstairs: sp.upstairs }),
+    ...(sp.below && { below: sp.below }),
+    ...(sp.stair && { stair: sp.stair }),
+    ...(sp.minRealm !== undefined && { minRealm: sp.minRealm }),
   };
 }
 
@@ -350,7 +366,169 @@ function buildDorm(): InteriorDef {
   });
 }
 
-const BUILDERS: Record<InteriorId, () => InteriorDef> = { hall: buildHall, cottage: buildCottage, teahouse: buildTeahouse, mill: buildMill, pagoda: buildPagoda, dorm: buildDorm };
+
+// ----------------------------------------------------------------------------- the Pavilion of Nine Fragrances, Jinhe's three-storey restaurant: the ground floor, and the floor above for cultivators of standing
+const FRAGRANCE_AT: [number, number] = [204, 495];
+function buildFragrance(): InteriorDef {
+  // 9 × 9 tiles inside and out
+  const b = building("towerinn", 3, FRAGRANCE_AT);
+  const m = room(b, "wood", [[3, 0], [6, 0], [0, 4]]);
+  m.rect(3, 3, 5, 5, "rug");
+  return interior({
+    key: "fragrance",
+    name: "Pavilion of Nine Fragrances",
+    hanzi: "九香楼",
+    subtitle: "Ground floor: porters, merchants and anyone with a copper",
+    building: b,
+    map: m,
+    inward: [-1, 0],
+    upstairs: "fragranceup",
+    stair: [1, 7],
+    props: [
+      P("hearth", 1, 1),
+      P("shelf", 2, 1),
+      P("barrels", 4, 1),
+      P("screen", 7, 1),
+      P("table", 3, 3),
+      P("cushion", 3, 4),
+      P("table", 6, 3),
+      P("cushion", 6, 4),
+      P("table", 3, 6),
+      P("table", 6, 6),
+      P("lampstand", 8, 8),
+      P("vase", 1, 3),
+    ],
+    npcs: [
+      { key: "fr-cook", name: "Cook Yang of the Nine Fragrances", char: "cook", i: 2, j: 2, dir: 2, anim: "pour" },
+      { key: "fr-porter", name: "A Porter at Supper", char: "porter", i: 4, j: 4, dir: 10, anim: "eat" },
+      { key: "fr-merchant", name: "A Salt Merchant", char: "merchant", i: 6, j: 5, dir: 14, anim: "toast" },
+      { key: "fr-storyteller", name: "Storyteller Ban", char: "storyteller", i: 5, j: 7, dir: 12, anim: "tell" },
+    ],
+    interacts: [
+      { key: "fr-menu", kind: "sign", i: 2, j: 1, text: "A painted menu by the stair: Noodles — 2 coppers. Wine — 3 coppers. Below, in red: “THE UPPER FLOOR is for cultivators of Foundation Establishment and above. Mortals and Qi Condensation may not go up, however much they pay. — The Management, with apologies to Qi Condensation.”" },
+      { key: "fr-chest", kind: "chest", i: 8, j: 1 },
+    ],
+  });
+}
+
+function buildFragranceUp(): InteriorDef {
+  // the same 9 × 9 tiles, one storey up: lattice windows on every wall, a balcony rail along the open front over the lane
+  const b = building("towerinn", 3, FRAGRANCE_AT);
+  const m = room(b, "wood", [[2, 0], [4, 0], [6, 0], [0, 2], [0, 6]]);
+  m.rect(2, 2, 6, 6, "rug");
+  return interior({
+    key: "fragranceup",
+    name: "Pavilion of Nine Fragrances · Upper Floor",
+    hanzi: "九香楼·雅座",
+    subtitle: "The upper floor: for cultivators of standing only",
+    building: b,
+    map: m,
+    inward: [-1, 0],
+    below: "fragrance",
+    stair: [1, 7],
+    minRealm: 1,
+    night: 0.36,
+    props: [
+      P("screen", 1, 1),
+      P("scroll", 3, 1),
+      P("vase", 5, 1),
+      P("lampstand", 7, 1),
+      P("table", 3, 3),
+      P("cushion", 3, 4),
+      P("table", 6, 3),
+      P("cushion", 6, 4),
+      P("table", 4, 6),
+      P("cushion", 5, 6),
+      P("candle", 8, 2),
+      P("candle", 8, 6),
+    ],
+    npcs: [
+      { key: "fr-lord", name: "A Gold-Tier Lord Visiting Jinhe", char: "nobleM", i: 3, j: 2, dir: 2, anim: "toast" },
+      { key: "fr-lady", name: "Lady Wan of the Golden Pavilion", char: "nobleF", i: 7, j: 4, dir: 12, anim: "lean" },
+      { key: "fr-sword", name: "A Swordsman of the Sword Sea", char: "swordsea", i: 6, j: 5, dir: 14, anim: "drink" },
+      { key: "fr-poet", name: "Poet Shu Ye, Upstairs at Last", char: "scholar", i: 2, j: 5, dir: 4, anim: "write" },
+    ],
+    interacts: [
+      { key: "fr-window", kind: "sign", i: 4, j: 0, text: "From the upper floor's lattice you can see the whole lane below: porters, bearers, the dyers' blue hands, the old wall's line. Nobody down there is looking up. Nobody down there is allowed to come up and look down." },
+      { key: "fr-up-chest", kind: "chest", i: 1, j: 3 },
+    ],
+  });
+}
+
+// ----------------------------------------------------------------------------- the Willow Inn in Willow Creek's East Ward: three storeys, and a top floor the village built for a golden core of its own
+const WILLOW_INN_AT: [number, number] = [230, 139];
+function buildWillowInn(): InteriorDef {
+  const b = building("towerinn", 3, WILLOW_INN_AT);
+  const m = room(b, "wood", [[3, 0], [0, 3], [0, 6]]);
+  m.rect(3, 3, 6, 5, "rug");
+  return interior({
+    key: "willowinn",
+    name: "The Willow Inn",
+    hanzi: "柳溪客栈",
+    subtitle: "Three storeys, built by every family in the village",
+    building: b,
+    map: m,
+    inward: [0, -1],
+    upstairs: "willowinnup",
+    stair: [7, 1],
+    props: [
+      P("hearth", 1, 1),
+      P("shelf", 3, 1),
+      P("barrels", 5, 1),
+      P("table", 3, 4),
+      P("cushion", 4, 4),
+      P("table", 6, 6),
+      P("cushion", 5, 6),
+      P("vase", 1, 8),
+      P("lampstand", 8, 4),
+    ],
+    npcs: [
+      { key: "wi-maid", name: "Serving Girl Lianlian", char: "villagerF", i: 2, j: 3, dir: 2, anim: "pour" },
+      { key: "wi-farmer", name: "Farmer Wu's Cousin", char: "farmer", i: 4, j: 5, dir: 10, anim: "eat" },
+      { key: "wi-guest", name: "A Guest from the Tea Terraces", char: "teapicker", i: 6, j: 4, dir: 14, anim: "drink" },
+    ],
+    interacts: [
+      { key: "wi-board", kind: "sign", i: 3, j: 1, text: "The inn's rules, chalked on a board: “Ground floor: anyone. Second floor: anyone who pays. Top floor: kept for the day Willow Creek has a golden core of its own. (Core Formation and above. Granny Hua's girl, this means you.)”" },
+      { key: "wi-chest", kind: "chest", i: 8, j: 8 },
+    ],
+  });
+}
+
+function buildWillowInnUp(): InteriorDef {
+  const b = building("towerinn", 3, WILLOW_INN_AT);
+  const m = room(b, "wood", [[2, 0], [5, 0], [0, 2], [0, 5]]);
+  m.rect(2, 2, 6, 6, "rug");
+  return interior({
+    key: "willowinnup",
+    name: "The Willow Inn · Top Floor",
+    hanzi: "柳溪客栈·顶楼",
+    subtitle: "Kept for Willow Creek's own golden core",
+    building: b,
+    map: m,
+    inward: [0, -1],
+    below: "willowinn",
+    stair: [7, 1],
+    minRealm: 2,
+    night: 0.36,
+    props: [
+      P("bed", 2, 1),
+      P("screen", 4, 1),
+      P("scroll", 6, 1),
+      P("table", 4, 4),
+      P("cushion", 4, 5),
+      P("vase", 1, 7),
+      P("candle", 8, 3),
+      P("altar", 1, 4),
+    ],
+    npcs: [{ key: "wi-zhou", name: "Village Head Zhou, Waiting Upstairs", char: "zhou", i: 5, j: 5, dir: 12, anim: "laugh" }],
+    interacts: [
+      { key: "wi-altar", kind: "sign", i: 1, j: 4, anim: "pray", text: "A little altar the village set up on the top floor, with a tablet on it, carved and gilded and left blank. Under it, in Granny Hua's hand: “For whoever comes up first. We always knew who it would be.”" },
+      { key: "wi-view", kind: "sign", i: 5, j: 0, text: "From the top floor of the Willow Inn you can see over the willows to the creek, the market road, the highway, and, on a clear day, the sect floating in the clouds where you started. The whole of Willow Creek looks very small, and very much yours." },
+    ],
+  });
+}
+
+const BUILDERS: Record<InteriorId, () => InteriorDef> = { hall: buildHall, cottage: buildCottage, teahouse: buildTeahouse, mill: buildMill, pagoda: buildPagoda, dorm: buildDorm, fragrance: buildFragrance, fragranceup: buildFragranceUp, willowinn: buildWillowInn, willowinnup: buildWillowInnUp };
 const cache = new Map<InteriorId, InteriorDef>();
 
 /** Build (once) and return an interior. */
@@ -364,7 +542,7 @@ export const isInteriorId = (s: string | undefined): s is InteriorId => !!s && (
 
 /** The open-world doors, as interactables to stand before each building. */
 export function interiorDoors(): Interactable[] {
-  return INTERIOR_IDS.map((id) => {
+  return INTERIOR_IDS.filter((id) => !getInterior(id).below).map((id) => {
     const d = getInterior(id);
     return { key: `door-${id}`, kind: "door", i: d.door[0], j: d.door[1], to: id };
   });

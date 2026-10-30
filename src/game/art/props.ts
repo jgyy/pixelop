@@ -3204,6 +3204,310 @@ const PROPS = {
       for (const x of [-6, 6]) r.box([x - 1.2, -3.6, 18], [x + 1.2, -3.2, 24 + Math.sin(f + x) * 0.4], m(PAL.paper, 4, { shader: (sf, tone) => (Math.abs(sf.p[0] - x) < 0.3 ? tone(PAL.red) : tone(PAL.paper)) }));
     },
   },
+  // a two-storey shophouse: an open shopfront below with its shutters folded back, a jettied upper floor with a balcony over the street, and a skirt roof between the storeys
+  townhouse: {
+    foot: [0, 0, 1, 1],
+    blocks: true,
+    frames: 6,
+    fps: 4,
+    emit: "smoke",
+    light: { color: "#ffb060", radius: 40, dy: 34 },
+    paint: (r, f, n) => {
+      const cx = T / 2;
+      const cy = T / 2;
+      const W = T * 0.85;
+      const lattice = (z0: number, z1: number) => (s: { p: V3; n: V3 }, tone: (r: Ramp, d?: number) => string) => {
+        const fx = Math.abs(s.n[0]) > 0.5;
+        const along = fx ? s.p[1] - cy : s.p[0] - cx;
+        if (Math.abs(along) > W - 2.2 || s.p[2] > z1 - 1.6 || s.p[2] < z0 + 1.2) return tone(PAL.woodDark);
+        if (Math.abs(s.p[2] - (z0 + z1) / 2) < 3 && Math.abs(Math.abs(along) - 6) < 3.4) return Math.abs(((along + 30) % 1.7) - 0.85) < 0.25 || Math.abs(((s.p[2] + 30) % 1.7) - 0.85) < 0.25 ? tone(PAL.woodDark) : "#ffd890";
+        return tone(WALL);
+      };
+      r.box([cx - W - 1, cy - W - 1, 0], [cx + W + 1, cy + W + 1, 3], m(PAL.stone, 1));
+      // the ground floor: three plastered walls, and the open shopfront on the east face with a counter and its goods
+      r.box([cx - W, cy - W, 3], [cx + W - 4, cy + W, 22], md(WALL, 2, { shader: lattice(3, 22) }));
+      for (const y of [cy - W + 1, cy - W / 3, cy + W / 3, cy + W - 1]) r.prism(cx + W - 1, y, 1.2, 3, 22, 6, m(PILLAR, 3));
+      r.box([cx + W - 4, cy - W + 2, 3], [cx + W - 1, cy + W - 2, 9], m(PAL.wood, 4));
+      for (let k = 0; k < 4; k++) r.sphere([cx + W - 2.5, cy - W + 5 + k * 4.2, 10.4], 1.4, m([PAL.orange, PAL.green, PAL.red, PAL.gold][k], 5));
+      r.box([cx + W - 4.6, cy - W, 15], [cx + W - 4, cy + W, 22], m(PAL.woodDark, 6));
+      // a skirt roof of grey tiles between the storeys
+      r.hipRoof(cx, cy, W + 6, W + 6, 20, W + 1, W + 1, 25, md(ROOF_GREY, 7, { shader: roofTiles(ROOF_GREY) }));
+      // the upper floor juts out a little over the street
+      r.box([cx - W - 1, cy - W - 1, 25], [cx + W + 1, cy + W + 1, 42], md(WALL, 8, { shader: lattice(25, 42) }));
+      // a balcony on the east face with its railing, a curtain stirring in the doorway behind it
+      r.box([cx + W + 1, cy - W + 1, 25], [cx + W + 6, cy + W - 1, 26.4], m(PAL.woodDark, 9));
+      railing(r, [cx + W + 5.6, cy - W + 1.5, 26.4], [cx + W + 5.6, cy + W - 1.5, 26.4], m(PILLAR, 10), 4.2, 3);
+      const st = Math.sin((f / n) * TAU) * 0.8;
+      r.box([cx + W + 0.8, cy - 4, 27], [cx + W + 1.4 + Math.max(0, st), cy + 4, 39], m(ramp("#e86a7a", { lo: "#5a1a3a" }), 11));
+      // the top roof, with curled ridge ends and a chimney
+      r.hipRoof(cx, cy, W + 8, W + 8, 42, W * 0.6, 1, 58, md(ROOF_GREY, 12, { shader: roofTiles(ROOF_GREY) }));
+      r.sweep([[cx - W * 0.6, cy, 58.5], [cx + W * 0.6, cy, 58.5]], 1.2, m(PAL.black, 13));
+      for (const sx of [-1, 1]) r.sweep([[cx + sx * W * 0.6, cy, 58.5], [cx + sx * (W * 0.6 + 2.5), cy, 59.5], [cx + sx * (W * 0.6 + 3.2), cy, 62]], [1.2, 0.9, 0.5], m(PAL.black, 13));
+      r.box([cx + 6, cy - 9, 48], [cx + 10, cy - 5, 62], m(PAL.stone, 14));
+      // red lanterns swinging from the balcony's eave
+      for (const o of [-W + 4, W - 4]) {
+        const sw = Math.sin((f / n) * TAU + o) * 0.9;
+        r.sweep([[cx + W + 7, cy + o, 42], [cx + W + 7 + sw * 0.5, cy + o - sw * 0.5, 38.5]], 0.2, m(PAL.black, 15));
+        r.ellipsoid([cx + W + 7 + sw * 0.7, cy + o - sw * 0.7, 36.4], [1.9, 1.9, 2.4], m(PAL.red, 16, { shader: (q, tone) => (Math.abs(q.p[2] - 36.4) > 2 ? tone(PAL.gold) : tone(PAL.red)) }));
+      }
+      // a shop banner hung from the upper floor, swaying
+      const pole: V3 = [cx + W + 1, cy + W + 1, 40];
+      const pts: V3[] = [];
+      for (let k = 0; k <= 5; k++) {
+        const w = Math.sin((f / n) * TAU - k * 0.7) * (k / 5) * 1.2;
+        pts.push(add(pole, [w * 0.5, 2 - w * 0.5, -k * 2.6]));
+      }
+      r.sweep(pts, 1.6, m(PAL.paper, 17, { shader: (q, tone) => (q.u > 0.3 && q.u < 0.7 && Math.abs(((q.p[2] + 40) % 4) - 2) < 0.9 ? tone(PAL.red) : tone(PAL.paper)) }));
+    },
+  },
+  // a three-storey restaurant (酒楼): a gallery with its railing round each upper floor, a skirt roof under each, a tall gilt signboard, wine flags, and strings of red lanterns down the eaves
+  towerinn: {
+    foot: [-1, -1, 1, 1],
+    blocks: true,
+    frames: 6,
+    fps: 4,
+    emit: "smoke",
+    light: { color: "#ffb060", radius: 60, dy: 56 },
+    paint: (r, f, n) => {
+      const E = T * 1.45;
+      r.box([-E, -E, 0], [E, E, 3], md(PAL.stone, 1));
+      let z = 3;
+      const storeys = [21, 18, 17];
+      for (let k = 0; k < 3; k++) {
+        const W = T * (1.28 - k * 0.12);
+        const h = storeys[k];
+        const z0 = z;
+        r.box([-W, -W, z0], [W, W, z0 + h], md(WALL, 2 + k, {
+          shader: (s, tone) => {
+            const fx = Math.abs(s.n[0]) > 0.5;
+            const along = fx ? s.p[1] : s.p[0];
+            if (Math.abs(along) > W - 2 || s.p[2] > z0 + h - 1.4 || s.p[2] < z0 + 1) return tone(PILLAR);
+            if (k === 0 && fx && s.n[0] > 0 && Math.abs(along) < 6 && s.p[2] < z0 + 15) return Math.abs(along) < 0.4 ? tone(PAL.woodDark) : tone(PILLAR, 1);
+            if (Math.abs(s.p[2] - (z0 + h * 0.55)) < h * 0.26 && Math.abs(((along + 60) % 9) - 4.5) < 3) return Math.abs(((along + 60) % 1.6) - 0.8) < 0.22 || Math.abs(((s.p[2] + 60) % 1.6) - 0.8) < 0.22 ? tone(PAL.woodDark) : "#ffd890";
+            return tone(WALL);
+          },
+        }));
+        for (const sx of [-1, 1]) for (const sy of [-1, 1]) r.prism(sx * (W - 0.6), sy * (W - 0.6), 1.4, z0, z0 + h, 6, m(PILLAR, 6));
+        z += h;
+        // a skirt roof, then the next floor's gallery with its railing
+        r.hipRoof(0, 0, W + 6, W + 6, z - 3, W + 0.5, W + 0.5, z + 2, md(ROOF_RED, 7 + k, { shader: roofTiles(ROOF_RED) }));
+        for (const sx of [-1, 1]) for (const sy of [-1, 1]) r.sweep([[sx * (W + 5), sy * (W + 5), z - 2.6], [sx * (W + 8), sy * (W + 8), z + 1]], [1, 0.4], m(ROOF_RED, 10));
+        if (k < 2) {
+          const G = T * (1.28 - (k + 1) * 0.12) + 4;
+          r.box([-G, -G, z + 1], [G, G, z + 2.2], m(PAL.woodDark, 11));
+          for (const [a, b] of [
+            [[-G, -G], [G, -G]],
+            [[G, -G], [G, G]],
+            [[G, G], [-G, G]],
+            [[-G, G], [-G, -G]],
+          ] as [[number, number], [number, number]][])
+            railing(r, [a[0] * 0.98, a[1] * 0.98, z + 2.2], [b[0] * 0.98, b[1] * 0.98, z + 2.2], m(PILLAR, 12), 3.4, 3.2);
+          z += 2.2;
+        }
+        // strings of red lanterns swinging under the eaves on the street side
+        for (const o of [-W + 3, 0, W - 3]) {
+          const sw = Math.sin((f / n) * TAU + o + k) * 0.9;
+          r.sweep([[W + 5, o, z - 1], [W + 5 + sw * 0.5, o - sw * 0.5, z - 4]], 0.2, m(PAL.black, 13));
+          r.ellipsoid([W + 5 + sw * 0.7, o - sw * 0.7, z - 6], [1.8, 1.8, 2.2], m(PAL.red, 14, { shader: (q, tone) => (Math.abs(q.p[2] - (z - 6)) > 1.8 ? tone(PAL.gold) : tone(PAL.red)) }));
+        }
+      }
+      // the top roof, steep and upturned, with a gilt pearl on its ridge
+      const W = T * 1.04;
+      r.hipRoof(0, 0, W + 8, W + 8, z, W * 0.4, 1, z + 17, md(ROOF_RED, 15, { shader: roofTiles(ROOF_RED) }));
+      for (const sx of [-1, 1]) for (const sy of [-1, 1]) r.sweep([[sx * (W + 7), sy * (W + 7), z + 1], [sx * (W + 11), sy * (W + 11), z + 5]], [1.2, 0.4], m(ROOF_RED, 16));
+      r.sweep([[-W * 0.4, 0, z + 17.5], [W * 0.4, 0, z + 17.5]], 1.2, m(PAL.gold, 17));
+      r.sphere([0, 0, z + 20], 2, m(PAL.gold, 17));
+      // a tall black signboard with gold characters between the first and second floors
+      const SW = T * 1.28;
+      r.box([SW + 0.4, -3, 26], [SW + 1.6, 3, 44], m(PAL.black, 18, { shader: (q, tone) => (q.n[0] > 0.5 && Math.abs(q.p[1]) < 1.6 && Math.abs(((q.p[2] + 40) % 5.5) - 2.75) < 1.6 ? tone(PAL.gold) : tone(PAL.black)) }));
+      // two wine flags (酒) on poles at the front corners
+      for (const o of [-1, 1]) {
+        const pole: V3 = [SW + 4, o * (SW + 2), 0];
+        r.sweep([pole, add(pole, [0, 0, 46])], 0.8, m(PAL.woodDark, 19));
+        const pts: V3[] = [];
+        for (let k = 0; k <= 5; k++) {
+          const w = Math.sin((f / n) * TAU - k * 0.8 + o) * (k / 5) * 1.8;
+          pts.push(add(pole, [w * 0.4, o * (k * 1.7) + w * 0.4, 42 - k * 0.2]));
+        }
+        r.sweep(pts, 3.2, m(o < 0 ? PAL.paper : ramp("#3a6ab8"), 20, { shader: (q, tone) => (q.u > 0.35 && q.u < 0.7 && Math.abs(q.p[2] - 42) < 1.2 ? tone(PAL.red) : tone(o < 0 ? PAL.paper : ramp("#3a6ab8"))) }));
+      }
+    },
+  },
+  // a drum tower: a brick podium with an arched passage, and a pavilion of two roofs over it where the great drum hangs
+  drumtower: {
+    foot: [-1, -1, 1, 1],
+    blocks: true,
+    frames: 4,
+    fps: 3,
+    light: { color: "#ffd070", radius: 44, dy: 70 },
+    paint: (r, f, n) => {
+      const E = T * 1.4;
+      r.box([-E, -E, 0], [E, E, 30], md(ramp("#8a8a96", { lo: "#2a2a3a" }), 1, {
+        shader: (s, tone) => {
+          const along = Math.abs(s.n[0]) > 0.5 ? s.p[1] : s.p[0];
+          if (Math.abs(s.n[2]) < 0.5 && Math.abs(along) < 7 && s.p[2] < 14 + Math.sqrt(Math.max(0, 49 - along * along)) * 0.6) return "#1a1420";
+          if (s.p[2] % 3 < 0.45) return tone(ramp("#8a8a96", { lo: "#2a2a3a" }), 1);
+          return tone(ramp("#8a8a96", { lo: "#2a2a3a" }));
+        },
+      }));
+      r.box([-E - 0.6, -E - 0.6, 30], [E + 0.6, E + 0.6, 32], m(PAL.stone, 2));
+      for (const [a, b] of [
+        [[-E, -E], [E, -E]],
+        [[E, -E], [E, E]],
+        [[E, E], [-E, E]],
+        [[-E, E], [-E, -E]],
+      ] as [[number, number], [number, number]][])
+        railing(r, [a[0], a[1], 32], [b[0], b[1], 32], m(PAL.stone, 3), 3.6, 4.4);
+      const W = T * 0.95;
+      for (const sx of [-1, 1]) for (const sy of [-1, 1]) r.prism(sx * W, sy * W, 1.6, 32, 52, 8, m(PILLAR, 4));
+      r.box([-W + 2, -W + 2, 32], [W - 2, W - 2, 46], md(WALL, 5, { shader: (s, tone) => (Math.abs(((s.p[0] + s.p[1] + 60) % 6) - 3) < 1 ? tone(PILLAR) : tone(WALL)) }));
+      // the great drum on its stand, struck now and then
+      const beat = f % 2 === 0 ? 0.6 : 0;
+      r.ellipsoid([W + 1.6, 0, 40], [2.4 + beat * 0.3, 6.6, 6.6], m(PAL.red, 6, { shader: (s, tone) => (s.n[0] > 0.6 ? tone(ramp("#f4e2c0")) : Math.abs(Math.abs(s.p[1]) - 6) < 0.6 ? tone(PAL.gold) : tone(PAL.red)) }));
+      r.hipRoof(0, 0, W + 8, W + 8, 52, W + 1, W + 1, 56, md(ROOF_TEAL, 7, { shader: roofTiles(ROOF_TEAL) }));
+      r.box([-W * 0.75, -W * 0.75, 56], [W * 0.75, W * 0.75, 64], md(WALL, 8, { shader: (s, tone) => (s.p[2] > 61 ? tone(PAL.jade) : tone(PILLAR)) }));
+      r.hipRoof(0, 0, W + 4, W + 4, 64, W * 0.3, 1, 78, md(ROOF_TEAL, 9, { shader: roofTiles(ROOF_TEAL) }));
+      for (const sx of [-1, 1])
+        for (const sy of [-1, 1]) {
+          r.sweep([[sx * (W + 7), sy * (W + 7), 53], [sx * (W + 11), sy * (W + 11), 57]], [1.1, 0.4], m(ROOF_TEAL, 10));
+          r.sweep([[sx * (W + 3), sy * (W + 3), 65], [sx * (W + 6.5), sy * (W + 6.5), 69]], [1, 0.4], m(ROOF_TEAL, 10));
+        }
+      r.sweep([[-W * 0.3, 0, 78.5], [W * 0.3, 0, 78.5]], 1.2, m(PAL.gold, 11));
+      // a pennant streaming from the top
+      const pts: V3[] = [];
+      for (let k = 0; k <= 5; k++) pts.push([k * 1.6, -k * 1.6 + Math.sin((f / n) * TAU - k) * (k / 5) * 1.4, 88 - k * 0.3]);
+      r.sweep([[0, 0, 78], [0, 0, 90]], 0.6, m(PAL.woodDark, 12));
+      r.sweep(pts, 1.4, m(PAL.red, 13));
+    },
+  },
+  // a long two-storey mansion: a colonnade before the ground floor, a gallery with its railing running the length of the upper floor, under a single great roof
+  mansion: {
+    foot: [0, 0, 2, 1],
+    blocks: true,
+    frames: 4,
+    fps: 3,
+    emit: "smoke",
+    light: { color: "#ffd070", radius: 44, dy: 36 },
+    paint: (r, f, n) => {
+      const cx = T;
+      const cy = T / 2;
+      const WX = T * 1.35;
+      const WY = T * 0.85;
+      r.box([cx - WX - 2, cy - WY - 2, 0], [cx + WX + 2, cy + WY + 2, 3], md(PAL.stone, 1));
+      const win = (z0: number, z1: number) => (s: { p: V3; n: V3 }, tone: (r: Ramp, d?: number) => string) => {
+        const fx = Math.abs(s.n[0]) > 0.5;
+        const along = fx ? s.p[1] - cy : s.p[0] - cx;
+        const half = fx ? WY : WX;
+        if (Math.abs(along) > half - 2 || s.p[2] > z1 - 1.4 || s.p[2] < z0 + 1) return tone(PAL.woodDark);
+        if (Math.abs(s.p[2] - (z0 + z1) / 2) < 3.2 && Math.abs(((along + 90) % 10) - 5) < 3.2) return Math.abs(((along + 90) % 1.6) - 0.8) < 0.22 ? tone(PAL.woodDark) : "#ffd890";
+        return tone(WALL);
+      };
+      r.box([cx - WX, cy - WY, 3], [cx + WX, cy + WY - 3, 22], md(WALL, 2, { shader: win(3, 22) }));
+      for (let x = cx - WX + 1; x <= cx + WX - 1 + 0.01; x += (WX * 2 - 2) / 5) r.prism(x, cy + WY - 0.5, 1.3, 3, 23, 6, m(PILLAR, 3));
+      r.box([cx - 4, cy + WY - 3.4, 3], [cx + 4, cy + WY - 2.8, 17], m(PAL.woodDark, 4, { shader: (s, tone) => (Math.abs(s.p[0] - cx) < 0.35 ? tone(PAL.black) : tone(PILLAR)) }));
+      r.hipRoof(cx, cy, WX + 5, WY + 5, 20, WX + 0.5, WY + 0.5, 24, md(ROOF_TEAL, 5, { shader: roofTiles(ROOF_TEAL) }));
+      r.box([cx - WX, cy - WY, 24], [cx + WX, cy + WY - 4, 40], md(WALL, 6, { shader: win(24, 40) }));
+      r.box([cx - WX, cy + WY - 4, 24], [cx + WX, cy + WY + 1, 25.2], m(PAL.woodDark, 7));
+      railing(r, [cx - WX + 0.5, cy + WY + 0.6, 25.2], [cx + WX - 0.5, cy + WY + 0.6, 25.2], m(PILLAR, 8), 4, 3.4);
+      for (let x = cx - WX + 1; x <= cx + WX - 1 + 0.01; x += (WX * 2 - 2) / 5) r.prism(x, cy + WY + 0.4, 1, 25, 40, 6, m(PILLAR, 9));
+      r.hipRoof(cx, cy, WX + 8, WY + 8, 40, WX * 0.6, 1, 56, md(ROOF_TEAL, 10, { shader: roofTiles(ROOF_TEAL) }));
+      r.sweep([[cx - WX * 0.6, cy, 56.5], [cx + WX * 0.6, cy, 56.5]], 1.3, m(PAL.gold, 11));
+      for (const sx of [-1, 1])
+        for (const sy of [-1, 1]) r.sweep([[cx + sx * (WX + 7), cy + sy * (WY + 7), 41], [cx + sx * (WX + 11), cy + sy * (WY + 11), 45]], [1.1, 0.4], m(ROOF_TEAL, 12));
+      // lanterns along the gallery, swaying
+      for (let k = 0; k < 4; k++) {
+        const x = cx - WX + 5 + k * ((WX * 2 - 10) / 3);
+        const sw = Math.sin((f / n) * TAU + k) * 0.8;
+        r.sweep([[x, cy + WY + 5, 40], [x + sw * 0.5, cy + WY + 5 - sw * 0.5, 36.5]], 0.2, m(PAL.black, 13));
+        r.ellipsoid([x + sw * 0.7, cy + WY + 5 - sw * 0.7, 34.5], [1.8, 1.8, 2.2], m(PAL.red, 14));
+      }
+    },
+  },
+  // the gate at the head of each stair of the City of Nine Tiers: two stone pillars carved with the tier's name and a lintel with its numeral (spans x, the stair runs through it)
+  tiergate: {
+    foot: [0, 0, 0, 0],
+    blocks: false,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      const stone = ramp("#d8d0c0", { lo: "#4a4458" });
+      for (const s of [-1, 1]) {
+        r.box([s * 20 - 3, -3, 0], [s * 20 + 3, 3, 54], md(stone, 1, { shader: (q, tone) => (Math.abs(q.n[1]) > 0.5 && Math.abs(q.p[0] - s * 20) < 1 && q.p[2] > 10 && q.p[2] < 46 && Math.abs(((q.p[2] + 30) % 5) - 2.5) < 1.4 ? tone(PAL.gold) : tone(stone)) }));
+        r.prism(s * 20, 0, 5, 0, 4, 8, m(PAL.stone, 2));
+        r.sphere([s * 20, 0, 57], 3, m(PAL.gold, 3));
+      }
+      r.box([-26, -3.4, 46], [26, 3.4, 52], md(stone, 4, { shader: (q, tone) => (Math.abs(q.n[1]) > 0.5 && Math.abs(q.p[0]) < 5 && Math.abs(q.p[2] - 49) < 2 ? tone(PAL.red) : tone(stone)) }));
+      r.hipRoof(0, 0, 30, 6, 52, 26, 0.6, 58, m(ROOF_GREY, 5, { shader: roofTiles(ROOF_GREY) }));
+    },
+  },
+  // heaven's stair sealed: a curtain of gold light strung across a tier's stair, strands rippling, the seal of the tier glowing in its middle (it bars anyone below the tier's realm)
+  stairseal: {
+    foot: [0, 0, 0, 0],
+    blocks: false,
+    frames: 8,
+    fps: 6,
+    light: { color: "#ffe08a", radius: 36, dy: 20 },
+    paint: (r, f, n) => {
+      const ph = (f / n) * TAU;
+      const light = m(ramp("#fff6c8", { lo: "#d8a040" }), 1, { outline: undefined });
+      // strands of light hanging from the top of the gate to the stair, each rippling in its own time
+      for (let k = 0; k <= 10; k++) {
+        const x = -15 + k * 3;
+        const pts: V3[] = [];
+        for (let z = 0; z <= 30; z += 5) pts.push([x + Math.sin(ph + k * 0.9 + z * 0.15) * 0.7, 0, z]);
+        r.sweep(pts, 0.32, light);
+      }
+      r.sweep([[-16, 0, 31], [16, 0, 31]], 0.6, m(PAL.gold, 2));
+      // the tier's seal: a ring of gold with a bar through it, turning slowly
+      const rr = 5.2;
+      const ring: V3[] = [];
+      for (let a = 0; a <= 16; a++) ring.push([Math.cos((a / 16) * TAU) * rr * Math.cos(ph * 0.5), Math.sin((a / 16) * TAU) * rr * Math.sin(ph * 0.5) * 0.3, 16 + Math.sin((a / 16) * TAU) * rr]);
+      r.sweep(ring, 0.55, m(PAL.gold, 3, { outline: undefined }));
+      r.sweep([[-3.4, 0, 16], [3.4, 0, 16]], 0.5, m(PAL.gold, 3, { outline: undefined }));
+      for (let k = 0; k < 4; k++) r.sphere([Math.cos(ph + k * 1.6) * 14, 0, 4 + ((k * 8 + f * 3) % 26)], 0.8, m(PAL.gold, 4, { outline: undefined }));
+    },
+  },
+  // a lacquered sedan chair with its carrying poles, the curtain stirring (the upper tiers do not walk the stair)
+  sedan: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 4,
+    fps: 4,
+    paint: (r, f, n) => {
+      const st = Math.sin((f / n) * TAU) * 0.6;
+      for (const y of [-6, 6]) r.sweep([[-16, y, 13], [16, y, 13]], 0.9, m(PAL.woodDark, 1));
+      for (const sx of [-1, 1]) for (const sy of [-1, 1]) r.box([sx * 4 - 0.6, sy * 4 - 0.6, 0], [sx * 4 + 0.6, sy * 4 + 0.6, 10], m(PAL.woodDark, 2));
+      r.box([-5.6, -5.4, 10], [5.6, 5.4, 26], md(PAL.red, 3, { shader: (q, tone) => (Math.abs(q.p[2] - 18) < 3.4 && (Math.abs(q.n[0]) > 0.5 ? Math.abs(q.p[1]) < 3 : Math.abs(q.p[0]) < 3) ? tone(PAL.gold, 1) : tone(PAL.red)) }));
+      r.box([5.6, -3, 12], [6.2 + Math.max(0, st), 3, 24], m(PAL.gold, 4));
+      r.hipRoof(0, 0, 8, 8, 26, 1.4, 1.4, 33, m(PAL.black, 5));
+      r.sphere([0, 0, 34], 1.6, m(PAL.gold, 6));
+      for (const sx of [-1, 1]) for (const sy of [-1, 1]) r.sweep([[sx * 7.4, sy * 7.4, 26.4], [sx * 9, sy * 9, 24]], 0.3, m(PAL.gold, 7));
+    },
+  },
+  // the Weighing Hall's great steelyard: a beam on a frame of black timber, the brass weight sliding and the pan swinging, for weighing the bones of everyone who comes to the city
+  bigscale: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 8,
+    fps: 4,
+    paint: (r, f, n) => {
+      const ph = (f / n) * TAU;
+      const tilt = Math.sin(ph) * 2.2;
+      r.box([-3, -10, 0], [3, 10, 2], m(PAL.stone, 1));
+      for (const y of [-8, 8]) r.sweep([[0, y, 2], [0, y * 0.4, 40]], 1.2, m(PAL.black, 2));
+      r.sweep([[0, -4, 40], [0, 4, 40]], 1.4, m(PAL.black, 2));
+      const a: V3 = [-14, 0, 37 + tilt];
+      const b: V3 = [20, 0, 37 - tilt * 1.4];
+      r.sweep([a, b], 0.9, m(PAL.woodDark, 3, { shader: (q, tone) => (Math.sin(q.u * 60) > 0.75 ? tone(PAL.gold) : tone(PAL.woodDark)) }));
+      r.sweep([[0, 0, 40], [0, 0, 37]], 0.5, m(PAL.gold, 4));
+      const pan: V3 = [-14 + Math.sin(ph * 2) * 0.6, 0, 18 + tilt];
+      for (const o of [-3, 3]) for (const p of [-3, 3]) r.sweep([a, [pan[0] + o, pan[1] + p, pan[2] + 0.4]], 0.18, m(PAL.black, 5));
+      r.ellipsoid(pan, [5, 5, 1], m(PAL.gold, 6));
+      const w = 6 + Math.cos(ph) * 6;
+      r.sweep([[w, 0, 37 - (tilt * 1.4 * w) / 20], [w, 0, 31 - (tilt * 1.4 * w) / 20]], 0.25, m(PAL.black, 7));
+      r.prism(w, 0, 2.2, 26 - (tilt * 1.4 * w) / 20, 31 - (tilt * 1.4 * w) / 20, 8, m(PAL.gold, 8));
+    },
+  },
 } satisfies Record<string, PropDef>;
 
 const BRICK2 = ramp("#8a5a4a", { lo: "#2a1410" });

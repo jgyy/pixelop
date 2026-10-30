@@ -63,6 +63,10 @@ export const ATTIRE: Attire[] = [
   { id: "outerrobe", name: "Outer Disciple's Robe", hanzi: "外门弟子袍", from: "Steward Gou of the Ten Halls" },
   { id: "innerrobe", name: "Inner Disciple's Robe", hanzi: "内门弟子袍", from: "The Ten Halls (500 quests)" },
   { id: "tenhalls", name: "Robe of the Ten Halls", hanzi: "十殿道袍", from: "Ning Wuhen, master of the Hall of the Void" },
+  // the City of Nine Tiers
+  { id: "climber", name: "Porter's Blue Jacket", hanzi: "挑夫蓝衫", from: "Granny Pot and the porters of the Mud Tier (500 quests)" },
+  { id: "heavenstep", name: "Robe of Heaven's Step", hanzi: "天阶道袍", from: "The City of Nine Tiers, the Stair stilled" },
+  { id: "stairthrone", name: "Robe of the Stair's Throne", hanzi: "阶主袍", from: "The City of Nine Tiers, taken for herself" },
 ];
 
 /** How an outfit she does not yet own may be earned (shown, greyed, in the wardrobe). */
@@ -107,6 +111,9 @@ export const ATTIRE_HINT: Record<string, string> = {
   outerrobe: "Pass the Grand Selection of the Ten Halls.",
   innerrobe: "Fulfil 500 quests of the Ten Halls.",
   tenhalls: "Bring the sleepers home from the Sealed Hall of the Void.",
+  climber: "Fulfil 500 quests of the City of Nine Tiers.",
+  heavenstep: "Still the Stair Array under Heaven's Step, and do not take it.",
+  stairthrone: "Take the Stair Array under Heaven's Step for yourself.",
   foxform: "Lay a scholar's shade to rest, and end the Blood Moon. Hu Li has a secret.",
   dragonform: "Drink the Dragon Vein.",
 };
