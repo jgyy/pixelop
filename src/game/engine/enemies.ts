@@ -1,7 +1,8 @@
 import type { CharId } from "../art/characters";
 import type { HallBossId } from "../world/halls";
+import type { TierBossId } from "../world/tiers";
 
-export type EnemyId = "fox" | "wolf" | "serpent" | "serpentKing" | "cultist" | "jiangshi" | "bandit" | "swordsman" | "patriarch" | "emberwyrm" | "stonehound" | "poisoner" | "phoenixguard" | "traitor" | "elderMo" | DeepFoeId | HollowId | WarFoeId | WarBossId | EchoId | HallBossId | "wdspar";
+export type EnemyId = "fox" | "wolf" | "serpent" | "serpentKing" | "cultist" | "jiangshi" | "bandit" | "swordsman" | "patriarch" | "emberwyrm" | "stonehound" | "poisoner" | "phoenixguard" | "traitor" | "elderMo" | DeepFoeId | HollowId | WarFoeId | WarBossId | EchoId | HallBossId | "wdspar" | TierBossId | "tjring";
 
 /** What lives in the four deeps found since: the hollow under Frostveil, the tomb under the sands, the sea cave and the bamboo's roots. */
 export type DeepFoeId = "frostfang" | "rimewyrm" | "dunewyrm" | "pearlwyrm" | "shadowvixen" | "smuggler";
@@ -186,7 +187,71 @@ const hallBosses = Object.fromEntries(
   }),
 ) as Record<HallBossId, EnemyDef>;
 
+/**
+ * The City of Nine Tiers: the trouble at the top of each tier's tale, from
+ * the overseer who whips the Mud Tier's porters to the Sovereign of the Stair
+ * on Heaven's Step. Lei Ba's challenge is a bout under the Stair Code (losing
+ * it costs nothing); the rest are not.
+ */
+const TIER_LOOK: [TierBossId, string, CharId, number, string, string, string, boolean][] = [
+  ["tjkuang", "Overseer Kuang, Warden of the Mud Tier", "overseer", 3, "Porter's Lash", "Weighed and Found Light", "#c8a060", false],
+  ["tjtong", "Guildmaster Tong, the Debt-Smith", "debtsmith", 5, "Collector's Hammer", "Interest Compounds", "#e8a060", false],
+  ["tjsima", "Inquisitor Sima of the Tablets", "inquisitor", 7, "Seal of Rejection", "Forgery Revealed", "#d8dce8", false],
+  ["tjqiao", "Madam Qiao of the Red Thread", "matchmaker", 9, "Binding Thread", "Ten Thousand Red Threads", "#ff6a7a", false],
+  ["tjleiba", "Lei Ba, Champion of the Golden Tier", "champion", 11, "Clan Saber", "Challenge Accepted", "#f2c55c", true],
+  ["tjyan", "Justiciar Yan Heng", "justiciar", 13, "Gavel of Rank", "The Lower Word Weighs Nothing", "#b88ae8", false],
+  ["tjmei", "Elder Mei Shou, Eater of Years", "yearelder", 15, "Withering Touch", "A Thousand Borrowed Springs", "#9ff5de", false],
+  ["tjqu", "Star-Registrar Qu Xing", "starregistrar", 17, "Fated Star", "Your Chart Is Written", "#c8d0ff", false],
+  ["tjloufeng", "Lou Feng, Captain of the Ninth Gate", "loufeng", 18, "Severing Spear", "Nothing Behind Me", "#e8e0ff", false],
+  ["tjgao", "Gao Qiong, Sovereign of the Stair", "sovereign", 19, "Edict of Heaven's Stair", "The Ascent of the Nine Tiers", "#fff0a0", false],
+];
+
+/** The tiers' troubles: tuned like the halls', to the realm each tier asks of her. */
+const tierBosses = Object.fromEntries(
+  TIER_LOOK.map(([id, name, sprite, level, basic, special, colour, friendly]) => {
+    const c = (level - 3) / 2;
+    return [
+      id,
+      {
+        id,
+        name,
+        sprite,
+        level,
+        hp: Math.round(250 + 190 * c + 18 * c * c),
+        atk: Math.round(21 + 5.3 * c),
+        def: Math.round(7 + 3.1 * c),
+        exp: Math.round(240 + 310 * c),
+        stones: Math.round(70 + 60 * c),
+        basic,
+        special: { name: special, power: 1.8, every: 3, drain: c >= 5 ? 0.2 : undefined, colour },
+        boss: true,
+        ...(friendly && { friendly: true }),
+        speed: 0,
+        aggro: 1.4,
+      } satisfies EnemyDef,
+    ];
+  }),
+) as Record<TierBossId, EnemyDef>;
+
 export const ENEMIES: Record<EnemyId, EnemyDef> = {
+  ...tierBosses,
+  tjring: {
+    id: "tjring",
+    name: "Stair Ring Challenger",
+    sprite: "nobleM",
+    level: 4,
+    hp: 140,
+    atk: 20,
+    def: 7,
+    exp: 45,
+    stones: 0,
+    friendly: true,
+    basic: "Challenger's Palm",
+    special: { name: "Climb the Stair", power: 1.5, every: 3, colour: "#f2c55c" },
+    intro: "A challenger of the Stair Ring cups fist in palm. “Under the Stair Code, I challenge you. Win, and my tier is yours to walk; lose, and you owe me a bow.”",
+    speed: 0,
+    aggro: 0,
+  },
   ...warBosses,
   ...echoBosses,
   ...hallBosses,

@@ -14,7 +14,7 @@ import type { TileMap } from "./tilemap";
  * so what they say needs nothing more than the key.
  */
 
-export const CROWD_KINDS = ["villager", "disciple", "soldier", "refugee", "monk", "outer", "sword", "phoenix", "herb", "miner", "fisher", "nomad", "porter", "child"] as const;
+export const CROWD_KINDS = ["villager", "disciple", "soldier", "refugee", "monk", "outer", "sword", "phoenix", "herb", "miner", "fisher", "nomad", "porter", "child", "noble"] as const;
 export type CrowdKind = (typeof CROWD_KINDS)[number];
 
 /** What kind of neighbour lives beside someone of each look. */
@@ -55,6 +55,13 @@ const KIN: Partial<Record<HumanId, CrowdKind>> = {
   peddler: "porter",
   child: "child",
   boy: "child",
+  // the City of Nine Tiers: its gentry, its bearers and porters, its wardens and severed guards
+  nobleM: "noble",
+  nobleF: "noble",
+  bearer: "porter",
+  ahlou: "porter",
+  tierwarden: "soldier",
+  severed: "soldier",
 };
 
 /** The looks each kind of neighbour wears, picked between by the neighbour's number. */
@@ -73,6 +80,7 @@ const LOOKS: Record<CrowdKind, HumanId[]> = {
   nomad: ["nomad"],
   porter: ["porter", "merchant"],
   child: ["child", "boy"],
+  noble: ["nobleM", "nobleF"],
 };
 
 const SURNAMES = ["Wu", "Lei", "Hong", "Pan", "Du", "Jiang", "Xu", "Ma", "Cao", "Fu", "Gu", "He", "Kang", "Lu", "Mo", "Ning", "Ou", "Qian", "Ren", "Song", "Tao", "Wan", "Xiang", "Yu", "Zeng", "Bo", "Chu", "Duan", "Feng", "Guo"];
@@ -92,9 +100,10 @@ const TITLES: Record<CrowdKind, [string, string]> = {
   nomad: ["Herder", "Herder"],
   porter: ["Porter", "Trader"],
   child: ["Little", "Little"],
+  noble: ["Young Lord", "Lady"],
 };
 
-const FEMALE = new Set<HumanId>(["villagerF", "discipleF", "refugeeF", "outerF", "fishwife", "herbalist", "child"]);
+const FEMALE = new Set<HumanId>(["villagerF", "discipleF", "refugeeF", "outerF", "fishwife", "herbalist", "child", "nobleF"]);
 
 /** What a neighbour is called: a title for their kind, and a name. */
 export function crowdName(kind: CrowdKind, n: number, char: HumanId): string {

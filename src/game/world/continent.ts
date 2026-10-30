@@ -3,7 +3,7 @@ import { propDef, type PropId } from "../art/props";
 import { AREA_IDS, festive, getArea, placementTiles, type AreaDef, type AreaId, type Critter, type EnemySpawn, type Interactable, type NpcPlacement, type PropPlacement } from "./areas";
 import { getInterior, INTERIOR_IDS } from "./interiors";
 import { roomDoors } from "./rooms";
-import { COARSE_H, COARSE_ORIGIN, COARSE_W, DOMAIN, regionRect, toCoarse, toWorld, WORLD_H, WORLD_SCALE, WORLD_W } from "./layout";
+import { COARSE_H, COARSE_ORIGIN, COARSE_W, DOMAIN, heldBy, HOLDS, regionRect, toCoarse, toWorld, WORLD_H, WORLD_SCALE, WORLD_W } from "./layout";
 import { companionOf, magnifyMap, magnifyProp, pointTile } from "./magnify";
 import { LIQUID, TileMap, type TileKind } from "./tilemap";
 import { CAVE_IDS, CAVE_MOUTH, deepFolk } from "./caves";
@@ -13,6 +13,8 @@ import { STREET_FOLK, TIDE_FOLK } from "./road";
 import { DORM_AT, FIELD, GREAT_HALL_AT, HALL_BOSS_AT, HALL_BOSSES, HALL_CAST, HALL_SITES, HALLS, HOPEFULS, hallMasterKey, MISSION_AT, OUTER_FOLK, RING, SPARRERS, STONE_AT } from "./halls";
 import { PatchPainter, type TerrainPatch } from "./terrain";
 import { flockmates, neighbours, packmates } from "./crowds";
+import { EAST_WARD, JINHE_QUARTERS, WILLOW_WARD, type Quarter } from "./quarters";
+import { AVENUE, CHALLENGERS, FLATS, followerKey, gateFlag, SCALE_AT, STAIR_RING, stairRow, TIANJIE_C, TIER_BOSSES, TIER_CAST, TIER_COUNT, TIER_FOLK, TIER_PATRON, TIER_SITES, tierAt, tierHeight, tierRect, tierSpots, tierWorldRect, WARDEN_NAMES, wardenKey, WEIGH_HALL_AT } from "./tiers";
 
 /**
  * The jianghu as one continuous map. The six hand-built regions are stamped
@@ -34,6 +36,17 @@ export interface WorldDef extends AreaDef {
   waypoints: Record<AreaId, [number, number]>;
   /** Named landmarks out in the wilds (shown on the world map). */
   landmarks: Landmark[];
+  /** Ground she may not step onto until a flag is set: each tier of the City of Nine Tiers, sealed below its realm (world tiles, [x0, y0, x1, y1)). */
+  bars: Bar[];
+}
+
+export interface Bar {
+  key: string;
+  rect: [number, number, number, number];
+  /** The flag that lifts it. */
+  flag: string;
+  /** Said when she walks into it. */
+  why: string;
 }
 
 export interface Landmark {
@@ -54,7 +67,7 @@ const GROUND: Ground[] = [...MAINLAND, "marsh", "terraces", "desert", "harbor", 
 const SKY: AreaId[] = ["sect", "peak"];
 
 /** Wild biomes: each ground region's own, the southern lands below the highway, and the far south and east the world grew into. */
-type WildId = Ground | "wastes" | "stoneforest" | "fields" | "highlands" | "marshland" | "terracehills" | "plum" | "sands" | "badlands" | "autumn" | "steppe" | "frostlands" | "coast" | "riverlands" | "tidelands";
+type WildId = Ground | "wastes" | "stoneforest" | "fields" | "highlands" | "marshland" | "terracehills" | "plum" | "sands" | "badlands" | "autumn" | "steppe" | "frostlands" | "coast" | "riverlands" | "tidelands" | "stairlands";
 
 interface WildStyle {
   ground: (i: number, j: number) => TileKind;
@@ -96,6 +109,8 @@ const BIOME: Record<Exclude<WildId, "marsh" | "terraces" | "desert" | "harbor" |
   // the Golden River country: low farmland running down to the southern sea, sandy toward the shore
   // the Tidewater Reach: salt meadows and sandy flats round the port of Hailing, palms and reeds along the lagoon
   tidelands: { ground: (i, j) => (fbm(i * 0.14, j * 0.14, 152) > 0.62 ? "sand" : fbm(i * 0.2, j * 0.2, 153) > 0.6 ? "meadow" : "grass"), lift: 0, hills: 1.2, trees: ["palm", "willow", "palm", "reeds", "pine"], treeP: 0.035, extras: ["reeds", "tallgrass", "butterflies"], extraP: 0.06 },
+  // the Stairlands across the strait: karst pinnacles and terraced green round the City of Nine Tiers
+  stairlands: { ground: (i, j) => (fbm(i * 0.18, j * 0.18, 162) > 0.62 ? "meadow" : hash2(i, j, 163) > 0.9 ? "moss" : "grass"), lift: 0, hills: 2, trees: ["karst", "bamboo", "pine", "karst", "cherry"], treeP: 0.06, extras: ["tallgrass", "rock", "butterflies"], extraP: 0.05 },
   riverlands: { ground: (i, j) => (j > 538 + fbm(i * 0.1, j * 0.1, 150) * 12 ? "sand" : fbm(i * 0.16, j * 0.16, 151) > 0.6 ? "meadow" : "grass"), lift: 0, hills: 1.4, trees: ["willow", "maple", "haystack", "cherry", "willow"], treeP: 0.04, extras: ["tallgrass", "reeds", "butterflies", "tallgrass"], extraP: 0.06 },
 };
 // the new regions' own surroundings take after the lands they stand in
@@ -122,6 +137,8 @@ const ZONES: [WildId, [number, number, number, number]][] = [
   ["riverlands", [10, 458, 290, 552]],
   // and the Tidewater Reach, the south-east, round the port of Hailing
   ["tidelands", [470, 456, 630, 548]],
+  // and across the strait of cloud, the Stairlands round the City of Nine Tiers
+  ["stairlands", [140, 560, 310, 658]],
 ];
 
 /** The old highway across the whole mainland, below the four regions. */
@@ -155,7 +172,9 @@ export const HIGHWAY: [number, number][] = [
 ];
 
 /** Jinhe's walls (authoring tiles, inclusive), and the crossroads at its heart where its two streets meet. */
-const JINHE = { x0: 208, y0: 487, x1: 236, y1: 513, c: [222, 500] as [number, number] };
+const JINHE = { x0: 201, y0: 482, x1: 243, y1: 518, c: [222, 500] as [number, number] };
+/** The city's old walls, before it grew: its first quarters still stand where they were, and the new ones ring them. */
+const OLD_JINHE = { x0: 208, y0: 487, x1: 236, y1: 513 };
 
 /** Hailing, the port of the Tidewater Reach (authoring tiles, inclusive): walls, two streets crossing at its square, and a ring of canals. */
 export const HAILING = { x0: 526, y0: 484, x1: 568, y1: 520, c: [547, 502] as [number, number], canalsJ: [492, 512], canalsI: [535, 559] };
@@ -207,15 +226,15 @@ const BRANCHES: { pts: [number, number][]; valley?: boolean }[] = [
   // into the red cliffs of the badlands
   { pts: [[430, 278], [480, 330], [512, 372], [524, 396]] },
   // the Great South Road, from the southern road down through the plum hills to Jinhe's north gate
-  { pts: [[240, 282], [234, 320], [228, 360], [224, 400], [222, 440], [222, 486]] },
+  { pts: [[240, 282], [234, 320], [228, 360], [224, 400], [222, 440], [222, 482]] },
   // out of Jinhe's west gate to Reedwater Landing, where the bamboo stream meets the sea
-  { pts: [[208, 500], [180, 504], [150, 508], [120, 514], [104, 520]] },
+  { pts: [[201, 500], [180, 504], [150, 508], [120, 514], [104, 520]] },
   // out of the east gate, over the Golden River, to the caravanserai…
-  { pts: [[236, 500], [260, 500], [290, 501], [326, 500]] },
+  { pts: [[243, 500], [260, 500], [290, 501], [326, 500]] },
   // …and the caravan track north to the Yellow Sands
   { pts: [[330, 496], [340, 470], [348, 440], [350, 404]] },
-  // the south gate, down to the sea
-  { pts: [[222, 513], [222, 530], [224, 540]] },
+  // the south gate, down to the cliffs over the strait, where the Nine-Arch Bridge sets out for the City of Nine Tiers
+  { pts: [[222, 518], [222, 530], [222, 552]] },
   // the Tide Road: on east from the caravanserai, across the salt meadows, to Hailing's west gate
   { pts: [[336, 500], [380, 503], [430, 505], [480, 503], [526, 502]] },
   // down from the red cliffs of the badlands to Hailing's north gate
@@ -270,8 +289,10 @@ const mainlandMask = (i: number, j: number) => {
   const river = j >= 400 + n && j <= 546 + n + shore * 0.3 && i >= 8 + n * 0.6 - shore * 0.3 && i <= 466 + n * 0.6 + shore * 0.2;
   // the Tidewater Reach, round the port of Hailing and its lagoon
   const tide = j >= 440 + n && j <= 548 + n + shore * 0.3 && i >= 460 + n * 0.6 && i <= 628 + n * 0.6 + shore * 0.2;
+  // the Stairlands across the strait, round the City of Nine Tiers
+  const stair = j >= 562 + n * 0.5 && j <= 656 && i >= 142 + n * 0.6 - shore * 0.15 && i <= 302 + n * 0.6 + shore * 0.15;
   const east = j >= 56 + n - shore && j <= 448 + n + shore && i >= 346 + n * 0.6 && (j > 222 && j < 282 ? i <= 621 : i <= 636 + n * 0.6 + shore);
-  return old || south || east || river || tide;
+  return old || south || east || river || tide || stair;
 };
 
 /**
@@ -488,6 +509,23 @@ function buildWorld(): WorldDef {
   site([222, 262], 3.6, "dirt", 2, 0.6);
   // Willow Creek's market road: the village spills south along the road down to the highway
   site([192, 146], 11, "grass", 1, 0.5);
+  // Willow Creek's East Ward: level ground below the creek, a paved street through it, and a lane west to the market road
+  {
+    const { x0, y0, x1, y1, street } = EAST_WARD;
+    for (let j = y0; j <= y1; j++)
+      for (let i = x0; i <= x1; i++) {
+        if (m.kind(i, j) === "void" || LIQUID[m.kind(i, j)]) continue;
+        const edge = Math.min(i - x0, x1 - i, j - y0, y1 - j);
+        if (edge < 1 && hash2(i, j, 164) > 0.5 && Math.abs(j - street) > 1) continue;
+        m.set(i, j, Math.abs(j - street) <= 1 ? "plaza" : hash2(i, j, 165) > 0.88 ? "dirt" : "grass", 1);
+        fix(i, j, 1);
+      }
+    for (let i = 200; i < x0; i++)
+      for (let j = street - 1; j <= street + 1; j++) {
+        m.set(i, j, "plaza", 1);
+        fix(i, j, 1);
+      }
+  }
   // paddies among the fields, edged by dikes
   for (const [x0, y0] of [
     [200, 175],
@@ -509,7 +547,10 @@ function buildWorld(): WorldDef {
       const inside = i > JINHE.x0 && i < JINHE.x1 && j > JINHE.y0 && j < JINHE.y1;
       const street = Math.abs(i - JINHE.c[0]) <= 1 || Math.abs(j - JINHE.c[1]) <= 1;
       const square = Math.abs(i - JINHE.c[0]) <= 4 && Math.abs(j - JINHE.c[1]) <= 4;
-      m.set(i, j, inside && (street || square) ? "plaza" : inside && hash2(i, j, 152) > 0.86 ? "dirt" : "grass", 1);
+      // where the old walls stood, a ring lane joins the old city to the new quarters round it
+      const O = OLD_JINHE;
+      const lane = ((i === O.x0 || i === O.x1) && j >= O.y0 && j <= O.y1) || ((j === O.y0 || j === O.y1) && i >= O.x0 && i <= O.x1);
+      m.set(i, j, inside && (street || square || lane) ? "plaza" : inside && hash2(i, j, 152) > 0.86 ? "dirt" : "grass", 1);
       fix(i, j, 1);
     }
   site([100, 522], 7, "sand", 1, 0.8); // Reedwater Landing
@@ -546,6 +587,21 @@ function buildWorld(): WorldDef {
     site(FIELD.c, FIELD.r, "dirt", 1, 0.8);
   }
   site([590, 482], 6.4, "sand", 1, 0.8); // Saltwind
+  // the City of Nine Tiers: the mud flats at its foot, nine terraces two levels apart round its summit, and the avenue's stairs up the north face (see world/tiers.ts)
+  {
+    const SURFACE: TileKind[] = ["dirt", "plaza", "plaza", "marble", "plaza", "marble", "meadow", "marble", "plaza", "marble"];
+    const [fx0, fy0, fx1, fy1] = FLATS;
+    for (let j = fy0; j < fy1; j++)
+      for (let i = fx0; i < fx1; i++) {
+        const k = tierAt(i, j);
+        const avenue = i >= AVENUE[0] && i <= AVENUE[1] && j < TIANJIE_C[1];
+        if (k < 0) m.set(i, j, hash2(i, j, 160) > 0.82 ? "dirt" : hash2(i, j, 161) > 0.9 ? "moss" : "grass", 1);
+        else m.set(i, j, avenue ? "plaza" : k === 0 && hash2(i, j, 162) > 0.7 ? "grass" : SURFACE[k], tierHeight(k));
+        fix(i, j, 1);
+      }
+    for (let k = 1; k < TIER_COUNT; k++) for (let i = AVENUE[0]; i <= AVENUE[1]; i++) m.set(i, stairRow(k), "stairs", tierHeight(k - 1) + 1);
+    site(STAIR_RING.c, STAIR_RING.r, "dirt", 1, 0.3);
+  }
 
   // 5. rivers, ponds, the hot spring and the lava pools
   for (const r of RIVERS)
@@ -602,6 +658,13 @@ function buildWorld(): WorldDef {
     m.set(i, j, "wood", 1);
     fix(i, j, 2);
   });
+  // the Nine-Arch Bridge: planks across the strait of cloud from the cliffs below Jinhe to the foot of the City of Nine Tiers
+  for (let j = 540; j < FLATS[1] + 2; j++)
+    for (let i = AVENUE[0]; i <= AVENUE[1]; i++) {
+      if (m.kind(i, j) !== "void" && j > 552) continue;
+      if (m.kind(i, j) === "void") m.set(i, j, "wood", 1);
+      fix(i, j, 2);
+    }
   const [, valleyY] = toCoarse("valley", 0, 31);
   for (const b of BRANCHES) road(b.pts, 2.2, (i, j) => (b.valley && j <= valleyY + 2 ? 2 : 1));
   // roads up onto the heights, climbing a level every few tiles (stone steps on the steep parts)
@@ -1337,6 +1400,101 @@ function buildWorld(): WorldDef {
     it("jinhe-chest", "chest", 234, 492);
     it("jinhe-herb", "herb", 211, 511);
     mark("jinhe", "Jinhe, the Golden River City", "金河城", "hall", cx, cy);
+  }
+  // the town and the city, twice the size: Jinhe's new quarters between the old wall's line and the new, and Willow Creek's East Ward (see world/quarters.ts)
+  const quarter = (q: Quarter) => {
+    for (const [id, i, j] of q.props) P(id, i, j);
+    for (const f of q.folk) npcs.push({ key: f.key, name: f.name, char: f.char, i: f.at[0], j: f.at[1], dir: f.dir, anim: f.anim, wander: f.wander, route: f.route });
+  };
+  quarter(JINHE_QUARTERS);
+  quarter(WILLOW_WARD);
+  it("jinhe-drumstele", "sign", 214, 487, "Carved on the drum tower's plinth: “When Jinhe outgrew its walls, it did not pull them down. It walked round them, and built another. The old wall is a lane now, and the children race along the line where the soldiers stood.”");
+  it("jinhe-ladder", "sign", 210, 513, "A notice pasted on the dyers' row: “ROOMS ABOVE THE SHOP. Second storey, window on the lane. Cultivators of Foundation and above: half rent, for the honour of the house. Qi Condensation: full rent. Mortals: ask.”");
+  it("ward-sign", "sign", EAST_WARD.x0 + 1, EAST_WARD.street - 3, "WILLOW CREEK · EAST WARD · 柳溪东坊. Painted on a new board under the paifang: “Built the year the Heart came home, by every family in the village, two storeys high so that the creek can see over the willows.”");
+  it("ward-chest", "chest", 245, 157);
+  mark("eastward", "Willow Creek's East Ward", "柳溪东坊", "hall", EAST_WARD.x0 + 18, EAST_WARD.street);
+  // the City of Nine Tiers: a gate at the head of every stair with its warden at the foot and a seal of gold light on it,
+  // houses up both sides of every tier, its people and its troubles, the Weighing Hall and the Stair Ring in the flats (see world/tiers.ts)
+  {
+    const [cx] = TIANJIE_C;
+    const C = (key: string, i: number, j: number, dir: number, extra: Partial<NpcPlacement> = {}): NpcPlacement => ({ key, name: TIER_CAST[key.replace(/-\d+$/, "")]?.name, char: TIER_CAST[key.replace(/-\d+$/, "")].char, i, j, dir, ...extra });
+    for (let k = 1; k < TIER_COUNT; k++) {
+      P("tiergate", cx, tierRect(k)[1]);
+      props.push({ id: "stairseal", i: cx, j: stairRow(k), when: (f) => !f[gateFlag(k)] });
+      const w = tierSpots(k).warden;
+      npcs.push({ key: wardenKey(k), name: WARDEN_NAMES[k], char: "tierwarden", i: w[0], j: w[1], dir: 10, anim: "salute" });
+    }
+    for (let k = 0; k < TIER_COUNT; k++) {
+      const [x0, y0, x1, y1] = tierRect(k);
+      const inner = k + 1 < TIER_COUNT ? tierRect(k + 1) : null;
+      const kinds = TIER_SITES[k].buildings;
+      // houses up the outer edge of both side bands, with room to walk between them and the wall of the tier above
+      if (inner && kinds.length)
+        for (let j = inner[1] + 1, n = 0; j + 3 <= inner[3]; j += 6, n++) {
+          const id = kinds[n % kinds.length];
+          const big = id === "towerinn" || id === "drumtower" || id === "pagoda" || id === "hall";
+          P(id, big ? x0 + 2 : x0 + 1, big ? j + 1 : j);
+          P(id, big ? x1 - 2 : x1 - 3, big ? j + 1 : j);
+        }
+      // a row of trees along each tier's south side, cherry on the lower tiers and pine above
+      if (inner)
+        for (let i = inner[0] + 2; i < inner[2] - 1; i += 5) P(k < 3 ? "willow" : k < 6 ? "cherry" : "pine", i, Math.floor((inner[3] + y1) / 2));
+      // lanterns down the avenue, and what each tier keeps on its north face
+      P("redlantern", AVENUE[0] - 1, y0 + 1);
+      P("redlantern", AVENUE[1] + 1, y0 + 1);
+      const sp = tierSpots(k);
+      if (k < TIER_COUNT - 1) {
+        npcs.push(C(TIER_PATRON[k], sp.patron[0], sp.patron[1], 2, { anim: k === 0 ? "gather" : k === 1 ? "hammer" : k === 2 ? "write" : k === 4 ? "fan" : k === 6 ? "meditate" : k === 7 ? "stargaze" : k === 8 ? "salute" : "idle" }));
+        TIER_FOLK[k].forEach((f, n) => npcs.push({ key: `tj-folk-${k}-${n}`, name: f.name, char: f.char, i: sp.folk[n][0], j: sp.folk[n][1], dir: n % 2 ? 6 : 2, anim: f.anim }));
+      } else TIER_FOLK[k].forEach((f, n) => npcs.push({ key: `tj-folk-${k}-${n}`, name: f.name, char: f.char, i: [216, 228, 216, 228, 217, 227][n], j: [607, 607, 609, 609, 612, 612][n], dir: n % 2 ? 6 : 2, anim: f.anim }));
+      // Ah Lou and Wen Qi climb with her: each stands on the tier of the book she is on
+      npcs.push(C(followerKey("tj-ahlou", k), sp.follower[0], sp.follower[1], 4, { anim: k === 0 ? "carry" : "idle", when: (f) => !!f[`tiers:book:${k}`] }));
+      npcs.push(C(followerKey("tj-wenqi", k), sp.wenqi[0], sp.wenqi[1], 4, { anim: "write", when: (f) => !!f[`tiers:book:${k}`] }));
+      enemies.push({ key: `tjboss-${k}`, enemy: TIER_BOSSES[k], i: sp.boss[0], j: sp.boss[1], range: 0, when: (f) => !!f[`tiers:boss:${k}`] });
+    }
+    // the summit: the Sovereign's palace on Heaven's Step, and the Sovereign before it until his hour comes
+    P("hall", cx, TIANJIE_C[1] + 2);
+    P("lion", cx - 3, TIANJIE_C[1] - 1);
+    P("lion", cx + 3, TIANJIE_C[1] - 1);
+    npcs.push(C("tj-gao", cx, TIANJIE_C[1] - 3, 0, { anim: "decree", when: (f) => !f["tiers:boss:9"] && !f["tiers:done"] }));
+    // the herald cries the Census of the Stair at Jinhe's south gate until she heeds him
+    npcs.push(C("tj-herald", cx + 2, JINHE.y1 - 2, 2, { anim: "decree", when: (f) => !f["tiers:begun"] }));
+    // the Weighing Hall in the flats west of the city, its great steelyard, and the weigher at its door
+    P("hall", ...WEIGH_HALL_AT);
+    P("bigscale", ...SCALE_AT);
+    npcs.push(C("tj-weigher", SCALE_AT[0] + 2, SCALE_AT[1] + 1, 4, { anim: "weigh" }));
+    // the Stair Ring, where anyone may challenge anyone (and the city's challengers wait for her)
+    P("weaponrack", STAIR_RING.c[0] + 4, STAIR_RING.c[1] - 3);
+    P("banner", STAIR_RING.c[0] - 4, STAIR_RING.c[1] - 3);
+    CHALLENGERS.forEach((key, n) => enemies.push({ key, enemy: "tjring", i: STAIR_RING.c[0] + [-1, 2, 0][n], j: STAIR_RING.c[1] + [1, 0, -2][n], range: 0.5 }));
+    // shanties and stilt houses of the mud flats east of the city, and the market at the bridge's foot
+    for (const [id, i, j] of [
+      ["stilthouse", 283, 578],
+      ["stilthouse", 284, 590],
+      ["house", 283, 602],
+      ["stilthouse", 284, 614],
+      ["house", 283, 626],
+      ["stilthouse", 284, 638],
+      ["stall", 215, 568],
+      ["stall", 229, 568],
+      ["steamer", 213, 570],
+      ["noodlecart", 231, 570],
+      ["laundry", 172, 570],
+      ["barrels", 190, 569],
+      ["karst", 157, 572],
+      ["karst", 287, 650],
+      ["karst", 156, 650],
+    ] as [PropId, number, number][])
+      P(id, i, j);
+    it("tj-shrine", "shrine", 192, 568);
+    it("tj-stele", "sign", cx - 3, 569, "THE STAIR CODE · 阶律, carved at the foot of the avenue: “As a cultivator stands, so may she stand. Each realm its tier, each tier its gate. Below the gate, a word weighs what its speaker weighs.” Below, scratched by a hundred hands over a hundred years: “And the mud weighs nothing.”");
+    it("tj-chest", "chest", 286, 584);
+    it("tj-herb", "herb", 158, 644);
+    it("tj-weighsign", "sign", SCALE_AT[0] - 1, SCALE_AT[1] + 3, "The Weighing Hall · 称骨堂. “Every soul who enters Tianjie is weighed. Bones and qi together: the steelyard does not lie.” A smaller board, nailed lower down: “Mortals weighed in spring. Bring your tablet.”");
+    mark("tianjie", "Tianjie, the City of Nine Tiers", "天阶城", "pagoda", cx, tierRect(0)[1] + 1);
+    mark("ninearch", "The Nine-Arch Bridge", "九孔桥", "gate", cx, 556);
+    mark("weighhall", "The Weighing Hall", "称骨堂", "hall", WEIGH_HALL_AT[0], WEIGH_HALL_AT[1]);
+    mark("summit", "Heaven's Step", "天阶", "hall", cx, TIANJIE_C[1]);
   }
   // Reedwater Landing, where the bamboo stream meets the southern sea
   {
@@ -2179,6 +2337,7 @@ function buildWorld(): WorldDef {
     waypoints,
     landmarks: [...landmarks.map((l) => ({ ...l, x: l.x * S + (S - 1) / 2, y: l.y * S + (S - 1) / 2 })), ...roadMarks],
     patches,
+    bars: Array.from({ length: TIER_COUNT - 1 }, (_, n): Bar => ({ key: `tier-${n + 1}`, rect: tierWorldRect(n + 1), flag: gateFlag(n + 1), why: `${WARDEN_NAMES[n + 1]} bars the stair to ${TIER_SITES[n + 1].name}` })),
   };
 }
 
@@ -2198,6 +2357,7 @@ function regionOwners(fine: TileMap): Uint8Array {
   const hy1 = Float64Array.from(holds, (h) => h[4]);
   const dy2 = new Float64Array(holds.length);
   const [W, H, kinds, n] = [WORLD_W, WORLD_H, fine.kinds, holds.length];
+  const heldRows = new Set(HOLDS.flatMap(([, [, y0, , y1]]) => Array.from({ length: (y1 - y0) * WORLD_SCALE }, (_, k) => y0 * WORLD_SCALE + k)));
   for (let j = 0; j < H; j++) {
     const y = j + 0.5;
     for (let k = 0; k < n; k++) {
@@ -2220,6 +2380,12 @@ function regionOwners(fine: TileMap): Uint8Array {
         }
       }
       regionOf[j * W + i] = best;
+    }
+    // ground a region owns outright (Willow Creek's East Ward)
+    for (let i = 0; i < W && heldRows.has(j); i++) {
+      if (kinds[j * W + i] === 0) continue;
+      const held = heldBy(i + 0.5, y);
+      if (held) regionOf[j * W + i] = AREA_IDS.indexOf(held);
     }
   }
   return regionOf;
