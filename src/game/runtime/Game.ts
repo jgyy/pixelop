@@ -26,6 +26,7 @@ import { currentWar, daoJournal, daoLabel, warBreath, warChronicle, warCultivate
 import { daoAside, daoHasNews } from "../story/dao";
 import { currentRoad, roadBreath, roadChronicle, roadCultivated, roadDone, roadHasNews, roadHunt, roadLandmark, roadLog, roadTalk, ROAD_COUNT, syncRoadFlags } from "../story/road";
 import { hallsBreath, hallsChronicle, hallsCultivated, hallsDone, hallsHasNews, hallsHunt, hallsLandmark, hallsLog, hallsTalk, HALLS_COUNT, syncHallsFlags } from "../story/halls";
+import { peoplesBreath, peoplesChronicle, peoplesCultivated, peoplesDone, peoplesHasNews, peoplesHunt, peoplesLandmark, peoplesLog, peoplesTalk, PEOPLES_COUNT, syncPeoplesFlags } from "../story/peoples";
 import { stairBarToast, syncTiersFlags, tiersBreath, tiersChronicle, tiersCultivated, tiersDone, tiersHasNews, tiersHunt, tiersLandmark, tiersLog, tiersTalk, TIERS_COUNT } from "../story/tiers";
 import { floorRefusal, standingJournal, standingLabel } from "../story/standing";
 import { BREATHS_PER_WU, comprehend, deepestWu, domainOpen, GREAT_DAOS, SHRINE_DAO, WU_TIERS, wuJournal, wuTotal } from "../engine/comprehension";
@@ -98,6 +99,12 @@ export interface UiSnapshot {
   tiersCount: number;
   /** The tiers of the city as they stand for her (in the journal). */
   tiersList: { tier: string; hanzi: string; state: "sealed" | "open" | "climbing" | "done"; fate: string | null }[] | null;
+  /** The seventh thread: the Hundred Peoples, twelve hundred quests long, main and side (null before the envoy finds her). */
+  peoples: (Quest & { arc: "main" | "side" }) | null;
+  peoplesDone: number;
+  peoplesCount: number;
+  /** The peoples as they stand for her (in the journal). */
+  peoplesList: ReturnType<typeof peoplesChronicle> | null;
   /** What her realm makes her in the eyes of the jianghu: for the HUD, and the journal's standing. */
   standing: { label: string; journal: ReturnType<typeof standingJournal> | null };
   /** The Great Daos she comprehends: the deepest one for the HUD, every one in the journal, and whether her Dao Domain has opened. */
@@ -1482,11 +1489,11 @@ export class Game {
     if (this.clock > this.syncAt) {
       this.syncAt = this.clock + 0.5;
       // the Founder's Road reaches her as her realm does, not only as its quests are done
-      this.state = syncTiersFlags(syncHallsFlags(syncRoadFlags(this.state)));
+      this.state = syncPeoplesFlags(syncTiersFlags(syncHallsFlags(syncRoadFlags(this.state))));
       w.syncPopulation(this.state.flags);
       this.landmarkEvents();
       if (this.mode !== "explore") return;
-      const grown = warCultivated(this.state) ?? roadCultivated(this.state) ?? hallsCultivated(this.state) ?? tiersCultivated(this.state);
+      const grown = warCultivated(this.state) ?? roadCultivated(this.state) ?? hallsCultivated(this.state) ?? tiersCultivated(this.state) ?? peoplesCultivated(this.state);
       if (grown) return this.play(grown);
     }
     const touched = w.update(dt, this.clock, h.flying === true || this.clock < this.invulnerableUntil, true);
@@ -1548,7 +1555,7 @@ export class Game {
     const offering = offeringScript(key, g, cal);
     if (offering) pre.push(...offering);
     const news = hasNews(key, g);
-    const war = warTalk(key, g) ?? roadTalk(key, g) ?? hallsTalk(key, g) ?? tiersTalk(key, g);
+    const war = warTalk(key, g) ?? roadTalk(key, g) ?? hallsTalk(key, g) ?? tiersTalk(key, g) ?? peoplesTalk(key, g);
     if (war) return news ? [...pre, ...npcScript(key, g), ...war] : [...pre, ...war];
     if (pre.length && !news) return pre;
     const story = npcScript(key, g);
@@ -1626,7 +1633,7 @@ export class Game {
     const year = landmarkScript(near.key, this.state, cal, [h.x + 1.2, h.y + 0.4]);
     if (year) return this.play(year);
     const how = { night: cal.dusk > 0.55, riding: this.riding, flying: !!h.flying };
-    const war = warLandmark(near.key, this.state, how) ?? roadLandmark(near.key, this.state, how) ?? hallsLandmark(near.key, this.state, how) ?? tiersLandmark(near.key, this.state, how);
+    const war = warLandmark(near.key, this.state, how) ?? roadLandmark(near.key, this.state, how) ?? hallsLandmark(near.key, this.state, how) ?? tiersLandmark(near.key, this.state, how) ?? peoplesLandmark(near.key, this.state, how);
     if (war) return this.play(war);
     for (const c of carried(this.state)) {
       const b = c.bounty;
@@ -1640,7 +1647,7 @@ export class Game {
 
   /** A foe of the horde beaten where the war wanted it beaten. */
   private warHunt(enemy: EnemyId): void {
-    for (const hunt of [() => warHunt(this.state, enemy, this.state.area), () => roadHunt(this.state, enemy), () => hallsHunt(this.state, enemy), () => tiersHunt(this.state, enemy)]) {
+    for (const hunt of [() => warHunt(this.state, enemy, this.state.area), () => roadHunt(this.state, enemy), () => hallsHunt(this.state, enemy), () => tiersHunt(this.state, enemy), () => peoplesHunt(this.state, enemy)]) {
       const r = hunt();
       this.state = r.state;
       if (r.steps) return this.play(r.steps);
@@ -1663,6 +1670,9 @@ export class Game {
       const tiers = tiersBreath(this.state, this.state.area);
       this.state = tiers.state;
       if (tiers.steps) return this.play(tiers.steps);
+      const peoples = peoplesBreath(this.state, this.state.area);
+      this.state = peoples.state;
+      if (peoples.steps) return this.play(peoples.steps);
     }
     for (const c of carried(this.state)) {
       const b = c.bounty;
@@ -1937,7 +1947,7 @@ export class Game {
     }
     if (this.mode === "explore" && this.clock >= this.markerAt) this.refreshMarkers();
     const cal = calendarAt(worldTime(this.state));
-    for (const a of this.world.actors) if (a.kind === "npc") a.marker = this.mode === "explore" && ((hasNews(a.key, this.state) || yearHasNews(a.key, this.state, cal) || warHasNews(a.key, this.state) || roadHasNews(a.key, this.state) || hallsHasNews(a.key, this.state) || tiersHasNews(a.key, this.state) || daoHasNews(a.key, this.state) || cultivationHasNews(a.key, this.state)) || (this.bountyMarkers.get(a.key) ?? false));
+    for (const a of this.world.actors) if (a.kind === "npc") a.marker = this.mode === "explore" && ((hasNews(a.key, this.state) || yearHasNews(a.key, this.state, cal) || warHasNews(a.key, this.state) || roadHasNews(a.key, this.state) || hallsHasNews(a.key, this.state) || tiersHasNews(a.key, this.state) || peoplesHasNews(a.key, this.state) || daoHasNews(a.key, this.state) || cultivationHasNews(a.key, this.state)) || (this.bountyMarkers.get(a.key) ?? false));
     if (this.world.hero.outfit !== currentAttire(this.state).id) this.dressHero();
     this.world.heroRealm = this.state.realm;
     this.world.heroDread = heartDemons(this.state) > 60;
@@ -2170,6 +2180,10 @@ export class Game {
       tiersDone: tiersDone(this.state),
       tiersCount: TIERS_COUNT,
       tiersList: this.journalOpen && tiersDone(this.state) > 0 ? tiersChronicle(this.state) : null,
+      peoples: peoplesLog(this.state, (id) => lockReason(id, this.state)),
+      peoplesDone: peoplesDone(this.state),
+      peoplesCount: PEOPLES_COUNT,
+      peoplesList: this.journalOpen && peoplesDone(this.state) > 0 ? peoplesChronicle(this.state) : null,
       standing: { label: standingLabel(this.state), journal: this.journalOpen ? standingJournal(this.state) : null },
       wu: (() => {
         const w = deepestWu(this.state);

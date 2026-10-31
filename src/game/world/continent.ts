@@ -14,6 +14,7 @@ import { DORM_AT, FIELD, GREAT_HALL_AT, HALL_BOSS_AT, HALL_BOSSES, HALL_CAST, HA
 import { PatchPainter, type TerrainPatch } from "./terrain";
 import { flockmates, neighbours, packmates } from "./crowds";
 import { EAST_WARD, JINHE_QUARTERS, WILLOW_WARD, type Quarter } from "./quarters";
+import { CONCORD_AT, elderKey, ENVOY_AT, ENVOY_KEY, folkKey, guideKey, HOME_R, HOME_SPOTS, homeKey, PEOPLES } from "./peoples";
 import { AVENUE, CHALLENGERS, FLATS, followerKey, gateFlag, SCALE_AT, STAIR_RING, stairRow, TIANJIE_C, TIER_BOSSES, TIER_CAST, TIER_COUNT, TIER_FOLK, TIER_PATRON, TIER_SITES, tierAt, tierHeight, tierRect, tierSpots, tierWorldRect, WARDEN_NAMES, wardenKey, WEIGH_HALL_AT } from "./tiers";
 
 /**
@@ -249,6 +250,13 @@ const BRANCHES: { pts: [number, number][]; valley?: boolean }[] = [
   { pts: [[222, 452], [206, 457], [192, 462], [181, 462]] },
   // …and out of its south gate, down to the road from Jinhe's west gate
   { pts: [[160, 481], [159, 494], [158, 506]] },
+  // and a track in to each of the peoples' homes (see world/peoples.ts)
+  // (it stops short of the heart of the home, where its people keep what matters most to them)
+  ...PEOPLES.map((p) => {
+    const [a, b] = p.road.slice(-2);
+    const d = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    return { pts: [...p.road.slice(0, -1), [b[0] + ((a[0] - b[0]) * 3.5) / d, b[1] + ((a[1] - b[1]) * 3.5) / d] as [number, number]] };
+  }),
 ];
 
 const RIVERS: { pts: [number, number][]; kind: "water" | "lava"; width: number }[] = [
@@ -491,6 +499,11 @@ function buildWorld(): WorldDef {
   site([524, 400], 6, "sand", 1, 1); // the red cliff hideout
   site([352, 166], 3.4, "plaza", 1, 0.3); // the eastern bridgehead
   site([110, 300], 4.4, "grass", 1, 0.8); // the ferry landing by the southern road
+  // the homes of the jianghu's other peoples, and the second place each keeps nearby
+  for (const p of PEOPLES) {
+    site(p.c, HOME_R, p.ground, p.level, 0.6);
+    site([p.c[0] + p.sight.at[0], p.c[1] + p.sight.at[1]], 4.4, p.ground === "plaza" ? "redrock" : p.ground, p.level, 0.8);
+  }
   // the Scarlet Phoenix Sect on its mesa: a ring of red flats at the foot, sheer cliffs, the sect on top
   site([586, 372], 10.5, "sand", 2, 0.8);
   site([586, 372], 7, "redrock", 7, 0.5);
@@ -1496,6 +1509,30 @@ function buildWorld(): WorldDef {
     mark("weighhall", "The Weighing Hall", "称骨堂", "hall", WEIGH_HALL_AT[0], WEIGH_HALL_AT[1]);
     mark("summit", "Heaven's Step", "天阶", "hall", cx, TIANJIE_C[1]);
   }
+  // the homes of the jianghu's other peoples: their houses round the thing at their heart, their elder, their guide and their folk,
+  // a shrine and a sign, their trouble in the wilds about them, and a second place of theirs nearby (see world/peoples.ts)
+  for (const [k, p] of PEOPLES.entries()) {
+    const [cx, cy] = p.c;
+    const at = ([dx, dy]: [number, number]): [number, number] => [cx + dx, cy + dy];
+    P(p.heart, cx, cy);
+    for (const h of HOME_SPOTS.houses) P(p.house, ...at(h));
+    p.extras.forEach((id, n) => P(id, ...at(HOME_SPOTS.extras[n])));
+    npcs.push({ key: elderKey(p.id), name: p.elder.name, char: p.elder.char, i: cx + HOME_SPOTS.elder[0], j: cy + HOME_SPOTS.elder[1], dir: 2, anim: "idle" });
+    npcs.push({ key: guideKey(p.id), name: p.guide.name, char: p.guide.char, i: cx + HOME_SPOTS.guide[0], j: cy + HOME_SPOTS.guide[1], dir: 2, wander: 1 });
+    p.folk.forEach((f, n) => npcs.push({ key: folkKey(p.id, n), name: f.name, char: f.char, i: cx + HOME_SPOTS.folk[n][0], j: cy + HOME_SPOTS.folk[n][1], dir: n % 2 ? 6 : 2, anim: f.anim }));
+    enemies.push({ key: `peboss-${k}`, enemy: p.boss, i: cx + HOME_SPOTS.boss[0], j: cy + HOME_SPOTS.boss[1], range: 0, when: (f) => !!f[`peoples:boss:${k}`] });
+    HOME_SPOTS.foes.forEach(([dx, dy], n) => enemies.push({ key: `pefoe-${p.id}-${n}`, enemy: p.foe, i: cx + dx, j: cy + dy, range: 2.5 }));
+    it(`${homeKey(p.id)}-shrine`, "shrine", ...at(HOME_SPOTS.shrine));
+    it(`${homeKey(p.id)}-chest`, "chest", ...at(HOME_SPOTS.chest));
+    it(`${homeKey(p.id)}-sign`, "sign", ...at(HOME_SPOTS.sign), `${p.home} · ${p.homeHanzi}, the home of ${p.name} (${p.hanzi}). Here ${p.custom}.`);
+    const [sx, sy] = at(p.sight.at);
+    p.sight.props.forEach((id, n) => P(id, sx + [-2, 2, 0, 3][n], sy + [-1, -2, 2, 2][n]));
+    mark(homeKey(p.id), `${p.home}, home of ${p.name}`, p.homeHanzi, p.house, cx, cy);
+    mark(p.sight.key, p.sight.name, p.sight.hanzi, p.sight.props[0], sx, sy);
+  }
+  // the Concord of a Hundred Peoples' cracked stone by the crossroads teahouse, and its last envoy beside it
+  P("concordstone", ...CONCORD_AT);
+  npcs.push({ key: ENVOY_KEY, name: "Envoy Shan", char: "concordenvoy", i: ENVOY_AT[0], j: ENVOY_AT[1], dir: 2, anim: "read" });
   // Reedwater Landing, where the bamboo stream meets the southern sea
   {
     const [x, y] = [100, 522];
