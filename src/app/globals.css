@@ -1112,6 +1112,14 @@ button {
 .quest .errand.tiers {
   color: #ffe6a8;
 }
+/* the Hundred Peoples: main quests bright, side quests softer */
+.quest .errand.peoples {
+  color: #ffc8a0;
+}
+.quest .errand.peoples.side {
+  color: #e8c8b8;
+  opacity: 0.9;
+}
 .hud .dao.standing {
   margin-top: -3px;
   color: #ffe6a8;

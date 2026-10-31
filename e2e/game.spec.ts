@@ -412,6 +412,28 @@ test.describe("Jade Lotus Ascension", () => {
     await expect(page.getByTestId("journal-standing")).toContainText("The Mud Tier");
   });
 
+  test("the Hundred Peoples: Envoy Shan's tally, a stranger at Moonfox Hollow, and the journal's peoples", async ({ page }) => {
+    await startNewGame(page);
+    await patch(page, { flags: { metElder: true, villageSaved: true, villageArrived: true, metZhou: true }, realm: 0, stage: 2 });
+    await expect(page.getByTestId("peoples-quest")).toContainText("cracked stele");
+    await expect(page.getByTestId("peoples-quest")).toContainText("Main");
+    await standBy(page, "pe-envoy");
+    await expect(page.getByTestId("prompt")).toContainText("Envoy Shan");
+    await page.keyboard.press("KeyE");
+    await expect(page.getByTestId("dialog")).toContainText("hundred marks");
+    await finishDialogue(page);
+    await expect.poll(async () => (await state(page)).counters.peoples).toBe(1);
+    await expect(page.getByTestId("peoples-quest")).toContainText("2/1200");
+    // the fox-folk are wary of a human who has not yet come to their elder
+    await standBy(page, "pe-fox-folk-0");
+    await page.keyboard.press("KeyE");
+    await expect(page.getByTestId("dialog")).toContainText("Speak to the elder");
+    await finishDialogue(page);
+    await page.keyboard.press("KeyJ");
+    await expect(page.getByTestId("journal-peoples")).toContainText("The Moon Pearl Wanes");
+    await expect(page.getByTestId("journal-peoples")).toContainText("Moonfox Hollow");
+  });
+
   test("the Pavilion of Nine Fragrances: the ground floor for anyone, the floor above for Foundation and beyond", async ({ page }) => {
     await startNewGame(page);
     await patch(page, { flags: { metElder: true, villageSaved: true, metZhou: true }, realm: 0, stage: 3 });

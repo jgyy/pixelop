@@ -15,7 +15,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "screenshots": "SCREENSHOTS=1 playwright test e2e/screenshots.spec.ts e2e/screenshots3d.spec.ts e2e/screenshots4.spec.ts e2e/screenshots5.spec.ts",
+    "screenshots": "SCREENSHOTS=1 playwright test e2e/screenshots.spec.ts e2e/screenshots3d.spec.ts e2e/screenshots4.spec.ts e2e/screenshots5.spec.ts e2e/screenshots6.spec.ts",
     "assets": "tsx scripts/export-assets.ts"
   },
   "dependencies": {
