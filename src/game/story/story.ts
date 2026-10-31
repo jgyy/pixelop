@@ -18,6 +18,7 @@ import { daoEpilogue } from "./dao";
 import { roadEpilogue, roadNpcScript, roadPreBattle, roadVictory } from "./road";
 import { hallsEpilogue, hallsNpcScript, hallsPreBattle, hallsVictory } from "./halls";
 import { tiersEpilogue, tiersNpcScript, tiersPreBattle, tiersVictory } from "./tiers";
+import { peoplesEpilogue, peoplesNpcScript, peoplesPreBattle, peoplesVictory } from "./peoples";
 import { quarterNpcScript, tierFolkScript } from "./standing";
 import { tideNpcScript } from "./tide";
 import { townNpcScript } from "./town";
@@ -865,7 +866,7 @@ export function npcScript(key: string, g: GameState): Step[] {
     case "restporter":
       return [named("porter", "Porter Lao", pick(g, ["Eating. Talking costs breath, and breath costs noodles.", "From the terraces to the sands with tea, from the sands to the harbour with salt. Then home to sleep for a week.", "My pole's older than me. My father's. Same shoulders, too."])), { anim: "restporter", name: "eat" }];
     default:
-      return warNpcScript(key, g) ?? roadNpcScript(key, g) ?? hallsNpcScript(key, g) ?? tiersNpcScript(key, g) ?? tierFolkScript(key, g) ?? quarterNpcScript(key, g) ?? sectNpcScript(key, g) ?? townNpcScript(key, g) ?? tideNpcScript(key, g) ?? crowdNpcScript(key, g) ?? [say("narrator", "…")];
+      return warNpcScript(key, g) ?? roadNpcScript(key, g) ?? hallsNpcScript(key, g) ?? tiersNpcScript(key, g) ?? peoplesNpcScript(key, g) ?? tierFolkScript(key, g) ?? quarterNpcScript(key, g) ?? sectNpcScript(key, g) ?? townNpcScript(key, g) ?? tideNpcScript(key, g) ?? crowdNpcScript(key, g) ?? [say("narrator", "…")];
   }
 }
 
@@ -1095,7 +1096,7 @@ export function arrivalScript(area: AreaId, g: GameState): Step[] | null {
 /** Dialogue before special fights. */
 export function preBattleScript(enemy: EnemyId, key: string, g?: GameState): Step[] | null {
   if (enemy === "patriarch") return xueConfrontation(g ?? newGame(), key);
-  const war = g && (warPreBattle(enemy, g) ?? roadPreBattle(enemy, g) ?? hallsPreBattle(enemy, g) ?? tiersPreBattle(enemy, g));
+  const war = g && (warPreBattle(enemy, g) ?? roadPreBattle(enemy, g) ?? hallsPreBattle(enemy, g) ?? tiersPreBattle(enemy, g) ?? peoplesPreBattle(enemy, g));
   if (war) return war;
   const sect = sectPreBattle(enemy);
   if (sect) return sect;
@@ -1108,7 +1109,7 @@ export function victoryScript(enemy: EnemyId, key: string, area: AreaId, g: Game
   const steps: Step[] = [];
   const sect = sectVictory(enemy, key, g, won);
   if (sect) return sect;
-  const war = won ? (warVictory(enemy, g) ?? roadVictory(enemy, g) ?? hallsVictory(enemy, g) ?? tiersVictory(enemy, g)) : null;
+  const war = won ? (warVictory(enemy, g) ?? roadVictory(enemy, g) ?? hallsVictory(enemy, g) ?? tiersVictory(enemy, g) ?? peoplesVictory(enemy, g)) : null;
   if (war) return war;
   if (enemy === "swordsman")
     return won
@@ -1190,6 +1191,7 @@ export function endingScript(g?: GameState): Step[] {
     ...(g && roadEpilogue(g) ? [roadEpilogue(g)!] : []),
     ...(g && hallsEpilogue(g) ? [hallsEpilogue(g)!] : []),
     ...(g && tiersEpilogue(g) ? [tiersEpilogue(g)!] : []),
+    ...(g && peoplesEpilogue(g) ? [peoplesEpilogue(g)!] : []),
     ...(g && daoEpilogue(g) ? [daoEpilogue(g)!] : []),
   ];
   return endingSteps(g ?? newGame(), epilogue);

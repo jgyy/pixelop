@@ -34,13 +34,17 @@ import * as GL from "./shaders";
 const PX = 1 / TILE_U;
 /** The camera's turn that looks at the land exactly as the isometric view does. */
 export const ISO_ALPHA = -Math.PI / 4;
+/** The draw distance: how many times the old view's reach the land, its props and its folk are drawn to (twice, now). */
+export const DRAW_SCALE = 2;
 /** How far chunks are kept loaded about the camera's focus (tiles). */
-const LOAD_R = 64;
-const DROP_R = 100;
+export const LOAD_R = 64 * DRAW_SCALE;
+const DROP_R = 100 * DRAW_SCALE;
 /** Folk and beasts are drawn within this many tiles of the focus. */
-const ACTOR_R = 60;
+export const ACTOR_R = 60 * DRAW_SCALE;
 /** Props are set out within this many tiles of the focus (the haze hides the rest). */
-const PROP_R = 58;
+export const PROP_R = 58 * DRAW_SCALE;
+/** Smoke, embers and petals rise from props within this many tiles of the focus. */
+const EMIT_R = 34 * DRAW_SCALE;
 
 /** The sun of the iso art (up-left, toward the viewer), in the 3D frame. */
 const SUN = new Vector3(-0.0707, 0.75, -0.707).normalize();
@@ -179,7 +183,7 @@ export class WorldView3D implements View3D {
     this.camera = new ArcRotateCamera("cam", c.alpha, c.beta, c.radius, Vector3.Zero(), scene);
     this.camera.fov = 0.62;
     this.camera.minZ = 0.5;
-    this.camera.maxZ = 400;
+    this.camera.maxZ = 400 * DRAW_SCALE;
 
     const mk = (name: string, opts: { attributes: string[]; uniforms: string[]; samplers?: string[] }, alpha = false) => {
       const m = new ShaderMaterial(name, scene, { vertex: name, fragment: name }, { ...opts, uniforms: [...opts.uniforms, ...LIGHT_UNIFORMS], needAlphaBlending: alpha });
@@ -219,7 +223,7 @@ export class WorldView3D implements View3D {
     }
     this.glowMesh.renderingGroupId = 1;
     try {
-      for (let n = 0; n < 2; n++) {
+      for (let n = 0; n < 1 + DRAW_SCALE; n++) {
         const w = new Worker(new URL("./terrain.worker.ts", import.meta.url), { type: "module" });
         w.onmessage = (e: MessageEvent<{ id: number; chunk: Chunk }>) => this.chunkPainted(e.data.id, e.data.chunk);
         this.workers.push(w);
@@ -282,7 +286,7 @@ export class WorldView3D implements View3D {
     const len = dir.length();
     dir.scaleInPlace(1 / len);
     // march down the ray until it passes beneath the land
-    for (let d = 0; d < Math.min(len, 300); d += 0.1) {
+    for (let d = 0; d < Math.min(len, 300 * DRAW_SCALE); d += 0.1) {
       const x = near.x + dir.x * d;
       const y = -(near.z + dir.z * d);
       const i = Math.floor(x);
@@ -343,7 +347,8 @@ export class WorldView3D implements View3D {
     const tintB = new Vector4(0.04, 0.024, 0.094, dark);
     const golden = new Vector4(gr, gg, gb, gold);
     const fogC = new Vector3(...fogDark);
-    const fogR = new Vector2(r * 1.4, Math.min(PROP_R - 4, r * 3));
+    // the haze starts and closes in twice as far off as it used to, so the far hills stand clear
+    const fogR = new Vector2(r * 1.4 * DRAW_SCALE, Math.min(PROP_R - 4, r * 3 * DRAW_SCALE));
     for (const m of this.materials) {
       m.setVector4("tintA", tintA);
       m.setVector4("tintB", tintB);
@@ -557,7 +562,7 @@ export class WorldView3D implements View3D {
         if (!g) groups.set(key, (g = { id: p.id, frame, season: s, mats: [] }));
         const m = Matrix.Scaling(p.k, p.k, p.k).multiply(Matrix.Translation(p.x, p.z * LEVEL, -p.y));
         g.mats.push(...m.asArray());
-        if (def.emit && Math.abs(p.x - fx) < 34 && Math.abs(p.y - fy) < 34) this.emitters.push({ id: p.id, x: p.x, y: p.y, z: p.z, k: p.k, phase: hash2(p.i, p.j, 5) * 10, seed: p.i * 7 + p.j });
+        if (def.emit && Math.abs(p.x - fx) < EMIT_R && Math.abs(p.y - fy) < EMIT_R) this.emitters.push({ id: p.id, x: p.x, y: p.y, z: p.z, k: p.k, phase: hash2(p.i, p.j, 5) * 10, seed: p.i * 7 + p.j });
         if (def.light) {
           const L = def.light;
           const size = L.radius * Math.sqrt(p.k) * PX * 2;

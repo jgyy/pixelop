@@ -105,7 +105,7 @@ export function GameView({ initial, intro, onQuit }: { initial: GameState; intro
     if (!v) return;
     v.want.alpha += dAlpha;
     v.want.beta = Math.max(0.35, Math.min(1.3, v.want.beta + dBeta));
-    v.want.radius = Math.max(7, Math.min(48, v.want.radius + dRadius));
+    v.want.radius = Math.max(7, Math.min(96, v.want.radius + dRadius));
   }, []);
   const resetCamera = useCallback(() => {
     const v = view3d.current;
@@ -298,6 +298,11 @@ export function GameView({ initial, intro, onQuit }: { initial: GameState; intro
             {ui.tiers && (
               <div className="errand tiers" data-testid="tiers-quest">
                 ☖ {ui.tiers.title}: {ui.tiers.objective}
+              </div>
+            )}
+            {ui.peoples && (
+              <div className={`errand peoples ${ui.peoples.arc}`} data-testid="peoples-quest">
+                ✥ {ui.peoples.title}: {ui.peoples.objective}
               </div>
             )}
             {ui.notices.length > 0 && (
@@ -631,6 +636,25 @@ function JournalPanel({ journal, ui, game, onClose }: { journal: NonNullable<UiS
               {ui.tiersList.map((f) => (
                 <li key={f.tier} className={`front-${f.state === "done" ? "freed" : f.state === "climbing" ? "burning" : "waiting"}`}>
                   <span className="cn">{f.hanzi}</span> {f.tier} <b>{f.state === "done" ? (f.fate ?? "Done") : f.state === "climbing" ? "Climbing" : f.state === "open" ? "Open to your tablet" : "Sealed"}</b>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+      {ui.peoples && (
+        <section data-testid="journal-peoples">
+          <h4>
+            ✥ {ui.peoples.chapter} · {ui.peoplesDone}/{ui.peoplesCount}
+          </h4>
+          <p>
+            <strong>{ui.peoples.title}</strong> — {ui.peoples.objective}
+          </p>
+          {ui.peoplesList && (
+            <ul className="fronts steles">
+              {ui.peoplesList.map((f) => (
+                <li key={f.people} className={`front-${f.state === "marked" ? "freed" : f.state === "visiting" ? "burning" : "waiting"}`} title={`${f.home}: ${f.custom}`}>
+                  <span className="cn">{f.hanzi}</span> {f.people} · {f.home} <b>{f.state === "marked" ? (f.fate ?? "Marked") : f.state === "visiting" ? "Visiting" : "Not yet met"}</b>
                 </li>
               ))}
             </ul>

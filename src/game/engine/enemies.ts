@@ -1,8 +1,9 @@
 import type { CharId } from "../art/characters";
 import type { HallBossId } from "../world/halls";
 import type { TierBossId } from "../world/tiers";
+import type { PeopleBossId, PeopleFoeId } from "../world/peoples";
 
-export type EnemyId = "fox" | "wolf" | "serpent" | "serpentKing" | "cultist" | "jiangshi" | "bandit" | "swordsman" | "patriarch" | "emberwyrm" | "stonehound" | "poisoner" | "phoenixguard" | "traitor" | "elderMo" | DeepFoeId | HollowId | WarFoeId | WarBossId | EchoId | HallBossId | "wdspar" | TierBossId | "tjring";
+export type EnemyId = "fox" | "wolf" | "serpent" | "serpentKing" | "cultist" | "jiangshi" | "bandit" | "swordsman" | "patriarch" | "emberwyrm" | "stonehound" | "poisoner" | "phoenixguard" | "traitor" | "elderMo" | DeepFoeId | HollowId | WarFoeId | WarBossId | EchoId | HallBossId | "wdspar" | TierBossId | "tjring" | PeopleFoeId | PeopleBossId;
 
 /** What lives in the four deeps found since: the hollow under Frostveil, the tomb under the sands, the sea cave and the bamboo's roots. */
 export type DeepFoeId = "frostfang" | "rimewyrm" | "dunewyrm" | "pearlwyrm" | "shadowvixen" | "smuggler";
@@ -233,7 +234,43 @@ const tierBosses = Object.fromEntries(
   }),
 ) as Record<TierBossId, EnemyDef>;
 
+/**
+ * The peoples' troubles (see world/peoples.ts): the rank and file met in the
+ * wilds round each home, and who waits at the end of each people's tale,
+ * tuned to the realm each people's tale asks of her.
+ */
+const PEOPLE_FOE_LOOK: [PeopleFoeId, string, CharId, number, string, string, string, string][] = [
+  ["moonwisp", "Moon-Eaten Fox", "fox", 3, "Hungry Bite", "Stolen Moonlight", "#c8d8ff", "A fox with moonlight dripping from its jaws, eyes empty, comes at you out of the maples."],
+  ["reefpoacher", "Pearl Poacher", "bandit", 6, "Hooked Gaff", "Net of Tears", "#8ad8e8", "A pearl poacher with a net over his shoulder and a jar of someone's tears at his belt draws a gaff."],
+  ["sandhusk", "Sand Husk", "golem", 9, "Crumbling Fist", "Dead Sand", "#d8b860", "What was a stone-born, emptied to sand inside, lurches up from the dunes."],
+  ["stormharpy", "Storm Harpy", "bat", 12, "Raking Talons", "Thunder Dive", "#c8e0ff", "A storm harpy shrieks down out of a black cloud that was not there a moment ago."],
+  ["rimeghoul", "Rime-Hungry", "frostfang", 15, "Frozen Maw", "The Long Night", "#a8e0ff", "A wolf of white hunger, ribs showing through the frost, circles once and lunges."],
+  ["cinderdrake", "Cinder Drake", "emberwyrm", 18, "Ash Bite", "Unbound Flame", "#ff9040", "A cinder drake uncoils out of a crack in the red earth, burning."],
+];
+const PEOPLE_BOSS_LOOK: [PeopleBossId, string, CharId, number, string, string, string][] = [
+  ["huyan", "Hu Yan, the Moon-Eater", "foxusurper", 4, "Foxfire Fan", "Swallow the Moon", "#c8b0ff"],
+  ["chenyuan", "Chen Yuan, the Drowned Prince", "merprince", 7, "Coral Trident", "Tide of Grief", "#5af0e0"],
+  ["kuangyan", "Kuang Yan, the Hollow King", "stoneking", 10, "Avalanche Fist", "Empty the Vein", "#ff9040"],
+  ["liefeng", "Lie Feng, Lord of the Storm", "stormlord", 13, "Lightning Spear", "The Sky Is Mine", "#e8e0ff"],
+  ["kar", "Kar, the White Hunger", "whitehunger", 16, "Frostbitten Staff", "Eat the Hearth", "#a8e0ff"],
+  ["aokuang", "Ao Kuang the Unbound", "dragonlord", 19, "Scale Saber", "Wake the Bones", "#ffb040"],
+];
+const peopleFoes = Object.fromEntries(
+  PEOPLE_FOE_LOOK.map(([id, name, sprite, level, basic, special, colour, intro]) => {
+    const c = (level - 3) / 3;
+    return [id, { id, name, sprite, level, hp: Math.round(150 + 95 * c + 8 * c * c), atk: Math.round(22 + 6 * c), def: Math.round(7 + 3 * c), exp: Math.round(60 + 70 * c), stones: Math.round(12 + 8 * c), basic, special: { name: special, power: 1.6, every: 3, colour }, intro, speed: 1.2, aggro: 3 } satisfies EnemyDef];
+  }),
+) as Record<PeopleFoeId, EnemyDef>;
+const peopleBosses = Object.fromEntries(
+  PEOPLE_BOSS_LOOK.map(([id, name, sprite, level, basic, special, colour]) => {
+    const c = (level - 3) / 2;
+    return [id, { id, name, sprite, level, hp: Math.round(270 + 200 * c + 18 * c * c), atk: Math.round(22 + 5.4 * c), def: Math.round(7 + 3.2 * c), exp: Math.round(260 + 320 * c), stones: Math.round(80 + 60 * c), basic, special: { name: special, power: 1.8, every: 3, drain: c >= 5 ? 0.2 : undefined, colour }, boss: true, speed: 0, aggro: 1.4 } satisfies EnemyDef];
+  }),
+) as Record<PeopleBossId, EnemyDef>;
+
 export const ENEMIES: Record<EnemyId, EnemyDef> = {
+  ...peopleFoes,
+  ...peopleBosses,
   ...tierBosses,
   tjring: {
     id: "tjring",

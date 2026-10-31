@@ -150,7 +150,15 @@ export type AnimId =
   | "decree"
   | "haggle"
   | "bear"
-  | "whisper";
+  | "whisper"
+  | "moondance"
+  | "weep"
+  | "carve"
+  | "glide"
+  | "firebreath"
+  | "knot"
+  | "offerpearl"
+  | "hearthsong";
 
 export interface Anim {
   fps: number;
@@ -1440,6 +1448,90 @@ human.whisper = {
   },
 };
 
+// ----------------------------------------------------------------------------- the peoples' own manners
+// the fox-folk's moon dance: a slow turn on the toes, one hand raised to the moon and the other trailing, the tails following
+human.moondance = {
+  n: 12,
+  fps: 7,
+  loop: true,
+  pose: (i, n) => {
+    const a = ph(i, n);
+    return { t: a * 2, lift: Math.abs(Math.sin(a)) * 1.2, lean: -0.06, handL: [-3 + Math.cos(a) * 2, 2 + Math.sin(a) * 2, 25 + Math.sin(a) * 2], handR: [5.6, -1 + Math.cos(a), 12 + Math.sin(a) * 2], footL: [-1.2, Math.sin(a) * 1.4, Math.max(0, Math.sin(a)) * 1.2], footR: [1.4, -Math.sin(a) * 1.4, 0], eyes: i % 6 === 3 ? "blink" : "closed", mouth: "smile", wind: [Math.sin(a) * 1.2, Math.cos(a) * 0.8, 0.4] };
+  },
+};
+// weeping into the hands, shoulders shaking (a merfolk's tears fall as pearls)
+human.weep = {
+  n: 8,
+  fps: 5,
+  loop: true,
+  pose: (i) => {
+    const sob = i % 2 ? 0.5 : 0;
+    return { t: i, lean: 0.18, bob: -sob, handL: [-1.4, 5, 21.6 - sob], handR: [1.4, 5, 21.6 - sob], eyes: "closed", mouth: i % 4 === 1 ? "open" : "neutral", wind: [0, -0.2, 0] };
+  },
+};
+// carving: down on one knee, a chisel set to the stone and the mallet brought down on it
+human.carve = {
+  n: 8,
+  fps: 8,
+  loop: true,
+  pose: (i) => {
+    const up = [0, 0.5, 1, 1, 0.4, 0, 0, 0][i];
+    return { t: i, stance: "kneel", lean: 0.22, held: "hammer", handL: [-1.2, 6.2, 8.6], handR: [2.2, 5.4, 10 + up * 7], eyes: up === 0 && i > 4 ? "blink" : "fierce", mouth: "neutral", wind: [0, -0.2, 0] };
+  },
+};
+// gliding: arms flung wide like wings, lifted off the ground and banking from side to side
+human.glide = {
+  n: 8,
+  fps: 6,
+  loop: true,
+  pose: (i, n) => {
+    const a = ph(i, n);
+    const bank = Math.sin(a);
+    return { t: a, lift: 3 + Math.cos(a) * 1.2, lean: 0.28, handL: [-8.6, -0.6, 17 + bank * 2], handR: [8.6, -0.6, 17 - bank * 2], footL: [-1.2, -2.4, 0.6], footR: [1.2, -2.8, 0.4], eyes: "open", mouth: "smile", wind: [bank * 0.6, -2.4, 0.6] };
+  },
+};
+// breathing fire: a deep breath drawn in, then a gout of flame from the lips (the fireball held before the mouth)
+human.firebreath = {
+  n: 10,
+  fps: 8,
+  loop: false,
+  pose: (i) => {
+    const draw = [0, 0.4, 0.8, 1, 1, 0, 0, 0, 0.3, 0][i];
+    const blow = i >= 5 && i <= 7;
+    return { t: i, lean: blow ? 0.18 : -0.12 * draw, bob: draw * 0.6, held: blow ? "fireball" : undefined, handL: blow ? [-1.2, 7.8, 22] : [-4.4, 0.6, 11.2 + draw * 2], handR: blow ? [1.2, 8.4, 22.6] : [4.4, 0.6, 11.2 + draw * 2], eyes: blow ? "fierce" : draw > 0.5 ? "closed" : "open", mouth: blow ? "open" : "neutral", wind: blow ? [0, 0.8, 0] : [0, -0.3, 0] };
+  },
+};
+// counting the winter on a knotted cord: a knot tied, pulled tight, run through the fingers
+human.knot = {
+  n: 8,
+  fps: 5,
+  loop: true,
+  pose: (i) => {
+    const pull = i % 4 === 2 ? 1.6 : 0;
+    return { t: i, held: "rag", lean: 0.1, handL: [-1.6 - pull, 5.6, 14.4], handR: [1.6 + pull, 5.6, 14.6], eyes: i === 6 ? "blink" : "open", mouth: i % 4 === 0 ? "open" : "neutral", wind: [0, -0.2, 0] };
+  },
+};
+// a pearl (or a scale, or a feather: any token of trust) offered on an open palm with a small bow
+human.offerpearl = {
+  n: 8,
+  fps: 5,
+  loop: false,
+  pose: (i) => {
+    const k = [0, 0.4, 0.8, 1, 1, 1, 0.6, 0.2][i];
+    return { t: i, held: "token", lean: 0.12 * k, handR: [1.4, 3 + k * 4, 12 + k * 4], handL: [-1, 3 + k * 3.6, 11.6 + k * 3.4], eyes: k === 1 ? "closed" : "open", mouth: "smile", wind: [0, -0.2, 0] };
+  },
+};
+// the snow-folk's hearth song: sitting by the fire, swaying, hands held out to it, mouth open on the long notes
+human.hearthsong = {
+  n: 12,
+  fps: 5,
+  loop: true,
+  pose: (i, n) => {
+    const a = ph(i, n);
+    return { t: a, stance: "sit", lean: Math.sin(a) * 0.08 + 0.06, handL: [-3, 6, 9 + Math.sin(a)], handR: [3, 6, 9 + Math.sin(a)], eyes: "closed", mouth: Math.sin(a * 2) > 0 ? "open" : "smile", wind: [Math.sin(a) * 0.4, -0.2, 0] };
+  },
+};
+
 // ----------------------------------------------------------------------------- beast poses
 const beast: Partial<Record<AnimId, AnimSpec<BeastPose>>> = {
   idle: { n: 6, fps: 6, loop: true, pose: (i, n) => ({ t: ph(i, n) }) },
@@ -1637,6 +1729,38 @@ export const STYLES = {
   tierherald: s({ robe: ramp("#f2d050", { lo: "#5a3a08" }), inner: PAL.red, trim: PAL.red, sash: PAL.red, hairStyle: "topknot", hair: PAL.hairBlack, hat: "scholar", hatRamp: PAL.red, flare: 5.2 }),
   forger: s({ robe: ramp("#5a5a6a", { lo: "#141420" }), inner: PAL.paper, trim: PAL.black, sash: PAL.black, hairStyle: "bun", female: true, hair: PAL.hairGrey, hat: "hood", hatRamp: ramp("#3a3a4a"), eye: "#3a3a4a", hunch: 0.06, flare: 4.8, hem: 3.8 }),
   suwan: s({ robe: ramp("#9ad8c0", { lo: "#1a4a3a" }), inner: PAL.white, trim: PAL.jade, sash: PAL.rose, hairStyle: "long", female: true, hair: PAL.hairBlack, eye: "#2a3a3a", scale: 0.94, flare: 5.2, shawl: ramp("#e8fff4", { lo: "#4a7a6a" }) }),
+  // the jianghu's other peoples (see world/peoples.ts): the Concord's envoy, and for each people its elder, its guide, its folk and its trouble
+  concordenvoy: s({ robe: ramp("#e8dcc0", { lo: "#5a5040" }), inner: PAL.jade, trim: PAL.jade, sash: PAL.jade, hair: PAL.hairGrey, beard: PAL.hairGrey, hairStyle: "topknot", hat: "scholar", hatRamp: PAL.jadeDeep, weapon: "staff", weaponRamp: PAL.wood, hunch: 0.06, flare: 5.4 }),
+  foxelder: s({ robe: ramp("#f4f0f8", { lo: "#6a5a7a" }), inner: PAL.orange, trim: PAL.orange, sash: PAL.red, hair: PAL.hairWhite, hairStyle: "long", female: true, eye: "#d06a10", foxEars: ramp("#f4f0f8"), tails: ramp("#ffffff", { lo: "#8a7aa0" }), hunch: 0.1, flare: 6, weapon: "whisk" }),
+  foxguide: s({ robe: ramp("#e87a3a", { lo: "#5a1a20" }), inner: PAL.white, trim: PAL.white, sash: PAL.gold, hair: ramp("#f08a3a", { lo: "#8a2a3a" }), hairStyle: "twin", female: true, eye: "#d06a10", foxEars: ramp("#f08a3a"), tails: ramp("#f08a3a", { lo: "#8a2a40" }), scale: 0.9, hem: 4.2, flare: 4.4 }),
+  foxfolkM: s({ robe: ramp("#8a5a3a", { lo: "#2a140a" }), inner: PAL.paper, trim: PAL.orange, sash: PAL.orange, hair: ramp("#c86a2a"), hairStyle: "short", eye: "#c06010", foxEars: ramp("#c86a2a"), tails: ramp("#c86a2a", { lo: "#5a2010" }), hem: 4.4, flare: 4.4 }),
+  foxfolkF: s({ robe: ramp("#c8a0d8", { lo: "#3a2050" }), inner: PAL.white, trim: PAL.orange, sash: PAL.purple, hair: ramp("#e8a050"), hairStyle: "bun", female: true, eye: "#c06010", foxEars: ramp("#e8a050"), tails: ramp("#e8a050", { lo: "#6a3010" }), flare: 5 }),
+  foxusurper: s({ robe: ramp("#3a2a5a", { lo: "#0a0418" }), inner: PAL.crimson, trim: ramp("#c8b0ff"), sash: PAL.crimson, hair: ramp("#2a1a3a"), hairStyle: "long", eye: "#b040ff", foxEars: ramp("#4a3a6a"), tails: ramp("#6a4a9a", { lo: "#10042a" }), glowEyes: "#d080ff", weapon: "fan", weaponRamp: PAL.crimson, scale: 1.18, flare: 6, cape: ramp("#2a1a4a", { lo: "#000008" }) }),
+  merelder: s({ robe: ramp("#4ab0b8", { lo: "#0a2a3a" }), inner: PAL.white, trim: ramp("#f8e8f0"), sash: ramp("#f8c8d8"), skin: ramp("#d8ecec", { lo: "#4a7a8a", spread: 0.8 }), hair: ramp("#bfe8ff"), hairStyle: "long", female: true, eye: "#2a6a8a", fins: ramp("#8ad8e8", { lo: "#1a5a7a" }), weapon: "staff", weaponRamp: ramp("#f8e8f0"), hunch: 0.08, flare: 6.2 }),
+  merguide: s({ robe: ramp("#3a8ad8", { lo: "#0a1a4a" }), inner: ramp("#e8fff8"), trim: ramp("#f8c8d8"), sash: ramp("#f8c8d8"), skin: ramp("#e0f0ee", { lo: "#4a7a8a", spread: 0.8 }), hair: ramp("#5ad8c8", { lo: "#0a4a5a" }), hairStyle: "wild", female: true, eye: "#1a5a7a", fins: ramp("#5ad8c8", { lo: "#0a4a5a" }), scale: 0.92, hem: 4, flare: 4.4 }),
+  merfolkM: s({ robe: ramp("#2a6a8a", { lo: "#04142a" }), inner: PAL.white, trim: ramp("#e8f0f8"), sash: PAL.teal, skin: ramp("#d0e4e4", { lo: "#3a6a7a", spread: 0.8 }), hair: ramp("#2a5a7a"), hairStyle: "short", eye: "#1a4a6a", fins: ramp("#4ab0c8", { lo: "#0a3a5a" }), hem: 4.4, flare: 4.4, weapon: "spear", weaponRamp: ramp("#f8e8f0") }),
+  merfolkF: s({ robe: ramp("#8ad8c8", { lo: "#0a3a3a" }), inner: PAL.white, trim: ramp("#f8c8d8"), sash: ramp("#f8a8c8"), skin: ramp("#e0f0ee", { lo: "#4a7a8a", spread: 0.8 }), hair: ramp("#e8f0ff"), hairStyle: "bun", female: true, eye: "#1a5a7a", fins: ramp("#a8e8f0", { lo: "#2a6a8a" }), flare: 5.4 }),
+  merprince: s({ robe: ramp("#1a3a5a", { lo: "#000818" }), inner: PAL.gold, trim: PAL.gold, sash: PAL.black, skin: ramp("#a8c8c8", { lo: "#2a4a5a", spread: 0.8 }), hair: ramp("#0a2a3a"), hairStyle: "wild", eye: "#0a3a5a", fins: ramp("#1a6a7a", { lo: "#00141a" }), glowEyes: "#5af0e0", weapon: "spear", weaponRamp: PAL.gold, hat: "crown", hatRamp: ramp("#f8e8f0"), scale: 1.2, flare: 5, cape: ramp("#0a4a5a", { lo: "#000810" }) }),
+  stoneelder: s({ robe: ramp("#8a8478", { lo: "#24201a" }), inner: PAL.stone, trim: ramp("#c8a060"), sash: ramp("#c8a060"), skin: ramp("#b0aaa0", { lo: "#4a4440", spread: 0.7 }), hair: PAL.hairGrey, beard: ramp("#c8c0b0"), hairStyle: "bald", eye: "#e8a040", shards: ramp("#d8a0f0", { lo: "#4a2a6a" }), hunch: 0.14, scale: 1.12, flare: 6.4, hem: 3, weapon: "staff", weaponRamp: PAL.stone }),
+  stoneguide: s({ robe: ramp("#a89a80", { lo: "#2a2418" }), inner: PAL.paper, trim: ramp("#a8e0ff"), sash: ramp("#a8e0ff"), skin: ramp("#c0b8ac", { lo: "#5a5048", spread: 0.7 }), hair: ramp("#8a8478"), hairStyle: "short", eye: "#3a8ac8", shards: ramp("#a8e0ff", { lo: "#2a4a7a" }), scale: 0.8, hem: 4.4, flare: 4 }),
+  stonefolkM: s({ robe: ramp("#6a6058", { lo: "#141010" }), inner: PAL.stone, trim: PAL.brown, sash: PAL.brown, skin: ramp("#a8a094", { lo: "#4a4440", spread: 0.7 }), hair: PAL.hairGrey, hairStyle: "bald", eye: "#e8a040", shards: ramp("#f0c860", { lo: "#6a4a10" }), scale: 1.08, hem: 3.6, flare: 4.8 }),
+  stonefolkF: s({ robe: ramp("#9a8a7a", { lo: "#241a14" }), inner: PAL.paper, trim: ramp("#d8a0f0"), sash: ramp("#d8a0f0"), skin: ramp("#b8b0a4", { lo: "#544c46", spread: 0.7 }), hair: ramp("#6a6460"), hairStyle: "bun", female: true, eye: "#c070e0", shards: ramp("#d8a0f0", { lo: "#4a2a6a" }), flare: 5.2 }),
+  stoneking: s({ robe: ramp("#4a4038", { lo: "#0a0806" }), inner: PAL.orange, trim: PAL.gold, sash: PAL.black, skin: ramp("#7a7268", { lo: "#24201c", spread: 0.7 }), hair: PAL.hairGrey, hairStyle: "bald", glowEyes: "#ffb040", shards: ramp("#ff9040", { lo: "#5a1a0a" }), hat: "crown", hatRamp: PAL.stone, scale: 1.4, flare: 7, hem: 2.4 }),
+  featherelder: s({ robe: ramp("#e8f0f8", { lo: "#5a6a80" }), inner: PAL.azure, trim: PAL.azure, sash: PAL.navy, hair: PAL.hairWhite, beard: PAL.hairWhite, hairStyle: "topknot", eye: "#c88a20", wings: ramp("#f0f0f8", { lo: "#7a7a9a" }), hunch: 0.1, flare: 5.6, weapon: "fan", weaponRamp: PAL.white }),
+  featherguide: s({ robe: ramp("#6ab0e8", { lo: "#0a2a5a" }), inner: PAL.white, trim: PAL.gold, sash: PAL.gold, hair: ramp("#3a4a7a"), hairStyle: "long", female: true, eye: "#c88a20", wings: ramp("#6a9ad8", { lo: "#1a2a5a" }), scale: 0.92, hem: 4.2, flare: 4.2 }),
+  featherfolkM: s({ robe: ramp("#c8a060", { lo: "#3a2410" }), inner: PAL.white, trim: PAL.brown, sash: PAL.brown, hair: PAL.hairBrown, hairStyle: "wild", eye: "#c88a20", wings: ramp("#a87a4a", { lo: "#3a2010" }), hem: 4.4, flare: 4.4 }),
+  featherfolkF: s({ robe: ramp("#f0d8e8", { lo: "#6a4a5a" }), inner: PAL.white, trim: PAL.rose, sash: PAL.rose, hair: ramp("#2a2a3a"), hairStyle: "bun", female: true, eye: "#c88a20", wings: ramp("#e8e8f0", { lo: "#6a6a80" }), flare: 5.2 }),
+  stormlord: s({ robe: ramp("#3a3a5a", { lo: "#04040e" }), inner: ramp("#e8e0ff"), trim: ramp("#e8e0ff"), sash: PAL.purple, hair: ramp("#1a1a2a"), hairStyle: "wild", glowEyes: "#c8e0ff", wings: ramp("#2a2a4a", { lo: "#000004" }), weapon: "spear", weaponRamp: ramp("#e8e0ff"), scale: 1.22, flare: 5, cape: ramp("#4a4a7a", { lo: "#08081a" }) }),
+  snowelder: s({ robe: ramp("#c8b8a0", { lo: "#4a3a2a" }), inner: PAL.red, trim: PAL.red, sash: PAL.red, skin: PAL.skinTan, hair: PAL.hairWhite, hairStyle: "long", female: true, eye: "#3a2a1a", horns: ramp("#e8dcc8", { lo: "#6a5a4a" }), hornStyle: "ram", shawl: ramp("#e8dcc8", { lo: "#6a5a4a" }), hunch: 0.12, flare: 6 }),
+  snowguide: s({ robe: ramp("#8a6a4a", { lo: "#2a1a0a" }), inner: ramp("#e8dcc8"), trim: PAL.blue, sash: PAL.blue, skin: PAL.skinTan, hair: PAL.hairBlack, hairStyle: "twin", female: true, eye: "#3a2a1a", horns: ramp("#d8c8b0", { lo: "#5a4a3a" }), hornStyle: "ram", scale: 0.9, hem: 4.6, flare: 4.6, shoes: PAL.brown }),
+  snowfolkM: s({ robe: ramp("#6a4a3a", { lo: "#1a0e08" }), inner: ramp("#e8dcc8"), trim: PAL.red, sash: PAL.red, skin: PAL.skinTan, hair: PAL.hairBrown, beard: PAL.hairBrown, hairStyle: "wild", eye: "#3a2a1a", horns: ramp("#c8b8a0", { lo: "#4a3a2a" }), hornStyle: "ram", scale: 1.06, hem: 4.6, flare: 5, shoes: PAL.brown, weapon: "spear", weaponRamp: PAL.wood }),
+  snowfolkF: s({ robe: ramp("#4a6a9a", { lo: "#0a1a3a" }), inner: ramp("#e8dcc8"), trim: PAL.gold, sash: PAL.gold, skin: PAL.skinTan, hair: PAL.hairBlack, hairStyle: "bun", female: true, eye: "#3a2a1a", horns: ramp("#e8dcc8", { lo: "#6a5a4a" }), hornStyle: "ram", flare: 5.4, shawl: ramp("#e8dcc8", { lo: "#6a5a4a" }) }),
+  whitehunger: s({ robe: ramp("#e8f0f8", { lo: "#4a5a7a" }), inner: PAL.black, trim: ramp("#a8c8ff"), sash: PAL.black, skin: ramp("#c8d8e8", { lo: "#3a4a6a", spread: 0.8 }), hair: PAL.hairWhite, hairStyle: "wild", glowEyes: "#a8e0ff", horns: ramp("#f0f0ff", { lo: "#5a6a8a" }), hornStyle: "ram", weapon: "staff", weaponRamp: ramp("#e8f6ff"), scale: 1.34, flare: 6.4, hem: 1.6, cape: ramp("#e8f6ff", { lo: "#4a5a7a" }) }),
+  dragonelder: s({ robe: ramp("#a8302a", { lo: "#2a0408" }), inner: PAL.gold, trim: PAL.gold, sash: PAL.gold, skin: ramp("#f0d0b0", { lo: "#8a4a3a", spread: 0.8 }), hair: PAL.hairSilver, hairStyle: "long", female: true, eye: "#e8a020", horns: ramp("#f2e0a0", { lo: "#7a5a20" }), hornStyle: "dragon", weapon: "staff", weaponRamp: PAL.gold, hunch: 0.06, scale: 1.1, flare: 6.4 }),
+  dragonguide: s({ robe: ramp("#2a8a6a", { lo: "#04201a" }), inner: PAL.gold, trim: PAL.gold, sash: PAL.red, skin: ramp("#f0d8b8", { lo: "#8a5a3a", spread: 0.8 }), hair: ramp("#1a5a4a"), hairStyle: "topknot", eye: "#e8a020", horns: ramp("#e8d8a0", { lo: "#6a5a20" }), hornStyle: "dragon", weapon: "jian", weaponRamp: PAL.gold, hem: 4, flare: 4.6 }),
+  dragonfolkM: s({ robe: ramp("#7a3a2a", { lo: "#1a0806" }), inner: PAL.gold, trim: PAL.orange, sash: PAL.orange, skin: PAL.skinTan, hair: PAL.hairAuburn, hairStyle: "short", eye: "#e8a020", horns: ramp("#c8b080", { lo: "#4a3a1a" }), hornStyle: "dragon", scale: 1.06, hem: 4.2, flare: 4.6 }),
+  dragonfolkF: s({ robe: ramp("#d8a040", { lo: "#4a2a08" }), inner: PAL.red, trim: PAL.red, sash: PAL.red, skin: ramp("#f0d0b0", { lo: "#8a4a3a", spread: 0.8 }), hair: PAL.hairBlack, hairStyle: "bun", female: true, eye: "#e8a020", horns: ramp("#f2e0a0", { lo: "#7a5a20" }), hornStyle: "dragon", flare: 5.4 }),
+  dragonlord: s({ robe: ramp("#1a1a1a", { lo: "#000000" }), inner: PAL.orange, trim: PAL.gold, sash: PAL.crimson, skin: ramp("#c8a088", { lo: "#4a2018", spread: 0.8 }), hair: PAL.hairBlack, hairStyle: "wild", glowEyes: "#ffb040", horns: ramp("#3a3030", { lo: "#000000" }), hornStyle: "dragon", weapon: "saber", weaponRamp: PAL.gold, scale: 1.36, flare: 6.4, cape: ramp("#a8182e", { lo: "#2a0010" }) }),
 } satisfies Record<string, HumanStyle>;
 
 export type HumanId = keyof typeof STYLES;
@@ -1887,6 +2011,37 @@ const HUMAN_ANIMS: Record<HumanId, AnimId[]> = {
   tierherald: ["idle", "walk", "talk", "decree", "hawk", "bow", "point", "nod", "wave"],
   forger: ["idle", "walk", "talk", "write", "stamp", "whisper", "think", "nod", "bow", "cry", "kneel", "cower"],
   suwan: ["idle", "walk", "talk", "flute", "cry", "bow", "nod", "lean", "twirl", "embrace", "think", "kneel"],
+  concordenvoy: ["idle", "walk", "talk", "nod", "bow", "read", "write", "point", "think", "offerpearl", "wave"],
+  foxelder: ["idle", "walk", "talk", "nod", "bow", "pray", "think", "laugh", "cry", "moondance", "offerpearl"],
+  foxguide: ["idle", "walk", "run", "talk", "nod", "bow", "wave", "laugh", "cheer", "cry", "point", "moondance", "offerpearl"],
+  foxfolkM: ["idle", "walk", "talk", "nod", "bow", "wave", "moondance", "lantern", "pray"],
+  foxfolkF: ["idle", "walk", "talk", "nod", "bow", "wave", "moondance", "pray", "fan"],
+  foxusurper: ["idle", "walk", "talk", "attack", "cast", "hurt", "defeat", "kowtow", "laugh", "roar", "moondance"],
+  merelder: ["idle", "walk", "talk", "nod", "bow", "pray", "think", "laugh", "cry", "weep", "offerpearl"],
+  merguide: ["idle", "walk", "run", "talk", "nod", "bow", "wave", "laugh", "cheer", "cry", "point", "weep", "offerpearl"],
+  merfolkM: ["idle", "walk", "talk", "nod", "bow", "wave", "weep", "castnet", "fish"],
+  merfolkF: ["idle", "walk", "talk", "nod", "bow", "wave", "weep", "fish", "flute"],
+  merprince: ["idle", "walk", "talk", "attack", "cast", "hurt", "defeat", "kowtow", "laugh", "roar", "weep"],
+  stoneelder: ["idle", "walk", "talk", "nod", "bow", "pray", "think", "laugh", "cry", "carve", "offerpearl"],
+  stoneguide: ["idle", "walk", "run", "talk", "nod", "bow", "wave", "laugh", "cheer", "cry", "point", "carve", "offerpearl"],
+  stonefolkM: ["idle", "walk", "talk", "nod", "bow", "wave", "carve", "mine", "dig"],
+  stonefolkF: ["idle", "walk", "talk", "nod", "bow", "wave", "carve", "dig", "hammer"],
+  stoneking: ["idle", "walk", "talk", "attack", "cast", "hurt", "defeat", "kowtow", "laugh", "roar", "carve"],
+  featherelder: ["idle", "walk", "talk", "nod", "bow", "pray", "think", "laugh", "cry", "glide", "offerpearl"],
+  featherguide: ["idle", "walk", "run", "talk", "nod", "bow", "wave", "laugh", "cheer", "cry", "point", "glide", "offerpearl"],
+  featherfolkM: ["idle", "walk", "talk", "nod", "bow", "wave", "glide", "stargaze", "kite"],
+  featherfolkF: ["idle", "walk", "talk", "nod", "bow", "wave", "glide", "kite", "flute"],
+  stormlord: ["idle", "walk", "talk", "attack", "cast", "hurt", "defeat", "kowtow", "laugh", "roar", "glide"],
+  snowelder: ["idle", "walk", "talk", "nod", "bow", "pray", "think", "laugh", "cry", "knot", "hearthsong"],
+  snowguide: ["idle", "walk", "run", "talk", "nod", "bow", "wave", "laugh", "cheer", "cry", "point", "knot", "hearthsong"],
+  snowfolkM: ["idle", "walk", "talk", "nod", "bow", "wave", "knot", "carry", "chop"],
+  snowfolkF: ["idle", "walk", "talk", "nod", "bow", "wave", "knot", "chop", "warmhands"],
+  whitehunger: ["idle", "walk", "talk", "attack", "cast", "hurt", "defeat", "kowtow", "laugh", "roar", "knot"],
+  dragonelder: ["idle", "walk", "talk", "nod", "bow", "pray", "think", "laugh", "cry", "firebreath", "offerpearl"],
+  dragonguide: ["idle", "walk", "run", "talk", "nod", "bow", "wave", "laugh", "cheer", "cry", "point", "firebreath", "offerpearl"],
+  dragonfolkM: ["idle", "walk", "talk", "nod", "bow", "wave", "firebreath", "read", "hammer"],
+  dragonfolkF: ["idle", "walk", "talk", "nod", "bow", "wave", "firebreath", "hammer", "sworddance"],
+  dragonlord: ["idle", "walk", "talk", "attack", "cast", "hurt", "defeat", "kowtow", "laugh", "roar", "firebreath"],
 };
 
 /** Whether a character has an animation of its own. */
@@ -1904,6 +2059,14 @@ const MORE: [AnimId, HumanId[]][] = [
   ["beg", ["refugeeM", "refugeeF"]],
   ["decree", ["wdherald", "envoy"]],
   ["bear", ["porter", "villagerM", "soldier"]],
+  // the peoples' manners, which she learns among them
+  ["moondance", ["heroine", "huli"]],
+  ["glide", ["heroine"]],
+  ["weep", ["heroine", "villagerF", "refugeeF"]],
+  ["offerpearl", ["heroine"]],
+  ["hearthsong", ["heroine", "nomad"]],
+  ["knot", ["nomad"]],
+  ["carve", ["heroine", "smith", "miner"]],
 ];
 for (const [anim, ids] of MORE) for (const id of ids) if (!HUMAN_ANIMS[id].includes(anim)) HUMAN_ANIMS[id].push(anim);
 
@@ -2057,6 +2220,37 @@ const NAMES: Record<CharId, [string, string]> = {
   tierherald: ["Herald of the Stair", "City of Nine Tiers"],
   forger: ["Faceless Liu", "Forger of Tablets"],
   suwan: ["Su Wan", "Daughter of the Jade Tier"],
+  concordenvoy: ["Envoy Shan", "The Concord of a Hundred Peoples"],
+  foxelder: ["Grandmother Su Yao", "Matriarch of Moonfox Hollow"],
+  foxguide: ["Bai Ling", "Fox-Folk of Moonfox Hollow"],
+  foxfolkM: ["Fox-Folk", "Moonfox Hollow"],
+  foxfolkF: ["Fox-Folk", "Moonfox Hollow"],
+  foxusurper: ["Hu Yan", "The Moon-Eater"],
+  merelder: ["Tide-Mother Lan Xi", "Pearlsong Reef"],
+  merguide: ["Hai Yin", "Merfolk of Pearlsong Reef"],
+  merfolkM: ["Merfolk", "Pearlsong Reef"],
+  merfolkF: ["Merfolk", "Pearlsong Reef"],
+  merprince: ["Chen Yuan", "The Drowned Prince"],
+  stoneelder: ["Old Granite Lei Gu", "Elder of Hollowstone Hold"],
+  stoneguide: ["Pebble", "Stone-Born of Hollowstone Hold"],
+  stonefolkM: ["Stone-Born", "Hollowstone Hold"],
+  stonefolkF: ["Stone-Born", "Hollowstone Hold"],
+  stoneking: ["Kuang Yan", "The Hollow King"],
+  featherelder: ["Wind-Speaker Qing Yu", "Skyfeather Eyrie"],
+  featherguide: ["Fei Yan", "Feathered Folk of Skyfeather Eyrie"],
+  featherfolkM: ["Feathered Folk", "Skyfeather Eyrie"],
+  featherfolkF: ["Feathered Folk", "Skyfeather Eyrie"],
+  stormlord: ["Lie Feng", "Lord of the Storm"],
+  snowelder: ["Hearth-Keeper Aru", "Rimehorn Lodge"],
+  snowguide: ["Tuya", "Snow-Folk of Rimehorn Lodge"],
+  snowfolkM: ["Snow-Folk", "Rimehorn Lodge"],
+  snowfolkF: ["Snow-Folk", "Rimehorn Lodge"],
+  whitehunger: ["Kar", "The White Hunger"],
+  dragonelder: ["Matriarch Ao Rong", "Emberscale Hold"],
+  dragonguide: ["Ao Xun", "Dragon-Kin of Emberscale Hold"],
+  dragonfolkM: ["Dragon-Kin", "Emberscale Hold"],
+  dragonfolkF: ["Dragon-Kin", "Emberscale Hold"],
+  dragonlord: ["Ao Kuang", "The Unbound"],
   fox: ["Fox Spirit", "Corrupted Beast"],
   wolf: ["Shadowflame Wolf", "Corrupted Beast"],
   serpent: ["Jade Serpent", "Lake Beast"],

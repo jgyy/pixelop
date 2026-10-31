@@ -7,7 +7,9 @@ import { OUTLINE, PAL, tones as ramp4 } from "./palette";
  * Procedural chibi cultivators. A humanoid is a rig of ~20 solids (bell
  * skirt, torso, big head, sleeves, hair strands, shawl, weapon) posed per
  * frame and ray cast at any facing angle. Styles change palettes and add
- * hats, beards, capes, fox ears and tails; poses drive limbs and cloth.
+ * hats, beards, capes, fox ears and tails, and the marks of the jianghu's
+ * other peoples (dragon or ram horns, feathered wings, fins, crystal shards);
+ * poses drive limbs and cloth.
  */
 
 export type HairStyle = "bun" | "long" | "topknot" | "bald" | "twin" | "short" | "wild";
@@ -46,6 +48,15 @@ export interface HumanStyle {
   glowEyes?: string;
   /** Long robes hide the feet; short robes show trousers. */
   hem?: number;
+  /** Horns: the dragon-kin's swept-back antlers, or the snow-folk's curled ram's horns. */
+  horns?: Ramp;
+  hornStyle?: "dragon" | "ram";
+  /** The feathered folk's wings, folded at the back and beating with her breath. */
+  wings?: Ramp;
+  /** The merfolk's fins: a fan at each ear and a crest down the back. */
+  fins?: Ramp;
+  /** The stone-born's crystal shards, grown from shoulders and crown. */
+  shards?: Ramp;
 }
 
 export type Eyes = "open" | "blink" | "closed" | "hurt" | "fierce" | "glow";
@@ -271,6 +282,48 @@ export function paintHuman(st: HumanStyle, p: HumanPose, facing: number, o: Rend
       const tip = U([side * 5.2, -1.4 + Math.sin(t * 2 + side) * 0.3, 34.2]);
       r.sweep([base, tip], [Rr(1.8), Rr(0.3)], mat(st.foxEars, 7, { shader: (s, tone) => (s.n[1] > 0.4 && s.u < 0.75 ? tone(PAL.rose) : tone(st.foxEars!)) }));
     }
+  }
+
+  // horns: a dragon's antlers sweep back and branch; a ram's curl round beside the ears
+  if (st.horns) {
+    const hm = mat(st.horns, 7, { shader: (s, tone) => tone(st.horns!, s.u > 0.7 ? -1 : 0) });
+    for (const side of [-1, 1]) {
+      if (st.hornStyle === "ram") {
+        const pts: V3[] = [];
+        for (let k = 0; k <= 6; k++) {
+          const a = (k / 6) * Math.PI * 1.5;
+          pts.push(U([side * (5 + Math.sin(a) * 3 + k * 0.2), 0.4 - Math.cos(a) * 2.4, 30.4 - (1 - Math.cos(a)) * 2]));
+        }
+        r.sweep(spline(pts, 3), (u) => Rr(1.9 - u * 1.3), hm);
+      } else {
+        const base = U([side * 2.4, -0.8, 29.4]);
+        const mid = U([side * 3.8, -3.2, 33]);
+        const tip = U([side * 4.6, -6.2, 35.4]);
+        r.sweep([base, mid, tip], [Rr(0.9), Rr(0.6), Rr(0.25)], hm);
+        r.sweep([mid, U([side * 5.6, -2.6, 35])], [Rr(0.45), Rr(0.2)], hm);
+      }
+    }
+  }
+  // fins: a translucent fan behind each ear, ribbed, rippling
+  if (st.fins) {
+    for (const side of [-1, 1]) {
+      for (let k = 0; k < 3; k++) {
+        const z = 25.6 + k * 1.4;
+        r.sweep([U([side * 5.6, -0.4, z]), U([side * (8.2 - k * 0.6), -2.2 + Math.sin(t * 2 + k + side) * 0.4, z + 1.6])], [Rr(0.7), Rr(0.2)], mat(st.fins, 7, { shader: (s, tone) => tone(st.fins!, s.u > 0.6 ? -1 : 0) }));
+      }
+    }
+  }
+  // shards: crystal grown out of the crown and the shoulders, catching the light
+  if (st.shards) {
+    const cm = mat(st.shards, 7, { shader: (s, tone) => (s.n[2] > 0.6 ? "#ffffff" : tone(st.shards!, s.n[0] > 0.3 ? -1 : 0)) });
+    for (const [x, y, z, h, lean] of [
+      [0, -1.4, 30.6, 4.2, 0],
+      [-2, -0.8, 30, 3, -0.6],
+      [2, -0.8, 30, 3, 0.6],
+      [-5.2, -1.2, 16.6, 3.4, -1],
+      [5.2, -1.2, 16.6, 3.4, 1],
+    ] as [number, number, number, number, number][])
+      r.sweep([U([x, y, z]), U([x + lean, y - 0.4, z + h])], [Rr(1.1), Rr(0.15)], cm);
   }
 
   // ------------------------------------------------------------------ hats
@@ -703,6 +756,22 @@ export function paintHuman(st: HumanStyle, p: HumanPose, facing: number, o: Rend
       );
     }
   }
+  if (st.wings) {
+    // folded half open at rest, the beat carried by the pose's phase (a glide holds them wide)
+    const open = 0.55 + Math.sin(t * 1.5) * 0.15 + (p.lift ?? 0) * 0.05;
+    for (const side of [-1, 1]) {
+      const root = U([side * 2, -4, 18]);
+      const elbow = U([side * (6 + open * 6), -6.4, 25 + open * 3]);
+      const tip = U([side * (9 + open * 10), -7.2 + wind[1], 21 + open * 4]);
+      for (let k = 0; k < 6; k++) {
+        const f = k / 5;
+        const end: V3 = [tip[0] + (root[0] - tip[0]) * f * 0.6, tip[1] + 0.3 * k, tip[2] - 9 * f - 3];
+        r.sweep([[elbow[0] + (tip[0] - elbow[0]) * (1 - f) * 0.6, elbow[1], elbow[2]], end], [Rr(1.5), Rr(0.5)], mat(st.wings, 10, { shader: (s, tone) => (s.u > 0.75 ? tone(PAL.white) : tone(st.wings!, k % 2 ? 1 : 0)) }));
+      }
+      r.sweep([root, elbow, tip], [Rr(1.4), Rr(1.1), Rr(0.5)], mat(st.wings, 10));
+    }
+  }
+  if (st.fins) r.sweep([U([0, -3.6, 21]), U([0, -5.4 + Math.sin(t) * 0.3, 17]), U([0, -4.4, 12.5])], [Rr(0.5), Rr(1.4), Rr(0.3)], mat(st.fins, 10));
   if (st.tails) {
     for (const side of [-1, 0, 1]) {
       const ph = t + side * 0.9;
