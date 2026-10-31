@@ -151,6 +151,16 @@ const TEX: Record<Exclude<TileKind, "void" | "water" | "deep" | "paddy" | "lava"
     if (hash2(Math.floor(x * 16), Math.floor(y * 16), seed) > 0.985) return "#ffffff";
     return pick(ICE, n * 0.9 + 0.08);
   },
+  // glazed roof tiles: rows of half-round tiles in jade green, a darker gutter between each row, and a gold glint now and then
+  roof: (seed) => (x, y) => {
+    const fx = x * 4 - Math.floor(x * 4);
+    const row = Math.floor((x + y) * 3);
+    const fr = (x + y) * 3 - row;
+    if (fr < 0.14) return "#173a3a";
+    if (hash2(Math.floor(x * 4), row, seed) > 0.985) return "#e8c860";
+    const round = Math.sin(fx * Math.PI);
+    return pick(["#1f5a52", "#2a7062", "#3a8a74", "#5aa88a"], round * 0.75 + fr * 0.2 + vnoise(x * 5, y * 5, seed) * 0.08);
+  },
   // the top of an interior wall: dark roof beams seen from above
   wall: (seed) => (x, y) => beam(x, y, seed),
   window: (seed) => (x, y) => beam(x, y, seed),
@@ -214,6 +224,7 @@ const WALLS: Record<TileKind, WallStyle> = {
   rockwall: { lip: "#3a4a3a", body: ["#1a1622", "#221d2c", "#2a2436", "#2e2838"] },
   rails: { body: ["#3a2a22", "#4a3426", "#5a402e"] },
   ice: { lip: "#e8f6ff", body: ["#5a7aa8", "#6a8ab8", "#7a9ac8"] },
+  roof: { lip: "#e8c860", body: ["#173a3a", "#1f5a52", "#2a7062"], posts: true },
 };
 
 /** One pixel of a plastered interior wall face (`u` across the tile, `dy` down from the top, `len` the face height). */

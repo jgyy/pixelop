@@ -109,6 +109,43 @@ New moves: Lin Yue **rummages** in her satchel when the menu opens and **shades 
 - A foundling who runs up the sky bridge before facing the fox is no longer greeted for the "fox blood on her sleeve", or told she has "already met" the beast.
 
 
+### The grand halls of the sects: three storeys, no loading, and quests that walk
+
+The sects build big. Two **grand halls** now stand in the open world, each three storeys high with **well over a thousand tiles of floor** (about 1,700 in each), and neither is a separate room you load into. You walk through the door, and the building opens up around you in the same world, with the same sky and the same folk walking past outside.
+
+- **The Pavilion of Drifting Scriptures** (藏经阁), the Azure Cloud Sect's library, on its own isle moored east of the sect and reached by a plank walk from the Cloudstep Isles: **the Lecture Hall** (Master Lu on the dais and rows of disciples taking notes, chanting, or dozing and calling it meditation), **the Stacks** (five long rows of shelves, copyists, an ink grinder, the keeper re-shelving, a scroll runner on his rounds) and **the Starwatch Gallery** under the roof (Elder Xi, the ten lamps, a bell, and a sealed case of sutras marked “Not yet”).
+- **The Hall of Ten Thousand Debates** (万论堂), outside the Ten Halls' south gate with its door on the road: **the Refectory** (cooks at the steamers, three long tables of disciples eating and arguing, servers with trays), **the Debating Floor** (a ring of debaters round the Arbiter, a gong to begin and a drum to stop, a clerk writing down every word) and **the Furnace Loft** (a furnace, cauldrons, fanners, talisman writers).
+
+| | |
+|---|---|
+| ![The Pavilion of Drifting Scriptures from outside](docs/screenshots/283-3d-pavilion-of-drifting-scriptures.png) | ![Through the door: the Lecture Hall](docs/screenshots/284-3d-pavilion-lecture-hall.png) |
+| ![Up the east stair: the Stacks](docs/screenshots/285-3d-pavilion-the-stacks.png) | ![Up the west stair: the Starwatch Gallery](docs/screenshots/286-3d-pavilion-starwatch-gallery.png) |
+| ![The Hall of Ten Thousand Debates](docs/screenshots/287-3d-hall-of-ten-thousand-debates.png) | ![The Refectory](docs/screenshots/288-3d-debates-refectory.png) |
+| ![The Debating Floor](docs/screenshots/289-3d-debates-debating-floor.png) | ![The Furnace Loft](docs/screenshots/290-3d-debates-furnace-loft.png) |
+
+#### Showing and hiding instead of loading
+
+A hall's footprint in the world map has four states: the **shell** (plastered walls as tall as all three storeys, lattice windows, and a stepped roof of jade-green glazed tiles, the new `roof` tile) and **one state for each storey**. From outside you see the shell. Step into the doorway and the footprint swaps to the ground floor: the roof and upper storeys go, the back walls stay at full height and the front walls drop to a sill, so the camera looks in like a doll's house. Each storey's furniture, folk and things to read are tied to a `hall:<key>:<n>` flag, so only the storey you're on is shown.
+
+The **stairs are real stairs**, one level per step, and they are the same tiles on the storey below and the storey above. Near the top of a flight, the floor above replaces the floor below; near the bottom, the reverse. There's no fade or teleport. In 3D only the ground chunks under the hall are repainted, and the old ground stays up until the new ground is ready. The isometric pixel view throws away only the painted columns that changed.
+
+| | |
+|---|---|
+| ![The refectory in the isometric view](docs/screenshots/291-debates-refectory-pixels.png) | ![The grand halls' new animations](docs/art/grandhall-moves.gif) |
+
+#### Quests that walk
+
+The two halls hold over sixty residents, and some of them won't stand still: a sweeper, the tea girl, servers, a mopper, a scroll runner, a porter of herbs and a pacing debater walk their rounds, and disciples come and go along the plank walk and the south road. Two new side quests send you up and down the stairs after people on the move:
+
+- **Three Overdue Scrolls**: Librarian Wen wants three scrolls back from three borrowers, one walking laps of each floor of the pavilion.
+- **The Relay of Answers**: Steward Pan's question from the refectory has to go up to **Debater Ji, who argues walking**, then up again to **Furnace Master Rong**, who answers by burning things, and then back down before the congee gets cold.
+
+Both show in the journal while they're under way, and every step is a story flag, so old saves load unchanged.
+
+#### 8 new animations
+
+`shelve` (up on her toes to slide a scroll onto the top shelf), `inkgrind`, `debate` (a jab, a palm slapped into a palm, a shake of the head), `dust` (with a sneeze at the end of the row), `copy`, `stir`, `fanfire` (with a cough) and `recite`. The outer disciples also pick up eating, laughing, writing and meditating, and Lin Yue can shelve, grind ink, debate, copy and stir too.
+
 ### The Hundred Peoples: six peoples, six homes, 1200 new main and side quests, and twice the draw distance
 
 The jianghu is not only human. **Six other peoples** now keep homes of their own out in the wilds, each with its own look, its own customs, its own elder and guide, its own folk going about their own work, and its own grief. Three hundred years ago the **Concord of a Hundred Peoples** (百族盟), the oath that kept them and the human jianghu from one another's throats, cracked on the night of the **Purge of Strange Blood**. Its cracked stone stands by the crossroads teahouse below Willow Creek, and **Envoy Shan**, its last keeper, gives Lin Yue its tally to carry from home to home.

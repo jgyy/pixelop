@@ -158,7 +158,15 @@ export type AnimId =
   | "firebreath"
   | "knot"
   | "offerpearl"
-  | "hearthsong";
+  | "hearthsong"
+  | "shelve"
+  | "inkgrind"
+  | "debate"
+  | "dust"
+  | "copy"
+  | "stir"
+  | "fanfire"
+  | "recite";
 
 export interface Anim {
   fps: number;
@@ -1532,6 +1540,106 @@ human.hearthsong = {
   },
 };
 
+// ---- the grand halls' work: libraries, refectories and furnace lofts
+// up on her toes to slide a scroll onto the top shelf, then a pat to square it with its neighbours
+human.shelve = {
+  n: 10,
+  fps: 6,
+  loop: true,
+  pose: (i) => {
+    const up = [0, 0.4, 0.8, 1, 1, 1, 0.9, 0.6, 0.3, 0][i];
+    const pat = i === 5 || i === 6;
+    return { t: i, held: up > 0.2 && !pat ? "ledger" : undefined, lean: -0.08 * up, lift: up * 0.8, handL: [-2.4, 3 + up * 1.4, 12 + up * 14], handR: [2.4 + (pat ? 0.8 : 0), 3 + up * 1.6, 12 + up * 14 + (pat ? -1 : 0)], eyes: up > 0.5 ? "open" : i === 9 ? "blink" : "open", mouth: up === 1 ? "open" : "neutral", wind: [0, -0.2, 0] };
+  },
+};
+// kneeling at an inkstone, grinding the stick round in slow circles until the water turns black
+human.inkgrind = {
+  n: 8,
+  fps: 6,
+  loop: true,
+  pose: (i, n) => {
+    const a = ph(i, n);
+    return { t: a, stance: "kneel", held: "token", lean: 0.2, handR: [1.6 + Math.cos(a) * 1.4, 6.4 + Math.sin(a) * 1.2, 7.4], handL: [-2.6, 5.4, 7.2], eyes: i % 4 === 0 ? "closed" : "open", mouth: "neutral", wind: [0, -0.2, 0] };
+  },
+};
+// a debater's flurry: a finger jabbed at the point, a palm slapped into a palm, a shake of the head
+human.debate = {
+  n: 10,
+  fps: 7,
+  loop: true,
+  pose: (i) => {
+    const jab = i < 3;
+    const slap = i >= 4 && i <= 6;
+    const shake = i >= 7 ? (i % 2 ? 0.07 : -0.07) : 0;
+    return {
+      t: i,
+      lean: jab ? 0.12 : slap ? 0.04 : -0.04 + shake,
+      handR: jab ? [3.6, 7.4 + i * 0.6, 18 + i] : slap ? [0.8, 6, 13.4 + (i === 5 ? -1 : 0)] : [4.2, 1.6, 12],
+      handL: slap ? [-0.8, 6, 12.8] : [-4.4, 0.6, 11.2],
+      eyes: slap ? "closed" : "open",
+      mouth: jab || i === 8 ? "open" : "neutral",
+      bob: slap ? 0.3 : 0,
+      wind: [0, -0.3, 0],
+    };
+  },
+};
+// dusting along a shelf with a rag, high then low, and a sneeze at the end of the row
+human.dust = {
+  n: 12,
+  fps: 7,
+  loop: true,
+  pose: (i, n) => {
+    const a = ph(i, n);
+    const sneeze = i === 11;
+    const high = i < 6;
+    return { t: a, held: "rag", lean: sneeze ? -0.16 : high ? -0.03 : 0.14, handR: [2.4 + Math.sin(a * 2) * 3, 5.6, high ? 20 + Math.cos(a * 2) : 10 + Math.cos(a * 2)], handL: sneeze ? [-1.2, 4.4, 21] : [-4.2, 1, 12], eyes: sneeze ? "closed" : "open", mouth: sneeze ? "open" : "neutral", wind: [0, -0.2, 0] };
+  },
+};
+// kneeling at a low desk copying a scripture: dip the brush, a stroke, a stroke, a long one down, look back at the original
+human.copy = {
+  n: 12,
+  fps: 6,
+  loop: true,
+  pose: (i) => {
+    const dip = i === 0 || i === 1;
+    const stroke = [0, 0, 1, 2, 1, 2, 3, 4, 5, 0, 0, 0][i];
+    const look = i >= 9;
+    return { t: i, stance: "kneel", held: "brush", lean: look ? 0.06 : 0.24, handR: dip ? [3.4, 5, 8.4] : [1 + stroke * 0.5, 6.4, 8 - stroke * 0.25], handL: [-3, 5.6, 7.6], eyes: look ? (i === 10 ? "blink" : "open") : "open", mouth: "neutral", wind: [0, -0.2, 0] };
+  },
+};
+// stirring a great pot with a ladle in both hands, round and round, leaning into it
+human.stir = {
+  n: 8,
+  fps: 6,
+  loop: true,
+  pose: (i, n) => {
+    const a = ph(i, n);
+    const [cx, cy] = [Math.cos(a) * 2.2, Math.sin(a) * 1.4];
+    return { t: a, held: "ladle", lean: 0.14 + Math.sin(a) * 0.05, handR: [1.6 + cx, 6.8 + cy, 12.6], handL: [-1.4 + cx, 6 + cy, 14.4], bob: Math.abs(Math.sin(a)) * 0.3, eyes: i === 6 ? "blink" : "open", mouth: i === 2 ? "open" : "neutral", wind: [0, -0.2, 0] };
+  },
+};
+// crouched at a furnace mouth, fanning the coals: quick strokes, a cough, a look to see if it took
+human.fanfire = {
+  n: 10,
+  fps: 9,
+  loop: true,
+  pose: (i) => {
+    const cough = i === 7;
+    const fan = i < 7 ? (i % 2 ? 1 : -1) : 0;
+    return { t: i, stance: "kneel", lean: cough ? -0.08 : 0.22, handR: [2.6 + fan * 2.2, 7, 8.6 + fan * 0.8], handL: cough ? [-0.6, 5.4, 19.6] : [-3.6, 4.6, 7.4], eyes: cough || i === 8 ? "closed" : "open", mouth: cough ? "open" : "neutral", bob: cough ? 0.5 : 0, wind: [0, -0.2, 0] };
+  },
+};
+// reciting from an open book held in both hands, keeping time with a nod
+human.recite = {
+  n: 8,
+  fps: 5,
+  loop: true,
+  pose: (i) => {
+    const say = i % 2 === 0;
+    return { t: i, held: "ledger", handL: [-2.6, 5.6, 15.4], handR: [2.6, 5.6, 15.4], lean: say ? 0.05 : 0.01, bob: say ? 0.25 : 0, eyes: i === 5 ? "blink" : "open", mouth: say ? "open" : "neutral", wind: [0, -0.2, 0] };
+  },
+};
+
 // ----------------------------------------------------------------------------- beast poses
 const beast: Partial<Record<AnimId, AnimSpec<BeastPose>>> = {
   idle: { n: 6, fps: 6, loop: true, pose: (i, n) => ({ t: ph(i, n) }) },
@@ -2067,6 +2175,24 @@ const MORE: [AnimId, HumanId[]][] = [
   ["hearthsong", ["heroine", "nomad"]],
   ["knot", ["nomad"]],
   ["carve", ["heroine", "smith", "miner"]],
+  // the grand halls' work, and the manners the folk who keep them pick up
+  ["shelve", ["heroine", "archivist", "outerM", "outerF", "scholar"]],
+  ["inkgrind", ["heroine", "outerM", "outerF", "scholar"]],
+  ["debate", ["heroine", "outerM", "outerF", "scholar", "wdherald", "envoy"]],
+  ["dust", ["outerM", "outerF", "novice", "archivist"]],
+  ["copy", ["heroine", "scholar", "outerM", "outerF", "archivist"]],
+  ["stir", ["heroine", "cook", "outerM", "outerF", "herbalist"]],
+  ["fanfire", ["outerM", "outerF", "cook"]],
+  ["recite", ["heroine", "outerM", "outerF", "scholar", "archivist", "wdherald", "novice"]],
+  ["eat", ["outerM", "outerF", "scholar"]],
+  ["laugh", ["outerM", "outerF"]],
+  ["clap", ["outerF"]],
+  ["meditate", ["outerF", "outerM"]],
+  ["write", ["outerM", "outerF"]],
+  ["point", ["outerM"]],
+  ["sleep", ["outerF"]],
+  ["think", ["scholar", "outerF"]],
+  ["pray", ["outerM"]],
 ];
 for (const [anim, ids] of MORE) for (const id of ids) if (!HUMAN_ANIMS[id].includes(anim)) HUMAN_ANIMS[id].push(anim);
 
