@@ -96,6 +96,8 @@ interface ChunkSlot {
   /** The ground version and season this chunk was painted for. */
   version: string;
   pending: boolean;
+  /** A hall changed under it while it was being painted: paint it again once it is done. */
+  stale?: boolean;
 }
 
 interface PropSpot {
@@ -322,7 +324,7 @@ export class WorldView3D implements View3D {
     const first = cam.target.lengthSquared() === 0;
     cam.target = first ? target : Vector3.Lerp(cam.target, target, k);
     // indoors the camera keeps to the cutaway side, where the walls are open
-    const want = this.world?.interior ? { ...this.want, alpha: ISO_ALPHA, beta: Math.min(this.want.beta, 1.0) } : this.want;
+    const want = this.world?.interior || this.world?.hallHere ? { ...this.want, alpha: ISO_ALPHA, beta: Math.min(this.want.beta, 1.0) } : this.want;
     const ease = (a: number, b: number) => (first ? b : a + (b - a) * Math.min(1, dt * 7));
     cam.alpha = ease(cam.alpha, want.alpha);
     cam.beta = ease(cam.beta, want.beta);
@@ -380,7 +382,8 @@ export class WorldView3D implements View3D {
     // bucket the props by chunk, once
     this.spots.clear();
     const m = w.def.map;
-    for (const p of w.def.props) {
+    this.hallSeq = w.hallSeq;
+    for (const p of [...w.def.props, ...w.hallProps]) {
       const [x, y] = p.at ?? [p.i + 0.5, p.j + 0.5];
       const z = p.z ?? m.height(Math.floor(x), Math.floor(y));
       const key = `${Math.floor(x / CHUNK)},${Math.floor(y / CHUNK)}`;
@@ -396,8 +399,34 @@ export class WorldView3D implements View3D {
     return `${w.terrainVersion}/${season ?? ""}`;
   }
 
+  /** The last hall change whose ground has been sent to be repainted. */
+  private hallSeq = 0;
+
+  /**
+   * A grand hall has shown another storey (or closed up again): repaint the
+   * chunks under it. The old ground stays up until the new is ready, so the
+   * floor never blinks out from under her.
+   */
+  private repaintHalls(): void {
+    const w = this.world!;
+    if (w.hallSeq === this.hallSeq) return;
+    for (const e of w.hallEdits) {
+      if (e.seq <= this.hallSeq) continue;
+      const [i0, j0, i1, j1] = e.rect;
+      for (const slot of this.chunks.values()) {
+        const [x0, y0] = [slot.ci * CHUNK, slot.cj * CHUNK];
+        if (x0 > i1 + 1 || y0 > j1 + 1 || x0 + CHUNK < i0 - 1 || y0 + CHUNK < j0 - 1) continue;
+        if (slot.pending) slot.stale = true;
+        else slot.version = "";
+      }
+    }
+    this.hallSeq = w.hallSeq;
+    this.propSig = "";
+  }
+
   private streamChunks(): void {
     const w = this.world!;
+    this.repaintHalls();
     const m = w.def.map;
     const t = this.camera.target;
     const [fx, fy] = [t.x, -t.z];
@@ -455,10 +484,19 @@ export class WorldView3D implements View3D {
 
   private chunkReady(slot: ChunkSlot, version: string, c: Chunk): void {
     slot.pending = false;
-    for (const m of slot.meshes) m.dispose();
+    for (const m of slot.meshes) {
+      // the ground material is the chunk's own: let it go with the mesh it painted (a hall repaints its chunks often)
+      const mat = m.material;
+      m.dispose();
+      if (mat && mat !== this.wallMat && mat !== this.liquidMat) {
+        this.materials = this.materials.filter((x) => x !== mat);
+        mat.dispose();
+      }
+    }
     slot.tex?.dispose();
     slot.meshes = [];
-    slot.version = version;
+    slot.version = slot.stale ? "" : version;
+    slot.stale = false;
     const scene = this.scene;
     if (c.top.indices.length) {
       const tex = RawTexture.CreateRGBATexture(c.tex, c.size, c.size, scene, false, false, Texture.NEAREST_SAMPLINGMODE);
