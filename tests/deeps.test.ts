@@ -60,8 +60,9 @@ describe("a busier jianghu", () => {
   const w = getWorld();
   const crowd = w.npcs.filter((n) => n.key.startsWith("crowd:"));
 
-  it("gives nearly every person of the open world a neighbour of their own kind", () => {
-    const folk = w.npcs.length - crowd.length;
+  it("gives nearly every person of the open world a neighbour of their own kind (the peoples' homes keep their own folk)", () => {
+    const folk = w.npcs.filter((n) => !n.key.startsWith("crowd:") && !n.key.startsWith("pe-")).length;
+    expect(crowd.some((n) => w.npcs.some((p) => p.key.startsWith("pe-") && Math.hypot(p.i - n.i, p.j - n.j) < 3))).toBe(false);
     expect(crowd.length).toBeGreaterThan(folk * 0.95);
     for (const n of crowd) {
       expect(parseCrowdKey(n.key), n.key).not.toBeNull();
