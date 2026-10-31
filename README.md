@@ -109,6 +109,72 @@ New moves: Lin Yue **rummages** in her satchel when the menu opens and **shades 
 - A foundling who runs up the sky bridge before facing the fox is no longer greeted for the "fox blood on her sleeve", or told she has "already met" the beast.
 
 
+### The Hundred Peoples: six peoples, six homes, 1200 new main and side quests, and twice the draw distance
+
+The jianghu is not only human. **Six other peoples** now keep homes of their own out in the wilds, each with its own look, its own customs, its own elder and guide, its own folk going about their own work, and its own grief. Three hundred years ago the **Concord of a Hundred Peoples** (百族盟), the oath that kept them and the human jianghu from one another's throats, cracked on the night of the **Purge of Strange Blood**. Its cracked stone stands by the crossroads teahouse below Willow Creek, and **Envoy Shan**, its last keeper, gives Lin Yue its tally to carry from home to home.
+
+This is the seventh thread of the tale: **1200 quests in six books of 200, one for each people**. Each book is its own story, told in **10 hand-written beats** (60 in all, 19 with a question answered four ways) and **20 rites** of the home: those, the wait for her realm and the trouble at the end are its **main quests** (192 in all). Between them runs the life of the home as **side quests** (1008 in all): the folk's favours, goods carried between peoples who have not traded since the Purge, tales of the peoples carried to the human jianghu, hunts in the wilds round each home, sittings at its shrine and walks to its places. The HUD and the journal mark each quest **Main** or **Side**.
+
+| Book | People | Home | Their custom | Its trouble |
+| --- | --- | --- | --- | --- |
+| I · 月珠渐亏 The Moon Pearl Wanes | 狐族 the Fox-Folk | 月狐谷 Moonfox Hollow, in the maple woods | a fox may trick you, never lie to you; debts are paid in stories | Hu Yan, the Moon-Eater |
+| II · 泣珠成泪 Tears Like Pearls | 鲛人 the Merfolk | 珠歌礁 Pearlsong Reef, on the eastern shore | their tears fall as pearls; their sea-silk is given, never sold | Chen Yuan, the Drowned Prince |
+| III · 长眠 The Long Sleep | 石人 the Stone-Born | 空石堡 Hollowstone Hold, in the red sands | they sleep a hundred years at a time and carve every memory into their skin | Kuang Yan, the Hollow King |
+| IV · 初羽 The First Feather | 羽民 the Feathered Folk | 羽天巢 Skyfeather Eyrie, in the plum hills | a child is named only when it earns its flight feather | Lie Feng, Lord of the Storm |
+| V · 不灭之炉 The Hearth That Never Goes Out | 雪民 the Snow-Folk | 霜角寨 Rimehorn Lodge, in the snowfields | a guest is sacred for three nights; winters are counted in knots | Kar, the White Hunger |
+| VI · 龙骨苏醒 Wake the Bones | 龙裔 the Dragon-Kin | 烬鳞城 Emberscale Hold, in the red badlands | they hoard knowledge, not gold; a shed scale is a debt of fire | Ao Kuang the Unbound |
+
+```mermaid
+flowchart LR
+  E[Envoy Shan at the cracked Concord Stone] --> T[The Concord's tally]
+  T --> Q{Quest n of 1200}
+  Q -->|beat · rite · gate · duel| M[Main quest]
+  Q -->|favour · trade · tale · hunt · sit · visit| S[Side quest]
+  M --> N[n + 1]
+  S --> N
+  N -->|step 0| B[A new people's book]
+  N -->|step 100| G[Grow into the home: cultivate]
+  N -->|step 199| D[The people's trouble: four fates]
+  D --> K[Their mark set on the tally]
+  K -->|six marks| C[The Concord stands again]
+```
+
+```mermaid
+flowchart TB
+  subgraph Homes[Six homes in the wilds]
+    F[Moonfox Hollow · harbour lands] --- M[Pearlsong Reef · eastern shore]
+    ST[Hollowstone Hold · Yellow Sands] --- FE[Skyfeather Eyrie · plum hills]
+    SN[Rimehorn Lodge · Frostveil snows] --- DR[Emberscale Hold · red badlands]
+  end
+  H[Each home] --> P[Its houses round its heart: moon altar, giant clam, rune menhir, feather totem, great hearth, scale brazier]
+  H --> R[Elder, guide, six folk at their own work]
+  H --> W[Its foes in the wilds about it, its trouble at the heart]
+  H --> L[A second place nearby: the Fox-Fire Glade, the Weeping Rocks, the Field of Sleepers, the First Leap, the Cairn Field, the Bone Arch]
+```
+
+| | |
+|---|---|
+| ![Moonfox Hollow](docs/screenshots/260-3d-moonfox-hollow-of-the-fox-folk.png) | ![Pearlsong Reef](docs/screenshots/261-3d-pearlsong-reef-of-the-merfolk.png) |
+| ![Hollowstone Hold](docs/screenshots/262-3d-hollowstone-hold-of-the-stone-born.png) | ![Skyfeather Eyrie](docs/screenshots/263-3d-skyfeather-eyrie-of-the-feathered-folk.png) |
+| ![Rimehorn Lodge](docs/screenshots/264-3d-rimehorn-lodge-of-the-snow-folk.png) | ![Emberscale Hold](docs/screenshots/265-3d-emberscale-hold-of-the-dragon-kin.png) |
+| ![The Bone Arch](docs/screenshots/266-3d-the-bone-arch.png) | ![Hu Yan, the Moon-Eater](docs/screenshots/275-hu-yan-the-moon-eater.png) |
+| ![The Concord Stone](docs/screenshots/267-the-concord-stone.png) | ![An oath in Moonfox Hollow](docs/screenshots/268-an-oath-in-moonfox-hollow.png) |
+| ![The Tide-Mother](docs/screenshots/269-the-tide-mother.png) | ![Old Granite](docs/screenshots/270-old-granite.png) |
+| ![The Wind-Speaker](docs/screenshots/271-the-wind-speaker.png) | ![Three nights a guest](docs/screenshots/272-three-nights-a-guest.png) |
+| ![The Matriarch of Emberscale](docs/screenshots/273-the-matriarch-of-emberscale.png) | ![The journal: the Hundred Peoples](docs/screenshots/274-journal-the-hundred-peoples.png) |
+
+#### Twice the draw distance
+
+The 3D view now draws the land **twice as far**: terrain chunks load out to 128 tiles from the camera (dropped beyond 200), props stand out to 116 tiles, folk and beasts are drawn out to 120, smoke and petals rise twice as far off, and the haze starts and closes in twice as far away. The camera's far plane doubled, it zooms out twice as far (`−` or the wheel, up to radius 96), a third worker paints the ground, and the folk keep living (and the marks over their heads keep showing) twice as far from her.
+
+![Twice the draw distance](docs/screenshots/259-3d-twice-the-draw-distance.png)
+
+#### 18 new 3D props, 31 new characters and 8 new animations
+
+- **Props** (each drawn as pixel art and built as a 3D model from the same solids): the fox den, moon altar and fox-fire lantern; the shell-spiral coral house, giant pearl clam and swaying kelp; the beehive stone hut, rune menhir whose runes light in turn, and a sleeping stone-born under moss; the pole-top eyrie, bone wind-chime and feather totem; the horn lodge with its smoking hearth-hole, ice cairn and the great hearth that has burned nine hundred winters; the scale-roofed dragon hall, the bones of the last great dragon and the clawed scale brazier; and the cracked Concord Stone.
+- **Characters**: an elder, a guide, two kinds of folk and a trouble for each people, and Envoy Shan. The rig grew four new marks: **dragon or ram's horns, feathered wings that beat with her breath, ear-fins and a dorsal crest, and crystal shards** (the fox-folk keep their ears and tails).
+- **Animations**: the fox-folk's **moon dance**, the merfolk's **weeping**, the stone-born's **carving**, the feathered folk's **glide**, the dragon-kin's **fire-breath**, the snow-folk's **knot-counting** and **hearth song**, and a token **offered on an open palm**. Lin Yue learns the moon dance, the glide, the hearth song, carving and the offering among them.
+
 ### The City of Nine Tiers: a thousand more main quests, a town and a city twice the size, and a jianghu that weighs her realm
 
 Across a strait of cloud south of Jinhe stands **天阶城 Tianjie, the City of Nine Tiers**: a whole mountain cut into nine terraces round a summit. Its law is the **Stair Code (阶律)**: *as a cultivator stands, so may she stand.* Each realm earns a tier and each tier has a gate. Below the gate, a word weighs what its speaker weighs. Mortals carry for everyone on the Mud Tier at the city's foot. Every spring the **Weighing Hall** weighs them on a great steelyard, and the ones found light go to the sleeping house and do not wake. Their years run up the mountain into the **Stair Array**, which holds the city up. The Sovereign of the Stair means to fill the Array at the next conjunction and lift the whole city into heaven.

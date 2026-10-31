@@ -3508,6 +3508,373 @@ const PROPS = {
       r.prism(w, 0, 2.2, 26 - (tilt * 1.4 * w) / 20, 31 - (tilt * 1.4 * w) / 20, 8, m(PAL.gold, 8));
     },
   },
+
+  // ---------------------------------------------------------------------------- the peoples' homes (see world/peoples.ts)
+  // a fox-folk den: a round burrow-house of earth under a thatch of autumn grass, a round door and a blue fox-fire lamp at it
+  foxden: {
+    foot: [-1, -1, 1, 1],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      const earth = ramp("#9a6a4a", { lo: "#2a1410" });
+      const thatch = ramp("#d8a050", { lo: "#5a3010" });
+      r.ellipsoid([0, 0, 6], [20, 20, 16], md(earth, 1));
+      r.ellipsoid([0, 0, 14], [21, 21, 12], md(thatch, 2, { shader: (q, tone) => tone(thatch, Math.sin(q.p[0] * 0.8 + q.p[1] * 0.6) > 0.6 ? 1 : 0) }));
+      r.sphere([0, 0, 26], 3, m(MAPLE, 3));
+      r.ellipsoid([17, 0, 6], [3, 6, 7], m(PAL.black, 4));
+      r.ellipsoid([16.4, 0, 6], [2.6, 7, 8], m(PAL.wood, 5, { shader: (q, tone) => (q.n[0] > 0.6 && Math.abs(q.p[1]) < 1.6 ? "#1a1418" : tone(PAL.wood)) }));
+      r.sweep([[20, 7, 0], [20, 7, 14]], 0.5, m(PAL.woodDark, 6));
+      r.sphere([20, 7, 15.6], 1.8, m(ramp("#8ad8ff", { lo: "#2a5a9a" }), 7, { outline: undefined }));
+    },
+  },
+  // the moon altar of Moonfox Hollow: a round white stone on a plinth, two stone foxes guarding it, the moon pearl glowing in its hollow
+  moonaltar: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 6,
+    fps: 4,
+    light: { color: "#d8e8ff", radius: 30, dy: 26 },
+    emit: "sparkle",
+    paint: (r, f, n) => {
+      const glow = 0.8 + Math.sin((f / n) * TAU) * 0.4;
+      r.box([-9, -9, 0], [9, 9, 4], m(PAL.stone, 1));
+      r.prism(0, 0, 6, 4, 14, 8, m(PAL.white, 2));
+      // the moon stone: a round white disc standing on edge, the pearl set in its hollow
+      r.ellipsoid([0, 0, 24], [9, 1.6, 9], m(PAL.white, 3, { shader: (q, tone) => (Math.hypot(q.p[0], q.p[2] - 24) < 5 ? tone(PAL.stone, 1) : tone(PAL.white)) }));
+      r.ellipsoid([0, 0, 24], [1.6, 9, 9], m(PAL.white, 3, { shader: (q, tone) => (Math.hypot(q.p[1], q.p[2] - 24) < 5 ? tone(PAL.stone, 1) : tone(PAL.white)) }));
+      r.sphere([1.2, 1.2, 24], 2.6 + glow, m(ramp("#f0f8ff", { lo: "#8ab0e8" }), 4, { outline: undefined }));
+      // motes of moonlight circling the pearl
+      for (let k = 0; k < 3; k++) {
+        const a = (f / n) * TAU + (k * TAU) / 3;
+        r.sphere([Math.cos(a) * 11, Math.sin(a) * 11, 24 + Math.sin(a * 2) * 3], 1.1, m(ramp("#e8f4ff"), 8, { outline: undefined }));
+      }
+      for (const sx of [-1, 1]) {
+        r.box([sx * 7 - 2, 6, 0], [sx * 7 + 2, 10, 4], m(PAL.stone, 5));
+        r.ellipsoid([sx * 7, 8, 7], [2, 3, 3], m(PAL.white, 6));
+        r.sphere([sx * 7, 9.6, 10.6], 1.9, m(PAL.white, 6));
+        for (const e of [-0.8, 0.8]) r.sweep([[sx * 7 + e, 9.6, 12], [sx * 7 + e * 1.4, 9.4, 14.4]], [0.7, 0.1], m(PAL.white, 7));
+        r.sweep([[sx * 7, 5.4, 5], [sx * 7 + sx * 2, 4, 9], [sx * 7 + sx * 1, 4.2, 12]], [0.9, 1.5, 0.4], m(PAL.white, 7));
+      }
+    },
+  },
+  // a fox-fire lantern: a crooked pole with a paper lantern burning cold blue
+  foxlantern: {
+    foot: [0, 0, 0, 0],
+    blocks: false,
+    frames: 6,
+    fps: 5,
+    light: { color: "#8ad8ff", radius: 24, dy: 34 },
+    paint: (r, f, n) => {
+      const sw = Math.sin((f / n) * TAU) * 0.8;
+      r.sweep([[0, 0, 0], [1, 0, 18], [0, 0, 32], [4, 0, 34]], 0.7, m(PAL.woodDark, 1));
+      r.sweep([[4, 0, 34], [4 + sw, -sw * 0.4, 30]], 0.15, m(PAL.black, 2));
+      r.ellipsoid([4 + sw, -sw * 0.4, 27], [2.4, 2.4, 3.2], m(ramp("#c8f0ff", { lo: "#2a6ab0" }), 3, { outline: undefined }));
+    },
+  },
+  // a merfolk coral house: a spiral shell dome, pink and white, with a pearl over its round door
+  coralhouse: {
+    foot: [-1, -1, 1, 1],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      const shell = ramp("#f8d8e0", { lo: "#8a4a6a" });
+      for (let k = 0; k < 4; k++) r.ellipsoid([0, 0, 4 + k * 7], [20 - k * 4.4, 20 - k * 4.4, 8], md(shell, 1 + k, { shader: (q, tone) => tone(shell, Math.sin(Math.atan2(q.p[1], q.p[0]) * 7 + q.p[2] * 0.3) > 0.5 ? 1 : 0) }));
+      r.sweep([[0, 0, 30], [1, 1, 36], [3, 0, 38]], [2.4, 1.2, 0.3], m(shell, 6));
+      r.ellipsoid([16, 0, 6], [4, 5, 7], m(ramp("#2a4a6a", { lo: "#04101a" }), 7));
+      r.sphere([18.6, 0, 15], 1.8, m(PAL.white, 8));
+      for (const [x, y] of [[-10, 16], [12, -15], [-16, -8]]) r.sweep([[x, y, 0], [x + 1, y, 6], [x - 1, y + 1, 10]], [1.2, 0.8, 0.3], m(ramp("#ff7a8a", { lo: "#8a1a3a" }), 9));
+    },
+  },
+  // a giant clam on the reef's edge, opening and closing on a glowing pearl
+  pearlclam: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 8,
+    fps: 4,
+    light: { color: "#f8f0ff", radius: 22, dy: 12 },
+    paint: (r, f, n) => {
+      const open = 0.5 + Math.sin((f / n) * TAU) * 0.5;
+      const shell = ramp("#a8c8d8", { lo: "#2a4a6a" });
+      r.ellipsoid([0, 0, 3], [11, 9, 3.4], md(shell, 1, { shader: (q, tone) => tone(shell, Math.sin(q.p[0] * 1.2) > 0.4 ? 1 : 0) }));
+      r.ellipsoid([0, -2 - open * 2, 6 + open * 4], [11, 3 + open * 2, 7 - open * 2], md(shell, 2, { shader: (q, tone) => tone(shell, Math.sin(q.p[0] * 1.2) > 0.4 ? 1 : 0) }));
+      r.sphere([0, 1.4, 6], 3, m(ramp("#ffffff", { lo: "#c8b8e8" }), 3, { outline: undefined }));
+    },
+  },
+  // kelp and sea-fans on the shore, swaying in the swell
+  kelp: {
+    foot: [0, 0, 0, 0],
+    blocks: false,
+    frames: 6,
+    fps: 4,
+    paint: (r, f, n) => {
+      for (let k = 0; k < 5; k++) {
+        const a = (k / 5) * TAU;
+        const pts: V3[] = [];
+        for (let z = 0; z <= 24; z += 6) pts.push([Math.cos(a) * 3 + Math.sin((f / n) * TAU + k + z * 0.1) * z * 0.12, Math.sin(a) * 3, z + k * 0.6]);
+        r.sweep(pts, (u) => 1.4 - u * 0.8, m(k % 2 ? ramp("#4a9a5a", { lo: "#0a2a1a" }) : ramp("#d86a7a", { lo: "#5a1a2a" }), 1 + k));
+      }
+    },
+  },
+  // a stone-born hut: a beehive of fitted grey stones, every one carved with a memory, a menhir lintel over the door
+  stonehut: {
+    foot: [-1, -1, 1, 1],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      const rock = ramp("#a8a094", { lo: "#3a3430" });
+      for (let k = 0; k < 6; k++) r.prism(0, 0, 19 - k * 3.2, k * 5, k * 5 + 5, 10, md(rock, 1 + k, { shader: (q, tone) => (Math.abs(((Math.atan2(q.p[1], q.p[0]) * 10 + k * 1.3) % 2) - 1) < 0.12 ? tone(rock, 1) : Math.abs(q.p[2] - k * 5 - 2.5) < 0.6 && hash2(Math.floor(q.p[0]), k, 3) > 0.7 ? tone(ramp("#d8a0f0"), 0) : tone(rock)) }), k * 0.3);
+      r.box([15, -4, 0], [20, 4, 12], m(PAL.black, 8));
+      r.box([16, -6, 12], [21, 6, 15], m(rock, 9));
+      for (const sy of [-1, 1]) r.box([16, sy * 5 - 1, 0], [21, sy * 5 + 1, 12], m(rock, 10));
+      r.prism(0, 0, 2, 30, 34, 6, m(ramp("#d8a0f0", { lo: "#4a2a6a" }), 11));
+    },
+  },
+  // a standing menhir of the stone-born, its runes glowing in turn as the stone remembers
+  menhir: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 8,
+    fps: 4,
+    light: { color: "#d8a0f0", radius: 18, dy: 30 },
+    paint: (r, f) => {
+      const lit = f % 6;
+      const rock = ramp("#8a8478", { lo: "#24201a" });
+      r.convex(
+        [
+          { n: [1, 0, 0.08], d: 5 },
+          { n: [-1, 0, 0.08], d: 5 },
+          { n: [0, 1, 0.05], d: 3.6 },
+          { n: [0, -1, 0.05], d: 3.6 },
+          { n: [0.3, 0, 1], d: 44 },
+          { n: [0, 0, -1], d: 0 },
+        ],
+        [-6, -4, 0],
+        [6, 4, 46],
+        md(rock, 1, {
+          shader: (q, tone) => {
+            // a column of runes down every face, the lit one climbing the stone
+            const across = Math.abs(q.n[0]) > 0.5 ? q.p[1] : q.p[0];
+            const rune = Math.abs(across) < 1.6 && q.p[2] % 6 > 1.5 && q.p[2] < 40 && Math.abs(q.n[2]) < 0.5;
+            return rune && Math.floor(q.p[2] / 6) === lit + 1 ? "#f0d0ff" : rune ? tone(rock, 1) : tone(rock);
+          },
+        }),
+      );
+      r.sphere([6.4, 5, 8 + lit * 6], 1.4, m(ramp("#f0d0ff", { lo: "#8a4ab0" }), 2, { outline: undefined }));
+    },
+  },
+  // a sleeping stone-born, curled on its side for its hundred years' rest, moss growing on its back
+  dreamstone: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      const rock = ramp("#a8a094", { lo: "#3a3430" });
+      r.ellipsoid([0, 0, 6], [12, 7, 6.4], md(rock, 1, { shader: (q, tone) => (q.n[2] > 0.7 ? tone(PAL.moss) : tone(rock)) }));
+      r.sphere([10, 2, 9], 5, md(rock, 2));
+      for (const x of [-4, 2, 7]) r.prism(x, -3, 1, 10, 14, 6, m(ramp("#d8a0f0", { lo: "#4a2a6a" }), 3));
+    },
+  },
+  // the feathered folk's nest-house: a round woven hut high on a tree-trunk pole, a ladder up to it, prayer feathers fluttering
+  eyrie: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 4,
+    fps: 4,
+    paint: (r, f, n) => {
+      const weave = ramp("#c8a060", { lo: "#4a2a10" });
+      r.prism(0, 0, 2.6, 0, 40, 8, m(BARK, 1));
+      r.cone(0, 0, 6, 40, 14, 44, 10, m(weave, 2));
+      r.prism(0, 0, 12, 44, 56, 12, md(weave, 3, { shader: (q, tone) => tone(weave, Math.sin(q.p[2] * 2 + Math.atan2(q.p[1], q.p[0]) * 8) > 0.4 ? 1 : 0) }));
+      r.cone(0, 0, 15, 56, 0.5, 70, 12, md(PAL.straw, 4, { shader: strawShaderProp }));
+      r.box([11, -3, 45], [12.6, 3, 53], m(PAL.black, 5));
+      for (let z = 4; z < 44; z += 5) r.sweep([[5, -2, z], [5, 2, z]], 0.4, m(PAL.wood, 6));
+      for (const y of [-2, 2]) r.sweep([[5, y, 0], [11, y, 44]], 0.5, m(PAL.wood, 6));
+      for (let k = 0; k < 4; k++) {
+        const a = (k / 4) * TAU + 0.4;
+        const sw = Math.sin((f / n) * TAU + k) * 1.4;
+        r.sweep([[Math.cos(a) * 14, Math.sin(a) * 14, 58], [Math.cos(a) * 17 + sw, Math.sin(a) * 17, 52]], [1.2, 0.2], m(k % 2 ? PAL.white : PAL.azure, 7));
+      }
+    },
+  },
+  // a wind-chime pole of the eyrie: hollow bones and bells swinging and ringing in the wind
+  windchime: {
+    foot: [0, 0, 0, 0],
+    blocks: false,
+    frames: 6,
+    fps: 6,
+    paint: (r, f, n) => {
+      r.sweep([[0, 0, 0], [0, 0, 40]], 0.8, m(PAL.woodDark, 1));
+      r.sweep([[-8, 0, 40], [8, 0, 40]], 0.6, m(PAL.woodDark, 1));
+      for (let k = 0; k < 5; k++) {
+        const x = -7 + k * 3.5;
+        const sw = Math.sin((f / n) * TAU + k * 1.3) * 2;
+        r.sweep([[x, 0, 40], [x + sw * 0.6, -sw * 0.3, 32 - (k % 2) * 3]], 0.18, m(PAL.black, 2));
+        r.sweep([[x + sw * 0.6, -sw * 0.3, 32 - (k % 2) * 3], [x + sw, -sw * 0.5, 25 - (k % 2) * 3]], 0.7, m(k % 2 ? PAL.gold : PAL.white, 3));
+      }
+      r.sweep([[0, 0, 41], [2, 0, 46], [5, 0, 47]], [1, 0.6, 0.2], m(PAL.azure, 4));
+    },
+  },
+  // a feather totem: a carved post crowned with a great spread of flight feathers, one for each child who has earned their wings
+  feathertotem: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 4,
+    fps: 3,
+    paint: (r, f, n) => {
+      r.prism(0, 0, 3, 0, 36, 8, md(PAL.wood, 1, { shader: (q, tone) => (Math.abs(((q.p[2] + 2) % 9) - 4.5) < 0.8 ? tone(PAL.red) : tone(PAL.wood)) }));
+      r.sphere([0, 2.6, 30], 3, m(PAL.gold, 2));
+      for (let k = 0; k < 9; k++) {
+        const a = -1.2 + (k / 8) * 2.4;
+        const sw = Math.sin((f / n) * TAU + k) * 0.6;
+        r.sweep([[0, 0, 36], [Math.sin(a) * 12 + sw, -1, 36 + Math.cos(a) * 12]], [1.6, 0.4], m(k % 3 === 0 ? PAL.white : k % 3 === 1 ? PAL.azure : PAL.gold, 3, { shader: (q, tone) => (q.u > 0.7 ? tone(PAL.black) : tone(k % 3 === 0 ? PAL.white : k % 3 === 1 ? PAL.azure : PAL.gold)) }));
+      }
+    },
+  },
+  // a snow-folk horn lodge: a long low felt house on a stone footing, its ridge crowned with a great pair of ice-ox horns, smoke from the hearth hole
+  hornlodge: {
+    foot: [-1, -1, 1, 1],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    emit: "smoke",
+    paint: (r) => {
+      const felt = ramp("#c8b8a0", { lo: "#4a3a2a" });
+      r.box([-20, -16, 0], [20, 16, 4], m(PAL.stone, 1));
+      r.convex(
+        [
+          { n: [0, 0.8, 0.6], d: 22 },
+          { n: [0, -0.8, 0.6], d: 22 },
+          { n: [1, 0, 0], d: 19 },
+          { n: [-1, 0, 0], d: 19 },
+          { n: [0, 0, -1], d: -4 },
+        ],
+        [-19, -17, 4],
+        [19, 17, 34],
+        md(felt, 2, { shader: (q, tone) => (Math.abs(((q.p[0] + 40) % 8) - 4) < 0.6 ? tone(PAL.red) : tone(felt)) }),
+      );
+      r.box([18.4, -4, 4], [19.6, 4, 16], m(PAL.black, 3));
+      for (const sx of [-1, 1]) {
+        const pts: V3[] = [];
+        for (let k = 0; k <= 6; k++) {
+          const a = (k / 6) * Math.PI;
+          pts.push([sx * (10 + Math.sin(a) * 6), Math.cos(a) * 4, 32 + Math.sin(a) * 8 + k]);
+        }
+        r.sweep(spline(pts, 3), (u) => 2.6 - u * 2.2, m(ramp("#f0e8d8", { lo: "#6a5a4a" }), 4));
+      }
+      r.prism(0, 0, 2.6, 30, 36, 8, m(PAL.black, 5));
+    },
+  },
+  // an ice cairn: flat stones stacked by the snow-folk where someone was lost to the winter, glazed in ice, a knotted cord tied round it
+  icecairn: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      for (let k = 0; k < 6; k++) r.ellipsoid([Math.sin(k) * 1.2, Math.cos(k * 1.7) * 1.2, 2 + k * 4], [8 - k, 7 - k * 0.9, 2.2], m(k % 2 ? PAL.stone : ramp("#c8e8ff", { lo: "#4a6a9a" }), 1 + k));
+      r.sweep([[-6, 0, 10], [0, -6, 11], [6, 0, 10], [0, 6, 9], [-6, 0, 10]], 0.4, m(PAL.red, 8));
+      r.sweep([[0, 6, 9], [1, 7.6, 4]], 0.3, m(PAL.red, 9));
+    },
+  },
+  // the snow-folk's great hearth: a ring of stones round a fire that has not gone out in nine hundred winters, a cauldron over it
+  greathearth: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 6,
+    fps: 8,
+    light: { color: "#ffb060", radius: 44, dy: 10 },
+    emit: "embers",
+    paint: (r, f, n) => {
+      for (let k = 0; k < 10; k++) {
+        const a = (k / 10) * TAU;
+        r.ellipsoid([Math.cos(a) * 10, Math.sin(a) * 10, 2], [3, 3, 2.6], m(PAL.stone, 1));
+      }
+      const ph = (f / n) * TAU;
+      for (let k = 0; k < 5; k++) r.sweep([[Math.cos(k * 1.3) * 3, Math.sin(k * 1.3) * 3, 1], [Math.cos(k * 1.3 + ph * 0.2) * 1.5, Math.sin(k * 1.3) * 1.5, 9 + Math.sin(ph + k) * 3]], [2.6, 0.3], m(FIRE, 2, { outline: undefined }));
+      for (const [x, y] of [[-8, -8], [8, -8], [0, 9]] as [number, number][]) r.sweep([[x, y, 0], [0, 0, 24]], 0.6, m(PAL.woodDark, 3));
+      r.sweep([[0, 0, 24], [0, 0, 18]], 0.2, m(PAL.black, 4));
+      r.ellipsoid([0, 0, 15], [4.4, 4.4, 3.4], m(PAL.black, 5));
+    },
+  },
+  // a dragon-kin hall: red walls on a terrace of black basalt, a double roof of overlapping gold scales, dragons along the ridge
+  dragonhall: {
+    foot: [-1, -1, 1, 1],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      const basalt = ramp("#4a4048", { lo: "#0a0608" });
+      const scale = ramp("#f2c55c", { lo: "#5a2a08" });
+      const scaleShader: Shader = (q, tone) => tone(scale, Math.sin(q.p[0] * 1.4 + (Math.floor(q.p[1] / 2.4) % 2) * 1.6) > 0.3 ? 1 : 0);
+      r.box([-22, -22, 0], [22, 22, 6], md(basalt, 1));
+      r.box([-16, -16, 6], [16, 16, 26], m(PILLAR, 2, { shader: (q, tone) => (Math.abs(q.n[0]) > 0.5 && Math.abs(q.p[1]) < 4 && q.p[2] < 20 ? tone(PAL.black) : tone(PILLAR)) }));
+      r.hipRoof(0, 0, 24, 24, 26, 10, 10, 36, md(scale, 3, { shader: scaleShader }));
+      r.box([-9, -9, 34], [9, 9, 40], m(PILLAR, 4));
+      r.hipRoof(0, 0, 14, 14, 40, 1, 6, 50, md(scale, 5, { shader: scaleShader }));
+      for (const sy of [-1, 1]) r.sweep([[0, sy * 6, 50], [0, sy * 9, 54], [0, sy * 7, 57]], [1.4, 1, 0.3], m(PAL.jade, 6));
+      for (const sx of [-1, 1]) for (const sy of [-1, 1]) r.sweep([[sx * 23, sy * 23, 27], [sx * 27, sy * 27, 32]], [0.9, 0.3], m(PAL.gold, 7));
+    },
+  },
+  // the bones of a great dragon, half sunk in the red earth: a skull and a long arch of ribs a person can walk beneath
+  dragonbones: {
+    foot: [-1, -1, 1, 1],
+    blocks: false,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      const bone = ramp("#f0e8d0", { lo: "#6a5a4a" });
+      const spine: V3[] = [];
+      for (let k = 0; k <= 8; k++) spine.push([-24 + k * 6, Math.sin(k * 0.7) * 2, 18 - Math.abs(k - 4) * 1.2]);
+      r.sweep(spine, 1.6, m(bone, 1));
+      for (let k = 1; k < 8; k++)
+        for (const sy of [-1, 1]) {
+          const [x, y, z] = spine[k];
+          r.sweep([[x, y, z], [x + 1, y + sy * 9, z - 4], [x + 2, y + sy * 12, z - 14], [x + 2, y + sy * 11, 0]], [1, 0.9, 0.7, 0.5], m(bone, 2));
+        }
+      r.ellipsoid([28, 0, 6], [8, 5, 5], m(bone, 3));
+      r.ellipsoid([34, 0, 4], [6, 3.6, 3], m(bone, 3));
+      for (const sy of [-1, 1]) {
+        r.sphere([28, sy * 3, 8], 1.6, m(PAL.black, 4));
+        r.sweep([[25, sy * 3, 10], [20, sy * 5, 16], [16, sy * 4, 20]], [1.2, 0.8, 0.2], m(bone, 5));
+      }
+    },
+  },
+  // a dragon-scale brazier: a bronze bowl on three clawed feet, burning gold
+  scalebrazier: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 6,
+    fps: 8,
+    light: { color: "#ffc060", radius: 32, dy: 22 },
+    emit: "embers",
+    paint: (r, f, n) => {
+      for (let k = 0; k < 3; k++) {
+        const a = (k / 3) * TAU;
+        r.sweep([[Math.cos(a) * 2, Math.sin(a) * 2, 14], [Math.cos(a) * 6, Math.sin(a) * 6, 6], [Math.cos(a) * 7, Math.sin(a) * 7, 0]], [1, 0.9, 1.4], m(BRONZE, 1));
+      }
+      r.cone(0, 0, 3, 14, 8, 20, 10, md(BRONZE, 2, { shader: (q, tone) => tone(BRONZE, Math.sin(q.p[2] * 3 + Math.atan2(q.p[1], q.p[0]) * 5) > 0.4 ? 1 : 0) }));
+      const ph = (f / n) * TAU;
+      for (let k = 0; k < 4; k++) r.sweep([[Math.cos(k * 1.6) * 3, Math.sin(k * 1.6) * 3, 19], [Math.sin(ph + k) * 1.4, 0, 26 + Math.sin(ph * 2 + k) * 3]], [2.8, 0.3], m(FIRE, 3, { outline: undefined }));
+    },
+  },
+  // the Concord Stone: a tall stele carved with the marks of a hundred peoples, cracked through, its pieces bound with a red cord
+  concordstone: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      const stone = ramp("#c8c0b0", { lo: "#4a4438" });
+      r.box([-8, -5, 0], [8, 5, 4], m(PAL.stone, 1));
+      r.box([-5, -2, 4], [5, 2, 44], md(stone, 2, { shader: (q, tone) => (Math.abs(q.p[2] - 24 - q.p[0] * 0.6) < 0.5 ? "#1a1418" : q.n[1] < -0.5 && hash2(Math.floor(q.p[0] * 0.8), Math.floor(q.p[2] * 0.5), 9) > 0.7 ? tone(stone, 1) : tone(stone)) }));
+      r.hipRoof(0, 0, 7, 4, 44, 2, 0.6, 49, m(ROOF_GREY, 3));
+      r.sweep([[-5.4, -2.4, 22], [5.4, -2.4, 28], [5.4, 2.4, 28], [-5.4, 2.4, 22], [-5.4, -2.4, 22]], 0.5, m(PAL.red, 4));
+    },
+  },
 } satisfies Record<string, PropDef>;
 
 const BRICK2 = ramp("#8a5a4a", { lo: "#2a1410" });

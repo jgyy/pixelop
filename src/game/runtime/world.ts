@@ -113,7 +113,7 @@ interface Env {
 
 const HERO_RADIUS = 0.22;
 /** Actors further than this from the heroine are frozen until she comes back. */
-const ACTIVE_RANGE = 26;
+const ACTIVE_RANGE = 52;
 const RESPAWN_AFTER = 60;
 /** Idle fidgets an NPC may break into, when its character has the animation. */
 const NPC_FIDGETS: AnimId[] = ["nod", "look", "stretch", "drink", "point", "dance", "cheer", "gather", "pour", "clap", "laugh", "flute", "eat", "juggle", "fan", "salute", "twirl", "kick", "sworddance", "flame"];
@@ -1205,7 +1205,7 @@ export class World {
     if (env.rain > 0.02) this.drawShower(s, t, env);
     for (const a of this.actors) {
       if (a.hidden || a.kind === "critter" || (!a.emote && !a.marker)) continue;
-      if (Math.abs(a.x - h.x) + Math.abs(a.y - h.y) > 60) continue;
+      if (Math.abs(a.x - h.x) + Math.abs(a.y - h.y) > 120) continue;
       const def = charDef(a.char);
       const seated = a.anim === "sit" || a.anim === "tell" || a.anim === "weave" || a.anim === "pray" || a.anim === "meditate" || a.anim === "fish" || a.anim === "sleep" || a.anim === "write";
       const lift = (a.char === "rider" ? 44 : (def.oy - 6) * (def.h > 70 ? 1 : 0.62)) + 14 - (seated ? 7 : 0);
