@@ -329,7 +329,7 @@ export class Game {
     if (this.mode !== "explore") return;
     if (this.riding) return this.dismount(true);
     if (!this.state.flags.metElder) return this.toast("Elder Mo has not given you Cloudmane's whistle yet.");
-    if (this.interior) return this.toast("Cloudmane waits outside — there's no room for a horse in here.");
+    if (this.interior || this.world.hallHere) return this.toast("Cloudmane waits outside — there's no room for a horse in here.");
     const h = this.world.hero;
     if (h.flying) {
       if (!this.world.def.map.standable(Math.floor(h.x), Math.floor(h.y))) return this.toast("Cloudmane can't stand on water.");
@@ -366,7 +366,7 @@ export class Game {
   toggleFly(): void {
     if (this.mode !== "explore") return;
     if (!this.state.flags.metElder) return this.toast("You have not learned Sword Riding yet.");
-    if (this.interior) return this.toast("There's no room to ride a sword in here.");
+    if (this.interior || this.world.hallHere) return this.toast("There's no room to ride a sword in here.");
     this.dismount();
     const h = this.world.hero;
     if (h.flying) {
@@ -794,6 +794,23 @@ export class Game {
     return (Game.doorCache ??= getWorld()
       .interacts.filter((it) => it.kind === "door" && isRoomId(it.to))
       .map((it) => ({ i: it.i, j: it.j, dir: getRoom(it.to as RoomId).inward, to: it.to! })));
+  }
+
+  /**
+   * Into one of the sects' grand halls, or up or down its stairs: the hall
+   * names the floor she is on (and Cloudmane, if she rode up to the door,
+   * goes back to the clouds to wait).
+   */
+  private trackHall(): void {
+    const w = this.world;
+    const moved = w.hallMoved;
+    if (!moved) return;
+    w.hallMoved = null;
+    if (this.riding) this.dismount();
+    const { hall, storey } = moved;
+    this.banner = { title: hall.name, hanzi: hall.hanzi, subtitle: hall.storeys[storey] ?? hall.subtitle, seq: ++this.seq };
+    this.bannerUntil = this.clock + 2.6;
+    this.markDirty();
   }
 
   /** Crossing into another region: new banner, and its first-arrival scene. */
@@ -1484,6 +1501,7 @@ export class Game {
     }
     this.trackRegion();
     this.trackLandmark();
+    this.trackHall();
     if (this.mode !== "explore") return;
 
     if (this.clock > this.syncAt) {

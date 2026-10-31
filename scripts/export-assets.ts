@@ -417,6 +417,25 @@ const tierMoves: [CharId, AnimId, string?][] = [
 ];
 writeGif("tiers-moves.gif", showcase(tierMoves.map(([id, anim, outfit]): Cell => ({ id, anim, dir: 1, label: outfit ?? `${charDef(id).name.split(" ").pop()} ${anim}`, outfit })), 7, 2, seconds), 12);
 
+// the grand halls' work: libraries, refectories and furnace lofts
+const hallWork: [HumanId, AnimId][] = [
+  ["archivist", "shelve"],
+  ["outerM", "inkgrind"],
+  ["outerF", "debate"],
+  ["outerF", "dust"],
+  ["scholar", "copy"],
+  ["cook", "stir"],
+  ["outerM", "fanfire"],
+  ["outerF", "recite"],
+  ["heroine", "shelve"],
+  ["heroine", "debate"],
+  ["heroine", "copy"],
+  ["heroine", "stir"],
+  ["wdherald", "recite"],
+  ["envoy", "debate"],
+];
+writeGif("grandhall-moves.gif", showcase(hallWork.map(([id, anim]): Cell => ({ id, anim, dir: 1, label: `${charDef(id).name.split(" ").pop()} ${anim}` })), 7, 2, seconds), 12);
+
 
 // 2. Portraits
 const portraitIds = HUMAN_IDS.filter((id) => charDef(id).portrait);
