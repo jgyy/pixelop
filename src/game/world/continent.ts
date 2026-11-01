@@ -337,6 +337,18 @@ const RANGES: { key: string; c: [number, number]; r: number; peak: number; seed:
   { key: "autumnridge", c: [420, 268], r: 24, peak: 4, seed: 506 },
   { key: "plumhills", c: [182, 372], r: 22, peak: 4, seed: 507 },
   { key: "westwood", c: [60, 140], r: 18, peak: 3, seed: 508 },
+  // the land stood taller everywhere when the grid grew finer: ranges over the wastes, the steppe, the sands,
+  // the Golden River country, the Tidewater Reach, the Stairlands and the eastern woods
+  { key: "ashspine", c: [36, 210], r: 22, peak: 8, seed: 509 },
+  { key: "steppecrown", c: [452, 196], r: 26, peak: 7, seed: 510 },
+  { key: "duneteeth", c: [404, 404], r: 26, peak: 8, seed: 511 },
+  { key: "goldenhills", c: [118, 494], r: 30, peak: 7, seed: 512 },
+  { key: "riverbluffs", c: [292, 500], r: 22, peak: 6, seed: 513 },
+  { key: "tidecliffs", c: [604, 486], r: 20, peak: 6, seed: 514 },
+  { key: "stairpeaks", c: [178, 640], r: 22, peak: 9, seed: 515 },
+  { key: "mapleheights", c: [520, 290], r: 26, peak: 8, seed: 516 },
+  { key: "marshtors", c: [96, 286], r: 18, peak: 5, seed: 517 },
+  { key: "teacloud", c: [226, 404], r: 20, peak: 7, seed: 518 },
 ];
 
 /** How many levels the ranges lift a wild tile. */
@@ -571,8 +583,9 @@ function buildWorld(): WorldDef {
     const r = wildRegion(i, j);
     wildOf[j * COARSE_W + i] = r + 1;
     const st = WILD[WILD_IDS[r]];
-    const hills = 1 + Math.round((fbm(i * 0.07, j * 0.07, 31) - 0.45) * st.hills);
-    m.set(i, j, st.ground(i, j), Math.max(0, Math.min(5, hills + st.lift)) + uplift(i, j));
+    // rolling hills on broad swells: the wilds rise and fall half again as far as they used to
+    const hills = 1 + Math.round((fbm(i * 0.07, j * 0.07, 31) - 0.45) * st.hills * 1.6 + Math.max(0, fbm(i * 0.022, j * 0.022, 32) - 0.42) * 7);
+    m.set(i, j, st.ground(i, j), Math.max(0, Math.min(9, hills + st.lift)) + uplift(i, j));
   });
   const ashen = (i: number, j: number) => {
     const r = wildOf[j * COARSE_W + i];
@@ -1012,8 +1025,8 @@ function buildWorld(): WorldDef {
     const k = m.kind(i, j);
     const h = m.height(i, j);
     if (k === "snow" && h < 3) m.set(i, j, "grass");
-    else if (h >= 7 && !LIQUID[k] && k !== "void" && (fbm(i * 0.4, j * 0.4, 77) > 0.35 || h >= 8)) m.set(i, j, ashen(i, j) ? "redrock" : "snow");
-    else if (h >= 6 && (k === "grass" || k === "meadow" || k === "leaf") && fbm(i * 0.3, j * 0.3, 78) > 0.55) m.set(i, j, "moss");
+    else if (h >= 10 && !LIQUID[k] && k !== "void" && (fbm(i * 0.4, j * 0.4, 77) > 0.35 || h >= 11)) m.set(i, j, ashen(i, j) ? "redrock" : "snow");
+    else if (h >= 7 && (k === "grass" || k === "meadow" || k === "leaf") && fbm(i * 0.3, j * 0.3, 78) > 0.55) m.set(i, j, "moss");
   });
 
   // 8. the landmarks: their buildings, keepers, beasts and treasures
