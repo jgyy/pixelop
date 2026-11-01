@@ -328,7 +328,8 @@ export class WorldView3D implements View3D {
     const ease = (a: number, b: number) => (first ? b : a + (b - a) * Math.min(1, dt * 7));
     cam.alpha = ease(cam.alpha, want.alpha);
     cam.beta = ease(cam.beta, want.beta);
-    cam.radius = ease(cam.radius, want.radius);
+    // a cutscene's close-up pushes the camera in (the game eases its zoom; this follows it)
+    cam.radius = ease(cam.radius, want.radius * this.game.cameraZoom);
   }
 
   private updateLight(): void {

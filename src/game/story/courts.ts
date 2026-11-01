@@ -718,6 +718,9 @@ export function courtsNpcScript(key: string, g: GameState): Step[] | null {
   // what the emperor, the guide and the sect leader say between the beats follows the tale: until the book is well along (its fifth beat), only what they would say to anyone
   const early = m[2] !== "folk" && courtsDone(g) < k * COURTS_BOOK + 80;
   const lines = early ? all.slice(0, 1) : all;
+  // a throne that has received her as the founder of a sect does not greet her as a stranger (see story/founding.ts)
+  if (courtsDone(g) < k * COURTS_BOOK && m[2] === "emperor" && g.flags[`fd:audience:${k}`])
+    return [{ say: who.char, name: who.name, text: fillStanding(`The founder of the sect in the sands. Our edict recognising it stands, {title}, under the Covenant. The throne of ${C.realm} has not yet had need of you for anything else. When it does, We will send.`, g) }];
   // before her book reaches them, the court is formal with a stranger (and the sect polite to a cultivator of another)
   if (courtsDone(g) < k * COURTS_BOOK)
     return [{ say: who.char, name: who.name, text: fillStanding(m[2] === "leader" || m[2] === "disciple" ? `The Azure Cloud's {peer}. ${C.sect.name.charAt(0).toUpperCase() + C.sect.name.slice(1)} guards ${C.realm}, under the Covenant. You are welcome to our seat, if you keep its peace.` : `A cultivator, at the court of ${C.realm}? The throne has not sent for you, {title}. Not yet.`, g) }];

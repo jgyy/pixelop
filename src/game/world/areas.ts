@@ -28,8 +28,10 @@ export interface PropPlacement {
   k?: number;
   /** Model origin in world coordinates, when it is not the anchor tile's centre. */
   at?: [number, number];
-  /** Only shown while this predicate on story flags holds (festival decorations). Never blocks. */
+  /** Only shown while this predicate on story flags holds (festival decorations). Never blocks, unless it is `solid`. */
   when?: (flags: Record<string, boolean>) => boolean;
+  /** A building the story raises: once it is shown it blocks the ground it stands on, like any other building. */
+  solid?: boolean;
   /** Ground height to stand at, when the tile beneath only rises to it once the story changes the land. */
   z?: number;
 }
@@ -55,6 +57,8 @@ export interface NpcPlacement {
   when?: (flags: Record<string, boolean>) => boolean;
   /** Patrol back and forth along these points (tile coordinates) instead of wandering. */
   route?: [number, number][];
+  /** A round of work: walk from one station to the next (tile coordinates) and do each station's job there a while. */
+  jobs?: { at: [number, number]; anim: AnimId }[];
   /** The outfit worn, by story flags (everyday clothes when it returns nothing). */
   outfit?: (flags: Record<string, boolean>) => string | undefined;
 }

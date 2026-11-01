@@ -315,6 +315,11 @@ export function GameView({ initial, intro, onQuit }: { initial: GameState; intro
                 ♔ {ui.courts.title}: {ui.courts.objective}
               </div>
             )}
+            {ui.founding && (
+              <div className="errand peoples main" data-testid="founding-quest">
+                ⛩ {ui.founding.title}: {ui.founding.objective}
+              </div>
+            )}
             {ui.notices.length > 0 && (
               <div className="errand notice" data-testid="notice">
                 ✉ {ui.notices[0].text}
@@ -506,8 +511,8 @@ function Dialog({ dialog, onAdvance, typingRef }: { dialog: NonNullable<UiSnapsh
   // once the line is gone (skipped, or the scene ended), nothing is being typed any more:
   // a stale "still typing" would swallow the next Enter meant for a question or the next scene
   useEffect(() => () => void (typingRef.current = { done: true, finish: () => undefined }), [typingRef]);
-  return (
-    <div className={`dialog panel${dialog.portrait ? " with-portrait" : ""}${dialog.speaker ? "" : " narrator"}`} onClick={() => (done ? onAdvance() : setShown(total))} data-testid="dialog">
+  const line = (
+    <div className={`dialog panel${dialog.portrait ? " with-portrait" : ""}${dialog.speaker ? "" : " narrator"}${dialog.closeup ? " in-closeup" : ""}`} onClick={() => (done ? onAdvance() : setShown(total))} data-testid="dialog">
       {dialog.portrait && <Portrait id={dialog.portrait} outfit={dialog.outfit} talking={!done} />}
       <div className="body">
         {dialog.speaker && <div className="speaker">{dialog.speaker}</div>}
@@ -519,9 +524,29 @@ function Dialog({ dialog, onAdvance, typingRef }: { dialog: NonNullable<UiSnapsh
       <span className="next">{done ? "▶ E" : "…"}</span>
     </div>
   );
+  if (!dialog.closeup) return line;
+  // a close-up: the screen goes to letterbox, the speaker's face fills one side of it, and the shot is named on the slate
+  return (
+    <div className="closeup" data-testid="closeup">
+      <div className="bar top">
+        <span className="slate">{dialog.closeup.scene ?? "Close-up"}</span>
+        <span className="shot" data-testid="closeup-shot">
+          {dialog.closeup.shot}
+        </span>
+      </div>
+      {dialog.portrait && (
+        <div className="face">
+          <Portrait id={dialog.portrait} outfit={dialog.outfit} talking={!done} big />
+          <div className="who">{dialog.speaker}</div>
+        </div>
+      )}
+      <div className="bar bottom" />
+      {line}
+    </div>
+  );
 }
 
-function Portrait({ id, outfit, talking }: { id: HumanId; outfit?: string; talking: boolean }) {
+function Portrait({ id, outfit, talking, big }: { id: HumanId; outfit?: string; talking: boolean; big?: boolean }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const talkRef = useRef(talking);
   useEffect(() => {
@@ -543,7 +568,7 @@ function Portrait({ id, outfit, talking }: { id: HumanId; outfit?: string; talki
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [id, outfit]);
-  return <canvas ref={ref} className="portrait" width={PORTRAIT} height={PORTRAIT} data-testid="portrait" />;
+  return <canvas ref={ref} className={big ? "portrait big" : "portrait"} width={PORTRAIT} height={PORTRAIT} data-testid={big ? "closeup-face" : "portrait"} />;
 }
 
 /** The quest journal: the tale, the errands, the sects' troubles, and how each sect regards her. */
@@ -707,6 +732,57 @@ function JournalPanel({ journal, ui, game, onClose }: { journal: NonNullable<UiS
               ))}
             </ul>
           )}
+        </section>
+      )}
+      {ui.founding && (
+        <section data-testid="journal-founding">
+          <h4>
+            ⛩ {ui.founding.chapter} · {ui.foundingDone}/{ui.foundingCount}
+          </h4>
+          <p>
+            <strong>{ui.founding.title}</strong> — {ui.founding.objective}
+          </p>
+          {ui.foundingList && (
+            <ul className="fronts steles">
+              {ui.foundingList.map((f) => (
+                <li key={f.book} className={`front-${f.state === "done" ? "freed" : f.state === "building" ? "burning" : "waiting"}`}>
+                  <span className="cn">{f.hanzi}</span> {f.book} <b>{f.state === "done" ? (f.fate ?? "Done") : f.state === "building" ? "Under way" : "Not yet reached"}</b>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+      {ui.sect && (
+        <section data-testid="journal-sect">
+          <h4>
+            ⛩ {ui.sect.name} · <span className="cn">{ui.sect.hanzi}</span>
+          </h4>
+          <p>
+            {ui.sect.motto && <em>“{ui.sect.motto}” </em>}
+            {ui.sect.disciples} disciples · daily tithe {ui.sect.tithe} spirit stones · {ui.sect.halls.filter((h) => h.built).length}/{ui.sect.halls.length} halls
+          </p>
+          <ul className="fronts steles">
+            {ui.sect.elders.map((e) => (
+              <li key={e.name} className={e.seated ? "front-freed" : "front-waiting"}>
+                <span className="cn">{e.hanzi}</span> {e.office} <b>{e.seated ? e.name : "Not yet seated"}</b>
+              </li>
+            ))}
+            {ui.sect.halls
+              .filter((h) => h.built)
+              .map((h) => (
+                <li key={h.name} className="front-freed" title={h.use}>
+                  <span className="cn">{h.hanzi}</span> {h.name}
+                </li>
+              ))}
+            {ui.sect.gods
+              .filter((x) => x.here)
+              .map((x) => (
+                <li key={x.name} className="front-burning">
+                  <span className="cn">{x.hanzi}</span> {x.name} <b>has come down</b>
+                </li>
+              ))}
+          </ul>
         </section>
       )}
       {ui.crafts.length > 0 && (

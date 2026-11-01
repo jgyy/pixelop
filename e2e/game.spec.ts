@@ -482,4 +482,36 @@ test.describe("Jade Lotus Ascension", () => {
     await expect(page.getByTestId("journal-courts")).toContainText("The Empty Granaries");
     await expect(page.getByTestId("journal-crafts")).toContainText("Spirit Cuisine");
   });
+  test("the Founding: Grandfather Earth's close-up at the Withered Lotus Basin, the steward's ledger, and the journal's sect", async ({ page }) => {
+    await startNewGame(page);
+    await patch(page, { flags: { metElder: true, villageSaved: true, villageArrived: true, metZhou: true }, realm: 1, stage: 0 });
+    await expect(page.getByTestId("founding-quest")).toContainText("1/1000");
+    await expect(page.getByTestId("founding-quest")).toContainText("Withered Lotus Basin");
+    await standBy(page, "fd-earthgod");
+    await expect(page.getByTestId("prompt")).toContainText("Grandfather Earth");
+    await page.keyboard.press("KeyE");
+    // past the opening narration, the first spoken line plays as a close-up: letterbox, the face on one side, the shot on the slate
+    await expect
+      .poll(async () => {
+        if (await page.getByTestId("closeup").count()) return true;
+        await page.keyboard.press("KeyE");
+        await page.waitForTimeout(400);
+        return false;
+      })
+      .toBe(true);
+    await expect(page.getByTestId("closeup")).toBeVisible();
+    await expect(page.getByTestId("closeup")).toContainText("Scene 1 of 1000");
+    await expect(page.getByTestId("closeup-shot")).not.toBeEmpty();
+    await expect(page.getByTestId("closeup-face")).toBeVisible();
+    await finishDialogue(page);
+    await expect(page.getByTestId("closeup")).toHaveCount(0);
+    await expect.poll(async () => (await state(page)).counters.fd).toBe(1);
+    await expect(page.getByTestId("founding-quest")).toContainText("2/1000");
+    // the steward has come down the road, and keeps the sect's ledger
+    await standBy(page, "fd-steward");
+    await expect(page.getByTestId("prompt")).toContainText("Bai Qiu");
+    await page.keyboard.press("KeyJ");
+    await expect(page.getByTestId("journal-founding")).toContainText("Choosing the Ground");
+    await expect(page.getByTestId("journal-sect")).toContainText("Elder of the Sword");
+  });
 });

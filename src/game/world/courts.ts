@@ -409,8 +409,15 @@ const CULTIVATORS = new Set<HumanId>([
   "formationmaster",
   "beastlord",
   "hollowsage",
+  // the Founding: her elders
+  "fdelder0",
+  "fdelder1",
+  "fdelder2",
+  "fdelder3",
+  "fdelder4",
+  "fdelder5",
 ]);
-const SPIRITS = /^(fox|mer|stone|feather|snow|dragon)(folk|guide|elder|prince|king)|^(ghost|ghostclerk|soulguard|mengpo|yama|huli|blight|golem|furnacespirit|echo|foxusurper|stormlord|whitehunger|dragonlord)/;
+const SPIRITS = /^(fox|mer|stone|feather|snow|dragon)(folk|guide|elder|prince|king)|^(ghost|ghostclerk|soulguard|mengpo|yama|huli|blight|golem|furnacespirit|echo|foxusurper|stormlord|whitehunger|dragonlord)|^(jadeemperor|queenmother|earthgod|kitchengod|starlord|wealthgod|thunderlord|moonlady|citygod)$/;
 
 export type Caste = "mortal" | "cultivator" | "spirit";
 export function casteOf(char: string): Caste {

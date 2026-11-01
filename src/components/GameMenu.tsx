@@ -130,6 +130,7 @@ function StatusTab({ ui }: { ui: UiSnapshot }) {
     ["Great Daos", ui.wu.label ? `${ui.wu.label} · ${ui.wu.total} stages` : "—"],
     ["Attire", ui.attire.name],
     ["Arts", ui.crafts.length ? ui.crafts.map((c) => `${c.name} (${c.rank})`).join(" · ") : "—"],
+    ["Her sect", ui.foundingDone > 0 ? `${ui.foundingDone} / ${ui.foundingCount} of the Founding` : "—"],
     ["Beasts bested", s.kills],
     ["Spirit stones", s.stones],
     ["Notices fulfilled", `${ui.noticesDone} / ${ui.noticeCount}`],
