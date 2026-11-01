@@ -30,6 +30,7 @@ import { peoplesBreath, peoplesChronicle, peoplesCultivated, peoplesDone, people
 import { seasBreath, seasChronicle, seasCultivated, seasDone, seasHasNews, seasHunt, seasLandmark, seasLog, seasTalk, SEAS_COUNT, syncSeasFlags } from "../story/seas";
 import { courtsBreath, courtsChronicle, courtsCultivated, courtsDone, courtsHasNews, courtsHunt, courtsLandmark, courtsLog, courtsTalk, COURTS_COUNT, syncCourtsFlags } from "../story/courts";
 import { craftSheet } from "../engine/crafts";
+import { foundingChronicle, foundingCultivated, foundingDone, foundingHasNews, foundingHunt, foundingLog, foundingTalk, FOUNDING_COUNT, sectSheet, syncFoundingFlags } from "../story/founding";
 import { stairBarToast, syncTiersFlags, tiersBreath, tiersChronicle, tiersCultivated, tiersDone, tiersHasNews, tiersHunt, tiersLandmark, tiersLog, tiersTalk, TIERS_COUNT } from "../story/tiers";
 import { floorRefusal, standingJournal, standingLabel } from "../story/standing";
 import { BREATHS_PER_WU, comprehend, deepestWu, domainOpen, GREAT_DAOS, SHRINE_DAO, WU_TIERS, wuJournal, wuTotal } from "../engine/comprehension";
@@ -66,7 +67,8 @@ export interface UiSnapshot {
   journal: { main: Quest; errands: string[]; sects: JournalEntry[]; standing: { id: SectId; name: string; hanzi: string; rep: number; label: string }[] } | null;
   /** The outfit she has on, and how many she owns. */
   attire: { id: string; name: string; owned: number };
-  dialog: { speaker: string; portrait: HumanId | null; outfit?: string; text: string; seq: number } | null;
+  /** The line on screen; a close-up also carries its shot (how it is framed) and its place on the slate. */
+  dialog: { speaker: string; portrait: HumanId | null; outfit?: string; text: string; seq: number; closeup?: { shot: string; scene?: string } } | null;
   /** A question put to the heroine, waiting for her answer. */
   choice: { prompt: string | null; options: { label: string; hint?: string }[]; selected: number; seq: number } | null;
   narration: { text: string; index: number; total: number } | null;
@@ -120,6 +122,14 @@ export interface UiSnapshot {
   courtsCount: number;
   /** The six courts as they stand for her (in the journal). */
   courtsList: ReturnType<typeof courtsChronicle> | null;
+  /** The tenth thread: the Founding, a thousand main quests long (null before the basin's Earth God calls for her). */
+  founding: (Quest & { arc: "main" }) | null;
+  foundingDone: number;
+  foundingCount: number;
+  /** The five books as they stand for her (in the journal). */
+  foundingList: ReturnType<typeof foundingChronicle> | null;
+  /** Her sect as it stands: its name, halls, elders, disciples and gods (in the journal). */
+  sect: ReturnType<typeof sectSheet>;
   /** The arts she has learned, with her rank in each (the journal and the menu). */
   crafts: ReturnType<typeof craftSheet>;
   /** What her realm makes her in the eyes of the jianghu: for the HUD, and the journal's standing. */
@@ -225,6 +235,9 @@ export class Game {
   private flash = 0;
   private flashColor = "#ffffff";
   private cameraFocus: [number, number, number] | null = null;
+  /** How far the camera has pushed in (1: not at all), and how far it wants to (a close-up pushes in). */
+  private zoom = 1;
+  private zoomTarget = 1;
   /** The 3D view, while one draws the world (null: the isometric pixel view). */
   view3d: View3D | null = null;
   private medTick = 0;
@@ -468,10 +481,22 @@ export class Game {
       return;
     }
     r.waitInput = false;
+    if (step && "closeup" in step) this.endCloseUp();
     this.dialog = null;
     this.narration = null;
     r.i++;
     this.markDirty();
+  }
+
+  /** The camera lets go of a close-up's subject and pulls back out. */
+  private endCloseUp(): void {
+    this.cameraFocus = null;
+    this.zoomTarget = 1;
+  }
+
+  /** How far a close-up has pushed the camera in (1 when there is none): the 3D view shortens its reach by this. */
+  get cameraZoom(): number {
+    return this.zoom;
   }
 
   /** Answer the question on screen with option `k` (its steps run next). */
@@ -508,6 +533,7 @@ export class Game {
       if (step && ("battle" in step || "choose" in step)) break;
       if (r.waitInput) {
         r.waitInput = false;
+        if (step && "closeup" in step) this.endCloseUp();
         this.dialog = null;
         this.narration = null;
         r.i++;
@@ -905,7 +931,7 @@ export class Game {
     this.dialog = null;
     this.choice = null;
     this.narration = null;
-    this.cameraFocus = null;
+    this.endCloseUp();
     if (this.mode === "scene") this.mode = this.returnMode === "meditate" ? "meditate" : "explore";
     const next = this.queue.shift();
     if (next) this.play(next);
@@ -946,20 +972,28 @@ export class Game {
       const step = r.steps[r.i];
       if (!step) return this.endRunner();
       this.markDirty();
-      if ("say" in step) {
-        const portrait = step.say !== "narrator" && charDef(step.say).portrait ? step.say : null;
-        const speaker = step.name ?? (step.say === "narrator" ? "" : charDef(step.say).name);
+      if ("say" in step || "closeup" in step) {
+        const line = "say" in step ? { who: step.say, name: step.name, text: step.text } : step.closeup;
+        const close = "closeup" in step ? step.closeup : null;
+        const portrait = line.who !== "narrator" && charDef(line.who).portrait ? line.who : null;
+        const speaker = line.name ?? (line.who === "narrator" ? "" : charDef(line.who).name);
         r.waitInput = true;
         // the nearest NPC of that character speaks (two villagers may share a look)
         const h = this.world.hero;
         const actor =
-          step.say === "heroine"
+          line.who === "heroine"
             ? h
-            : this.world.actors.filter((a) => a.char === step.say && a.kind === "npc").sort((a, b) => Math.hypot(a.x - h.x, a.y - h.y) - Math.hypot(b.x - h.x, b.y - h.y))[0];
+            : this.world.actors.filter((a) => a.char === line.who && a.kind === "npc").sort((a, b) => Math.hypot(a.x - h.x, a.y - h.y) - Math.hypot(b.x - h.x, b.y - h.y))[0];
+        // a close-up pushes the camera in on its subject (or on whoever is speaking, or on her)
+        if (close) {
+          const subject = (close.focus && (close.focus === "hero" ? h : this.actorByKey(close.focus))) || actor || h;
+          this.cameraFocus = [subject.x, subject.y, subject.z];
+          this.zoomTarget = 0.42;
+        }
         // the portrait wears what the speaker is wearing
-        const outfit = step.say === "heroine" ? currentAttire(this.state).id : actor?.outfit;
-        this.dialog = { speaker, portrait, ...(outfit && { outfit }), text: step.text, seq: ++this.seq };
-        if (step.say !== "heroine" && speaker) this.lastSpeaker = speaker;
+        const outfit = line.who === "heroine" ? currentAttire(this.state).id : actor?.outfit;
+        this.dialog = { speaker, portrait, ...(outfit && { outfit }), text: line.text, seq: ++this.seq, ...(close && { closeup: { shot: close.shot, ...(close.scene && { scene: close.scene }) } }) };
+        if (line.who !== "heroine" && speaker) this.lastSpeaker = speaker;
         if (actor && actor.kind === "npc" && !SEATED.has(actor.idleAnim) && charDef(actor.char).anims.includes("talk") && !actor.holdUntil) {
           this.world.setAnim(actor, "talk", this.clock);
           const back = actor;
@@ -1524,11 +1558,11 @@ export class Game {
     if (this.clock > this.syncAt) {
       this.syncAt = this.clock + 0.5;
       // the Founder's Road reaches her as her realm does, not only as its quests are done
-      this.state = syncCourtsFlags(syncSeasFlags(syncPeoplesFlags(syncTiersFlags(syncHallsFlags(syncRoadFlags(this.state))))));
+      this.state = syncFoundingFlags(syncCourtsFlags(syncSeasFlags(syncPeoplesFlags(syncTiersFlags(syncHallsFlags(syncRoadFlags(this.state)))))));
       w.syncPopulation(this.state.flags);
       this.landmarkEvents();
       if (this.mode !== "explore") return;
-      const grown = warCultivated(this.state) ?? roadCultivated(this.state) ?? hallsCultivated(this.state) ?? tiersCultivated(this.state) ?? peoplesCultivated(this.state) ?? seasCultivated(this.state) ?? courtsCultivated(this.state);
+      const grown = warCultivated(this.state) ?? roadCultivated(this.state) ?? hallsCultivated(this.state) ?? tiersCultivated(this.state) ?? peoplesCultivated(this.state) ?? seasCultivated(this.state) ?? courtsCultivated(this.state) ?? foundingCultivated(this.state);
       if (grown) return this.play(grown);
     }
     const touched = w.update(dt, this.clock, h.flying === true || this.clock < this.invulnerableUntil, true);
@@ -1590,7 +1624,7 @@ export class Game {
     const offering = offeringScript(key, g, cal);
     if (offering) pre.push(...offering);
     const news = hasNews(key, g);
-    const war = warTalk(key, g) ?? roadTalk(key, g) ?? hallsTalk(key, g) ?? tiersTalk(key, g) ?? peoplesTalk(key, g) ?? seasTalk(key, g) ?? courtsTalk(key, g);
+    const war = warTalk(key, g) ?? roadTalk(key, g) ?? hallsTalk(key, g) ?? tiersTalk(key, g) ?? peoplesTalk(key, g) ?? seasTalk(key, g) ?? courtsTalk(key, g) ?? foundingTalk(key, g);
     if (war) return news ? [...pre, ...npcScript(key, g), ...war] : [...pre, ...war];
     if (pre.length && !news) return pre;
     const story = npcScript(key, g);
@@ -1682,7 +1716,7 @@ export class Game {
 
   /** A foe of the horde beaten where the war wanted it beaten. */
   private warHunt(enemy: EnemyId): void {
-    for (const hunt of [() => warHunt(this.state, enemy, this.state.area), () => roadHunt(this.state, enemy), () => hallsHunt(this.state, enemy), () => tiersHunt(this.state, enemy), () => peoplesHunt(this.state, enemy), () => seasHunt(this.state, enemy), () => courtsHunt(this.state, enemy)]) {
+    for (const hunt of [() => warHunt(this.state, enemy, this.state.area), () => roadHunt(this.state, enemy), () => hallsHunt(this.state, enemy), () => tiersHunt(this.state, enemy), () => peoplesHunt(this.state, enemy), () => seasHunt(this.state, enemy), () => courtsHunt(this.state, enemy), () => foundingHunt(this.state, enemy)]) {
       const r = hunt();
       this.state = r.state;
       if (r.steps) return this.play(r.steps);
@@ -1926,6 +1960,8 @@ export class Game {
     this.flash = Math.max(0, this.flash - dt * 2.5);
     this.fade += (this.fadeTarget - this.fade) * Math.min(1, dt * 4);
     if (Math.abs(this.fade - this.fadeTarget) < 0.01) this.fade = this.fadeTarget;
+    this.zoom += (this.zoomTarget - this.zoom) * Math.min(1, dt * 3);
+    if (Math.abs(this.zoom - this.zoomTarget) < 0.005) this.zoom = this.zoomTarget;
     this.tickTimers();
     if (this.toasts.length && this.toasts[0].until < this.clock) {
       this.toasts = this.toasts.filter((t) => t.until >= this.clock);
@@ -1988,7 +2024,7 @@ export class Game {
     }
     if (this.mode === "explore" && this.clock >= this.markerAt) this.refreshMarkers();
     const cal = calendarAt(worldTime(this.state));
-    for (const a of this.world.actors) if (a.kind === "npc") a.marker = this.mode === "explore" && ((hasNews(a.key, this.state) || yearHasNews(a.key, this.state, cal) || warHasNews(a.key, this.state) || roadHasNews(a.key, this.state) || hallsHasNews(a.key, this.state) || tiersHasNews(a.key, this.state) || peoplesHasNews(a.key, this.state) || seasHasNews(a.key, this.state) || courtsHasNews(a.key, this.state) || daoHasNews(a.key, this.state) || cultivationHasNews(a.key, this.state)) || (this.bountyMarkers.get(a.key) ?? false));
+    for (const a of this.world.actors) if (a.kind === "npc") a.marker = this.mode === "explore" && ((hasNews(a.key, this.state) || yearHasNews(a.key, this.state, cal) || warHasNews(a.key, this.state) || roadHasNews(a.key, this.state) || hallsHasNews(a.key, this.state) || tiersHasNews(a.key, this.state) || peoplesHasNews(a.key, this.state) || seasHasNews(a.key, this.state) || courtsHasNews(a.key, this.state) || foundingHasNews(a.key, this.state) || daoHasNews(a.key, this.state) || cultivationHasNews(a.key, this.state)) || (this.bountyMarkers.get(a.key) ?? false));
     if (this.world.hero.outfit !== currentAttire(this.state).id) this.dressHero();
     this.world.heroRealm = this.state.realm;
     this.world.heroDread = heartDemons(this.state) > 60;
@@ -2233,6 +2269,11 @@ export class Game {
       courtsDone: courtsDone(this.state),
       courtsCount: COURTS_COUNT,
       courtsList: this.journalOpen && courtsDone(this.state) > 0 ? courtsChronicle(this.state) : null,
+      founding: foundingLog(this.state, (id) => lockReason(id, this.state)),
+      foundingDone: foundingDone(this.state),
+      foundingCount: FOUNDING_COUNT,
+      foundingList: this.journalOpen && foundingDone(this.state) > 0 ? foundingChronicle(this.state) : null,
+      sect: this.journalOpen ? sectSheet(this.state) : null,
       crafts: craftSheet(this.state),
       standing: { label: standingLabel(this.state), journal: this.journalOpen ? standingJournal(this.state) : null },
       wu: (() => {

@@ -60,6 +60,8 @@ export interface Actor {
   /** Patrol route (NPCs walking the highway). */
   route?: [number, number][];
   routeK?: number;
+  /** The job done at each stop of the route (a worker's round), if it is one. */
+  jobs?: AnimId[];
   /** Facing to return to once the heroine walks away. */
   baseDir?: number;
   greeted?: boolean;
@@ -186,6 +188,10 @@ const layerFloor = (l: HallLayer, k: number) => {
 /** Seasonal copies of the painted terrain columns, per map and season. */
 const seasonCache = new WeakMap<TileMap, Map<Season, (TileBuffer | null | undefined)[]>>();
 
+/** A building the story raises, and the tiles it blocks once it stands. */
+type Raised = { tiles: number[]; when: (flags: Record<string, boolean>) => boolean };
+const raisedCache = new WeakMap<AreaDef["map"], Raised[]>();
+
 /**
  * The explorable world at runtime: lazily painted terrain, props, actors,
  * collision, AI, and the depth-sorted isometric renderer. Used for the one
@@ -253,6 +259,8 @@ export class World {
    * square tiles; the open world and the caves are rounded off.
    */
   readonly fine: FineView;
+  /** The buildings the story raises, and the tiles each blocks once it stands. */
+  private raised: Raised[] = [];
   /** Whether the fine grid rounds this map's land off (the open world and the caves) or keeps its tiles square (rooms, arenas). */
   readonly smooth: boolean;
 
@@ -280,6 +288,21 @@ export class World {
     this.bucketProps = Array.from({ length: m.w + m.h }, () => []);
     for (const p of def.props) this.addProp(p);
     for (const p of this.hallProps) this.addProp(p);
+    // the buildings the story raises block their ground once they stand (never a tile something else already blocks)
+    // (worked out once per map, before any of them has blocked anything: every World on this map shares the answer)
+    let raised = raisedCache.get(m);
+    if (!raised) {
+      raised = [];
+      for (const p of def.props) {
+        if (!p.solid || !p.when || !propDef(p.id).blocks) continue;
+        const [i0, j0, i1, j1] = placementTiles(p);
+        const tiles: number[] = [];
+        for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) if (m.inside(i, j) && !m.isBlocked(i, j)) tiles.push(j * m.w + i);
+        raised.push({ tiles, when: p.when });
+      }
+      raisedCache.set(m, raised);
+    }
+    this.raised = raised;
     for (const t of taken) this.taken.add(t);
     if (this.world) {
       const w = this.world;
@@ -321,6 +344,11 @@ export class World {
    */
   syncPopulation(flags: Record<string, boolean>, initial = false): void {
     this.reshape(flags, initial);
+    const m = this.def.map;
+    for (const r of this.raised) {
+      const on = r.when(flags);
+      for (const t of r.tiles) m.block(t % m.w, Math.floor(t / m.w), on);
+    }
     // the hour and the season are part of what the world shows (snowmen in winter, folk who only come out at night)
     flags = this.flags = this.withEnv(flags);
     const present = new Set(this.actors.map((a) => a.key));
@@ -346,6 +374,17 @@ export class World {
         if (n.route) {
           a.route = n.route;
           a.routeK = 0;
+        }
+        // a worker goes round their stations, doing each one's job a while before moving on
+        if (n.jobs?.length) {
+          a.route = n.jobs.map((s) => [s.at[0] + 0.5, s.at[1] + 0.5] as [number, number]);
+          a.jobs = n.jobs.map((s) => s.anim);
+          a.routeK = 0;
+          a.ambient = false;
+          a.speed = 1.2;
+          a.idleAnim = a.jobs[0];
+          this.setAnim(a, a.idleAnim, this.clock);
+          a.rest = 6 + hash2(n.i, n.j, 11) * 6;
         }
         this.actors.push(a);
       } else if (!want && present.has(n.key) && !initial) this.removeActor(n.key);
@@ -918,6 +957,11 @@ export class World {
     a.routeK = ((a.routeK ?? 0) + 1) % a.route.length;
     a.target = [...a.route[a.routeK]];
     a.rest = 3 + hash2(Math.floor(t), a.routeK, 4) * 3;
+    // a worker settles to the next station's job when they get there, and stays at it longer
+    if (a.jobs) {
+      a.idleAnim = a.jobs[a.routeK] ?? "idle";
+      a.rest = 7 + hash2(Math.floor(t), a.routeK, 12) * 7;
+    }
   }
 
   private wanderStep(a: Actor, dt: number, t: number): void {

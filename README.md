@@ -109,6 +109,125 @@ New moves: Lin Yue **rummages** in her satchel when the menu opens and **shades 
 - A foundling who runs up the sky bridge before facing the fox is no longer greeted for the "fox blood on her sleeve", or told she has "already met" the beast.
 
 
+### The Founding: her own sect, a thousand main quests in close-up, the Celestial Court, and busy towns
+
+She has been a disciple of other people's sects for long enough. In a dead basin in the Yellow Sands, an Earth God no taller than her sash asks her to found a sect of her own, and the tenth thread of the main tale follows her doing it: **a thousand main quests**, every one of them played out in a **close-up cutscene**. She lays the first stone, names the sect for her Dao, takes in disciples nobody else would, seats six elders, judges their quarrels, and is written into heaven's Register of Sects while the **Jade Emperor**, the **Queen Mother of the West** and five gods of the Celestial Court look on. Her sect rises in the world **a building at a time**, fills with people **going round their work all day**, and grows a market town outside its gate. The six capitals get **granaries, mills, kilns, dye works, schools, bathhouses, post stations and a temple to the City God**, each worked by its own folk.
+
+| | |
+|---|---|
+| ![The Withered Lotus Basin, as she finds it](docs/screenshots/320-3d-the-withered-lotus-basin.png) | ![The sect half built](docs/screenshots/321-3d-the-sect-half-built.png) |
+| ![The sect at work](docs/screenshots/322-3d-the-sect-at-work.png) | ![The sect founded, the gods on the Altar of Heaven](docs/screenshots/323-3d-the-sect-founded.png) |
+| ![The market town outside the gate](docs/screenshots/324-3d-the-market-town.png) | ![Liangdu at work: the new facilities](docs/screenshots/325-3d-liangdu-at-work.png) |
+| ![Close-up: Grandfather Earth](docs/screenshots/326-closeup-grandfather-earth.png) | ![Close-up: someone at the gate](docs/screenshots/327-closeup-at-the-gate.png) |
+| ![Close-up: the Jade Emperor](docs/screenshots/328-closeup-the-jade-emperor.png) | ![The journal: the Founding and her sect](docs/screenshots/329-journal-the-founding-and-her-sect.png) |
+| ![The basin in pixels](docs/screenshots/330-the-basin-in-pixels.png) | ![The world map: the Withered Lotus Basin](docs/screenshots/331-world-map-the-withered-lotus-basin.png) |
+
+#### A thousand close-ups
+
+A new cutscene step, `closeup` (`story/script.ts`), cuts to a close-up. The screen goes to letterbox. The speaker's face fills one side of it at twice the dialogue portrait's size. A slate names the scene ("Scene 412 of 1000") and the shot ("Low angle · Elder Guan, waiting on her word"). In 3D the camera pushes in on whoever the shot is about and eases back out when the line is done. Every quest of the Founding plays out with one: the steward reporting a hall raised, a child at the gate telling her why they walked here, a disciple's face as a lesson lands, an emperor on the throne, a god at the altar, her own face after a fight. The close-ups are composed with the quests. A frame and a detail are tried in turn until the shot is one no other quest has used for that line, so all **1,000 are different** (a test checks this).
+
+```mermaid
+sequenceDiagram
+  participant P as Player (E)
+  participant G as Game runner
+  participant C as Camera (3D)
+  participant V as GameView
+  P->>G: talk to the quest's NPC
+  G->>G: foundingTalk(key) → steps
+  G->>C: closeup step: focus on the subject, zoom → 0.42
+  G->>V: dialog { speaker, portrait, text, closeup: { shot, scene } }
+  V-->>P: letterbox, big face, slate, typed line
+  P->>G: advance (E)
+  G->>C: zoom → 1, focus released
+  G->>G: the rest of the scene, then finish(): fd += 1, flags synced
+```
+
+#### The tale: five books, all main quests
+
+| Book | What she builds | Who comes | The trouble at the end |
+|---|---|---|---|
+| I · 择地 Choosing the Ground | the Mountain Gate, the Hall of the Founding, the Disciples' Quarters, the Sweet Well | Steward Bai Qiu; three caravan children with no roots | Tu Ba, the Dune Tyrant, who sells the caravans their own water |
+| II · 收徒 Taking Disciples | the Practice Yard, the Refectory, the Spirit Fields, the Pill Chamber, the Forge | Elders Jiang (the Sword) and Kang Lin (Pills); her own Selection | Qian Sou, the Disciple-Buyer of the Orthodox Alliance |
+| III · 立规 Laying Down the Rules | the Scripture Pavilion, the Array Platform, the House of Healing, the Beast Pens, the Mission Hall, the Talisman Hall | Elders Zeng (Scriptures), Guan (Discipline), Xiang (Arrays); the Nine Rules | Hou Mian, the Two-Faced Elder, who splits the sect in two |
+| IV · 天庭 The Celestial Court | the Treasury, the Bell Tower, the Altar of Heaven, the Ancestral Shrine | Elder Ren (Outer Court); the Lord of the Hearth, the Star of Letters, the Lord of Wealth, the Lord of Thunder, the Lady of the Moon; **the Jade Emperor and the Queen Mother of the West** | the False Star, the clerk of heaven who scraped forty-one sects out of the Register |
+| V · 开宗大典 The Founding Ceremony | the Guest House, the Lotus Spring | six thrones' and six sects' envoys | Gu Wuchen, Patriarch of the Orthodox Alliance, alone at her gate |
+
+Between the beats, the life of a sect and its master's work (every quest still a main quest): **raising** each hall with Bai Qiu, **taking in** whoever comes to the gate, **teaching** the disciples, **judging** their cases (each a choice that leans her heart toward a Dao), **going round** the halls with their keepers, sect **ceremonies**, **petitions** to the six thrones (who recognise her sect under the Covenant), to the City Gods of the capitals and to the gods once they have come down, **hunts** round the basin, and a realm gate halfway through each book.
+
+**Tied to the main tale.** The Earth God remembers the founder of the Azure Cloud as a young woman who sat by his lake for a year until a lotus grew out of her breath. For six hundred years the Jade Lotus grew there, then she carried it up to her shrine three hundred years ago, and the basin's spring followed it. At the founding the spring comes back, following what became of the Heart: all at once if it is home, the long way round if it was planted, only for her if she drank it, and not at all (only the well) while it is still stolen. The Azure Cloud's answer to her letter also depends on the Heart. A disciple who drank it gets an unsigned note in Elder Mo's hand, under a cracked seal.
+
+```mermaid
+flowchart TD
+  O{{"metElder + metZhou + Foundation Establishment"}} --> I
+  I["I · Choosing the Ground<br/>the Earth God's leave, a steward, a name for the sect"] -->|"Tu Ba"| II
+  II["II · Taking Disciples<br/>the Selection, elders seated"] -->|"Qian Sou"| III
+  III["III · Laying Down the Rules<br/>the Nine Rules, a sect split and mended"] -->|"Hou Mian"| IV
+  IV["IV · The Celestial Court<br/>gods come down; the Jade Emperor writes her in"] -->|"the False Star"| V
+  V["V · The Founding Ceremony<br/>envoys, zealots at the gate"] -->|"Gu Wuchen"| F{"what became<br/>of the Heart?"}
+  F -- home --> S1["the spring comes up all at once; the Lady of the Moon comes down"]
+  F -- planted --> S2["the spring comes the long way round, and a lotus bud with it"]
+  F -- drunk --> S3["the spring comes only for her, warm for ever"]
+  F -- "still stolen" --> S4["only the well, until the Heart is found"]
+```
+
+#### Leading a sect
+
+- **A name for her Dao.** In the first book she names the sect: the Sword-Heart Sect (剑心宗), the Merciful Lotus Sect (慈莲宗), the Even Cloud Sect (衡云宗) or the Blood Lotus Sect (血莲宗). From then on every line of the tale calls it by that name.
+- **Daily council.** Once a day of the calendar, Steward Bai Qiu gives the day's report (disciples, elders, halls, the tithe) and asks for the sect's orders. She can send the disciples out on the caravan roads (spirit stones, the daily tithe of every hall), drill them in the yard (cultivation), open the House of Healing to the road (full vitality and qi, and a lighter heart), or work the fields and the Pill Chamber (Healing Pills).
+- **The journal** shows the sect's name, motto, disciples, tithe, every elder (seated or not), every hall raised and every god who has come down. The menu's Status page shows how far the Founding has got.
+- The save keeps only `fd` (quests done), `fdp` (progress on the current one), the day of the last council and the flags of her choices. Everything else (what is built, who is seated or taken in, which gods are here, how far the market town has grown) is worked out from those, so there is no new save version.
+
+#### Buildings that rise, and people who are busy
+
+Twenty-one halls go up in the basin, each at its own quest. They are ordinary props shown by story flags (`fd:built:<key>`), and a new `solid` mark makes them block their ground once they stand, so she cannot walk through the hall she has just raised (the runtime world blocks and frees their tiles as flags change). Nobody is ever placed where a hall's walls will go, and the crowds and townsfolk keep clear of them too.
+
+The people go about their work. An NPC can now have a **round of work** (`jobs` on an NPC placement): stations to walk between, and a job to do at each (sweeping, carrying water, kneading dough, hammering at the forge, planting, reading, inscribing, sparring, praying). They stay at each a while and then move on to the next. The sect's six elders, twenty-four disciples (half in robes, half the rootless children who came first, in what they walked in wearing), nine hall keepers and the market town's eight stallholders all go round theirs, and so do the folk of the capitals' new facilities. That is **137 workers in all** across the world. A station that a tree or a stall has taken is dropped from the round.
+
+```mermaid
+stateDiagram-v2
+  [*] --> Working: the first station's job
+  Working --> Walking: rest runs out (7–14 s)
+  Walking --> Working: reaches the next station, takes up its job
+  Working --> Greeting: she walks past
+  Greeting --> Working: she walks on
+```
+
+| In each of the six capitals | Who works it, and at what |
+|---|---|
+| 官仓 the Granary | a porter (carrying, rummaging, tallying) and a sweeper |
+| 磨坊 the Mill | the miller, carrying sacks and gathering |
+| 窑 the Kiln | the potter (hammering, carrying, appraising) and a stoker splitting wood |
+| 染坊 the Dye Works | a dyer at the loom and a girl at the vats |
+| 学堂 the School | the schoolmaster (reading, writing, pointing) and a pupil |
+| 澡堂 the Bathhouse | an attendant pouring and a water-heater chopping wood |
+| 驿站 the Post Station | a post rider and an ostler |
+| 城隍庙 the Temple of the City God | the keeper (sweeping, praying, chanting), a worshipper, and **the City God** at the door |
+
+#### The Celestial Court
+
+| God | Hanzi | Comes down | What they keep |
+|---|---|---|---|
+| The Jade Emperor (Emperor of Heaven) | 玉皇大帝 | the Altar of Heaven, Book IV | the Register of Sects |
+| The Queen Mother of the West (Empress of Heaven) | 西王母 | at his side | the peaches of long life (and a test of what she does with one) |
+| The Lord of the Hearth | 灶君 | the Refectory | the year's-end report on every house |
+| The Star of Letters | 文曲星 | the Scripture Pavilion | heaven's library |
+| The Lord of Wealth | 财神 | the Treasury | the third key of every honest treasury |
+| The Lord of Thunder | 雷公 | the Bell Tower | the test of every new sect's gate |
+| The Lady of the Moon | 嫦娥 | the Sweet Well | her face in every spring |
+| Grandfather Earth | 土地公 | his shrine, from the start | the basin |
+| The City Gods | 城隍 | a temple in each capital | the ledger of every soul in their walls |
+
+New characters: the nine gods above, Steward Bai Qiu, the six elders, and the five troubles (Tu Ba, Qian Sou, Hou Mian, the False Star, Gu Wuchen), with five new foes (sand ghouls, disciple-snatchers, imps of discord, register-eaters, Alliance zealots). The emperors and empresses of the six thrones now receive her as the founder of a sect.
+
+#### Plot holes mended
+
+- **Where was the Heart eight hundred years ago?** Sect Master Dan Qiu of the Crimson Cauldron shows her the sect's oldest record of the Jade Lotus Heart, from a visit eight hundred years ago. But the Azure Cloud's shrine has guarded the Heart for only three hundred. Grandfather Earth now gives the answer: the founder left the lotus growing in his lake for six hundred years (the Crimson Cauldron's masters came to draw it, and counted nine petals) before she carried it up to her shrine.
+- **An emperor who has just recognised her sect** no longer greets her as a stranger "the throne has not sent for". Once she has had an audience as a founder, the throne remembers it until its own book of the Thrones and the Crafts begins.
+- **The Azure Cloud gives its leave in a way that fits what she has done.** A disciple who drank the Heart and was never purged does not get a warm letter under the sect's seal.
+- **The new elders' names** were chosen so that none of them is mistaken for someone the jianghu already knows (Librarian Wen of the Ten Halls, Array Disciple Lu of Linzi, Mother Yao of the Pill Guild, Shen Bai of Room Seven, Granny Hua of Willow Creek).
+- **The basin's Earth God** no longer claims nobody has passed in three hundred years, when the War of the Iron Banner marched through the Yellow Sands and Batu's caravans cross them every night. Nobody has *stopped*.
+- **The crowds of the jianghu** no longer put a stray villager at the elbow of every god, elder and disciple of her sect (the sect has its own people), and **the ratio of mortals to cultivators** still holds at about ten to one with the sect's rooted disciples counted (9.35 to 1).
+
 ### The Thrones and the Crafts: six emperors, six sect leaders, the Hundred Arts, 1,200 more quests, a finer grid and taller land
 
 Between the sects in the sky and the beasts of the wilds lies the mortal world, and now it has rulers. **Six mortal thrones**, each with a capital, a palace square, a throne under a silk canopy, a court and hundreds of townsfolk at their trades. Beside each throne stands **a sect sworn to guard it** under the eight-hundred-year-old **Covenant of Cloud and Throne** (云座之约): the sects do not rule mortals, and mortals do not bind cultivators. Since the Jade Lotus Heart was stolen, the spirit veins under the mortal lands have run thin, and someone has been forging edicts in the emperors' hands and decrees in the sect leaders' to set them at each other's throats. The ninth thread of the main tale follows him from court to court.
@@ -1973,6 +2092,7 @@ flowchart LR
 - **The Founder's Road and the Great Daos (Vitest):** comprehension's five stages and the realm cap, the stat gifts, the Dao Domain and seeing through an Echo, all 1000 quests (deterministic, ten books, every NPC and landmark really in the world, rising realms), the whole Road walked to its end with the land, the outfits and the ending following, eating a Dao and what it costs, the questions whose deeper answers need deeper understanding, every Echo and the Dao-Eater in battle, Hailing's walls, canals and bridges, the busy street folk and their words, the new props and moves, and the mended plot holes (Bao never supplies himself, officers and children speak as themselves, the crimson front remembers Xue, endings where she stayed).
 - **The City of Nine Tiers and standing (Vitest):** all 1000 quests (ten books, at least ten hand-written beats and two questions in each, every NPC and landmark really in the world, rising realms, never below a book's own gate), the whole tale walked to its end with every fate, the outfits and the ending, the gates opening to her realm alone, the terraces at their heights with a stair and a seal at every gate, folk on every tier, the bars holding her below her realm in the running game, the forms of address, crowds that kneel and call her Senior, a line for every realm from every new townsperson, Jinhe's new walls and Willow Creek's East Ward, the inns' upper floors and the realm they ask, the storeyed props and the ten new moves.
 - **The Ten Halls (Vitest):** all 1000 quests (ten books, at least ten hand-written beats in each, every NPC and landmark really in the world or Room Seven, rising realms), the Selection with the crowd coming and going, Room Seven filling up, the whole tale walked to its end with every hall's trouble and fate, the outfits and the ending, bouts and sittings that only count where they should, roommates never sent for while the tale has them elsewhere, the court and its troubles on reachable ground, the new props and moves, each beginning's word at the herald, and the mended plot holes (the Dao-Eater's nine Daos, the founder's sword).
+- **The Founding (Vitest):** all 1000 main quests (five books, rising realms, every hall raised once in its own book), a close-up for every one and no two alike (with a face for each), every NPC a quest sends her to really in the world and there at the time, the whole tale walked to its end (every hall built, every elder seated, every god come down, the sect named and founded, the ending), naming the sect for her Dao, raised halls that block only once they stand with nobody ever placed under one, over 80 workers whose rounds are on open ground and use moves their looks know, the capitals' facilities and City Gods, the Celestial Court, the daily council, the thrones that remember her audience, the spring and the Azure Cloud's letter following the Heart, and the basin on open land in the Yellow Sands.
 - **The Thrones and the Crafts, the Hundred Arts and the fine grid (Vitest):** all 1200 quests (six books, every NPC and landmark really in the world, rising realms), the whole tale walked to its end with every fate, the craft ranks it raises and the ending, ceremonies that never come before their part of the tale, words held back until the tale gets there, the petal's fate following the Heart's, the six capitals and sects on the map with their thrones, 230 townsfolk at their trades in each, the ratio of mortals to cultivators (between 9 and 11 to 1), the eight arts' masters, ranks, stat gifts and once-a-day lessons, the new props and twelve new moves, and the fine grid (half-size cells, rounded ponds and staircases, no new cliffs, roads never eaten, rooms and footings square, every soul standing on a cell they can stand on, the 3D chunk's covered area).
 - **E2E (Playwright):** the Founder's Road opening with Qingxu at Foundation Establishment and the journal's Great Daos page, Hailing's lion dancers and its bun seller; the wardrobe, the calendar turning at the sundial and a notice taken and set aside from the journal; and  fullscreen title and health check, opening narration and walking, walking from the sect into the village in one world, Elder Mo's briefing through to world-map travel, a battle won through the UI, tea and the shop at the crossroads teahouse (with Enter skipping the typewriter text), stepping inside the crossroads teahouse to hear the storyteller and walking back out, a save/reload/continue round trip with the leaderboard, and the gallery canvases painting (now with the indoor folk and every room).
 

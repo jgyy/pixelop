@@ -1,5 +1,6 @@
 import { fbm, hash2 } from "../pixel/noise";
 import { propDef, type PropId } from "../art/props";
+import type { AnimId } from "../art/characters";
 import { AREA_IDS, festive, getArea, placementTiles, type AreaDef, type AreaId, type Critter, type EnemySpawn, type Interactable, type NpcPlacement, type PropPlacement } from "./areas";
 import { getInterior, INTERIOR_IDS } from "./interiors";
 import { roomDoors } from "./rooms";
@@ -9,6 +10,7 @@ import { LIQUID, TileMap, TILE_KINDS, type TileKind } from "./tilemap";
 import { CAVE_IDS, CAVE_MOUTH, deepFolk } from "./caves";
 import { fineFloor, fineKind } from "./refine";
 import { COURT_COUNT, COURT_SPOTS, COURTS, WANDERING_CRAFTS, courtDiscipleKey, courtEmperorKey, courtFolkKey, courtGuideKey, courtLeaderKey, courtMasterKey, craftMasterKey, TOWNSFOLK_PER_COURT, townKey, townLook, townName, townTrade } from "./courts";
+import { BUILDINGS, builtFlag, CITY_GOD_AT, cityGodKey, discFlag, disciple, DISCIPLE_SLOTS, EARTH_GOD, elderFlag, ELDERS, FACILITIES, facilityWorkerKey, FOUNDING_BOOKS, FOUNDING_BOSSES, FOUNDING_C, FOUNDING_FOES, godFlag, GODS, MARKET, MARKET_C, marketFlag, STEWARD } from "./founding";
 import { inLagoon, inSea, isleByKey, isleDepth, ISLES as SEA_ISLES, SEA_BOOK_COUNT, SEA_BRIDGES, SEA_CAST, SEA_SPOTS, seaFolkKey, seaGuideKey, seaPatronKey } from "./isles";
 import { layWar } from "./warfront";
 import { layRoad } from "./roadside";
@@ -790,6 +792,14 @@ function buildWorld(): WorldDef {
   for (const c of COURTS) {
     site(c.c, 11, "plaza", Math.max(1, Math.min(7, m.height(c.c[0], c.c[1]))), 0.4);
     site(c.sect.c, 6.5, "marble", Math.max(1, Math.min(8, m.height(c.sect.c[0], c.sect.c[1]))), 0.5);
+  }
+  // 4¾. the Withered Lotus Basin, where she founds her own sect: a bowl of old paving round a marble heart, and the
+  // market town's square of beaten earth outside its gate (see world/founding.ts)
+  {
+    const h = Math.max(1, Math.min(4, m.height(FOUNDING_C[0], FOUNDING_C[1])));
+    site(FOUNDING_C, 18, "plaza", h, 0.3);
+    site(FOUNDING_C, 6, "marble", h, 0.2);
+    site(MARKET_C, 12, "dirt", h, 0.4);
   }
 
   // 5. rivers, ponds, the hot spring and the lava pools
@@ -2330,6 +2340,100 @@ function buildWorld(): WorldDef {
     void COURT_COUNT;
   }
 
+  // 8⅞. the Founding: her sect in the Withered Lotus Basin, raised a building at a time, with its steward, elders,
+  // disciples and workers going about their day; the market town outside its gate; the gods who come down to it;
+  // and in each of the six capitals, new facilities with their workers, and a temple to the City God (see world/founding.ts)
+  {
+    // every building already standing keeps its whole footing (and, grown in the world, a ring round it) clear
+    const used = new Set<number>();
+    for (const p of props) {
+      const k = STRUCTURE_SCALE[p.id] ?? 1;
+      const r = k >= 3 ? 2 : k > 1 ? 1 : 0;
+      const [i0, j0, i1, j1] = placementTiles(p);
+      for (let j = j0 - r; j <= j1 + r; j++) for (let i = i0 - r; i <= i1 + r; i++) used.add(j * COARSE_W + i);
+    }
+    for (const x of [...npcs, ...enemies, ...interacts]) used.add(x.j * COARSE_W + x.i);
+    const dry = (i: number, j: number) => {
+      const k = m.kind(i, j);
+      // (and off the roads, where no prop may stand)
+      return k !== "void" && !LIQUID[k] && k !== "wood" && fixed[j * COARSE_W + i] !== 2;
+    };
+    const snap = ([x, y]: [number, number], roomy = 1): [number, number] => {
+      for (let r = 0; r <= 12; r++)
+        for (let b = -r; b <= r; b++)
+          for (let a = -r; a <= r; a++) {
+            if (Math.max(Math.abs(a), Math.abs(b)) !== r) continue;
+            const [i, j] = [x + a, y + b];
+            let ok = !used.has(j * COARSE_W + i);
+            for (let q = -roomy; q <= roomy && ok; q++) for (let p = -roomy; p <= roomy && ok; p++) ok = dry(i + p, j + q) && !used.has((j + q) * COARSE_W + i + p);
+            if (!ok) continue;
+            used.add(j * COARSE_W + i);
+            return [i, j];
+          }
+      return [x, y];
+    };
+    // a structure keeps a ring of ground round it clear, so nobody is ever put to stand where its walls will go
+    const claim = (i: number, j: number, r: number) => {
+      for (let b = -r; b <= r; b++) for (let a = -r; a <= r; a++) used.add((j + b) * COARSE_W + i + a);
+    };
+    const raise = (id: PropId, c: [number, number], d: [number, number], when?: (f: Record<string, boolean>) => boolean) => {
+      const big = (STRUCTURE_SCALE[id] ?? 1) > 1;
+      const [i, j] = snap([c[0] + d[0], c[1] + d[1]], big ? 2 : 1);
+      claim(i, j, big ? 2 : 1);
+      props.push({ id, i, j, ...(when && { when, solid: true }) });
+    };
+    const spot = (c: [number, number], d: [number, number]) => snap([c[0] + d[0], c[1] + d[1]], 0);
+    const round = (c: [number, number], jobs: { at: [number, number]; anim: AnimId }[]) => jobs.map((s) => ({ at: spot(c, s.at), anim: s.anim }));
+    const F = FOUNDING_C;
+    // the halls first, so nobody stands where a hall will rise
+    for (const b of BUILDINGS) for (const part of b.parts) raise(part.id, F, part.at, (f) => !!f[builtFlag(b.key)]);
+    MARKET.forEach((mk) => raise(mk.part.id, MARKET_C, mk.part.at, (f) => !!f[marketFlag(mk.book)]));
+    // the Earth God's shrine, and the ruins of the old lake's edge before anything is built
+    it("fd-shrine", "shrine", ...spot(F, [-5, -1]));
+    it("fd-sign", "sign", ...spot(F, [3, 15]), "THE WITHERED LOTUS BASIN · 枯莲谷. Carved on an older stone underneath, almost worn away: “Here a lotus grew out of a disciple's breath.”");
+    for (const d of [[-9, 14], [9, 14], [14, -1], [-15, 2]] as [number, number][]) raise("ruin", F, d, (f) => !f[builtFlag("gate")]);
+    for (const d of [[-6, 6], [6, -6], [-7, -5], [5, 9]] as [number, number][]) raise("reeds", F, d, (f) => !f[builtFlag("spring")]);
+    npcs.push({ key: EARTH_GOD.key, name: EARTH_GOD.name, char: EARTH_GOD.char, ...xy(spot(F, EARTH_GOD.at)), dir: 2 });
+    npcs.push({ key: STEWARD.key, name: STEWARD.name, char: STEWARD.char, ...xy(spot(F, STEWARD.at)), dir: 2, anim: STEWARD.anim, when: (f) => !!f["fd:steward"] });
+    ELDERS.forEach((e, n) => {
+      const jobs = round(F, e.jobs!);
+      npcs.push({ key: e.key, name: e.name, char: e.char, i: jobs[0].at[0], j: jobs[0].at[1], dir: 2, jobs, when: (f) => !!f[elderFlag(n)] });
+    });
+    for (let n = 0; n < DISCIPLE_SLOTS; n++) {
+      const d = disciple(n);
+      const jobs = round(F, d.jobs!);
+      npcs.push({ key: d.key, name: d.name, char: d.char, i: jobs[0].at[0], j: jobs[0].at[1], dir: (n * 5) % 16, jobs, when: (f) => !!f[discFlag(n)] });
+    }
+    for (const b of BUILDINGS) {
+      if (!b.keeper) continue;
+      const jobs = round(F, b.keeper.jobs);
+      npcs.push({ key: `fd-keeper-${b.key}`, name: b.keeper.name, char: b.keeper.char, i: jobs[0].at[0], j: jobs[0].at[1], dir: 2, jobs, when: (f) => !!f[builtFlag(b.key)] });
+    }
+    for (const g of GODS) npcs.push({ key: g.key, name: g.name.charAt(0).toUpperCase() + g.name.slice(1), char: g.char, ...xy(spot(F, g.at)), dir: 2, anim: g.anim, when: (f) => !!f[godFlag(g.id)] });
+    for (const mk of MARKET) {
+      if (!mk.worker) continue;
+      const jobs = round(MARKET_C, mk.worker.jobs);
+      npcs.push({ key: mk.worker.key, name: mk.worker.name, char: mk.worker.char, i: jobs[0].at[0], j: jobs[0].at[1], dir: 2, jobs, when: (f) => !!f[marketFlag(mk.book)] });
+    }
+    // each book's troubles round the basin, and who waits at the end of it
+    for (let k = 0; k < FOUNDING_BOOKS; k++) {
+      enemies.push({ key: `fdboss-${k}`, enemy: FOUNDING_BOSSES[k], ...xy(spot(F, [0, 24])), range: 0, when: (f) => !!f[`fd:boss:${k}`] });
+      ([[-26, -8], [24, 6], [-20, 18], [22, -18]] as [number, number][]).forEach((d, n) => enemies.push({ key: `fdfoe-${k}-${n}`, enemy: FOUNDING_FOES[k], ...xy(spot(F, d)), range: 2.5, when: (f) => !!f[`fd:book:${k}`] }));
+    }
+    mark("fd-basin", "The Withered Lotus Basin", "枯莲谷", "gate", ...F);
+    // the six capitals: their new facilities, the folk who work them all day, and the City God at the temple door
+    COURTS.forEach((C, b) => {
+      for (const fc of FACILITIES) {
+        for (const part of fc.parts) raise(part.id, C.c, part.at);
+        fc.workers.forEach((wk, n) => {
+          const jobs = round(C.c, wk.jobs);
+          npcs.push({ key: facilityWorkerKey(b, fc.key, n), name: `${wk.name} of ${fc.name.replace(/^the /, "the ")}`, char: wk.char, i: jobs[0].at[0], j: jobs[0].at[1], dir: 2, jobs });
+        });
+      }
+      npcs.push({ key: cityGodKey(b), name: `The City God of ${C.capital.split(",")[0]}`, char: "citygod", ...xy(spot(C.c, CITY_GOD_AT)), dir: 2, anim: "read" });
+    });
+  }
+
   // 9. wayside landmarks, rewards and wanderers along the highway
   const [nx] = toCoarse("village", 16, 0);
   P("lantern", nx - 3, vy - 6);
@@ -2446,7 +2550,7 @@ function buildWorld(): WorldDef {
   const fixedAt = (i: number, j: number) => fixed[Math.floor(j / S) * COARSE_W + Math.floor(i / S)];
   const fine = magnifyMap(coarse, (i, j) => fixed[j * COARSE_W + i] === 2 && !LIQUID[coarse.kind(i, j)]);
   const pt = (i: number, j: number) => pointTile(coarse, fine, i, j);
-  const fnpcs: NpcPlacement[] = npcs.map((n) => ({ ...n, ...xy(pt(n.i, n.j)), wander: n.wander && n.wander * 1.5, route: n.route?.map(([x, y]) => [x * S, y * S] as [number, number]) }));
+  const fnpcs: NpcPlacement[] = npcs.map((n) => ({ ...n, ...xy(pt(n.i, n.j)), wander: n.wander && n.wander * 1.5, route: n.route?.map(([x, y]) => [x * S, y * S] as [number, number]), jobs: n.jobs?.map((s) => ({ ...s, at: pt(...s.at) })) }));
   const fenemies: EnemySpawn[] = enemies.map((e) => ({ ...e, ...xy(pt(e.i, e.j)), range: e.range * 1.5 }));
   const finteracts: Interactable[] = [...interacts.map((x) => ({ ...x, ...xy(pt(x.i, x.j)) })), ...roomDoors()];
   const fcritters: Critter[] = critters.map((c) => ({ ...c, ...xy(pt(c.i, c.j)) }));
@@ -2463,7 +2567,7 @@ function buildWorld(): WorldDef {
       fprops.push(room);
       continue;
     }
-    const q: PropPlacement = { ...magnifyProp(p, coarse, fine), ...(p.when && { when: p.when }) };
+    const q: PropPlacement = { ...magnifyProp(p, coarse, fine), ...(p.when && { when: p.when }), ...(p.solid && { solid: true }) };
     fprops.push(q);
     const c = companionOf(p, q, coarse, fine);
     if (c && !busy.has(c.j * WORLD_W + c.i)) fprops.push(c);
@@ -2520,6 +2624,12 @@ function buildWorld(): WorldDef {
   // the story never pours lava or water over someone standing about, or over something to pick up
   const occupied = new Set<number>();
   for (const x of [...fnpcs, ...fenemies, ...finteracts]) for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) occupied.add((x.j + dj) * WORLD_W + x.i + di);
+  // (nor where a building the story raises will stand, once it does)
+  for (const p of kept) {
+    if (!p.solid) continue;
+    const [i0, j0, i1, j1] = placementTiles(p);
+    for (let j = j0 - 1; j <= j1 + 1; j++) for (let i = i0 - 1; i <= i1 + 1; i++) occupied.add(j * WORLD_W + i);
+  }
   const free = (i: number, j: number) => !fine.isBlocked(i, j) && !occupied.has(j * WORLD_W + i);
   // 12c½. the sects' grand halls, three storeys high and raised in the world itself (see world/grandhalls.ts and world/sectHalls.ts)
   const halls: GrandHall[] = [];
@@ -2762,7 +2872,15 @@ function buildWorld(): WorldDef {
   {
     const touched = new Set<number>();
     for (const p of patches) for (const idx of p.idx) touched.add(idx);
-    const waypoints = {} as Record<AreaId, [number, number]>;
+    // a worker's round keeps only the stations still open once the world is built (a tree or a stall may have taken one);
+  // with fewer than two left they simply stay at the first one's job
+  for (let k = 0; k < fnpcs.length; k++) {
+    const n = fnpcs[k];
+    if (!n.jobs) continue;
+    const open = n.jobs.filter((st, x) => x === 0 || fine.standable(st.at[0], st.at[1]));
+    fnpcs[k] = open.length >= 2 ? { ...n, jobs: open } : { ...n, jobs: undefined, anim: n.jobs[0].anim };
+  }
+  const waypoints = {} as Record<AreaId, [number, number]>;
     for (const id of AREA_IDS) waypoints[id] = toWorld(id, ...regions[id].arrive);
     const war = layWar({
       map: fine,
