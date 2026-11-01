@@ -188,7 +188,8 @@ export function neighbours(g: Ground, npcs: readonly NpcPlacement[], enemies: re
   const out: NpcPlacement[] = [];
   npcs.forEach((p, n) => {
     // the peoples' homes keep their own folk (a human villager at every fox's elbow would be a strange hollow)
-    if (p.key.startsWith("crowd:") || p.key.startsWith("pe-")) return;
+    // and the six capitals' townsfolk are crowd enough (see world/courts.ts)
+    if (p.key.startsWith("crowd:") || p.key.startsWith("pe-") || p.key.startsWith("ct-")) return;
     const at = besideOf(g, p.i, p.j, 2, 5, taken, 301 + n) ?? besideOf(g, p.i, p.j, 1, 10, taken, 301 + n);
     if (!at) return;
     take(taken, m, at[0], at[1]);

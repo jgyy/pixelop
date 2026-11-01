@@ -129,6 +129,7 @@ function StatusTab({ ui }: { ui: UiSnapshot }) {
     ["Dao Heart", ui.dao.label ?? "—"],
     ["Great Daos", ui.wu.label ? `${ui.wu.label} · ${ui.wu.total} stages` : "—"],
     ["Attire", ui.attire.name],
+    ["Arts", ui.crafts.length ? ui.crafts.map((c) => `${c.name} (${c.rank})`).join(" · ") : "—"],
     ["Beasts bested", s.kills],
     ["Spirit stones", s.stones],
     ["Notices fulfilled", `${ui.noticesDone} / ${ui.noticeCount}`],

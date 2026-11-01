@@ -310,6 +310,11 @@ export function GameView({ initial, intro, onQuit }: { initial: GameState; intro
                 ≋ {ui.seas.title}: {ui.seas.objective}
               </div>
             )}
+            {ui.courts && (
+              <div className={`errand peoples ${ui.courts.arc}`} data-testid="courts-quest">
+                ♔ {ui.courts.title}: {ui.courts.objective}
+              </div>
+            )}
             {ui.notices.length > 0 && (
               <div className="errand notice" data-testid="notice">
                 ✉ {ui.notices[0].text}
@@ -683,6 +688,37 @@ function JournalPanel({ journal, ui, game, onClose }: { journal: NonNullable<UiS
               ))}
             </ul>
           )}
+        </section>
+      )}
+      {ui.courts && (
+        <section data-testid="journal-courts">
+          <h4>
+            ♔ {ui.courts.chapter} · {ui.courtsDone}/{ui.courtsCount}
+          </h4>
+          <p>
+            <strong>{ui.courts.title}</strong> — {ui.courts.objective}
+          </p>
+          {ui.courtsList && (
+            <ul className="fronts steles">
+              {ui.courtsList.map((f) => (
+                <li key={f.book} className={`front-${f.state === "settled" ? "freed" : f.state === "visiting" ? "burning" : "waiting"}`} title={f.where}>
+                  <span className="cn">{f.hanzi}</span> {f.book} · {f.where} <b>{f.state === "settled" ? (f.fate ?? "Settled") : f.state === "visiting" ? "Under way" : "Not yet reached"}</b>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+      {ui.crafts.length > 0 && (
+        <section data-testid="journal-crafts">
+          <h4>⚒ The Hundred Arts · 百艺</h4>
+          <ul className="fronts steles">
+            {ui.crafts.map((c) => (
+              <li key={c.id} className="front-freed" title={c.blurb}>
+                <span className="cn">{c.hanzi}</span> {c.name} <b>{c.rank}</b> · {c.next === null ? `${c.xp} (mastered)` : `${c.xp}/${c.next}`}
+              </li>
+            ))}
+          </ul>
         </section>
       )}
       {ui.standing.journal && (
