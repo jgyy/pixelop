@@ -21,6 +21,7 @@ import { hallsEpilogue, hallsNpcScript, hallsPreBattle, hallsVictory } from "./h
 import { tiersEpilogue, tiersNpcScript, tiersPreBattle, tiersVictory } from "./tiers";
 import { peoplesEpilogue, peoplesNpcScript, peoplesPreBattle, peoplesVictory } from "./peoples";
 import { seasEpilogue, seasNpcScript, seasPreBattle, seasVictory } from "./seas";
+import { courtsEpilogue, courtsNpcScript, courtsPreBattle, courtsVictory } from "./courts";
 import { quarterNpcScript, tierFolkScript } from "./standing";
 import { tideNpcScript } from "./tide";
 import { townNpcScript } from "./town";
@@ -676,7 +677,7 @@ export function npcScript(key: string, g: GameState): Step[] {
     case "hawker":
       return [named("villagerM", "Hawker Sun", pick(g, ["Hairpins! Combs! Lucky knots! — Oh. A cultivator. Do cultivators need lucky knots? Everyone needs lucky knots.", "Radishes from the paddies, fans from the capital, and a mirror that only shows your good side. Very popular.", "Business is good since the road was mended. Even the bandits buy combs."]))];
     case "willowguard":
-      return [{ anim: "willowguard", name: "salute" }, named("guard", "Watchman Tie", pick(g, ["The arch marks Willow Creek's land. Past it, the highway's the Emperor's problem.", "I guard the arch. Mostly from goats.", f.foxesCleared ? "Quiet nights since the foxes calmed. I've taken up whittling." : "Foxes again last night. I shouted at them very sternly."]))];
+      return [{ anim: "willowguard", name: "salute" }, named("guard", "Watchman Tie", pick(g, ["The arch marks Willow Creek's land. Past it, the highway's some emperor's problem. There are six of them. None of them has ever sent a magistrate this far.", "I guard the arch. Mostly from goats.", f.foxesCleared ? "Quiet nights since the foxes calmed. I've taken up whittling." : "Foxes again last night. I shouted at them very sternly."]))];
     case "noodleseller":
     case "noodles":
       return [named("cook", key === "noodles" ? "Noodle Seller Hu" : "Noodle Seller Ma", pick(g, ["Hand-pulled, one long noodle per bowl — long life for whoever eats it without biting! Sit, sit.", "The broth's been simmering since my grandfather's time. We just keep adding to it.", "Cultivators eat less than mortals, they say. Not the ones I've fed."])), { anim: "hero", name: "eat", wait: true }, { mutate: (s) => heal(s, stats(s).maxHp * 0.3, 0) }, { toast: "A bowl of long-life noodles · Vitality restored a little" }];
@@ -868,7 +869,7 @@ export function npcScript(key: string, g: GameState): Step[] {
     case "restporter":
       return [named("porter", "Porter Lao", pick(g, ["Eating. Talking costs breath, and breath costs noodles.", "From the terraces to the sands with tea, from the sands to the harbour with salt. Then home to sleep for a week.", "My pole's older than me. My father's. Same shoulders, too."])), { anim: "restporter", name: "eat" }];
     default:
-      return warNpcScript(key, g) ?? roadNpcScript(key, g) ?? hallsNpcScript(key, g) ?? tiersNpcScript(key, g) ?? peoplesNpcScript(key, g) ?? seasNpcScript(key, g) ?? tierFolkScript(key, g) ?? quarterNpcScript(key, g) ?? sectNpcScript(key, g) ?? grandHallNpcScript(key, g) ?? townNpcScript(key, g) ?? tideNpcScript(key, g) ?? crowdNpcScript(key, g) ?? [say("narrator", "…")];
+      return warNpcScript(key, g) ?? roadNpcScript(key, g) ?? hallsNpcScript(key, g) ?? tiersNpcScript(key, g) ?? peoplesNpcScript(key, g) ?? seasNpcScript(key, g) ?? courtsNpcScript(key, g) ?? tierFolkScript(key, g) ?? quarterNpcScript(key, g) ?? sectNpcScript(key, g) ?? grandHallNpcScript(key, g) ?? townNpcScript(key, g) ?? tideNpcScript(key, g) ?? crowdNpcScript(key, g) ?? [say("narrator", "…")];
   }
 }
 
@@ -1098,7 +1099,7 @@ export function arrivalScript(area: AreaId, g: GameState): Step[] | null {
 /** Dialogue before special fights. */
 export function preBattleScript(enemy: EnemyId, key: string, g?: GameState): Step[] | null {
   if (enemy === "patriarch") return xueConfrontation(g ?? newGame(), key);
-  const war = g && (warPreBattle(enemy, g) ?? roadPreBattle(enemy, g) ?? hallsPreBattle(enemy, g) ?? tiersPreBattle(enemy, g) ?? peoplesPreBattle(enemy, g) ?? seasPreBattle(enemy, g));
+  const war = g && (warPreBattle(enemy, g) ?? roadPreBattle(enemy, g) ?? hallsPreBattle(enemy, g) ?? tiersPreBattle(enemy, g) ?? peoplesPreBattle(enemy, g) ?? seasPreBattle(enemy, g) ?? courtsPreBattle(enemy, g));
   if (war) return war;
   const sect = sectPreBattle(enemy);
   if (sect) return sect;
@@ -1111,7 +1112,7 @@ export function victoryScript(enemy: EnemyId, key: string, area: AreaId, g: Game
   const steps: Step[] = [];
   const sect = sectVictory(enemy, key, g, won);
   if (sect) return sect;
-  const war = won ? (warVictory(enemy, g) ?? roadVictory(enemy, g) ?? hallsVictory(enemy, g) ?? tiersVictory(enemy, g) ?? peoplesVictory(enemy, g) ?? seasVictory(enemy, g)) : null;
+  const war = won ? (warVictory(enemy, g) ?? roadVictory(enemy, g) ?? hallsVictory(enemy, g) ?? tiersVictory(enemy, g) ?? peoplesVictory(enemy, g) ?? seasVictory(enemy, g) ?? courtsVictory(enemy, g)) : null;
   if (war) return war;
   if (enemy === "swordsman")
     return won
@@ -1195,6 +1196,7 @@ export function endingScript(g?: GameState): Step[] {
     ...(g && tiersEpilogue(g) ? [tiersEpilogue(g)!] : []),
     ...(g && peoplesEpilogue(g) ? [peoplesEpilogue(g)!] : []),
     ...(g && seasEpilogue(g) ? [seasEpilogue(g)!] : []),
+    ...(g && courtsEpilogue(g) ? [courtsEpilogue(g)!] : []),
     ...(g && daoEpilogue(g) ? [daoEpilogue(g)!] : []),
   ];
   return endingSteps(g ?? newGame(), epilogue);

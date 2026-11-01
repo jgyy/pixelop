@@ -7,11 +7,12 @@ import { HALF_W, isoX, isoY, LEVEL_H, screenToWorld } from "../iso/projection";
 import { charDef, frameAt, getAnim, WINTER, type AnimId, type CharId } from "../art/characters";
 import { getProp, glowSprite, propDef, propSize, type PropId } from "../art/props";
 import { drawSky } from "../art/sky";
-import { foamOverlay, LIQUID_FRAMES, liquidFrame, paintTile, type TileBuffer } from "../art/tiles";
+import { fineOverlay, foamOverlay, LIQUID_FRAMES, liquidFrame, paintTile, type TileBuffer } from "../art/tiles";
 import { AREA_IDS, moodOf, placementTiles, type AreaDef, type AreaId, type Interactable, type NpcPlacement, type PropPlacement, type SkyId, type Weather } from "../world/areas";
 import { isWorldDef, regionAt, type WorldDef } from "../world/continent";
 import { regionDistance, WORLD_SCALE } from "../world/layout";
 import { LIQUID, TILE_KINDS, type TileMap } from "../world/tilemap";
+import { FINE, fineFloor, fineView, unpackHeight, unpackKind, type FineView } from "../world/refine";
 import { applyPatches, patchMaxHeight } from "../world/terrain";
 import { applyHallLayer, hallMaxHeight, inHall, insideFlag, STOREY, storeyFlag, type GrandHall, type HallLayer } from "../world/grandhalls";
 import { ENEMIES, type EnemyId } from "../engine/enemies";
@@ -140,7 +141,7 @@ const keyHash = (key: string) => {
 };
 
 /** Painted terrain columns are shared between every World built on the same map. */
-const tileCache = new WeakMap<TileMap, { tiles: (TileBuffer | null | undefined)[]; foams: (PixelBuffer | null | undefined)[] }>();
+const tileCache = new WeakMap<TileMap, { tiles: (TileBuffer | null | undefined)[]; foams: (PixelBuffer | null | undefined)[]; corners?: (PixelBuffer | null | undefined)[] }>();
 
 const SEAL_COLOUR: Record<AreaId, string> = { sect: "#ffffff", village: "#f4f8ff", bamboo: "#ffd27a", lake: "#c8d8ff", valley: "#ff3050", peak: "#d8c8ff", marsh: "#b8ffd8", terraces: "#f8fff0", desert: "#ffe0a0", harbor: "#d8f0ff", frost: "#e8f4ff" };
 
@@ -170,6 +171,7 @@ function forgetTiles(m: TileMap, changed: number[]): void {
           const n = (j + dj) * m.w + i + di;
           c.tiles[n] = undefined;
           c.foams[n] = undefined;
+          if (c.corners) c.corners[n] = undefined;
           for (const arr of seasonCache.get(m)?.values() ?? []) arr[n] = undefined;
         }
     }
@@ -195,7 +197,7 @@ export class World {
   readonly hero: Actor;
   actors: Actor[] = [];
   readonly fx = new Effects();
-  private readonly cache: { tiles: (TileBuffer | null | undefined)[]; foams: (PixelBuffer | null | undefined)[] };
+  private readonly cache: { tiles: (TileBuffer | null | undefined)[]; foams: (PixelBuffer | null | undefined)[]; corners?: (PixelBuffer | null | undefined)[] };
   private props: PropInst[] = [];
   /** Props that emit particles or cast light, bucketed by patch of screen so a frame only looks at those near the view. */
   private emitters = new Map<number, PropInst[]>();
@@ -245,6 +247,14 @@ export class World {
   private camInit = false;
 
   readonly id: AreaId;
+  /**
+   * The land in cells half a tile across (see world/refine.ts): what she
+   * stands on, how high, and where she may step. Rooms and arenas keep their
+   * square tiles; the open world and the caves are rounded off.
+   */
+  readonly fine: FineView;
+  /** Whether the fine grid rounds this map's land off (the open world and the caves) or keeps its tiles square (rooms, arenas). */
+  readonly smooth: boolean;
 
   constructor(def: AreaDef, hero: { x: number; y: number; dir: number }, flags: Record<string, boolean>, taken: string[]) {
     this.def = def;
@@ -256,6 +266,9 @@ export class World {
     this.dayNight = !!this.world || this.interior;
     this.flags = flags;
     const m = def.map;
+    // buildings, trees and rocks keep their tiles square under them, so they never stand on a rounded-off corner
+    this.smooth = !this.interior && (!!this.world || this.cave);
+    this.fine = fineView(m, this.smooth, (i, j) => m.isBlocked(i, j));
     let c = tileCache.get(m);
     if (!c) tileCache.set(m, (c = { tiles: new Array(m.w * m.h), foams: new Array(m.w * m.h) }));
     this.cache = c;
@@ -601,7 +614,31 @@ export class World {
 
   // ------------------------------------------------------------------ queries
   groundZ(x: number, y: number): number {
-    return Math.max(0, this.def.map.surface(Math.floor(x), Math.floor(y)));
+    return Math.max(0, this.surfaceAt(x, y));
+  }
+
+  /** The height of the fine cell under a point (liquids a quarter level low). */
+  surfaceAt(x: number, y: number): number {
+    const v = this.fine.key(Math.floor(x * FINE), Math.floor(y * FINE));
+    return unpackHeight(v) - (LIQUID[unpackKind(v)] ? 0.25 : 0);
+  }
+
+  /** The level of the fine cell under a point. */
+  heightAt(x: number, y: number): number {
+    return this.fine.height(Math.floor(x * FINE), Math.floor(y * FINE));
+  }
+
+  /** The kind of ground of the fine cell under a point. */
+  kindAt(x: number, y: number): ReturnType<TileMap["kind"]> {
+    return this.fine.kind(Math.floor(x * FINE), Math.floor(y * FINE));
+  }
+
+  /** Could someone stand on the fine cell under a point (props block the whole tile they stand on)? */
+  standableAt(x: number, y: number, flying = false): boolean {
+    const fi = Math.floor(x * FINE);
+    const fj = Math.floor(y * FINE);
+    if (!this.fine.inside(fi, fj) || this.def.map.isBlocked(Math.floor(x), Math.floor(y))) return false;
+    return fineFloor(this.fine.kind(fi, fj), flying);
   }
 
   /** The region a point belongs to (the arena's own id outside the open world). */
@@ -611,17 +648,14 @@ export class World {
 
   /** Can an actor of radius r stand at (x, y) coming from height `fromZ`? */
   canStand(x: number, y: number, fromZ: number, flying: boolean, r = HERO_RADIUS): boolean {
-    const m = this.def.map;
     for (const [ox, oy] of [
       [-r, -r],
       [r, -r],
       [-r, r],
       [r, r],
     ]) {
-      const i = Math.floor(x + ox);
-      const j = Math.floor(y + oy);
-      if (!m.standable(i, j, flying)) return false;
-      const h = m.height(i, j);
+      if (!this.standableAt(x + ox, y + oy, flying)) return false;
+      const h = this.heightAt(x + ox, y + oy);
       if (Math.abs(h - fromZ) > (flying ? 2.6 : 1.05)) return false;
     }
     return true;
@@ -629,7 +663,7 @@ export class World {
 
   /** Move with collision and wall sliding. Returns true if the actor moved. */
   move(a: Actor, dx: number, dy: number): boolean {
-    const from = this.def.map.height(Math.floor(a.x), Math.floor(a.y));
+    const from = this.heightAt(a.x, a.y);
     const fly = !!a.flying;
     const here = a.kind === "hero" && this.world ? this.regionAt(a.x, a.y) : null;
     const blockedByActor = (x: number, y: number) => a.kind === "hero" && this.actors.some((o) => o !== a && o.kind === "npc" && !o.hidden && Math.hypot(o.x - x, o.y - y) < 0.45 && Math.hypot(o.x - a.x, o.y - a.y) >= Math.hypot(o.x - x, o.y - y));
@@ -895,7 +929,7 @@ export class World {
     const r = Math.sqrt(hash2(Math.floor(t * 10), 3, k)) * a.wander;
     const tx = a.home[0] + Math.cos(ang) * r;
     const ty = a.home[1] + Math.sin(ang) * r;
-    if (this.canStand(tx, ty, this.def.map.height(Math.floor(a.x), Math.floor(a.y)), false)) a.target = [tx, ty];
+    if (this.canStand(tx, ty, this.heightAt(a.x, a.y), false)) a.target = [tx, ty];
     a.rest = 1.5 + hash2(Math.floor(t), 9, k) * 3;
   }
 
@@ -943,7 +977,7 @@ export class World {
       const ang = hash2(Math.floor(t * 3), kh, 33) * Math.PI * 2;
       const tx = a.home[0] + Math.cos(ang) * a.wander;
       const ty = a.home[1] + Math.sin(ang) * a.wander;
-      if (this.canStand(tx, ty, this.def.map.height(Math.floor(a.x), Math.floor(a.y)), false)) a.target = [tx, ty];
+      if (this.canStand(tx, ty, this.heightAt(a.x, a.y), false)) a.target = [tx, ty];
     }
   }
 
@@ -1004,7 +1038,7 @@ export class World {
     const ang = hash2(Math.floor(t * 3), kh, 9) * Math.PI * 2;
     const tx = a.home[0] + Math.cos(ang) * a.wander;
     const ty = a.home[1] + Math.sin(ang) * a.wander;
-    if (this.def.map.standable(Math.floor(tx), Math.floor(ty))) {
+    if (this.standableAt(tx, ty)) {
       a.dir = dirFrom(tx - a.x, ty - a.y);
       a.x += (tx - a.x) * 0.3;
       a.y += (ty - a.y) * 0.3;
@@ -1017,7 +1051,7 @@ export class World {
     this.stepDist += dist;
     if (this.stepDist < 0.42) return;
     this.stepDist = 0;
-    const k = this.def.map.kind(Math.floor(h.x), Math.floor(h.y));
+    const k = this.kindAt(h.x, h.y);
     if (h.flying) {
       if (LIQUID[k] === "water" || LIQUID[k] === "paddy") this.fx.emit({ x: isoX(h.x, h.y), y: isoY(h.x, h.y, this.groundZ(h.x, h.y)), life: 0.8, color: "#d8f0ff", size: 1, vx: 0, vy: 0, drag: 1 });
       return;
@@ -1111,6 +1145,19 @@ export class World {
       this.cache.foams[idx] = tb ? foamOverlay(m, i, j) : null;
     }
     return tb;
+  }
+
+  /** A tile's rounded-off corners on the fine grid, painted over its top (null where it keeps all four). */
+  private corner(idx: number): PixelBuffer | null {
+    if (!this.smooth) return null;
+    const c = (this.cache.corners ??= new Array(this.def.map.w * this.def.map.h));
+    let v = c[idx];
+    if (v === undefined) {
+      const m = this.def.map;
+      const i = idx % m.w;
+      v = c[idx] = fineOverlay((fi, fj) => this.fine.kind(fi, fj), i, (idx - i) / m.w);
+    }
+    return v;
   }
 
   /** The season the year shows on the land of this map right now (null in rooms and caves). */
@@ -1223,6 +1270,8 @@ export class World {
             if (foam) s.sprite(foam, x, y + tb.sink, false, 0.65 + 0.35 * Math.sin(t * 2 + i + j));
             if (m.kind(i + 1, j) === "void" || m.kind(i, j + 1) === "void") this.drawCascade(s, i, j, x, y + tb.sink, liquid, t);
           }
+          const corner = this.corner(idx);
+          if (corner) s.sprite(corner, x, y + tb.sink);
         }
       for (const f of prints.get(b) ?? []) {
         const k = 1 - (t - f.at) / 7;

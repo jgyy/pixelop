@@ -3273,6 +3273,60 @@ const PROPS = {
       r.sphere([12, -3, 3.4], 1.8, m(PAL.red, 5));
     },
   },
+  // the Dragon Throne of a mortal court: a gilded seat on a three-step dais, dragons coiled up its arms, under a yellow silk canopy whose fringe stirs
+  throne: {
+    foot: [-1, -1, 1, 1],
+    blocks: true,
+    frames: 8,
+    fps: 4,
+    light: { color: "#ffd870", radius: 40, dy: 22 },
+    paint: (r, f, n) => {
+      const GILT = ramp("#f2c55c", { lo: "#5a3a10" });
+      const SILK = ramp("#f8e070", { lo: "#8a6a10" });
+      for (let k = 0; k < 3; k++) r.box([-16 + k * 3, -14 + k * 3, k * 2], [16 - k * 3, 14 - k * 3, k * 2 + 2], m(k === 2 ? ramp("#c8302a", { lo: "#3a0808" }) : PAL.stone, 1 + k));
+      r.box([-7, -4, 6], [7, 5, 10], md(GILT, 4));
+      r.box([-7, 3, 10], [7, 6, 24], md(GILT, 5, { shader: (s, tone) => (Math.hypot(s.p[0], s.p[2] - 18) < 3 ? tone(PAL.crimson) : tone(GILT)) }));
+      for (const x of [-7.5, 7.5]) {
+        r.box([x - 1, -4, 10], [x + 1, 4, 14], md(GILT, 6));
+        // a dragon coiled up each arm, its head turned out
+        r.sweep([[x, -4, 13], [x * 1.1, -6, 15], [x * 1.2, -5, 18], [x * 1.05, -3, 20]], [1.2, 1, 0.9, 0.7], m(PAL.gold, 7));
+        r.sphere([x * 1.05, -3.6, 20.6], 1.4, m(PAL.gold, 7));
+      }
+      for (const [x, y] of [[-14, -12], [14, -12], [-14, 12], [14, 12]] as [number, number][]) r.sweep([[x, y, 6], [x, y, 40]], 0.8, m(PILLAR, 8));
+      const sway = Math.sin((f / n) * TAU) * 0.8;
+      r.box([-16, -14, 40], [16, 14, 42], md(SILK, 9));
+      for (let k = -15; k <= 15; k += 3) {
+        r.sweep([[k, -14.4, 40], [k + sway * 0.4, -14.6, 37]], 0.4, m(PAL.crimson, 10));
+        r.sweep([[k, 14.4, 40], [k + sway * 0.4, 14.6, 37]], 0.4, m(PAL.crimson, 10));
+      }
+      r.cone(0, 0, 15, 42, 1, 50, 8, md(SILK, 11));
+      r.sphere([0, 0, 51], 1.6, m(PAL.gold, 12));
+    },
+  },
+  // an imperial parasol of yellow silk on a red pole: three tiers of fringe, turning a little in the wind
+  parasol: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 8,
+    fps: 5,
+    paint: (r, f, n) => {
+      const SILK = ramp("#f8e070", { lo: "#8a6a10" });
+      r.prism(0, 0, 3, 0, 2, 8, m(PAL.stone, 1));
+      r.sweep([[0, 0, 2], [0, 0, 46]], 0.8, m(PILLAR, 2));
+      const turn = (f / n) * TAU * 0.25;
+      for (let k = 0; k < 3; k++) {
+        const z = 44 - k * 4;
+        const rr = 9 - k * 0.6;
+        r.cone(0, 0, rr, z - 2, rr - 0.6, z, 12, md(SILK, 3 + k), turn);
+        for (let a = 0; a < 12; a++) {
+          const ang = (a / 12) * TAU + turn;
+          r.sweep([[Math.cos(ang) * rr, Math.sin(ang) * rr, z - 2], [Math.cos(ang) * (rr + 0.4), Math.sin(ang) * (rr + 0.4), z - 4]], 0.35, m(k === 1 ? PAL.crimson : PAL.gold, 6));
+        }
+      }
+      r.cone(0, 0, 8, 44, 0.6, 50, 12, md(SILK, 7), turn);
+      r.sphere([0, 0, 50.6], 1.2, m(PAL.gold, 8));
+    },
+  },
   // a bronze lamp-tree with ten flames, one in the colour of each Great Dao; the tenth burns clear, and sometimes not at all
   tenlamps: {
     foot: [0, 0, 0, 0],

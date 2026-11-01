@@ -133,16 +133,31 @@ describe("terrain chunks", () => {
   const opts = { base: 0, floating: false, rocky: false, season: () => null };
 
   it("paints a top for every solid tile and a texture to cover them", () => {
-    const c = buildChunk(map, 0, 0, opts);
+    // with the fine grid off (as in rooms), one top per tile
+    const square = buildChunk(map, 0, 0, { ...opts, smooth: false });
     const water = 9;
     const voids = 9;
-    expect(c.top.indices.length / 6).toBe(CHUNK * CHUNK - water - voids);
+    expect(square.top.indices.length / 6).toBe(CHUNK * CHUNK - water - voids);
+    expect(square.liquid.indices.length / 6).toBe(water);
+    const c = buildChunk(map, 0, 0, opts);
     expect(c.size).toBe(CHUNK * TEXELS);
     expect(c.tex.length).toBe(c.size * c.size * 4);
     // painted, opaque texels where the ground is
     expect(c.tex[3]).toBe(255);
-    expect(c.liquid.indices.length / 6).toBe(water);
     expect(c.liquid.cells!.every((k) => k === 0)).toBe(true);
+    // on the fine grid the pond's and the hole's square corners are rounded off by a quarter tile each, so the land covers a tile more of each
+    const area = (m: typeof c.top) => {
+      let a = 0;
+      for (let k = 0; k < m.indices.length; k += 6) {
+        const [p0, p2] = [m.indices[k] * 3, m.indices[k + 2] * 3];
+        a += Math.abs((m.positions[p2] - m.positions[p0]) * (m.positions[p2 + 2] - m.positions[p0 + 2]));
+      }
+      return a;
+    };
+    expect(area(c.top)).toBeCloseTo(CHUNK * CHUNK - (water - 1) - (voids - 1));
+    expect(area(c.liquid)).toBeCloseTo(water - 1);
+    // most tiles still go down as a single quad: only the rounded ones are split into their four cells
+    expect(c.top.indices.length / 6).toBeLessThan(CHUNK * CHUNK + 40);
   });
 
   it("raises cliff walls where the land steps down, three levels tall at the plaza", () => {

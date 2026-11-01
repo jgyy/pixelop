@@ -166,7 +166,20 @@ export type AnimId =
   | "copy"
   | "stir"
   | "fanfire"
-  | "recite";
+  | "recite"
+  // the Thrones and the Crafts: the arts' work and the courts' ceremony
+  | "sow"
+  | "grind"
+  | "inscribe"
+  | "array"
+  | "tame"
+  | "pulse"
+  | "knead"
+  | "proclaim"
+  | "enthrone"
+  | "audience"
+  | "appraise"
+  | "fanning";
 
 export interface Anim {
   fps: number;
@@ -1640,6 +1653,128 @@ human.recite = {
   },
 };
 
+// ---- the Thrones and the Crafts: the arts at work, and the courts at ceremony
+// sowing spirit rice: a step along the furrow, the seed hand flung low and wide in an arc
+human.sow = {
+  n: 8,
+  fps: 7,
+  loop: true,
+  pose: (i, n) => {
+    const a = ph(i, n);
+    const fling = Math.max(0, Math.sin(a));
+    return { t: a, held: "seedling", lean: 0.14, handR: [2.4 + fling * 3.6, 2 + fling * 3, 10 + fling * 2], handL: [-2.6, 3.6, 11.4], footL: [-1.7, Math.sin(a) * 1.2, Math.max(0, Math.sin(a)) * 0.6], footR: [1.7, -Math.sin(a) * 1.2, Math.max(0, -Math.sin(a)) * 0.6], eyes: i === 6 ? "blink" : "open", mouth: "neutral", wind: [0, -0.3, 0] };
+  },
+};
+// grinding herbs in a mortar for the pill cauldron: the pestle rolled round and round in both hands
+human.grind = {
+  n: 8,
+  fps: 8,
+  loop: true,
+  pose: (i, n) => {
+    const a = ph(i, n);
+    return { t: a, held: "bowl", stance: "kneel", lean: 0.22, handL: [-2, 5.4, 9.6], handR: [Math.cos(a) * 1.4, 5.6 + Math.sin(a) * 1.2, 10.6 + Math.sin(a * 2) * 0.3], eyes: i % 4 === 3 ? "blink" : "open", mouth: "neutral", wind: [0, -0.2, 0] };
+  },
+};
+// brushing a talisman: the brush held upright, one long stroke down the yellow paper, a flick, and a breath of qi into it
+human.inscribe = {
+  n: 10,
+  fps: 7,
+  loop: false,
+  pose: (i) => {
+    const down = Math.min(1, i / 6);
+    const qi = i >= 8;
+    return { t: i, held: "brush", handL: [-2.4, 6.4, 16], handR: [0.6 + (i === 7 ? 1.6 : 0), 6.6, 19 - down * 6], lean: 0.08, flash: qi ? 0.14 : 0, eyes: qi ? "glow" : "open", mouth: qi ? "open" : "neutral", wind: [0, -0.2, qi ? 0.4 : 0] };
+  },
+};
+// laying out a formation: a flag planted to the left, then the right, and both palms pressed toward the ground as the array wakes
+human.array = {
+  n: 10,
+  fps: 6,
+  loop: false,
+  pose: (i) => {
+    const side = i < 3 ? -1 : i < 6 ? 1 : 0;
+    const press = i >= 6 ? Math.min(1, (i - 5) / 2) : 0;
+    return { t: i, held: side ? "token" : undefined, lean: 0.12 + press * 0.12, handR: side ? [side * 5.4, 4.4, 7 + (i % 3) * 1.6] : [2.6, 5.4, 10 - press * 2], handL: side ? [-side * 3, 2, 12] : [-2.6, 5.4, 10 - press * 2], footL: [-2.2, 0.4, 0], footR: [2.2, -0.4, 0], flash: press * 0.12, eyes: press ? "glow" : "open", mouth: "neutral", wind: [0, -0.2, press * 0.5] };
+  },
+};
+// gentling a spirit beast: crouched low, one palm held out flat and still, the other slowly raised and lowered
+human.tame = {
+  n: 8,
+  fps: 5,
+  loop: true,
+  pose: (i, n) => {
+    const a = ph(i, n);
+    return { t: a, stance: "kneel", lean: 0.16, handR: [3, 6.4, 11.4], handL: [-2.6, 4.4, 11 + Math.sin(a) * 2], eyes: i === 5 ? "blink" : "open", mouth: "smile", bob: Math.sin(a) * 0.2, wind: [0, -0.2, 0] };
+  },
+};
+// taking a pulse: two fingers on a wrist held out in front, the head bowed to listen, a nod at the end
+human.pulse = {
+  n: 8,
+  fps: 4,
+  loop: true,
+  pose: (i) => ({ t: i, lean: 0.18 + (i === 7 ? 0.08 : 0), handL: [-0.6, 6.2, 12.4], handR: [0.8, 6.4, 13 + (i % 4 === 1 ? 0.3 : 0)], eyes: i < 6 ? "closed" : "open", mouth: i === 7 ? "smile" : "neutral", bob: i === 7 ? 0.3 : 0, wind: [0, -0.2, 0] }),
+};
+// kneading dough for spirit buns: both heels of the hands pushing forward and down, rocking with it
+human.knead = {
+  n: 6,
+  fps: 7,
+  loop: true,
+  pose: (i, n) => {
+    const push = Math.max(0, Math.sin(ph(i, n)));
+    return { t: ph(i, n), lean: 0.18 + push * 0.12, handL: [-1.8, 5 + push * 2, 10 - push * 1.4], handR: [1.8, 5 + push * 2, 10 - push * 1.4], bob: -push * 0.4, eyes: i === 4 ? "blink" : "open", mouth: "smile", wind: [0, -0.2, 0] };
+  },
+};
+// reading out an imperial decree: the scroll unrolled at arm's length, the chin lifted, the voice carrying
+human.proclaim = {
+  n: 8,
+  fps: 5,
+  loop: true,
+  pose: (i) => {
+    const say = i % 2 === 0;
+    return { t: i, held: "decree", handL: [-4.2, 5.4, 17.6], handR: [4.2, 5.4, 17.6], lean: -0.08, bob: say ? 0.3 : 0, eyes: i === 5 ? "blink" : "open", mouth: say ? "open" : "neutral", wind: [0, -0.2, 0.1] };
+  },
+};
+// an emperor on the throne: sat straight-backed, one hand on the knee, the other raised palm-out to bid the court rise
+human.enthrone = {
+  n: 8,
+  fps: 4,
+  loop: true,
+  pose: (i) => {
+    const bid = i >= 4 && i <= 6 ? 1 : 0;
+    return { t: i, stance: "sit", lean: -0.04, handL: [-3, 3.6, 11.4], handR: [3 + bid * 0.6, 3.4 + bid * 2.4, 11.6 + bid * 6], eyes: i === 2 ? "blink" : "open", mouth: bid ? "open" : "neutral", bob: 0, wind: [0, -0.15, 0] };
+  },
+};
+// a courtier at audience: the tablet of office held up before the face in both hands, a deep bow, and up again
+human.audience = {
+  n: 8,
+  fps: 5,
+  loop: false,
+  pose: (i) => {
+    const bow = [0, 0.3, 0.55, 0.6, 0.6, 0.4, 0.15, 0][i];
+    return { t: i, held: "token", lean: bow, handL: [-0.8, 4.6, 17 - bow * 4], handR: [0.8, 4.6, 17 - bow * 4], eyes: bow > 0.5 ? "closed" : "open", mouth: "neutral", wind: [0, -0.2, 0] };
+  },
+};
+// a refiner appraising a blade or a pill against the light: held up and turned, one eye narrowed, a slow nod
+human.appraise = {
+  n: 8,
+  fps: 5,
+  loop: true,
+  pose: (i, n) => {
+    const turn = Math.sin(ph(i, n)) * 1.2;
+    return { t: ph(i, n), held: "cup", handR: [2 + turn, 4.4, 19.4], handL: [-2.6, 3, 13], lean: -0.1, eyes: i % 4 === 2 ? "fierce" : "open", mouth: i === 6 ? "smile" : "neutral", bob: i === 6 ? 0.3 : 0, wind: [0, -0.2, 0] };
+  },
+};
+// a court lady's fan: opened with a flick, fluttered beneath the chin, and snapped shut
+human.fanning = {
+  n: 8,
+  fps: 8,
+  loop: true,
+  pose: (i) => {
+    const flutter = i >= 2 && i <= 6 ? Math.sin(i * 2.6) * 0.8 : 0;
+    return { t: i, handR: [1.6 + flutter, 4.4, 19 + (i >= 2 && i <= 6 ? 1 : -2)], handL: [-2.4, 2.4, 12.2], lean: 0.04, eyes: i === 4 ? "closed" : "open", mouth: "smile", wind: [flutter * 0.3, -0.2, 0.2] };
+  },
+};
+
 // ----------------------------------------------------------------------------- beast poses
 const beast: Partial<Record<AnimId, AnimSpec<BeastPose>>> = {
   idle: { n: 6, fps: 6, loop: true, pose: (i, n) => ({ t: ph(i, n) }) },
@@ -1878,6 +2013,27 @@ export const STYLES = {
   ferryman: s({ robe: ramp("#4a4a3a", { lo: "#10100a" }), inner: PAL.paper, trim: PAL.brown, sash: PAL.brown, hair: PAL.hairGrey, beard: PAL.hairGrey, hairStyle: "short", hat: "straw", hatRamp: PAL.straw, skin: PAL.skinTan, weapon: "rod", hunch: 0.12, flare: 4.6, hem: 4.2 }),
   seaabbess: s({ robe: ramp("#e8f4f8", { lo: "#3a6a8a" }), inner: PAL.teal, trim: PAL.teal, sash: PAL.navy, hairStyle: "bald", female: true, weapon: "whisk", shawl: ramp("#5ab0c8"), hunch: 0.04, flare: 6, eye: "#2a6a8a" }),
   piratequeen: s({ robe: ramp("#2a2a2a", { lo: "#000000" }), inner: PAL.crimson, trim: PAL.gold, sash: PAL.crimson, hair: PAL.hairBlack, hairStyle: "wild", female: true, hat: "hood", hatRamp: ramp("#1a1a1a"), skin: PAL.skinTan, weapon: "saber", weaponRamp: PAL.gold, flare: 5, cape: ramp("#8a1020", { lo: "#200006" }) }),
+  // the Thrones and the Crafts (see world/courts.ts): six mortal emperors, six sect leaders, the arts' masters and the courts' folk
+  emperorliang: s({ robe: ramp("#f2c55c", { lo: "#5a3a10" }), inner: PAL.crimson, trim: PAL.crimson, sash: PAL.crimson, hair: PAL.hairGrey, beard: PAL.hairGrey, hairStyle: "topknot", hat: "crown", hatRamp: PAL.gold, scale: 1.1, flare: 6.8, hunch: 0.06, cape: ramp("#e8b040", { lo: "#4a2a08" }), eye: "#3a2a1a" }),
+  empresschen: s({ robe: ramp("#2a8a8a", { lo: "#0a2a2a" }), inner: PAL.gold, trim: PAL.gold, sash: PAL.gold, hair: PAL.hairBlack, hairStyle: "bun", female: true, hat: "crown", hatRamp: PAL.gold, shawl: ramp("#f8e8c0", { lo: "#8a6a3a" }), scale: 1.04, flare: 6.8, eye: "#2a3a3a" }),
+  emperorshu: s({ robe: ramp("#6a8a3a", { lo: "#1a2a0a" }), inner: PAL.gold, trim: PAL.gold, sash: PAL.gold, hair: PAL.hairWhite, beard: PAL.hairWhite, hairStyle: "topknot", hat: "crown", hatRamp: PAL.gold, weapon: "staff", weaponRamp: PAL.wood, hunch: 0.18, flare: 6.4, eye: "#3a3a2a" }),
+  emperorwei: s({ robe: ramp("#3a4a6a", { lo: "#0a101a" }), inner: PAL.steel, trim: PAL.gold, sash: PAL.gold, hair: PAL.hairBlack, beard: PAL.hairBlack, hairStyle: "topknot", hat: "crown", hatRamp: PAL.gold, weapon: "saber", weaponRamp: PAL.steel, scale: 1.16, flare: 5.2, cape: ramp("#e8ecf4", { lo: "#5a6a80" }), eye: "#2a2a3a" }),
+  emperorqi: s({ robe: ramp("#c83a3a", { lo: "#3a0a0a" }), inner: PAL.gold, trim: PAL.gold, sash: PAL.gold, hair: PAL.hairBlack, hairStyle: "topknot", hat: "crown", hatRamp: PAL.gold, scale: 0.78, flare: 5.8, eye: "#3a2a2a" }),
+  emperoryan: s({ robe: ramp("#c8783a", { lo: "#3a1a08" }), inner: PAL.black, trim: PAL.gold, sash: PAL.gold, hair: PAL.hairBlack, beard: PAL.hairBlack, hairStyle: "wild", hat: "crown", hatRamp: PAL.gold, skin: PAL.skinTan, weapon: "saber", weaponRamp: PAL.gold, scale: 1.2, flare: 5.4, cape: ramp("#8a2a1a", { lo: "#2a0806" }), eye: "#3a1a0a" }),
+  goldcrane: s({ robe: ramp("#f4ecd8", { lo: "#7a6a4a" }), inner: PAL.gold, trim: PAL.gold, sash: PAL.gold, hair: PAL.hairSilver, beard: PAL.hairSilver, hairStyle: "topknot", hat: "crown", hatRamp: PAL.gold, weapon: "whisk", scale: 1.06, flare: 6.4, eye: "#8a6a20" }),
+  tidebreaker: s({ robe: ramp("#2a6ab0", { lo: "#08182a" }), inner: PAL.white, trim: PAL.white, sash: PAL.teal, hair: PAL.hairBlack, hairStyle: "long", female: true, weapon: "jian", weaponRamp: ramp("#bfe8ff"), flare: 5.6, cape: ramp("#5ab0e0", { lo: "#0a2a4a" }), eye: "#1a4a6a" }),
+  cauldronmaster: s({ robe: ramp("#a8382a", { lo: "#2a0806" }), inner: PAL.orange, trim: PAL.gold, sash: PAL.gold, hair: PAL.hairAuburn, beard: PAL.hairAuburn, hairStyle: "wild", skin: PAL.skinTan, weapon: "fan", weaponRamp: PAL.orange, scale: 1.12, flare: 5.8, hunch: 0.04, eye: "#e88a20" }),
+  talismanabbess: s({ robe: ramp("#e8d878", { lo: "#6a5a1a" }), inner: PAL.crimson, trim: PAL.crimson, sash: PAL.crimson, hair: PAL.hairBlack, hairStyle: "bun", female: true, hat: "scholar", hatRamp: PAL.black, weapon: "whisk", talisman: true, flare: 6, eye: "#3a2a1a" }),
+  formationmaster: s({ robe: ramp("#4a4a5a", { lo: "#0a0a14" }), inner: PAL.jade, trim: PAL.jade, sash: PAL.jade, hair: PAL.hairGrey, beard: PAL.hairGrey, hairStyle: "topknot", hat: "scholar", hatRamp: PAL.jadeDeep, weapon: "staff", weaponRamp: PAL.jade, flare: 6, hunch: 0.08, eye: "#2a6a5a" }),
+  beastlord: s({ robe: ramp("#6a5a3a", { lo: "#1a1408" }), inner: PAL.brown, trim: PAL.orange, sash: PAL.orange, hair: PAL.hairBrown, beard: PAL.hairBrown, hairStyle: "wild", skin: PAL.skinTan, weapon: "rod", shawl: ramp("#c8a878", { lo: "#4a3a1a" }), scale: 1.14, flare: 4.6, hem: 4, eye: "#c88a20" }),
+  alchemist: s({ robe: ramp("#8a3a6a", { lo: "#2a0a1a" }), inner: PAL.white, trim: PAL.gold, sash: PAL.orange, hair: PAL.hairGrey, hairStyle: "bun", female: true, hunch: 0.1, flare: 5.4, eye: "#4a2a3a" }),
+  physician: s({ robe: ramp("#e8eef0", { lo: "#6a7a8a" }), inner: PAL.jade, trim: PAL.jade, sash: PAL.jade, hair: PAL.hairWhite, beard: PAL.hairWhite, hairStyle: "topknot", hat: "scholar", hatRamp: PAL.black, hunch: 0.12, flare: 5.6, eye: "#3a3a3a" }),
+  tamer: s({ robe: ramp("#8a6a3a", { lo: "#2a1a08" }), inner: PAL.white, trim: PAL.green, sash: PAL.green, hair: PAL.hairBlack, hairStyle: "twin", female: true, skin: PAL.skinTan, weapon: "rod", flare: 4.2, hem: 4.4, shoes: PAL.brown, eye: "#3a2a1a" }),
+  minister: s({ robe: ramp("#8a2a3a", { lo: "#2a0810" }), inner: PAL.white, trim: PAL.gold, sash: PAL.gold, hair: PAL.hairGrey, beard: PAL.hairGrey, hairStyle: "topknot", hat: "scholar", hatRamp: PAL.black, flare: 6.2, hunch: 0.06, eye: "#3a2a2a" }),
+  eunuch: s({ robe: ramp("#4a6a8a", { lo: "#0a1a2a" }), inner: PAL.white, trim: PAL.white, sash: PAL.black, hairStyle: "short", hair: PAL.hairBlack, hat: "scholar", hatRamp: PAL.black, weapon: "whisk", skin: PAL.skinPale, flare: 5.8, hunch: 0.1, eye: "#3a3a4a" }),
+  palacemaid: s({ robe: ramp("#e88aa0", { lo: "#5a1a2a" }), inner: PAL.white, trim: PAL.white, sash: PAL.crimson, hair: PAL.hairBlack, hairStyle: "twin", female: true, scale: 0.92, flare: 5, eye: "#3a2a3a" }),
+  imperialguard: s({ robe: ramp("#c8a038", { lo: "#3a2a08" }), inner: PAL.steel, trim: PAL.crimson, sash: PAL.crimson, hairStyle: "topknot", hat: "helmet", hatRamp: ramp("#e8c860", { lo: "#4a3a10" }), skin: PAL.skinTan, weapon: "spear", scale: 1.06, flare: 4.2, hem: 4.6, shoes: PAL.black }),
+  grandtutor: s({ robe: ramp("#2a2a2a", { lo: "#000000" }), inner: PAL.paper, trim: PAL.gold, sash: PAL.crimson, hair: PAL.hairGrey, beard: PAL.hairGrey, hairStyle: "topknot", hat: "scholar", hatRamp: PAL.gold, weapon: "fan", weaponRamp: PAL.crimson, flare: 6.4, hunch: 0.04, glowEyes: "#ff5a3a", scale: 1.08, cape: ramp("#5a0a1a", { lo: "#140004" }) }),
 } satisfies Record<string, HumanStyle>;
 
 export type HumanId = keyof typeof STYLES;
@@ -2167,6 +2323,26 @@ const HUMAN_ANIMS: Record<HumanId, AnimId[]> = {
   ferryman: ["idle", "walk", "talk", "nod", "bow", "row", "fish", "yawn"],
   seaabbess: ["idle", "walk", "talk", "nod", "bow", "pray", "chant", "meditate", "cast"],
   piratequeen: ["idle", "walk", "talk", "attack", "cast", "hurt", "defeat", "kowtow", "laugh", "roar", "point"],
+  emperorliang: ["idle", "walk", "talk", "nod", "enthrone", "proclaim", "think", "laugh", "bow"],
+  empresschen: ["idle", "walk", "talk", "nod", "enthrone", "fanning", "think", "laugh", "bow", "pray"],
+  emperorshu: ["idle", "walk", "talk", "nod", "enthrone", "sow", "think", "laugh", "bow", "drink"],
+  emperorwei: ["idle", "walk", "talk", "nod", "enthrone", "proclaim", "attack", "cast", "hurt", "defeat", "kowtow", "salute"],
+  emperorqi: ["idle", "walk", "talk", "nod", "enthrone", "cry", "laugh", "bow", "kite", "read"],
+  emperoryan: ["idle", "walk", "talk", "nod", "enthrone", "proclaim", "attack", "cast", "hurt", "defeat", "kowtow", "laugh", "roar"],
+  goldcrane: ["idle", "walk", "talk", "nod", "bow", "meditate", "cast", "attack", "hurt", "defeat", "kowtow", "audience"],
+  tidebreaker: ["idle", "walk", "talk", "nod", "bow", "attack", "cast", "hurt", "defeat", "kowtow", "sworddance", "salute"],
+  cauldronmaster: ["idle", "walk", "talk", "nod", "bow", "grind", "appraise", "brew", "attack", "cast", "hurt", "defeat", "kowtow", "laugh"],
+  talismanabbess: ["idle", "walk", "talk", "nod", "bow", "inscribe", "chant", "cast", "attack", "hurt", "defeat", "kowtow"],
+  formationmaster: ["idle", "walk", "talk", "nod", "bow", "array", "think", "cast", "attack", "hurt", "defeat", "kowtow", "read"],
+  beastlord: ["idle", "walk", "talk", "nod", "bow", "tame", "roar", "attack", "cast", "hurt", "defeat", "kowtow", "laugh"],
+  alchemist: ["idle", "walk", "talk", "nod", "bow", "grind", "appraise", "brew", "stir", "laugh"],
+  physician: ["idle", "walk", "talk", "nod", "bow", "pulse", "read", "think", "bandage"],
+  tamer: ["idle", "walk", "talk", "nod", "bow", "tame", "wave", "laugh", "point"],
+  minister: ["idle", "walk", "talk", "nod", "bow", "audience", "proclaim", "read", "write", "think", "kowtow"],
+  eunuch: ["idle", "walk", "talk", "nod", "bow", "audience", "proclaim", "whisper", "kowtow"],
+  palacemaid: ["idle", "walk", "talk", "nod", "bow", "fanning", "sweep", "pour", "kneel", "whisper"],
+  imperialguard: ["idle", "walk", "talk", "nod", "salute", "spear", "march", "look", "kowtow"],
+  grandtutor: ["idle", "walk", "talk", "nod", "bow", "audience", "proclaim", "write", "read", "attack", "cast", "hurt", "defeat", "kowtow", "laugh"],
 };
 
 /** Whether a character has an animation of its own. */
@@ -2174,6 +2350,25 @@ export const hasAnim = (id: HumanId, anim: AnimId) => HUMAN_ANIMS[id].includes(a
 
 // the jianghu's new manners: mortals kneel to a cultivator far above them, gossip behind a hand, haggle and raise a cup
 const MORE: [AnimId, HumanId[]][] = [
+  // the Thrones and the Crafts: the arts' work and the courts' manners
+  ["sow", ["heroine", "farmer", "villagerM", "villagerF", "teapicker", "nomad"]],
+  ["grind", ["heroine", "herbalist", "medic", "villagerF"]],
+  ["inscribe", ["heroine", "scholar", "archivist", "novice", "monk"]],
+  ["array", ["heroine", "monk", "scholar", "discipleM"]],
+  ["tame", ["heroine", "nomad", "boy", "child", "herbalist", "discipleM", "discipleF"]],
+  ["pulse", ["heroine", "medic", "herbalist"]],
+  ["knead", ["heroine", "cook", "villagerF", "teawoman", "fishwife"]],
+  ["appraise", ["heroine", "smith", "merchant", "peddler"]],
+  ["audience", ["heroine", "nobleM", "nobleF", "scholar", "envoy", "general"]],
+  ["fanning", ["lady", "nobleF", "teawoman"]],
+  ["proclaim", ["tierherald", "scholar", "nobleM", "empresschen"]],
+  ["look", ["general", "nobleM"]],
+  // the sworn sects' disciples at their own arts
+  ["fanfire", ["discipleM"]],
+  ["stir", ["discipleF"]],
+  ["think", ["nobleM"]],
+  ["chant", ["discipleF"]],
+  ["read", ["discipleF"]],
   // the Sea of Pearls' and the Nine Springs' foes and bosses that never fought before
   ["attack", ["merchant", "marshwitch", "merfolkM", "ghost"]],
   ["hurt", ["merchant", "marshwitch", "merfolkM", "ghost"]],
@@ -2417,6 +2612,26 @@ const NAMES: Record<CharId, [string, string]> = {
   ferryman: ["Ferryman", "The Sea of Pearls"],
   seaabbess: ["Sea Abbess", "Turtleback Isle"],
   piratequeen: ["Pirate Captain", "The Black Sail"],
+  emperorliang: ["Emperor Xuande", "Son of Heaven of Great Liang"],
+  empresschen: ["Empress Chen Yuhua", "Regnant of Southern Chen"],
+  emperorshu: ["Emperor Wenhe", "Old Emperor of Western Shu"],
+  emperorwei: ["Emperor Wei Lie", "Iron Emperor of Northern Wei"],
+  emperorqi: ["Emperor Qi Yuan", "Boy Emperor of Eastern Qi"],
+  emperoryan: ["Emperor Murong Tuo", "Sand Emperor of Great Yan"],
+  goldcrane: ["He Lingxiao", "Sect Master of the Golden Crane"],
+  tidebreaker: ["Lan Ruoshui", "Sect Mistress of the Tidebreakers"],
+  cauldronmaster: ["Dan Qiu", "Sect Master of the Crimson Cauldron"],
+  talismanabbess: ["Abbess Fu Yinzi", "Thousand Talisman Abbey"],
+  formationmaster: ["Zhen Wuji", "Sect Master of Myriad Arrays"],
+  beastlord: ["Shou Tianlang", "Master of the Beast-Taming Hall"],
+  alchemist: ["Alchemist", "The Cauldron Guild"],
+  physician: ["Physician", "The Hall of Benevolent Hands"],
+  tamer: ["Beast Tamer", "The Stables of the Courts"],
+  minister: ["Minister", "The Imperial Court"],
+  eunuch: ["Palace Steward", "The Inner Palace"],
+  palacemaid: ["Palace Maid", "The Inner Palace"],
+  imperialguard: ["Imperial Guard", "The Gate of the Court"],
+  grandtutor: ["Fei Lian", "Grand Tutor to Six Thrones"],
   fox: ["Fox Spirit", "Corrupted Beast"],
   wolf: ["Shadowflame Wolf", "Corrupted Beast"],
   serpent: ["Jade Serpent", "Lake Beast"],

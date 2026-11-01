@@ -7,6 +7,8 @@ import { COARSE_H, COARSE_ORIGIN, COARSE_W, DOMAIN, heldBy, HOLDS, regionRect, t
 import { companionOf, magnifyMap, magnifyProp, pointTile, STRUCTURE_SCALE } from "./magnify";
 import { LIQUID, TileMap, TILE_KINDS, type TileKind } from "./tilemap";
 import { CAVE_IDS, CAVE_MOUTH, deepFolk } from "./caves";
+import { fineFloor, fineKind } from "./refine";
+import { COURT_COUNT, COURT_SPOTS, COURTS, WANDERING_CRAFTS, courtDiscipleKey, courtEmperorKey, courtFolkKey, courtGuideKey, courtLeaderKey, courtMasterKey, craftMasterKey, TOWNSFOLK_PER_COURT, townKey, townLook, townName, townTrade } from "./courts";
 import { inLagoon, inSea, isleByKey, isleDepth, ISLES as SEA_ISLES, SEA_BOOK_COUNT, SEA_BRIDGES, SEA_CAST, SEA_SPOTS, seaFolkKey, seaGuideKey, seaPatronKey } from "./isles";
 import { layWar } from "./warfront";
 import { layRoad } from "./roadside";
@@ -337,6 +339,18 @@ const RANGES: { key: string; c: [number, number]; r: number; peak: number; seed:
   { key: "autumnridge", c: [420, 268], r: 24, peak: 4, seed: 506 },
   { key: "plumhills", c: [182, 372], r: 22, peak: 4, seed: 507 },
   { key: "westwood", c: [60, 140], r: 18, peak: 3, seed: 508 },
+  // the land stood taller everywhere when the grid grew finer: ranges over the wastes, the steppe, the sands,
+  // the Golden River country, the Tidewater Reach, the Stairlands and the eastern woods
+  { key: "ashspine", c: [36, 210], r: 22, peak: 8, seed: 509 },
+  { key: "steppecrown", c: [452, 196], r: 26, peak: 7, seed: 510 },
+  { key: "duneteeth", c: [404, 404], r: 26, peak: 8, seed: 511 },
+  { key: "goldenhills", c: [118, 494], r: 30, peak: 7, seed: 512 },
+  { key: "riverbluffs", c: [292, 500], r: 22, peak: 6, seed: 513 },
+  { key: "tidecliffs", c: [604, 486], r: 20, peak: 6, seed: 514 },
+  { key: "stairpeaks", c: [178, 640], r: 22, peak: 9, seed: 515 },
+  { key: "mapleheights", c: [520, 290], r: 26, peak: 8, seed: 516 },
+  { key: "marshtors", c: [96, 286], r: 18, peak: 5, seed: 517 },
+  { key: "teacloud", c: [226, 404], r: 20, peak: 7, seed: 518 },
 ];
 
 /** How many levels the ranges lift a wild tile. */
@@ -571,8 +585,9 @@ function buildWorld(): WorldDef {
     const r = wildRegion(i, j);
     wildOf[j * COARSE_W + i] = r + 1;
     const st = WILD[WILD_IDS[r]];
-    const hills = 1 + Math.round((fbm(i * 0.07, j * 0.07, 31) - 0.45) * st.hills);
-    m.set(i, j, st.ground(i, j), Math.max(0, Math.min(5, hills + st.lift)) + uplift(i, j));
+    // rolling hills on broad swells: the wilds rise and fall half again as far as they used to
+    const hills = 1 + Math.round((fbm(i * 0.07, j * 0.07, 31) - 0.45) * st.hills * 1.6 + Math.max(0, fbm(i * 0.022, j * 0.022, 32) - 0.42) * 7);
+    m.set(i, j, st.ground(i, j), Math.max(0, Math.min(9, hills + st.lift)) + uplift(i, j));
   });
   const ashen = (i: number, j: number) => {
     const r = wildOf[j * COARSE_W + i];
@@ -768,6 +783,13 @@ function buildWorld(): WorldDef {
       }
     for (let k = 1; k < TIER_COUNT; k++) for (let i = AVENUE[0]; i <= AVENUE[1]; i++) m.set(i, stairRow(k), "stairs", tierHeight(k - 1) + 1);
     site(STAIR_RING.c, STAIR_RING.r, "dirt", 1, 0.3);
+  }
+
+  // 4½. the six capitals of the mortal emperors, and the seats of the sects sworn to guard them (see world/courts.ts):
+  // each a broad square of paving at the height the land already stands at there
+  for (const c of COURTS) {
+    site(c.c, 11, "plaza", Math.max(1, Math.min(7, m.height(c.c[0], c.c[1]))), 0.4);
+    site(c.sect.c, 6.5, "marble", Math.max(1, Math.min(8, m.height(c.sect.c[0], c.sect.c[1]))), 0.5);
   }
 
   // 5. rivers, ponds, the hot spring and the lava pools
@@ -1012,8 +1034,8 @@ function buildWorld(): WorldDef {
     const k = m.kind(i, j);
     const h = m.height(i, j);
     if (k === "snow" && h < 3) m.set(i, j, "grass");
-    else if (h >= 7 && !LIQUID[k] && k !== "void" && (fbm(i * 0.4, j * 0.4, 77) > 0.35 || h >= 8)) m.set(i, j, ashen(i, j) ? "redrock" : "snow");
-    else if (h >= 6 && (k === "grass" || k === "meadow" || k === "leaf") && fbm(i * 0.3, j * 0.3, 78) > 0.55) m.set(i, j, "moss");
+    else if (h >= 10 && !LIQUID[k] && k !== "void" && (fbm(i * 0.4, j * 0.4, 77) > 0.35 || h >= 11)) m.set(i, j, ashen(i, j) ? "redrock" : "snow");
+    else if (h >= 7 && (k === "grass" || k === "meadow" || k === "leaf") && fbm(i * 0.3, j * 0.3, 78) > 0.55) m.set(i, j, "moss");
   });
 
   // 8. the landmarks: their buildings, keepers, beasts and treasures
@@ -1633,7 +1655,7 @@ function buildWorld(): WorldDef {
   quarter(WILLOW_WARD);
   it("jinhe-drumstele", "sign", 214, 487, "Carved on the drum tower's plinth: “When Jinhe outgrew its walls, it did not pull them down. It walked round them, and built another. The old wall is a lane now, and the children race along the line where the soldiers stood.”");
   it("jinhe-ladder", "sign", 210, 513, "A notice pasted on the dyers' row: “ROOMS ABOVE THE SHOP. Second storey, window on the lane. Cultivators of Foundation and above: half rent, for the honour of the house. Qi Condensation: full rent. Mortals: ask.”");
-  it("ward-sign", "sign", EAST_WARD.x0 + 1, EAST_WARD.street - 3, "WILLOW CREEK · EAST WARD · 柳溪东坊. Painted on a new board under the paifang: “Built the year the Heart came home, by every family in the village, two storeys high so that the creek can see over the willows.”");
+  it("ward-sign", "sign", EAST_WARD.x0 + 1, EAST_WARD.street - 3, "WILLOW CREEK · EAST WARD · 柳溪东坊. Painted on a board under the paifang: “Built in the good years before the Heart was stolen, by every family in the village, two storeys high so that the creek can see over the willows.”");
   it("ward-chest", "chest", 245, 157);
   mark("eastward", "Willow Creek's East Ward", "柳溪东坊", "hall", EAST_WARD.x0 + 18, EAST_WARD.street);
   // the City of Nine Tiers: a gate at the head of every stair with its warden at the foot and a seal of gold light on it,
@@ -2236,6 +2258,78 @@ function buildWorld(): WorldDef {
     mark("sea-pearls", "The Sea of Pearls", "珠海", "ship", 546, 548);
   }
 
+  // 8¾. the Thrones and the Crafts: six capitals, each with its palace hall, its throne under a silk canopy, its guild's workshop,
+  // its emperor and court; the sect sworn to it on its own levelled seat nearby; their troubles, shrines and signs (see world/courts.ts)
+  {
+    const used = new Set<number>(props.map((p) => p.j * COARSE_W + p.i));
+    for (const x of [...npcs, ...enemies, ...interacts]) used.add(x.j * COARSE_W + x.i);
+    const dry = (i: number, j: number) => {
+      const k = m.kind(i, j);
+      return k !== "void" && !LIQUID[k] && k !== "wood";
+    };
+    const snap = ([x, y]: [number, number], roomy = 1): [number, number] => {
+      for (let r = 0; r <= 16; r++)
+        for (let b = -r; b <= r; b++)
+          for (let a = -r; a <= r; a++) {
+            if (Math.max(Math.abs(a), Math.abs(b)) !== r) continue;
+            const [i, j] = [x + a, y + b];
+            let ok = !used.has(j * COARSE_W + i);
+            for (let q = -roomy; q <= roomy && ok; q++) for (let p = -roomy; p <= roomy && ok; p++) ok = dry(i + p, j + q) && !used.has((j + q) * COARSE_W + i + p);
+            if (!ok) continue;
+            used.add(j * COARSE_W + i);
+            return [i, j];
+          }
+      return [x, y];
+    };
+    const at = (c: [number, number], d: [number, number], roomy = 1) => snap([c[0] + d[0], c[1] + d[1]], roomy);
+    const put = (id: PropId, c: [number, number], spots: [number, number][]) => spots.forEach((d) => P(id, ...at(c, d, (STRUCTURE_SCALE[id] ?? 1) > 1 ? 2 : 1)));
+    const CRAFT_PROP: Record<string, PropId[]> = { farming: ["seedbed", "haystack"], refining: ["forge", "weaponrack"], alchemy: ["cauldron", "herbrack"], talisman: ["table", "candle"], formation: ["affinitystone", "banner"], taming: ["cart", "haystack"] };
+    COURTS.forEach((C, b) => {
+      const c = C.c;
+      // the palace: its hall behind the throne, a gate and lions in front, parasols and a drum tower about the square
+      put("hall", c, [[0, -9]]);
+      put("throne", c, [[0, -5]]);
+      put("parasol", c, [[-3, -6], [3, -6]]);
+      put("lion", c, [[-3, 8], [3, 8]]);
+      put("drumtower", c, [[-10, -4]]);
+      put("lanterns", c, [[0, 6]]);
+      put("censer", c, [[0, 2]]);
+      // the town round the palace square
+      put("townhouse", c, [[-15, 4], [15, 4], [-13, 14], [13, 14], [0, 17], [-18, -8]]);
+      put("stall", c, [[-7, 10], [7, 10], [-9, 6], [9, 6]]);
+      put("shopflag", c, [[-6, 12], [6, 12]]);
+      put("well", c, [[-11, 0]]);
+      // the guild's workshop
+      put(CRAFT_PROP[C.craft][0], c, [[10, 0]]);
+      put(CRAFT_PROP[C.craft][1], c, [[11, 3]]);
+      // the sect's seat: its hall, a stele, a censer and its banners
+      const sc = C.sect.c;
+      put("pavilion", sc, [[0, -4]]);
+      put("stele", sc, [[-4, 1]]);
+      put("censer", sc, [[0, 2]]);
+      put("banner", sc, [[-3, -2], [3, -2]]);
+      const sp = COURT_SPOTS;
+      const xyOf = (o: [number, number], d: [number, number]) => xy(at(o, d));
+      npcs.push({ key: courtEmperorKey(b), name: C.emperor.name, char: C.emperor.char, ...xyOf(c, sp.emperor), dir: 2, anim: C.emperor.anim });
+      npcs.push({ key: courtGuideKey(b), name: C.guide.name, char: C.guide.char, ...xyOf(c, sp.guide), dir: 2, anim: C.guide.anim, wander: C.guide.anim ? undefined : 1 });
+      C.folk.forEach((f, n) => npcs.push({ key: courtFolkKey(b, n), name: f.name, char: f.char, ...xyOf(c, sp.folk[n]), dir: n % 2 ? 6 : 2, anim: f.anim }));
+      npcs.push({ key: courtMasterKey(b), name: C.master.name, char: C.master.char, ...xyOf(c, sp.master), dir: 4, anim: C.master.anim });
+      npcs.push({ key: courtLeaderKey(b), name: C.sect.leader.name, char: C.sect.leader.char, ...xyOf(sc, sp.leader), dir: 2, anim: C.sect.leader.anim });
+      C.sect.disciples.forEach((f, n) => npcs.push({ key: courtDiscipleKey(b, n), name: f.name, char: f.char, ...xyOf(sc, sp.disciples[n]), dir: n % 2 ? 6 : 2, anim: f.anim }));
+      enemies.push({ key: `courtboss-${b}`, enemy: C.boss, ...xyOf(c, sp.boss), range: 0, when: (f) => !!f[`courts:boss:${b}`] });
+      sp.foes.forEach((d, n) => enemies.push({ key: `courtfoe-${b}-${n}`, enemy: C.foe, ...xyOf(c, d), range: 2.5 }));
+      it(`ct-${C.key}-shrine`, "shrine", ...at(c, sp.shrine));
+      it(`ct-${C.key}-chest`, "chest", ...at(c, sp.chest));
+      it(`ct-${C.key}-sign`, "sign", ...at(c, sp.sign), `${C.capital.toUpperCase()} · ${C.hanzi}. The seat of the throne of ${C.realm}. Below, an edict nailed to the post: “By the Covenant of Cloud and Throne, ${C.sect.name.replace(/^the /, "the ")} guards this realm, and this realm feeds it. Let neither forget.”`);
+      it(`ct-${C.key}-sect-sign`, "sign", ...at(sc, [4, 3]), `${C.sect.name.replace(/^the /, "The ")} · ${C.sect.hanzi}. Sworn to the throne of ${C.realm} under the Covenant of Cloud and Throne. “We do not rule. We guard.”`);
+      mark(C.sight.key, C.capital, C.sight.hanzi, "throne", ...c);
+      mark(`ct-${C.sect.key}`, C.sect.name.replace(/^the /, "The "), C.sect.hanzi, "pavilion", ...sc);
+    });
+    // the two arts with no court of their own keep their masters in a capital's square
+    for (const W of WANDERING_CRAFTS) npcs.push({ key: craftMasterKey(W.craft), name: W.master.name, char: W.master.char, ...xy(at(COURTS[W.court].c, W.at)), dir: 2, anim: W.master.anim });
+    void COURT_COUNT;
+  }
+
   // 9. wayside landmarks, rewards and wanderers along the highway
   const [nx] = toCoarse("village", 16, 0);
   P("lantern", nx - 3, vy - 6);
@@ -2707,6 +2801,52 @@ function buildWorld(): WorldDef {
     kept.length = 0;
     kept.push(...cleared, ...road.props);
     roadMarks.push(...road.landmarks);
+  }
+
+  // 12f. the townsfolk of the six capitals and the farms about them, in their hundreds: farmers, smiths, weavers, cooks,
+  // porters, merchants, scribes, guards and children, each at their trade (see world/courts.ts). They stand only where
+  // they can walk to the palace square, a step apart.
+  {
+    const touched = new Set<number>();
+    for (const p of patches) for (const idx of p.idx) touched.add(idx);
+    COURTS.forEach((C, b) => {
+      const [cx, cy] = [C.c[0] * S + 1, C.c[1] * S + 1];
+      // the ground a townsperson can walk to the square from (no more than a level a step)
+      const seen = new Set<number>([cy * WORLD_W + cx]);
+      const q = [cy * WORLD_W + cx];
+      for (let qi = 0; qi < q.length; qi++) {
+        const idx = q[qi];
+        const i = idx % WORLD_W;
+        const j = (idx - i) / WORLD_W;
+        for (const [di, dj] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          const [ni, nj] = [i + di, j + dj];
+          const n = nj * WORLD_W + ni;
+          if (seen.has(n) || Math.hypot(ni - cx, nj - cy) > 64 || !fine.standable(ni, nj) || Math.abs(fine.height(ni, nj) - fine.height(i, j)) > 1) continue;
+          seen.add(n);
+          q.push(n);
+        }
+      }
+      let n = 0;
+      // in rings outward from the square, a little scattered, so they gather thickest round the palace and thin out over the fields
+      for (let r = 8; r <= 64 && n < TOWNSFOLK_PER_COURT; r += 2)
+        for (let k = 0, steps = Math.floor(r * 2.2); k < steps && n < TOWNSFOLK_PER_COURT; k++) {
+          const a = (k / steps) * Math.PI * 2 + hash2(b, r, 731) * 3;
+          const i = Math.round(cx + Math.cos(a) * r + (hash2(k, r, 732) - 0.5) * 2);
+          const j = Math.round(cy + Math.sin(a) * r + (hash2(k, r, 733) - 0.5) * 2);
+          const idx = j * WORLD_W + i;
+          // (and on ground the fine grid has not rounded off into water: they stand in the middle of their tile)
+          if (!seen.has(idx) || !free(i, j) || touched.has(idx) || fixedAt(i, j) === 2 || !fineFloor(fineKind(fine, i * 2 + 1, j * 2 + 1), false)) continue;
+          const t = townTrade(b, n);
+          fnpcs.push({ key: townKey(b, n), name: townName(b, n), char: townLook(b, n), i, j, dir: Math.floor(hash2(b, n, 734) * 16), anim: hash2(b, n, 735) < 0.6 ? t.anim : undefined, wander: hash2(b, n, 736) < 0.4 ? 2 : undefined });
+          for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) occupied.add((j + dj) * WORLD_W + i + di);
+          n++;
+        }
+    });
   }
 
   // 13. which region owns each tile
