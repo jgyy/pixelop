@@ -8,11 +8,12 @@ import { charDef, frameAt, getAnim, WINTER, type AnimId, type CharId } from "../
 import { getProp, glowSprite, propDef, propSize, type PropId } from "../art/props";
 import { drawSky } from "../art/sky";
 import { foamOverlay, LIQUID_FRAMES, liquidFrame, paintTile, type TileBuffer } from "../art/tiles";
-import { AREA_IDS, moodOf, placementTiles, type AreaDef, type AreaId, type Interactable, type PropPlacement, type SkyId, type Weather } from "../world/areas";
+import { AREA_IDS, moodOf, placementTiles, type AreaDef, type AreaId, type Interactable, type NpcPlacement, type PropPlacement, type SkyId, type Weather } from "../world/areas";
 import { isWorldDef, regionAt, type WorldDef } from "../world/continent";
 import { regionDistance, WORLD_SCALE } from "../world/layout";
 import { LIQUID, TILE_KINDS, type TileMap } from "../world/tilemap";
 import { applyPatches, patchMaxHeight } from "../world/terrain";
+import { applyHallLayer, hallMaxHeight, inHall, insideFlag, STOREY, storeyFlag, type GrandHall, type HallLayer } from "../world/grandhalls";
 import { ENEMIES, type EnemyId } from "../engine/enemies";
 import { Effects } from "./particles";
 import type { View3D } from "./view";
@@ -152,6 +153,12 @@ const SEAL_COLOUR: Record<AreaId, string> = { sect: "#ffffff", village: "#f4f8ff
 export function syncTerrain(def: AreaDef, flags: Record<string, boolean>): number[] {
   const m = def.map;
   const changed = applyPatches(m, def.patches, flags);
+  forgetTiles(m, changed);
+  return changed;
+}
+
+/** Throw away the painted columns of tiles that changed and of the tiles beside them (whose walls and shore foam depend on them). */
+function forgetTiles(m: TileMap, changed: number[]): void {
   const c = tileCache.get(m);
   if (c && changed.length)
     for (const idx of changed) {
@@ -166,8 +173,13 @@ export function syncTerrain(def: AreaDef, flags: Record<string, boolean>): numbe
           for (const arr of seasonCache.get(m)?.values() ?? []) arr[n] = undefined;
         }
     }
-  return changed;
 }
+
+/** Can someone stand on tile k of one of a hall's states? */
+const layerFloor = (l: HallLayer, k: number) => {
+  const kind = TILE_KINDS[l.kinds[k]];
+  return !l.blocked[k] && kind !== "wall" && kind !== "window" && kind !== "roof" && kind !== "void";
+};
 
 /** Seasonal copies of the painted terrain columns, per map and season. */
 const seasonCache = new WeakMap<TileMap, Map<Season, (TileBuffer | null | undefined)[]>>();
@@ -210,6 +222,16 @@ export class World {
   readonly interior: boolean;
   /** A cave under the mountains: no day or night, only the light she and the crystals bring. */
   readonly cave: boolean;
+  /** The sects' grand halls standing in this world (see world/grandhalls.ts). */
+  readonly halls: GrandHall[];
+  /** The hall and storey she is on, or null when she is not in one. */
+  hallHere: { hall: GrandHall; storey: number } | null = null;
+  /** Set when she steps into a hall or onto another of its storeys (cleared by the game, which names the floor). */
+  hallMoved: { hall: GrandHall; storey: number } | null = null;
+  /** The parts of the map a hall has just rewritten, newest last (the 3D view repaints the ground under them). */
+  hallEdits: { rect: [number, number, number, number]; seq: number }[] = [];
+  /** Bumped each time a hall shows another state. */
+  hallSeq = 0;
   /** Interior wall tiles with lattice windows, which let the daylight in. */
   private windows: { i: number; j: number }[] = [];
   private flags: Record<string, boolean>;
@@ -239,9 +261,12 @@ export class World {
     this.cache = c;
     for (let k = 0; k < m.heights.length; k++) this.maxH = Math.max(this.maxH, m.heights[k]);
     this.maxH = Math.max(this.maxH, patchMaxHeight(def.patches));
+    this.halls = this.world?.halls ?? [];
+    for (const h of this.halls) this.maxH = Math.max(this.maxH, hallMaxHeight(h));
     if (this.interior) m.each((i, j) => m.kind(i, j) === "window" && this.windows.push({ i, j }));
     this.bucketProps = Array.from({ length: m.w + m.h }, () => []);
     for (const p of def.props) this.addProp(p);
+    for (const p of this.hallProps) this.addProp(p);
     for (const t of taken) this.taken.add(t);
     if (this.world) {
       const w = this.world;
@@ -262,9 +287,13 @@ export class World {
       });
     }
 
+    // every hall starts closed up (another world on this map may have left one open), and opens again if she is inside it
+    for (const h of this.halls) forgetTiles(m, applyHallLayer(m, h, h.shell));
     this.hero = this.makeActor("hero", "hero", "heroine", hero.x, hero.y, hero.dir, "idle");
     this.hero.speed = 3.2;
     this.actors.push(this.hero);
+    this.trackHall(false);
+    this.hero.z = this.groundZ(this.hero.x, this.hero.y);
     this.syncPopulation(flags, true);
   }
 
@@ -283,7 +312,7 @@ export class World {
     flags = this.flags = this.withEnv(flags);
     const present = new Set(this.actors.map((a) => a.key));
     const h = this.hero;
-    for (const n of this.def.npcs) {
+    for (const n of this.allNpcs) {
       const want = !n.when || n.when(flags);
       if (want && present.has(n.key)) {
         // a change of clothes as the story moves on (Willow Creek's festival best), or as the snow comes
@@ -352,7 +381,11 @@ export class World {
   /** Story flags plus what the hour and the year add: `season:<name>`, `night` and `raining`. */
   withEnv(flags: Record<string, boolean>): Record<string, boolean> {
     const env: Record<string, boolean> = { ...flags };
-    for (const k of Object.keys(env)) if (k.startsWith("season:")) delete env[k];
+    for (const k of Object.keys(env)) if (k.startsWith("season:") || k.startsWith("hall:")) delete env[k];
+    if (this.hallHere) {
+      env[insideFlag(this.hallHere.hall.key)] = true;
+      env[storeyFlag(this.hallHere.hall.key, this.hallHere.storey)] = true;
+    }
     const c = calendarAt(this.time);
     env[`season:${c.season}`] = true;
     env.night = c.dusk > 0.55;
@@ -495,6 +528,77 @@ export class World {
     }
   }
 
+  // ------------------------------------------------------------------ the grand halls
+  private hallNpcCache: NpcPlacement[] | null = null;
+  /** Everyone in the world, the halls' folk among them. */
+  get allNpcs(): readonly NpcPlacement[] {
+    return (this.hallNpcCache ??= this.halls.length ? [...this.def.npcs, ...this.halls.flatMap((h) => h.npcs)] : this.def.npcs);
+  }
+  private hallItCache: Interactable[] | null = null;
+  /** Everything to read, open or use, the halls' among them. */
+  get allInteracts(): readonly Interactable[] {
+    return (this.hallItCache ??= this.halls.length ? [...this.def.interacts, ...this.halls.flatMap((h) => h.interacts)] : this.def.interacts);
+  }
+  /** The halls' furniture (each piece shown only on its own storey). */
+  get hallProps(): PropPlacement[] {
+    return this.halls.flatMap((h) => h.props);
+  }
+
+  /**
+   * Keep the halls in step with where she is: the shell from outside, and
+   * the storey she stands on from inside. Stepping into a footprint (through
+   * its door, or put down there by a teleport or a load) opens the hall onto
+   * the lowest storey with floor under her; near the top of a stair the
+   * storey above takes over, and near its foot the storey below.
+   */
+  trackHall(sync = true): void {
+    if (!this.halls.length) return;
+    const h = this.hero;
+    const cur = this.hallHere;
+    const hall = this.halls.find((x) => inHall(x, h.x, h.y)) ?? null;
+    if (!hall) {
+      if (cur) this.showHall(cur.hall, -1, sync);
+      return;
+    }
+    const [i, j] = [Math.floor(h.x), Math.floor(h.y)];
+    if (!cur || cur.hall !== hall) {
+      if (cur) this.showHall(cur.hall, -1, sync);
+      const k = (j - hall.rect[1]) * (hall.rect[2] - hall.rect[0] + 1) + (i - hall.rect[0]);
+      const n = hall.layers.findIndex((l) => layerFloor(l, k));
+      if (n >= 0) return this.showHall(hall, n, sync);
+      // nowhere to stand in there (inside a wall): she is put down on the step outside the door instead
+      const [di, dj] = hall.door[0];
+      h.x = di + 0.5 - hall.inward[0] * 1.6;
+      h.y = dj + 0.5 - hall.inward[1] * 1.6;
+      return;
+    }
+    const from = hall.stairs.get(j * this.def.map.w + i);
+    if (from === undefined) return;
+    const ht = this.def.map.height(i, j);
+    if (cur.storey === from && ht >= hall.floorZ[from] + STOREY - 1) this.showHall(hall, from + 1, sync);
+    else if (cur.storey === from + 1 && ht <= hall.floorZ[from] + 1) this.showHall(hall, from, sync);
+  }
+
+  /** Show one of a hall's states in the map: -1 the shell, otherwise that storey. */
+  private showHall(hall: GrandHall, n: number, sync: boolean): void {
+    const m = this.def.map;
+    forgetTiles(m, applyHallLayer(m, hall, n < 0 ? hall.shell : hall.layers[n]));
+    this.hallSeq++;
+    this.hallEdits.push({ rect: hall.rect, seq: this.hallSeq });
+    if (this.hallEdits.length > 8) this.hallEdits.shift();
+    this.hallHere = n < 0 ? null : { hall, storey: n };
+    if (n >= 0) this.hallMoved = { hall, storey: n };
+    // anyone who wandered in from outside goes home before the roof comes back down
+    if (n < 0)
+      for (const a of this.actors)
+        if (a !== this.hero && inHall(hall, a.x, a.y)) {
+          [a.x, a.y] = a.home;
+          a.target = null;
+          a.z = this.groundZ(a.x, a.y);
+        }
+    if (sync) this.syncPopulation(this.flags);
+  }
+
   // ------------------------------------------------------------------ queries
   groundZ(x: number, y: number): number {
     return Math.max(0, this.def.map.surface(Math.floor(x), Math.floor(y)));
@@ -577,7 +681,8 @@ export class World {
     h.flying = false;
     // she gets up off the ground she sat down on to wait
     if (h.idleAnim === "sit") h.idleAnim = "idle";
-    h.z = this.groundZ(x, y);
+    this.trackHall();
+    h.z = this.groundZ(h.x, h.y);
     this.camInit = false;
     this.footprints = [];
   }
@@ -591,7 +696,7 @@ export class World {
       const d = Math.hypot(a.x - h.x, a.y - h.y);
       if (d < 1.5 && (!best || d < best.d)) best = { npc: a, d };
     }
-    for (const it of this.def.interacts) {
+    for (const it of this.allInteracts) {
       if (Math.abs(it.i - h.x) > 6 || Math.abs(it.j - h.y) > 6) continue;
       if ((it.kind === "chest" || it.kind === "herb") && this.taken.has(it.key)) continue;
       if (it.when && !it.when(this.flags)) continue;
@@ -640,6 +745,7 @@ export class World {
    */
   update(dt: number, t: number, heroSafe: boolean, social = !heroSafe): Actor | null {
     this.clock = t;
+    this.trackHall();
     let touched: Actor | null = null;
     const h = this.hero;
     const cal = calendarAt(this.time);
@@ -1221,7 +1327,7 @@ export class World {
 
   isTakenAt(i: number, j: number): boolean {
     if (!this.taken.size) return false;
-    const it = this.def.interacts.find((x) => x.i === i && x.j === j && (x.kind === "chest" || x.kind === "herb"));
+    const it = this.allInteracts.find((x) => x.i === i && x.j === j && (x.kind === "chest" || x.kind === "herb"));
     return !!it && this.taken.has(it.key);
   }
 
