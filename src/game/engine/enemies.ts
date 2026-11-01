@@ -4,8 +4,9 @@ import type { TierBossId } from "../world/tiers";
 import type { PeopleBossId, PeopleFoeId } from "../world/peoples";
 import type { SeaBossId, SeaFoeId } from "../world/isles";
 import type { CourtBossId, CourtFoeId } from "../world/courts";
+import type { FoundingBossId, FoundingFoeId } from "../world/founding";
 
-export type EnemyId = "fox" | "wolf" | "serpent" | "serpentKing" | "cultist" | "jiangshi" | "bandit" | "swordsman" | "patriarch" | "emberwyrm" | "stonehound" | "poisoner" | "phoenixguard" | "traitor" | "elderMo" | DeepFoeId | HollowId | WarFoeId | WarBossId | EchoId | HallBossId | "wdspar" | TierBossId | "tjring" | PeopleFoeId | PeopleBossId | SeaFoeId | SeaBossId | CourtFoeId | CourtBossId;
+export type EnemyId = "fox" | "wolf" | "serpent" | "serpentKing" | "cultist" | "jiangshi" | "bandit" | "swordsman" | "patriarch" | "emberwyrm" | "stonehound" | "poisoner" | "phoenixguard" | "traitor" | "elderMo" | DeepFoeId | HollowId | WarFoeId | WarBossId | EchoId | HallBossId | "wdspar" | TierBossId | "tjring" | PeopleFoeId | PeopleBossId | SeaFoeId | SeaBossId | CourtFoeId | CourtBossId | FoundingFoeId | FoundingBossId;
 
 /** What lives in the four deeps found since: the hollow under Frostveil, the tomb under the sands, the sea cave and the bamboo's roots. */
 export type DeepFoeId = "frostfang" | "rimewyrm" | "dunewyrm" | "pearlwyrm" | "shadowvixen" | "smuggler";
@@ -339,7 +340,40 @@ const courtBosses = Object.fromEntries(
   }),
 ) as Record<CourtBossId, EnemyDef>;
 
+/**
+ * The troubles of the Founding (see world/founding.ts): what comes against
+ * her sect in each of its five books, and who waits at the end of each.
+ */
+const FOUNDING_FOE_LOOK: [FoundingFoeId, string, CharId, number, string, string, string, string][] = [
+  ["sandghoul", "Sand Ghoul", "jiangshi", 6, "Grit Claws", "Buried Alive", "#e8c890", "Something that drowned in the sand a long time ago claws its way up out of the dune, still hungry."],
+  ["poacher", "Disciple-Snatcher", "enforcer", 9, "Sack and Cudgel", "Silver Tongue", "#c8c8d8", "A man in Alliance white with a sack over his shoulder steps out from behind the dune. He has been counting your disciples."],
+  ["discordimp", "Imp of Discord", "ghost", 12, "Whispered Slight", "Every Old Grudge", "#c88aff", "A little grey thing with too many mouths slips out of a crack in the paving, whispering everyone's grievances at once."],
+  ["registerwraith", "Register-Eater", "ghostclerk", 15, "Erasing Brush", "Struck From the Rolls", "#ff6a8a", "A clerk of heaven with ink for eyes comes at you, brush raised to strike your name from something."],
+  ["zealot", "Alliance Zealot", "swordsman", 18, "Orthodox Blade", "No New Sects", "#e8f0ff", "A swordsman of the Orthodox Alliance draws on you in the sand. “There are enough sects under heaven.”"],
+];
+const FOUNDING_BOSS_LOOK: [FoundingBossId, string, CharId, number, string, string, string][] = [
+  ["tuba", "Tu Ba, the Dune Tyrant", "tuba", 7, "Sand-Saber", "Storm of the Dunes", "#e8c890"],
+  ["qiansou", "Qian Sou, the Disciple-Buyer", "qiansou", 10, "Golden Whisk", "A Price for Every Heart", "#f2c55c"],
+  ["houmian", "Hou Mian, the Two-Faced Elder", "houmian", 13, "Fan of Two Faces", "The Sect Divided", "#c88aff"],
+  ["falsestar", "The False Star of the Register", "falsestar", 16, "Forged Brush", "Name Unwritten", "#ff4a6a"],
+  ["guwuchen", "Gu Wuchen, Patriarch of the Orthodox Alliance", "guwuchen", 19, "Ten-Thousand-Sect Sword", "The Gate Is Closed", "#e8f8ff"],
+];
+const foundingFoes = Object.fromEntries(
+  FOUNDING_FOE_LOOK.map(([id, name, sprite, level, basic, special, colour, intro]) => {
+    const c = (level - 3) / 3;
+    return [id, { id, name, sprite, level, hp: Math.round(150 + 95 * c + 8 * c * c), atk: Math.round(22 + 6 * c), def: Math.round(7 + 3 * c), exp: Math.round(60 + 70 * c), stones: Math.round(12 + 8 * c), basic, special: { name: special, power: 1.6, every: 3, colour }, intro, speed: 1.2, aggro: 3 } satisfies EnemyDef];
+  }),
+) as Record<FoundingFoeId, EnemyDef>;
+const foundingBosses = Object.fromEntries(
+  FOUNDING_BOSS_LOOK.map(([id, name, sprite, level, basic, special, colour]) => {
+    const c = (level - 3) / 2;
+    return [id, { id, name, sprite, level, hp: Math.round(270 + 200 * c + 18 * c * c), atk: Math.round(22 + 5.4 * c), def: Math.round(7 + 3.2 * c), exp: Math.round(260 + 320 * c), stones: Math.round(80 + 60 * c), basic, special: { name: special, power: 1.8, every: 3, drain: c >= 5 ? 0.2 : undefined, colour }, boss: true, speed: 0, aggro: 1.4 } satisfies EnemyDef];
+  }),
+) as Record<FoundingBossId, EnemyDef>;
+
 export const ENEMIES: Record<EnemyId, EnemyDef> = {
+  ...foundingFoes,
+  ...foundingBosses,
   ...courtFoes,
   ...courtBosses,
   ...seaFoes,
