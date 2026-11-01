@@ -42,6 +42,7 @@ test.describe("in 3D", () => {
     await shot(page, "307-3d-the-coast-on-the-fine-grid");
 
     // close in on a shore: its steps are half a tile now, the staircases rounded off
+    await on(page, 614, 296);
     await camera(page, { alpha: -Math.PI / 4 - 0.5, beta: 1.0, radius: 26 });
     await ready(page, 4000);
     await quiet(page);
@@ -55,7 +56,7 @@ test.describe("in 3D", () => {
     await shot(page, "309-3d-the-taller-hills");
 
     // Liangdu, the Granary Throne: the throne under its canopy, the palace hall, the square full of townsfolk
-    await on(page, 84, 506);
+    await on(page, 83, 498);
     await camera(page, { alpha: -Math.PI / 4, beta: 0.95, radius: 40 });
     await ready(page, 6000);
     await quiet(page);
@@ -126,8 +127,16 @@ test.describe("in pixels", () => {
     await page.waitForTimeout(800);
     await page.keyboard.press("KeyE");
     await page.waitForTimeout(3000);
+    await quiet(page);
     await shot(page, "317-mother-yao-takes-an-apprentice");
+    // say yes (a question stops a skip), then let the lesson play out
+    for (let k = 0; k < 6; k++) {
+      await page.keyboard.press("Digit1");
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(300);
+    }
     await page.evaluate(() => window.__pixelop!.game.skipScene());
+    await page.waitForTimeout(500);
 
     // the journal: the ninth thread and the arts she knows
     await patch(page, { flags: { ...FLAGS, "craft:farming": true, "craft:refining": true, "craft:healing": true }, realm: 2, stage: 1, counters: { courts: 461, "craft:farming": 14, "craft:refining": 5, "craft:healing": 2 } });
