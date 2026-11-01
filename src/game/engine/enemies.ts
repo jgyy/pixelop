@@ -3,8 +3,9 @@ import type { HallBossId } from "../world/halls";
 import type { TierBossId } from "../world/tiers";
 import type { PeopleBossId, PeopleFoeId } from "../world/peoples";
 import type { SeaBossId, SeaFoeId } from "../world/isles";
+import type { CourtBossId, CourtFoeId } from "../world/courts";
 
-export type EnemyId = "fox" | "wolf" | "serpent" | "serpentKing" | "cultist" | "jiangshi" | "bandit" | "swordsman" | "patriarch" | "emberwyrm" | "stonehound" | "poisoner" | "phoenixguard" | "traitor" | "elderMo" | DeepFoeId | HollowId | WarFoeId | WarBossId | EchoId | HallBossId | "wdspar" | TierBossId | "tjring" | PeopleFoeId | PeopleBossId | SeaFoeId | SeaBossId;
+export type EnemyId = "fox" | "wolf" | "serpent" | "serpentKing" | "cultist" | "jiangshi" | "bandit" | "swordsman" | "patriarch" | "emberwyrm" | "stonehound" | "poisoner" | "phoenixguard" | "traitor" | "elderMo" | DeepFoeId | HollowId | WarFoeId | WarBossId | EchoId | HallBossId | "wdspar" | TierBossId | "tjring" | PeopleFoeId | PeopleBossId | SeaFoeId | SeaBossId | CourtFoeId | CourtBossId;
 
 /** What lives in the four deeps found since: the hollow under Frostveil, the tomb under the sands, the sea cave and the bamboo's roots. */
 export type DeepFoeId = "frostfang" | "rimewyrm" | "dunewyrm" | "pearlwyrm" | "shadowvixen" | "smuggler";
@@ -303,7 +304,44 @@ const seaBosses = Object.fromEntries(
   }),
 ) as Record<SeaBossId, EnemyDef>;
 
+/**
+ * The troubles of the Thrones and the Crafts (see world/courts.ts): what
+ * each book's trouble sends against her round the capitals, and the
+ * instrument of the Grand Tutor who waits at the end of each, tuned to the
+ * realm each book asks of her.
+ */
+const COURT_FOE_LOOK: [CourtFoeId, string, CharId, number, string, string, string, string][] = [
+  ["grainthief", "Granary Thief", "bandit", 5, "Sack-Hook", "Empty the Granary", "#e8c050", "A granary thief in a magistrate's borrowed tabard comes at you with a sack over one shoulder and a hook in his hand."],
+  ["breakerbow", "Sect-Breaker Bowman", "enforcer", 8, "Iron Bolt", "Qi-Severing Volley", "#9aa0b0", "A bowman of the Sect-Breaker Bows levels a crossbow whose bolts are tipped with something that drinks qi."],
+  ["elixirfiend", "Elixir-Mad Courtier", "jiangshi", 11, "Cinnabar Claws", "Mercury Breath", "#ff6a8a", "A courtier who drank one elixir too many lurches out, skin silvered with mercury, laughing at nothing."],
+  ["edictwraith", "Burning Edict", "hollow", 14, "Paper Cut", "Conscription by Fire", "#ff9a3a", "A forged edict tears itself off a wall and rises, burning at the edges, the vermilion seal on it still wet."],
+  ["arraygolem", "Rogue Array Guardian", "golem", 17, "Stone Fist", "The Wall Closes", "#8ad8c8", "A guardian of the Linzi wall-arrays has woken without its master's word, and it means to keep everyone in."],
+  ["mandatebeast", "Mandate-Bound Beast", "wolf", 20, "Collared Fang", "Heaven's Leash", "#ffd060", "A spirit beast with a golden collar of edict-script round its neck comes at you, eyes empty, obeying someone far away."],
+];
+const COURT_BOSS_LOOK: [CourtBossId, string, CharId, number, string, string, string][] = [
+  ["gouhoarder", "Magistrate Gou, the Granary Rat", "debtsmith", 6, "Tally-Stick Club", "Famine Ledger", "#e8c050"],
+  ["kuaitong", "Kuai Tong, Maker of the Sect-Breaker Bows", "overseer", 9, "Crossbow Stock", "Rain of Severing Bolts", "#c8ccd8"],
+  ["xufu", "Xu Fu, the False Immortal", "murongelder", 12, "Cinnabar Fan", "Elixir of Ten Thousand Years", "#ff5a8a"],
+  ["helian", "General Helian, Burner of Edicts", "inquisitor", 15, "Sealed Saber", "Mandate of Fire", "#ff8a3a"],
+  ["simaheng", "Regent Sima Heng", "justiciar", 18, "Jade Tablet of Office", "The Walls Remember", "#8ad8c8"],
+  ["feilian", "Fei Lian, Grand Tutor to Six Thrones", "grandtutor", 21, "Vermilion Brush", "Seal of Heaven's Mandate", "#ffd060"],
+];
+const courtFoes = Object.fromEntries(
+  COURT_FOE_LOOK.map(([id, name, sprite, level, basic, special, colour, intro]) => {
+    const c = (level - 3) / 3;
+    return [id, { id, name, sprite, level, hp: Math.round(150 + 95 * c + 8 * c * c), atk: Math.round(22 + 6 * c), def: Math.round(7 + 3 * c), exp: Math.round(60 + 70 * c), stones: Math.round(12 + 8 * c), basic, special: { name: special, power: 1.6, every: 3, colour }, intro, speed: 1.2, aggro: 3 } satisfies EnemyDef];
+  }),
+) as Record<CourtFoeId, EnemyDef>;
+const courtBosses = Object.fromEntries(
+  COURT_BOSS_LOOK.map(([id, name, sprite, level, basic, special, colour]) => {
+    const c = (level - 3) / 2;
+    return [id, { id, name, sprite, level, hp: Math.round(270 + 200 * c + 18 * c * c), atk: Math.round(22 + 5.4 * c), def: Math.round(7 + 3.2 * c), exp: Math.round(260 + 320 * c), stones: Math.round(80 + 60 * c), basic, special: { name: special, power: 1.8, every: 3, drain: c >= 5 ? 0.2 : undefined, colour }, boss: true, speed: 0, aggro: 1.4 } satisfies EnemyDef];
+  }),
+) as Record<CourtBossId, EnemyDef>;
+
 export const ENEMIES: Record<EnemyId, EnemyDef> = {
+  ...courtFoes,
+  ...courtBosses,
   ...seaFoes,
   ...seaBosses,
   ...peopleFoes,

@@ -61,7 +61,8 @@ describe("a busier jianghu", () => {
   const crowd = w.npcs.filter((n) => n.key.startsWith("crowd:"));
 
   it("gives nearly every person of the open world a neighbour of their own kind (the peoples' homes keep their own folk)", () => {
-    const folk = w.npcs.filter((n) => !n.key.startsWith("crowd:") && !n.key.startsWith("pe-")).length;
+    // (the six courts keep their own folk, and their townsfolk are crowd enough)
+    const folk = w.npcs.filter((n) => !n.key.startsWith("crowd:") && !n.key.startsWith("pe-") && !n.key.startsWith("ct-")).length;
     expect(crowd.some((n) => w.npcs.some((p) => p.key.startsWith("pe-") && Math.hypot(p.i - n.i, p.j - n.j) < 3))).toBe(false);
     expect(crowd.length).toBeGreaterThan(folk * 0.95);
     for (const n of crowd) {
