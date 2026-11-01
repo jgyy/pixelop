@@ -109,6 +109,90 @@ New moves: Lin Yue **rummages** in her satchel when the menu opens and **shades 
 - A foundling who runs up the sky bridge before facing the fox is no longer greeted for the "fox blood on her sleeve", or told she has "already met" the beast.
 
 
+### The world reshaped: bays and headlands, the Sea of Pearls, the Nine Springs, odd-shaped houses, and 1,200 more quests
+
+The jianghu used to be cut out of the clouds along ruler lines: a big rectangle of land with square corners, square biome patches and a square island under the City of Nine Tiers. Now the coast has bays, coves and headlands; the biomes run into one another in lobes and tongues; the Stairlands are a ragged island; and south of the Tidewater Reach, where there used to be nothing but cloud, a **real sea** opens up with **eight isles** of their own shapes, joined by plank bridges. Under one of them a stair goes down to the **underworld**.
+
+| Before | After |
+|---|---|
+| ![The world before: rectangles](docs/screenshots/305-world-before.png) | ![The world after: coasts, sea and isles](docs/screenshots/306-world-after.png) |
+
+- **Organic coastline.** The old outline is first rounded off (a morphological opening: any corner sharper than a circle 72 tiles across falls away), then eaten back by a wandering depth into bays and coves. Ten tiles of land always stay round anything that matters (regions, roads, rivers and sites), and the carve is applied only after every NPC, beast, chest and building has been placed, so nobody is ever left standing on a cliff edge. If a carve ever cuts someone off from the highway, the land round them comes back in widening rings until they can walk home.
+- **Biomes without borders.** Each biome still grows from its rectangle, but through a warped lens, so the steppe, the maple woods, the sands and the badlands swirl into each other. Right round a hand-built region the lens straightens out, so every region still stands in its own country.
+- **The Sea of Pearls (珠海).** The world grew south again, by 140 rows, and the cloud below Hailing and east of the Stairlands turned to deep blue sea with green shallows. Its eight isles each have a shape of their own: **Pearlgate** (a blob with round houses), **Turtleback** (long and thin), **Lantern Reef**, **Crescent Isle** (a horned new moon, open water between its horns), **the Dragon King's Isle**, **Ghost Gate Isle** (black ash and dead trees), **the Coral Ring** (an atoll round a lagoon) and **Penglai**, plus islets nobody lives on. Plank bridges run from Hailing's quay and from the Stairlands' eastern shore. The sea belongs to the eastern shore, so it has the harbour's sky and weather.
+- **The Nine Springs (九泉)**, a 120 × 120 underworld under Ghost Gate Isle: the Road of Yellow Springs, the Ghost Market, the Naihe Bridge over the River of Forgetting, Meng Po's pavilion, the Terrace of Gazing Homeward, the Field of Wandering Souls, the Mirror of Retribution, King Yama's Fifth Court, the Ledger Vault, the Tenth Court and the pool of blood. **The Drowned Palace (水晶宫)** lies under the Dragon King's isle.
+- **Buildings in odd shapes.** Four new ray-cast buildings: the **tulou** (a round earthen house, one ring of wall round an open courtyard and a well), the **octotower** (an eight-sided tower of three diminishing roofs), the **domehut** (a beehive hut of coral stone) and the **crescenthall** (a long hall bent round like the new moon, with a barrel roof following the curve). Indoors, rooms are no longer all boxes: the Hall of Clouds, the pagoda and the Pavilion of Nine Fragrances are **octagonal**, the teahouse and the Willow Inn are **round**, and the cottage, the mill and the dorm are **L-shaped**, with diagonal plastered walls at the back and low sills at the front so the camera still sees in.
+
+| | |
+|---|---|
+| ![Pearlgate's round houses](docs/screenshots/292-3d-pearlgate-round-houses.png) | ![The bridges of the sea](docs/screenshots/293-3d-the-bridges-of-the-sea.png) |
+| ![Crescent Isle](docs/screenshots/294-3d-crescent-isle.png) | ![Ghost Gate Isle](docs/screenshots/295-3d-ghost-gate-isle.png) |
+| ![Penglai](docs/screenshots/296-3d-penglai.png) | ![The new coast](docs/screenshots/297-3d-the-new-coast.png) |
+| ![The Ghost Market](docs/screenshots/298-3d-the-ghost-market.png) | ![The Naihe Bridge](docs/screenshots/299-3d-the-naihe-bridge.png) |
+| ![An octagonal room](docs/screenshots/300-3d-an-octagonal-room.png) | ![Pearlgate in pixels](docs/screenshots/301-pearlgate-pixels.png) |
+| ![The world map over the sea](docs/screenshots/302-world-map-the-sea-of-pearls.png) | ![Meng Po](docs/screenshots/303-meng-po.png) |
+
+```mermaid
+flowchart TD
+  A["1 · wild land<br/>(old outline, biomes through a warped lens)"] --> B["2–6 · regions, isles in the sky,<br/>sites, rivers, roads"]
+  B --> C["6½ · carveCoast<br/>opening (R = 36) + wandering bite<br/>→ a mask, not applied yet"]
+  C --> D["6¾ · the Sea of Pearls<br/>cloud → deep sea, isles by shape,<br/>shallows, plank bridges"]
+  D --> E["7–9 · smoothing, landmarks,<br/>the isles' people and houses"]
+  E --> F["9½ · applyCoast<br/>skip anything within 4 tiles of a placement;<br/>coast inside the sea → shallows"]
+  F --> G{"anyone cut off<br/>from the highway?"}
+  G -- yes --> H["give back the carved land round them<br/>(10 → 20 → 34 → 56 tiles)"] --> G
+  G -- no --> I["10–14 · trees, Scale2x magnify,<br/>regions, crowds"]
+```
+
+```mermaid
+flowchart LR
+  HL["Hailing's quay"] --- PG["Pearlgate 珠门岛<br/>round houses · Book I"]
+  PG --- TB["Turtleback 龟背岛"]
+  PG --- LR["Lantern Reef 灯礁"]
+  PG --- CR["Crescent Isle 月牙岛<br/>crescent hall · Book II"]
+  CR --- DK["Dragon King's Isle 龙王岛<br/>Book III"]
+  DK -. "cave" .-> DP[("Drowned Palace 水晶宫")]
+  CR --- AT["Coral Ring 珊瑚环"]
+  TB --- GG["Ghost Gate Isle 鬼门岛<br/>Book IV"]
+  GG -. "stair down" .-> NS[("The Nine Springs 九泉<br/>Ghost Market · Naihe Bridge<br/>Books V & VI")]
+  TB --- PL["Penglai 蓬莱"]
+  PL --- ST["The Stairlands · Tianjie"]
+```
+
+#### The Sea of Pearls and the Nine Springs: 1,200 quests
+
+The eighth thread of the tale (珠海九泉), six books of 200 quests each, **1,200 in all**, composed from their number the way the Hundred Peoples are, so the save holds only two counters (`seas` and `seasp`) and old saves load unchanged. A bell rings under the sea at the third watch and the people of Pearlgate wake as someone else; a sea abbess's sister holds the tide in for her drowned son; the Dragon King sleeps with soup on his breath; the Ghost Gate stands open; someone is stealing **Meng Po's soup of forgetting**; and someone has been rewriting **the ledger of life and death**.
+
+| Book | Where | Trouble at the end |
+|---|---|---|
+| I · The Drowned Bell 沉钟 | Pearlgate Isle | Hei Fan, Queen of the Black Sail |
+| II · The Tide That Did Not Turn 不退之潮 | Crescent Isle | Hai Yao, the Tide Witch |
+| III · The Dragon King's Debt 龙王之债 | the Dragon King's Isle & Drowned Palace | Ao Shun, the Drowned Dragon King |
+| IV · The Gate That Stands Open 鬼门大开 | Ghost Gate Isle | Ox-Head, Warden of the Ghost Gate |
+| V · Meng Po's Soup 孟婆汤 | the Nine Springs: Ghost Market, Naihe Bridge | Broker Yin of the Ghost Market |
+| VI · The Ledger of Life and Death 生死簿 | the Ten Courts | Mo Xie, the False King of the Tenth Court |
+
+Each book has hand-written beats with choices that walk her heart along the four Daos, the rites of its isle or court (main quests), a realm gate halfway, a boss with four fates, and side quests that go **across the whole jianghu**: favours, goods carried between the isles, tales told to folk of every land the Founder's Road runs through, hunts of the book's own foe, sittings at lotus shrines in **all eleven regions**, and walks to more than twenty places, from the Sword Tomb and the Moon-Gazing Pavilion to Tianjie and Penglai. Eight new characters (Meng Po, King Yama, a ghost clerk, a soul guard, a pearl diver, a ferryman, a sea abbess, a pirate captain), six new foes and six new bosses.
+
+| ![The journal](docs/screenshots/304-journal-the-sea-of-pearls.png) |
+|---|
+
+```mermaid
+stateDiagram-v2
+  direction LR
+  [*] --> Beat: Pearl-Mother Bei (step 0)
+  Beat --> Side: favour · trade · tale · hunt · sit · visit
+  Side --> Rite: every 10th quest + 5
+  Rite --> Side
+  Side --> Gate: step 100 (realm check)
+  Gate --> Side: realm reached
+  Side --> Beat: hand-written steps
+  Side --> Duel: step 199
+  Duel --> Fate: mercy · sword · balance · slaughter
+  Fate --> Beat: next book
+  Fate --> [*]: after book VI, the ending
+```
+
 ### The grand halls of the sects: three storeys, no loading, and quests that walk
 
 The sects build big. Two **grand halls** now stand in the open world, each three storeys high with **well over a thousand tiles of floor** (about 1,700 in each), and neither is a separate room you load into. You walk through the door, and the building opens up around you in the same world, with the same sky and the same folk walking past outside.

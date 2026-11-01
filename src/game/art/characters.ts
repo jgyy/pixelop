@@ -1869,6 +1869,15 @@ export const STYLES = {
   dragonfolkM: s({ robe: ramp("#7a3a2a", { lo: "#1a0806" }), inner: PAL.gold, trim: PAL.orange, sash: PAL.orange, skin: PAL.skinTan, hair: PAL.hairAuburn, hairStyle: "short", eye: "#e8a020", horns: ramp("#c8b080", { lo: "#4a3a1a" }), hornStyle: "dragon", scale: 1.06, hem: 4.2, flare: 4.6 }),
   dragonfolkF: s({ robe: ramp("#d8a040", { lo: "#4a2a08" }), inner: PAL.red, trim: PAL.red, sash: PAL.red, skin: ramp("#f0d0b0", { lo: "#8a4a3a", spread: 0.8 }), hair: PAL.hairBlack, hairStyle: "bun", female: true, eye: "#e8a020", horns: ramp("#f2e0a0", { lo: "#7a5a20" }), hornStyle: "dragon", flare: 5.4 }),
   dragonlord: s({ robe: ramp("#1a1a1a", { lo: "#000000" }), inner: PAL.orange, trim: PAL.gold, sash: PAL.crimson, skin: ramp("#c8a088", { lo: "#4a2018", spread: 0.8 }), hair: PAL.hairBlack, hairStyle: "wild", glowEyes: "#ffb040", horns: ramp("#3a3030", { lo: "#000000" }), hornStyle: "dragon", weapon: "saber", weaponRamp: PAL.gold, scale: 1.36, flare: 6.4, cape: ramp("#a8182e", { lo: "#2a0010" }) }),
+  // the Sea of Pearls and the Nine Springs (see world/isles.ts)
+  mengpo: s({ robe: ramp("#8a8aa0", { lo: "#2a2a3a" }), inner: PAL.paper, trim: PAL.lavender, sash: PAL.lavender, hair: PAL.hairWhite, hairStyle: "bun", female: true, hunch: 0.2, scale: 0.9, weapon: "staff", weaponRamp: PAL.wood, eye: "#6a6a8a", flare: 5.4 }),
+  yama: s({ robe: ramp("#1a1a2a", { lo: "#000000" }), inner: PAL.crimson, trim: PAL.gold, sash: PAL.crimson, hair: PAL.hairBlack, beard: PAL.hairBlack, hairStyle: "topknot", hat: "crown", hatRamp: PAL.gold, weapon: "fan", scale: 1.18, flare: 6.6, cape: ramp("#6a0a1a", { lo: "#1a0006" }), eye: "#ff4a3a" }),
+  ghostclerk: s({ robe: ramp("#3a4a5a", { lo: "#0a1018" }), inner: PAL.paper, trim: PAL.paper, sash: PAL.black, skin: PAL.skinPale, hair: PAL.hairBlack, hairStyle: "short", hat: "scholar", hatRamp: PAL.black, weapon: "fan", eye: "#8ac8ff", flare: 5, hem: 2 }),
+  soulguard: s({ robe: ramp("#2a2a3a", { lo: "#000000" }), inner: PAL.crimson, trim: PAL.crimson, sash: PAL.crimson, skin: ramp("#8a7a8a", { lo: "#2a1a2a" }), hairStyle: "wild", hair: PAL.hairBlack, hat: "helmet", hatRamp: ramp("#4a4a5a"), glowEyes: "#ff6040", weapon: "spear", scale: 1.12, flare: 4.8 }),
+  pearldiver: s({ robe: ramp("#2a9ab0", { lo: "#0a2a3a" }), inner: PAL.white, trim: PAL.white, sash: PAL.rose, hair: PAL.hairBlack, hairStyle: "long", female: true, skin: PAL.skinTan, eye: "#2a4a3a", flare: 4.2, hem: 4.8, shoes: PAL.brown }),
+  ferryman: s({ robe: ramp("#4a4a3a", { lo: "#10100a" }), inner: PAL.paper, trim: PAL.brown, sash: PAL.brown, hair: PAL.hairGrey, beard: PAL.hairGrey, hairStyle: "short", hat: "straw", hatRamp: PAL.straw, skin: PAL.skinTan, weapon: "rod", hunch: 0.12, flare: 4.6, hem: 4.2 }),
+  seaabbess: s({ robe: ramp("#e8f4f8", { lo: "#3a6a8a" }), inner: PAL.teal, trim: PAL.teal, sash: PAL.navy, hairStyle: "bald", female: true, weapon: "whisk", shawl: ramp("#5ab0c8"), hunch: 0.04, flare: 6, eye: "#2a6a8a" }),
+  piratequeen: s({ robe: ramp("#2a2a2a", { lo: "#000000" }), inner: PAL.crimson, trim: PAL.gold, sash: PAL.crimson, hair: PAL.hairBlack, hairStyle: "wild", female: true, hat: "hood", hatRamp: ramp("#1a1a1a"), skin: PAL.skinTan, weapon: "saber", weaponRamp: PAL.gold, flare: 5, cape: ramp("#8a1020", { lo: "#200006" }) }),
 } satisfies Record<string, HumanStyle>;
 
 export type HumanId = keyof typeof STYLES;
@@ -2150,6 +2159,14 @@ const HUMAN_ANIMS: Record<HumanId, AnimId[]> = {
   dragonfolkM: ["idle", "walk", "talk", "nod", "bow", "wave", "firebreath", "read", "hammer"],
   dragonfolkF: ["idle", "walk", "talk", "nod", "bow", "wave", "firebreath", "hammer", "sworddance"],
   dragonlord: ["idle", "walk", "talk", "attack", "cast", "hurt", "defeat", "kowtow", "laugh", "roar", "firebreath"],
+  mengpo: ["idle", "walk", "talk", "nod", "pour", "stir", "brew", "laugh", "sit"],
+  yama: ["idle", "walk", "talk", "attack", "cast", "hurt", "defeat", "kowtow", "laugh", "roar", "write", "read"],
+  ghostclerk: ["idle", "walk", "talk", "nod", "bow", "write", "abacus", "read", "float"],
+  soulguard: ["idle", "walk", "talk", "attack", "cast", "hurt", "defeat", "kowtow", "spear", "march", "roar"],
+  pearldiver: ["idle", "walk", "talk", "nod", "wave", "bow", "fish", "castnet", "laugh", "dig"],
+  ferryman: ["idle", "walk", "talk", "nod", "bow", "row", "fish", "yawn"],
+  seaabbess: ["idle", "walk", "talk", "nod", "bow", "pray", "chant", "meditate", "cast"],
+  piratequeen: ["idle", "walk", "talk", "attack", "cast", "hurt", "defeat", "kowtow", "laugh", "roar", "point"],
 };
 
 /** Whether a character has an animation of its own. */
@@ -2157,6 +2174,21 @@ export const hasAnim = (id: HumanId, anim: AnimId) => HUMAN_ANIMS[id].includes(a
 
 // the jianghu's new manners: mortals kneel to a cultivator far above them, gossip behind a hand, haggle and raise a cup
 const MORE: [AnimId, HumanId[]][] = [
+  // the Sea of Pearls' and the Nine Springs' foes and bosses that never fought before
+  ["attack", ["merchant", "marshwitch", "merfolkM", "ghost"]],
+  ["hurt", ["merchant", "marshwitch", "merfolkM", "ghost"]],
+  ["cast", ["merchant", "merfolkM", "ghost"]],
+  ["defeat", ["merchant", "marshwitch", "merfolkM", "ghost"]],
+  // and what the isles' and the courts' folk are seen doing
+  ["lantern", ["heroine", "lampkeeper"]],
+  ["chant", ["shaman"]],
+  ["sweep", ["villagerM", "keeper"]],
+  ["pray", ["merfolkF"]],
+  ["cry", ["lady"]],
+  ["look", ["soldier"]],
+  ["write", ["archivist"]],
+  ["scrub", ["novice"]],
+  ["weave", ["villagerF"]],
   ["kneel", ["heroine", "villagerM", "villagerF", "farmer", "porter", "fishwife", "cook", "peddler", "refugeeM", "refugeeF", "miner", "teapicker", "orchardist", "woodcutter", "merchant", "teawoman", "miller", "millhand", "weaver", "boatwoman", "herbalist", "guard", "lady", "scholar", "storyteller", "nomad"]],
   ["whisper", ["heroine", "villagerM", "villagerF", "lady", "merchant", "cook", "teawoman", "fishwife", "peddler", "scholar", "storyteller", "guard", "porter"]],
   ["haggle", ["heroine", "merchant", "peddler", "villagerF", "villagerM", "cook", "fishwife", "teawoman", "nomad"]],
@@ -2377,6 +2409,14 @@ const NAMES: Record<CharId, [string, string]> = {
   dragonfolkM: ["Dragon-Kin", "Emberscale Hold"],
   dragonfolkF: ["Dragon-Kin", "Emberscale Hold"],
   dragonlord: ["Ao Kuang", "The Unbound"],
+  mengpo: ["Meng Po", "Keeper of the Soup of Forgetting"],
+  yama: ["King Yama", "Judge of the Dead"],
+  ghostclerk: ["Ghost Clerk", "The Courts of the Nine Springs"],
+  soulguard: ["Soul Guard", "The Gate of Ghosts"],
+  pearldiver: ["Pearl Diver", "The Sea of Pearls"],
+  ferryman: ["Ferryman", "The Sea of Pearls"],
+  seaabbess: ["Sea Abbess", "Turtleback Isle"],
+  piratequeen: ["Pirate Captain", "The Black Sail"],
   fox: ["Fox Spirit", "Corrupted Beast"],
   wolf: ["Shadowflame Wolf", "Corrupted Beast"],
   serpent: ["Jade Serpent", "Lake Beast"],

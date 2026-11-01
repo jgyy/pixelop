@@ -175,7 +175,7 @@ describe("the continuous world", () => {
 
   it("is four times the version 4 world across, and has grown south beyond that, with its landmarks on open land", () => {
     expect(WORLD_W).toBe(324 * 4);
-    expect(WORLD_H).toBe(660 * WORLD_SCALE);
+    expect(WORLD_H).toBe(800 * WORLD_SCALE);
     expect(WORLD_H).toBeGreaterThan(232 * 4);
     expect(walkable.size).toBeGreaterThan(600000);
     expect(w.landmarks.length).toBeGreaterThanOrEqual(18);

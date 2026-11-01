@@ -57,6 +57,10 @@ export const STRUCTURE_SCALE: Partial<Record<PropId, number>> = {
   tiergate: 2,
   stairseal: 2,
   bigscale: 2,
+  tulou: 3,
+  octotower: 2,
+  domehut: 2,
+  crescenthall: 2,
 };
 
 /** Props of the wild that are scattered more thickly once the land doubles (a second one shares the tile block). */

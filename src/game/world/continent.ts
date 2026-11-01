@@ -4,9 +4,10 @@ import { AREA_IDS, festive, getArea, placementTiles, type AreaDef, type AreaId, 
 import { getInterior, INTERIOR_IDS } from "./interiors";
 import { roomDoors } from "./rooms";
 import { COARSE_H, COARSE_ORIGIN, COARSE_W, DOMAIN, heldBy, HOLDS, regionRect, toCoarse, toWorld, WORLD_H, WORLD_SCALE, WORLD_W } from "./layout";
-import { companionOf, magnifyMap, magnifyProp, pointTile } from "./magnify";
-import { LIQUID, TileMap, type TileKind } from "./tilemap";
+import { companionOf, magnifyMap, magnifyProp, pointTile, STRUCTURE_SCALE } from "./magnify";
+import { LIQUID, TileMap, TILE_KINDS, type TileKind } from "./tilemap";
 import { CAVE_IDS, CAVE_MOUTH, deepFolk } from "./caves";
+import { inLagoon, inSea, isleByKey, isleDepth, ISLES as SEA_ISLES, SEA_BOOK_COUNT, SEA_BRIDGES, SEA_CAST, SEA_SPOTS, seaFolkKey, seaGuideKey, seaPatronKey } from "./isles";
 import { layWar } from "./warfront";
 import { layRoad } from "./roadside";
 import { STREET_FOLK, TIDE_FOLK } from "./road";
@@ -302,10 +303,24 @@ const mainlandMask = (i: number, j: number) => {
   // the Tidewater Reach, round the port of Hailing and its lagoon
   const tide = j >= 440 + n && j <= 548 + n + shore * 0.3 && i >= 460 + n * 0.6 && i <= 628 + n * 0.6 + shore * 0.2;
   // the Stairlands across the strait, round the City of Nine Tiers
-  const stair = j >= 562 + n * 0.5 && j <= 656 && i >= 142 + n * 0.6 - shore * 0.15 && i <= 302 + n * 0.6 + shore * 0.15;
+  const stair = stairBlob(i, j);
   const east = j >= 56 + n - shore && j <= 448 + n + shore && i >= 346 + n * 0.6 && (j > 222 && j < 282 ? i <= 621 : i <= 636 + n * 0.6 + shore);
   return old || south || east || river || tide || stair;
 };
+
+/**
+ * The Stairlands: no longer a cut-out slab but an island of lobes and
+ * headlands round the City of Nine Tiers' lowest tier, held clear of the
+ * strait of cloud the Nine-Arch Bridge crosses.
+ */
+function stairBlob(i: number, j: number): boolean {
+  if (j < 560) return false;
+  const [x0, y0, x1, y1] = tierRect(0);
+  const x = i + (fbm(i * 0.03, j * 0.03, 331) - 0.5) * 24;
+  const y = j + (fbm(i * 0.03, j * 0.03, 332) - 0.5) * 24;
+  const d = Math.hypot(Math.max(x0 - x, 0, x - x1), Math.max(y0 - y, 0, y - y1));
+  return d <= 6 + fbm(i * 0.025, j * 0.025, 333) * 46 - 6;
+}
 
 /**
  * Mountain ranges thrown up over the wilds (authoring grid): the land rises
@@ -354,14 +369,20 @@ const rectDist = ([x0, y0, x1, y1]: [number, number, number, number], x: number,
 /** Every wild biome with the rectangle it grows from (authoring grid). */
 const BIOME_RECTS: [WildId, [number, number, number, number]][] = [...GROUND.map((id): [WildId, [number, number, number, number]] => [id, regionRect(id, 1)]), ...ZONES];
 const WILD_IDS = Object.keys(WILD) as WildId[];
+const GROUND_RECTS = GROUND.map((id) => regionRect(id, 1));
 
 /** Nearest wild biome (an index into WILD_IDS), with a noisy border so biomes interleave. */
 const BIOME_INDEX = BIOME_RECTS.map(([id]) => WILD_IDS.indexOf(id));
 const BIOME_SEED = BIOME_RECTS.map(([id]) => 60 + id.length);
 const biomeDist = new Float64Array(BIOME_RECTS.length);
 function wildRegion(i: number, j: number): number {
-  const x = i + 0.5;
-  const y = j + 0.5;
+  // the biomes grow from their rectangles through a warped lens, so their borders swirl into lobes and tongues instead of running straight
+  // (right round a hand-built region the lens straightens out again, so each region still stands in its own country)
+  let near = Infinity;
+  for (const r of GROUND_RECTS) near = Math.min(near, rectDist(r, i + 0.5, j + 0.5));
+  const lens = Math.min(1, near / 24);
+  const x = i + 0.5 + ((fbm(i * 0.016, j * 0.016, 311) - 0.5) * 84 + (fbm(i * 0.05, j * 0.05, 313) - 0.5) * 16) * lens;
+  const y = j + 0.5 + ((fbm(i * 0.016, j * 0.016, 312) - 0.5) * 84 + (fbm(i * 0.05, j * 0.05, 314) - 0.5) * 16) * lens;
   let nearest = Infinity;
   for (let k = 0; k < BIOME_RECTS.length; k++) {
     biomeDist[k] = rectDist(BIOME_RECTS[k][1], x, y);
@@ -403,6 +424,130 @@ function stroke(points: [number, number][], width: number, fn: (i: number, j: nu
           seen.add(k);
           fn(i, j);
         }
+    }
+  }
+}
+
+/** Chamfer distance (in tiles) from every tile of a grid to the nearest seed tile. */
+function chamfer(W: number, H: number, seed: (n: number) => boolean): Float32Array {
+  const d = new Float32Array(W * H);
+  for (let n = 0; n < d.length; n++) d[n] = seed(n) ? 0 : 1e6;
+  const D = Math.SQRT2;
+  for (let j = 0; j < H; j++)
+    for (let i = 0; i < W; i++) {
+      const n = j * W + i;
+      let v = d[n];
+      if (i > 0) v = Math.min(v, d[n - 1] + 1);
+      if (j > 0) {
+        v = Math.min(v, d[n - W] + 1);
+        if (i > 0) v = Math.min(v, d[n - W - 1] + D);
+        if (i < W - 1) v = Math.min(v, d[n - W + 1] + D);
+      }
+      d[n] = v;
+    }
+  for (let j = H - 1; j >= 0; j--)
+    for (let i = W - 1; i >= 0; i--) {
+      const n = j * W + i;
+      let v = d[n];
+      if (i < W - 1) v = Math.min(v, d[n + 1] + 1);
+      if (j < H - 1) {
+        v = Math.min(v, d[n + W] + 1);
+        if (i < W - 1) v = Math.min(v, d[n + W + 1] + D);
+        if (i > 0) v = Math.min(v, d[n + W - 1] + D);
+      }
+      d[n] = v;
+    }
+  return d;
+}
+
+/**
+ * Carve the coast. The old lands were cut out of the clouds along straight
+ * lines, so the wild shore is first rounded (every corner sharper than a
+ * circle two dozen tiles across falls away) and then eaten back by a
+ * wandering depth into bays, coves and headlands. Ten tiles of land stay
+ * round anything of note: regions, roads, rivers and sites.
+ */
+function carveCoast(m: TileMap, fixed: Uint8Array): Uint8Array {
+  const W = m.w;
+  const H = m.h;
+  const VOID = 0;
+  const R = 36;
+  const carve = new Uint8Array(W * H);
+  const near = chamfer(W, H, (n) => fixed[n] > 0);
+  const shore = chamfer(W, H, (n) => m.kinds[n] === VOID);
+  const core = chamfer(W, H, (n) => shore[n] >= R);
+  m.each((i, j) => {
+    const n = j * W + i;
+    if (near[n] <= 10 || m.kinds[n] === VOID) return;
+    const bite = 2 + Math.max(0, fbm(i * 0.022, j * 0.022, 325) - 0.42) * 170 + fbm(i * 0.07, j * 0.07, 326) * 10;
+    if (core[n] <= R && shore[n] > bite) return;
+    carve[n] = 1;
+  });
+  return carve;
+}
+
+/**
+ * Let the coast fall away where carveCoast marked it, but never within a few
+ * tiles of anyone or anything placed in the wilds; where the shore falls into
+ * the Sea of Pearls it becomes shallow water, not cloud.
+ */
+function applyCoast(m: TileMap, fixed: Uint8Array, wildOf: Uint8Array, carve: Uint8Array, keep: [number, number][]): void {
+  const W = m.w;
+  const N = W * m.h;
+  const guard = new Uint8Array(N);
+  for (const [x, y] of keep)
+    for (let b = -4; b <= 4; b++)
+      for (let a = -4; a <= 4; a++) if (m.inside(x + a, y + b)) guard[(y + b) * W + x + a] = 1;
+  // what each fallen tile was, so it can be put back if the fall cut someone off
+  const was = new Map<number, [number, number, number, number]>();
+  const drop = (i: number, j: number) => {
+    const n = j * W + i;
+    if (!was.has(n)) was.set(n, [m.kinds[n], m.heights[n], wildOf[n], fixed[n]]);
+    wildOf[n] = 0;
+    if (inSea(i, j)) {
+      m.set(i, j, "water", 0);
+      fixed[n] = 2;
+    } else m.set(i, j, "void", 0);
+  };
+  m.each((i, j) => {
+    const n = j * W + i;
+    if (carve[n] && !guard[n] && !fixed[n] && m.kinds[n] !== 0 && !LIQUID[m.kind(i, j)]) drop(i, j);
+  });
+  // and no lonely specks of land left floating where the coast fell away
+  m.each((i, j) => {
+    const n = j * W + i;
+    if (fixed[n] || guard[n] || m.kinds[n] === 0 || LIQUID[m.kind(i, j)]) return;
+    let land = 0;
+    for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) if ((a || b) && m.kind(i + a, j + b) !== "void" && !LIQUID[m.kind(i + a, j + b)]) land++;
+    if (land <= 2) drop(i, j);
+  });
+  // whoever the fall cut off from the highway gets their land back, a wider ring of it each time, until they are joined up again
+  const land = (n: number) => m.kinds[n] !== 0 && (!LIQUID[TILE_KINDS[m.kinds[n]]] || TILE_KINDS[m.kinds[n]] === "wood");
+  for (const radius of [10, 20, 34, 56]) {
+    const comp = new Uint8Array(N);
+    const start = 166 * W + 200;
+    const q = [start];
+    comp[start] = 1;
+    for (let qi = 0; qi < q.length; qi++) {
+      const n = q[qi];
+      const i = n % W;
+      for (const nb of [i > 0 ? n - 1 : -1, i < W - 1 ? n + 1 : -1, n - W, n + W]) {
+        if (nb < 0 || nb >= N || comp[nb] || !land(nb) || Math.abs(m.heights[nb] - m.heights[n]) > 1) continue;
+        comp[nb] = 1;
+        q.push(nb);
+      }
+    }
+    const lost = keep.filter(([x, y]) => m.inside(x, y) && land(y * W + x) && !comp[y * W + x]);
+    if (!lost.length) return;
+    for (const [n, [k, h, wo, fx]] of was) {
+      const i = n % W;
+      const j = (n / W) | 0;
+      if (!lost.some(([x, y]) => Math.hypot(i - x, j - y) <= radius)) continue;
+      m.kinds[n] = k;
+      m.heights[n] = h;
+      wildOf[n] = wo;
+      fixed[n] = fx;
+      was.delete(n);
     }
   }
 }
@@ -612,7 +757,12 @@ function buildWorld(): WorldDef {
       for (let i = fx0; i < fx1; i++) {
         const k = tierAt(i, j);
         const avenue = i >= AVENUE[0] && i <= AVENUE[1] && j < TIANJIE_C[1];
-        if (k < 0) m.set(i, j, hash2(i, j, 160) > 0.82 ? "dirt" : hash2(i, j, 161) > 0.9 ? "moss" : "grass", 1);
+        if (k < 0) {
+          // the flats round the foot of the city only run a little way out: past that the island is wild
+          const [tx0, ty0, tx1, ty1] = tierRect(0);
+          if (Math.hypot(Math.max(tx0 - i, 0, i - tx1 + 1), Math.max(ty0 - j, 0, j - ty1 + 1)) > 3 + fbm(i * 0.2, j * 0.2, 334) * 4 && !(i >= AVENUE[0] - 2 && i <= AVENUE[1] + 2)) continue;
+          m.set(i, j, hash2(i, j, 160) > 0.82 ? "dirt" : hash2(i, j, 161) > 0.9 ? "moss" : "grass", 1);
+        }
         else m.set(i, j, avenue ? "plaza" : k === 0 && hash2(i, j, 162) > 0.7 ? "grass" : SURFACE[k], tierHeight(k));
         fix(i, j, 1);
       }
@@ -756,6 +906,62 @@ function buildWorld(): WorldDef {
   walkway([toCoarse("sect", 4, 15), [ISLES[3].c[0] + 6, ISLES[3].c[1]]], 2.2);
   walkway([toCoarse("sect", 7, 7), [ISLES[4].c[0] + 4, ISLES[4].c[1] + 2]], 2.2);
   walkway([toCoarse("sect", 7, 24), [ISLES[5].c[0] + 4, ISLES[5].c[1] - 2]], 2.2);
+
+  // 6½. the coast: the old lands were cut out of the clouds along straight lines, so the shore is
+  // eaten back into bays, coves and headlands wherever nothing of note stands near it (see shoreline)
+  const coast = carveCoast(m, fixed);
+
+  // 6¾. the Sea of Pearls (see world/isles.ts): the cloud south of the Tidewater Reach turns to sea, its isles rise out of it,
+  // each a shape of its own, and plank bridges string them together and out to Hailing's quay and the Stairlands
+  {
+    m.each((i, j) => {
+      if (m.kind(i, j) !== "void" || !inSea(i, j)) return;
+      m.set(i, j, "deep", 0);
+      fix(i, j, 2);
+    });
+    for (const s of SEA_ISLES) {
+      const [cx, cy] = s.c;
+      const R = Math.ceil(Math.max(s.rx, s.ry) * 1.7);
+      const st = WILD[s.biome];
+      const wild = WILD_IDS.indexOf(s.biome) + 1;
+      for (let j = cy - R; j <= cy + R; j++)
+        for (let i = cx - R; i <= cx + R; i++) {
+          if (!m.inside(i, j) || m.kind(i, j) !== "deep") continue;
+          const d = isleDepth(s, i, j);
+          if (d >= 1 || inLagoon(s, i, j)) continue;
+          const n = j * COARSE_W + i;
+          const beach = d > 0.78;
+          const hills = Math.round(fbm(i * 0.12, j * 0.12, 420 + cx) * s.hills * 2 * Math.max(0, 0.9 - d));
+          m.set(i, j, beach ? (s.biome === "wastes" ? "ash" : "sand") : st.ground(i, j), s.h + (beach ? 0 : hills));
+          fixed[n] = 0;
+          wildOf[n] = wild;
+        }
+      if (s.plaza) site(s.hub ?? s.c, s.plaza[0], s.plaza[1], s.h, 0.6);
+    }
+    // the shallows: green water within two tiles of any shore, the deep blue past that
+    const shallows: [number, number][] = [];
+    m.each((i, j) => {
+      if (m.kind(i, j) !== "deep" || !inSea(i, j)) return;
+      for (let b = -2; b <= 2; b++)
+        for (let a = -2; a <= 2; a++) {
+          const k = m.kind(i + a, j + b);
+          if (k !== "void" && !LIQUID[k]) {
+            shallows.push([i, j]);
+            return;
+          }
+        }
+    });
+    for (const [i, j] of shallows) m.set(i, j, "water", 0);
+    // the bridges: planks over the water, a beaten path where they cross land
+    for (const b of SEA_BRIDGES)
+      stroke(b, 2.2, (i, j) => {
+        const k = m.kind(i, j);
+        if (k === "void" || LIQUID[k]) m.set(i, j, "wood", 1);
+        else if (!fixed[j * COARSE_W + i] || fixed[j * COARSE_W + i] === 2) m.set(i, j, k === "ash" ? "redrock" : "dirt", Math.max(1, Math.min(2, m.height(i, j))));
+        else return;
+        fix(i, j, 2);
+      });
+  }
 
   // 7. keep the wilds walkable: no tile rises or falls more than a level per
   // tile away from a region, road or river (multi-source distance fields)
@@ -1932,6 +2138,104 @@ function buildWorld(): WorldDef {
     }
   }
 
+  // 8½. the Sea of Pearls: its isles' odd-shaped houses (round earthen houses, eight-sided towers, beehive huts, a crescent hall),
+  // the six books' people, their troubles, shrines and signs, and the mouths of the Nine Springs and the Drowned Palace (see world/isles.ts)
+  {
+    // everything stands on dry land: a spot that falls in the water moves to the nearest dry tile (none share one)
+    const used = new Set<number>();
+    const dry = (i: number, j: number) => {
+      const k = m.kind(i, j);
+      return k !== "void" && !LIQUID[k] && k !== "wood";
+    };
+    const snap = ([x, y]: [number, number], roomy = 1): [number, number] => {
+      for (let r = 0; r <= 24; r++)
+        for (let b = -r; b <= r; b++)
+          for (let a = -r; a <= r; a++) {
+            if (Math.max(Math.abs(a), Math.abs(b)) !== r) continue;
+            const [i, j] = [x + a, y + b];
+            if (used.has(j * COARSE_W + i)) continue;
+            let ok = true;
+            for (let q = -roomy; q <= roomy && ok; q++) for (let p = -roomy; p <= roomy && ok; p++) ok = dry(i + p, j + q);
+            if (!ok) continue;
+            used.add(j * COARSE_W + i);
+            return [i, j];
+          }
+      return [x, y];
+    };
+    const hub = (key: string): [number, number] => isleByKey(key).hub ?? isleByKey(key).c;
+    const at = (key: string, dx: number, dy: number): [number, number] => snap([hub(key)[0] + dx, hub(key)[1] + dy]);
+    const put = (id: PropId, key: string, spots: [number, number][]) => spots.forEach(([dx, dy]) => P(id, ...snap([hub(key)[0] + dx, hub(key)[1] + dy], (STRUCTURE_SCALE[id] ?? 1) > 1 ? 2 : 1)));
+    put("tulou", "pearlgate", [[-11, -2], [8, -8]]);
+    put("octotower", "pearlgate", [[11, 4]]);
+    put("domehut", "pearlgate", [[-9, 7], [-13, 4], [2, 9], [-2, -9]]);
+    put("stall", "pearlgate", [[3, -2], [-3, 0]]);
+    put("lanterns", "pearlgate", [[0, -3]]);
+    put("fishrack", "pearlgate", [[-15, 0], [14, -4]]);
+    put("palm", "pearlgate", [[-17, -4], [16, 6], [-5, 12], [6, 11]]);
+    put("domehut", "turtleback", [[-14, 3], [-8, 5], [8, -6], [14, -8], [4, -3]]);
+    put("fishrack", "turtleback", [[-4, 4], [10, -2]]);
+    put("tulou", "turtleback", [[-1, -4]]);
+    put("palm", "turtleback", [[-18, 6], [19, -9], [-12, 8]]);
+    put("lighthouse", "lanternreef", [[0, -1]]);
+    put("barrels", "lanternreef", [[3, 2]]);
+    put("crescenthall", "crescent", [[2, -6]]);
+    put("cherry", "crescent", [[10, -8], [-2, 12], [12, 8], [4, 14]]);
+    put("bell", "crescent", [[8, 0]]);
+    put("domehut", "crescent", [[12, 2], [0, 12]]);
+    put("dragonhall", "dragonking", [[3, -4]]);
+    put("octotower", "dragonking", [[-9, 2], [11, 6]]);
+    put("lion", "dragonking", [[0, 3], [5, 3]]);
+    put("censer", "dragonking", [[2, 5]]);
+    put("deadtree", "ghostgate", [[-9, -8], [10, -6], [-12, 4], [8, 10], [-4, 11]]);
+    put("bones", "ghostgate", [[-6, 4], [6, 6]]);
+    put("lantern", "ghostgate", [[1, -2], [-1, 3], [3, 3]]);
+    put("stele", "ghostgate", [[-6, -2]]);
+    put("domehut", "atoll", [[-12, 4], [12, 4]]);
+    put("palm", "atoll", [[-18, 10], [18, 10], [-6, 1], [6, 1], [-22, 20], [22, 20]]);
+    put("octotower", "penglai", [[1, -3]]);
+    put("pavilion", "penglai", [[-8, 4]]);
+    put("peachtree", "penglai", [[8, 6], [-4, 9], [10, -4], [-11, -4]]);
+    put("pine", "penglai", [[6, -10], [-7, -9]]);
+    critters.push({ key: "crane-pl1", char: "crane", i: at("penglai", 5, 2)[0], j: at("penglai", 5, 2)[1] }, { key: "crane-pl2", char: "crane", i: at("penglai", -4, 5)[0], j: at("penglai", -4, 5)[1] }, { key: "crane-sea1", char: "crane", i: at("atoll", -16, 8)[0], j: at("atoll", -16, 8)[1] });
+    // boats at their moorings, and a ship out in the deep
+    for (const [x, y, id] of [
+      [548, 586, "boat"],
+      [520, 616, "sampan"],
+      [470, 646, "boat"],
+      [590, 626, "sampan"],
+      [560, 650, "ship"],
+      [430, 700, "boat"],
+      [506, 762, "sampan"],
+    ] as [number, number, PropId][])
+      if (LIQUID[m.kind(x, y)]) P(id, x, y);
+    // the six books' people round their isles' hearts (the last two books' people live below, in the Nine Springs: see world/caves.ts)
+    for (let b = 0; b < SEA_BOOK_COUNT; b++) {
+      const C = SEA_CAST[b];
+      if (C.isle === "deep") continue;
+      const sp = SEA_SPOTS;
+      const xyOf = (d: [number, number]) => xy(at(C.isle, d[0], d[1]));
+      npcs.push({ key: seaPatronKey(b), name: C.patron.name, char: C.patron.char, ...xyOf(sp.patron), dir: 2, anim: C.patron.anim });
+      npcs.push({ key: seaGuideKey(b), name: C.guide.name, char: C.guide.char, ...xyOf(sp.guide), dir: 2, wander: 1 });
+      C.folk.forEach((f, n) => npcs.push({ key: seaFolkKey(b, n), name: f.name, char: f.char, ...xyOf(sp.folk[n]), dir: n % 2 ? 6 : 2, anim: f.anim }));
+      // (the Dragon King himself waits below, in his drowned palace)
+      if (b !== 2) enemies.push({ key: `seaboss-${b}`, enemy: C.boss, ...xyOf(sp.boss), range: 0, when: (f) => !!f[`seas:boss:${b}`] });
+      sp.foes.forEach((d, n) => enemies.push({ key: `seafoe-${b}-${n}`, enemy: C.foe, ...xyOf(d), range: 2.5 }));
+      it(`sea-${C.isle}-shrine`, "shrine", ...at(C.isle, ...sp.shrine));
+      it(`sea-${C.isle}-chest`, "chest", ...at(C.isle, ...sp.chest));
+    }
+    it("sea-pearlgate-sign", "sign", ...at("pearlgate", 4, -4), "PEARLGATE · 珠门. “Every pearl of the Sea of Pearls comes through this gate, and pays for it.” Below, in chalk: “The round houses take lodgers. The Black Sail does not.”");
+    it("sea-crescent-sign", "sign", ...at("crescent", -2, 9), "The Crescent Hall of the Sea Abbesses, built round like the new moon so that, the abbess says, “it is never finished, and never needs to be.”");
+    it("sea-dragonking-sign", "sign", ...at("dragonking", -5, 8), "The Dragon King's Temple. “He rules the rain and the deep. Bring him rice wine, and keep your voice down: he is sleeping, under the water, under the isle.”");
+    it("sea-ghostgate-sign", "sign", ...at("ghostgate", 4, -4), "鬼门关 · THE GHOST GATE. Cut into the black rock in a hand nobody living wrote: “The living may go down. The question is whether they come up.”");
+    it("sea-penglai-stele", "sign", ...at("penglai", -3, 2), "Penglai. The old books say the Isle of Immortals drifts, and is never where the map says. The map is right for once. Someone has nailed it down.");
+    it("sea-turtleback-herb", "herb", ...at("turtleback", 16, -5));
+    it("sea-atoll-chest", "chest", ...at("atoll", 14, 6));
+    it("sea-penglai-shrine", "shrine", ...at("penglai", 3, 4));
+    it("sea-lanternreef-shrine", "shrine", ...at("lanternreef", -2, 2));
+    for (const s of SEA_ISLES) if (s.landmark) mark(`sea-${s.key}`, s.name, s.hanzi, s.landmark, ...hub(s.key));
+    mark("sea-pearls", "The Sea of Pearls", "珠海", "ship", 546, 548);
+  }
+
   // 9. wayside landmarks, rewards and wanderers along the highway
   const [nx] = toCoarse("village", 16, 0);
   P("lantern", nx - 3, vy - 6);
@@ -2005,6 +2309,9 @@ function buildWorld(): WorldDef {
     { key: "crane-w3", char: "crane", i: 84, j: 186 },
     { key: "bat-w1", char: "bat", i: 54, j: 150 },
   );
+
+  // 9½. now that everyone and everything stands where it will, let the coast fall away round them
+  applyCoast(m, fixed, wildOf, coast, [...interacts, ...npcs, ...enemies, ...critters, ...props].map((x) => [x.i, x.j] as [number, number]));
 
   // 10. scatter trees and undergrowth over the wilds, clear of roads and landmarks
   const taken = new Set(props.map((p) => p.j * COARSE_W + p.i));

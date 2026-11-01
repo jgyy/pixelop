@@ -83,6 +83,126 @@ interface Spec {
   below?: InteriorId;
   stair?: [number, number];
   minRealm?: number;
+  /** The shape of the room's floor, when it is not a plain rectangle (see shapeRoom). */
+  plan?: Plan;
+}
+
+/**
+ * Floor plans other than the box: an octagon (every corner cut on the
+ * diagonal), a round room inside the square footprint, or an L (the front
+ * corner left out as a porch of open air). Cut-away back corners get a
+ * diagonal plastered wall; front ones a low sill, so the camera still sees in.
+ */
+export type Plan = "octagon" | "round" | "ell";
+
+/** Which tiles of a w × h room a plan leaves out (true) and which become its new walls ("wall" for full height, "sill" for a low front wall). */
+export function planCut(plan: Plan, w: number, h: number): (i: number, j: number) => "out" | "wall" | "sill" | null {
+  const back = (i: number, j: number) => i + j < (w + h) / 2 - 1;
+  if (plan === "octagon") {
+    const c = Math.max(2, Math.round(Math.min(w, h) * 0.3));
+    return (i, j) => {
+      const d = Math.min(i + j, w - 1 - i + j, i + h - 1 - j, w - 1 - i + h - 1 - j);
+      if (d < c - 1) return "out";
+      if (d === c - 1) return back(i, j) ? "wall" : "sill";
+      return null;
+    };
+  }
+  if (plan === "round") {
+    const [cx, cy, rx, ry] = [(w - 1) / 2, (h - 1) / 2, w / 2, h / 2];
+    const inside = (i: number, j: number) => ((i - cx) / rx) ** 2 + ((j - cy) / ry) ** 2 <= 1.04;
+    return (i, j) => {
+      if (inside(i, j)) return null;
+      const edge = inside(i + 1, j) || inside(i - 1, j) || inside(i, j + 1) || inside(i, j - 1);
+      return edge ? (back(i, j) ? "wall" : "sill") : "out";
+    };
+  }
+  // the L: the front corner stands outside, a porch the size of a third of the room each way
+  const [pi, pj] = [Math.floor(w * 0.64), Math.floor(h * 0.64)];
+  return (i, j) => {
+    if (i > pi && j > pj) return "out";
+    if ((i === pi && j >= pj) || (j === pj && i >= pi)) return "sill";
+    return null;
+  };
+}
+
+/**
+ * Cut a room to its plan, leaving alone every tile someone stands on,
+ * something stands on, or the way in runs over; and only if everyone and
+ * everything inside can still be walked to from the door afterwards.
+ */
+function shapeRoom(sp: Spec, exit: [number, number], arrive: [number, number]): void {
+  if (!sp.plan) return;
+  const m = sp.map;
+  const keep = new Set<number>();
+  const hold = (i: number, j: number, r = 0) => {
+    for (let b = -r; b <= r; b++) for (let a = -r; a <= r; a++) keep.add((j + b) * m.w + i + a);
+  };
+  for (const n of sp.npcs) {
+    hold(n.i, n.j, 1);
+    for (const [x, y] of n.route ?? []) hold(Math.round(x), Math.round(y), 1);
+  }
+  for (const it of sp.interacts) hold(it.i, it.j, 1);
+  hold(...exit, 1);
+  if (sp.stair) hold(...sp.stair, 1);
+  // the way in: from the door straight across to the room's middle
+  const [mi, mj] = [Math.floor(m.w / 2), Math.floor(m.h / 2)];
+  for (let i = Math.min(exit[0], mi); i <= Math.max(exit[0], mi); i++) hold(i, exit[1], 1);
+  for (let j = Math.min(exit[1], mj); j <= Math.max(exit[1], mj); j++) hold(mi, j, 1);
+  const cut = planCut(sp.plan, m.w, m.h);
+  const before = { kinds: m.kinds.slice(), heights: m.heights.slice(), blocked: m.blocked.slice(), props: sp.props.slice() };
+  // furniture standing where the plan cuts the room away goes (what anyone needs is held above)
+  const inCut = (p: PropPlacement) => {
+    const [i0, j0, i1, j1] = placementTiles(p);
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) if (!keep.has(j * m.w + i) && cut(i, j)) return true;
+    return false;
+  };
+  const gone = sp.props.filter(inCut);
+  for (const p of gone) {
+    const [i0, j0, i1, j1] = placementTiles(p);
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) m.block(i, j, false);
+  }
+  sp.props.splice(0, sp.props.length, ...sp.props.filter((p) => !gone.includes(p)));
+  // and what still stands keeps its tiles blocked
+  for (const p of sp.props) {
+    if (!propDef(p.id).blocks) continue;
+    const [i0, j0, i1, j1] = placementTiles(p);
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) m.block(i, j);
+  }
+  m.each((i, j) => {
+    if (keep.has(j * m.w + i)) return;
+    const c = cut(i, j);
+    if (c === "out") m.set(i, j, "void", 0);
+    else if (c === "wall") m.set(i, j, "wall", 7);
+    else if (c === "sill") m.set(i, j, "wall", 2);
+  });
+  // everyone still reachable from where she comes in? if not, the room keeps its old box
+  const seen = new Uint8Array(m.w * m.h);
+  const start = Math.floor(arrive[1]) * m.w + Math.floor(arrive[0]);
+  const q = [start];
+  seen[start] = 1;
+  for (let qi = 0; qi < q.length; qi++) {
+    const i = q[qi] % m.w;
+    const j = Math.floor(q[qi] / m.w);
+    for (const [a, b] of [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ]) {
+      const n = (j + b) * m.w + i + a;
+      if (!m.inside(i + a, j + b) || seen[n] || !m.standable(i + a, j + b) || Math.abs(m.height(i + a, j + b) - m.height(i, j)) > 1) continue;
+      seen[n] = 1;
+      q.push(n);
+    }
+  }
+  const near = (i: number, j: number) => [-1, 0, 1].some((b) => [-1, 0, 1].some((a) => m.inside(i + a, j + b) && seen[(j + b) * m.w + i + a]));
+  const ok = [...sp.npcs, ...sp.interacts].every((x) => near(x.i, x.j)) && (!sp.stair || near(...sp.stair));
+  if (!ok) {
+    m.kinds.set(before.kinds);
+    m.heights.set(before.heights);
+    m.blocked.set(before.blocked);
+    sp.props.splice(0, sp.props.length, ...before.props);
+  }
 }
 
 function interior(sp: Spec): InteriorDef {
@@ -99,6 +219,7 @@ function interior(sp: Spec): InteriorDef {
   const midJ = Math.floor((bj0 + bj1 + 1) / 2);
   const door: [number, number] = di < 0 ? [bi1 + 1, midJ] : [midI, bj1 + 1];
   const [ei, ej]: [number, number] = di < 0 ? [m.w - 1, midJ - bj0] : [midI - bi0, m.h - 1];
+  shapeRoom(sp, [ei, ej], [ei + 0.5 + di * 0.6, ej + 0.5 + dj * 0.6]);
   return {
     id: "sect",
     key: sp.key,
@@ -139,6 +260,7 @@ function buildHall(): InteriorDef {
   m.rect(3, 3, 7, 6, "rug");
   return interior({
     key: "hall",
+    plan: "octagon",
     name: "Hall of Clouds",
     hanzi: "云殿",
     subtitle: "Ancestral hall and archive of the Azure Cloud Sect",
@@ -186,6 +308,7 @@ function buildCottage(): InteriorDef {
   m.rect(4, 4, 6, 6, "rug");
   return interior({
     key: "cottage",
+    plan: "ell",
     name: "Granny Hua's Cottage",
     hanzi: "华婆小屋",
     subtitle: "Herbs drying in the rafters, a loom by the hearth",
@@ -221,6 +344,7 @@ function buildTeahouse(): InteriorDef {
   const m = room(b, "wood", [[3, 0], [6, 0], [0, 4]]);
   return interior({
     key: "teahouse",
+    plan: "round",
     name: "Crossroads Teahouse",
     hanzi: "茶馆",
     subtitle: "Every road in the jianghu passes Fang's door",
@@ -262,6 +386,7 @@ function buildMill(): InteriorDef {
   const m = room(b, "wood", [[5, 0], [0, 3]]);
   return interior({
     key: "mill",
+    plan: "ell",
     name: "Watermill",
     hanzi: "水磨坊",
     subtitle: "Stones turning to the creek's own rhythm",
@@ -297,6 +422,7 @@ function buildPagoda(): InteriorDef {
   m.rect(3, 3, 6, 6, "rug");
   return interior({
     key: "pagoda",
+    plan: "octagon",
     name: "Pagoda of Seven Lamps",
     hanzi: "七灯塔",
     subtitle: "Seven flames for seven farmers who never came home",
@@ -334,6 +460,7 @@ function buildDorm(): InteriorDef {
   m.rect(3, 4, 5, 5, "rug");
   return interior({
     key: "dorm",
+    plan: "ell",
     name: "Room Seven",
     hanzi: "东舍七号",
     subtitle: "Six bunks in the Outer Court of the Ten Halls",
@@ -376,6 +503,7 @@ function buildFragrance(): InteriorDef {
   m.rect(3, 3, 5, 5, "rug");
   return interior({
     key: "fragrance",
+    plan: "octagon",
     name: "Pavilion of Nine Fragrances",
     hanzi: "九香楼",
     subtitle: "Ground floor: porters, merchants and anyone with a copper",
@@ -418,6 +546,7 @@ function buildFragranceUp(): InteriorDef {
   m.rect(2, 2, 6, 6, "rug");
   return interior({
     key: "fragranceup",
+    plan: "octagon",
     name: "Pavilion of Nine Fragrances · Upper Floor",
     hanzi: "九香楼·雅座",
     subtitle: "The upper floor: for cultivators of standing only",
@@ -463,6 +592,7 @@ function buildWillowInn(): InteriorDef {
   m.rect(3, 3, 6, 5, "rug");
   return interior({
     key: "willowinn",
+    plan: "round",
     name: "The Willow Inn",
     hanzi: "柳溪客栈",
     subtitle: "Three storeys, built by every family in the village",
@@ -500,6 +630,7 @@ function buildWillowInnUp(): InteriorDef {
   m.rect(2, 2, 6, 6, "rug");
   return interior({
     key: "willowinnup",
+    plan: "round",
     name: "The Willow Inn · Top Floor",
     hanzi: "柳溪客栈·顶楼",
     subtitle: "Kept for Willow Creek's own golden core",
