@@ -460,4 +460,26 @@ test.describe("Jade Lotus Ascension", () => {
     await finishDialogue(page);
     await expect.poll(async () => (await state(page)).hp).toBeGreaterThan(10);
   });
+  test("the Thrones and the Crafts: Emperor Xuande's summons at Liangdu, a master's apprentice, and the journal's arts", async ({ page }) => {
+    await startNewGame(page);
+    await patch(page, { flags: { metElder: true, villageSaved: true, villageArrived: true, metZhou: true }, realm: 0, stage: 3 });
+    await expect(page.getByTestId("courts-quest")).toContainText("Liangdu");
+    await expect(page.getByTestId("courts-quest")).toContainText("Main");
+    await standBy(page, "ct-0-emperor");
+    await expect(page.getByTestId("prompt")).toContainText("Emperor Xuande");
+    await page.keyboard.press("KeyE");
+    await expect(page.getByTestId("dialog")).toContainText("Liangdu");
+    await finishDialogue(page);
+    await expect.poll(async () => (await state(page)).counters.courts).toBe(1);
+    await expect(page.getByTestId("courts-quest")).toContainText("2/1200");
+    // the imperial chef takes her on as an apprentice of spirit cuisine
+    await standBy(page, "craftmaster:cuisine");
+    await page.keyboard.press("KeyE");
+    await expect(page.getByTestId("dialog")).toContainText("Spirit Cuisine");
+    await finishDialogue(page);
+    await expect.poll(async () => (await state(page)).flags["craft:cuisine"]).toBe(true);
+    await page.keyboard.press("KeyJ");
+    await expect(page.getByTestId("journal-courts")).toContainText("The Empty Granaries");
+    await expect(page.getByTestId("journal-crafts")).toContainText("Spirit Cuisine");
+  });
 });

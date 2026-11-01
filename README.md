@@ -109,6 +109,172 @@ New moves: Lin Yue **rummages** in her satchel when the menu opens and **shades 
 - A foundling who runs up the sky bridge before facing the fox is no longer greeted for the "fox blood on her sleeve", or told she has "already met" the beast.
 
 
+### The Thrones and the Crafts: six emperors, six sect leaders, the Hundred Arts, 1,200 more quests, a finer grid and taller land
+
+Between the sects in the sky and the beasts of the wilds lies the mortal world, and now it has rulers. **Six mortal thrones**, each with a capital, a palace square, a throne under a silk canopy, a court and hundreds of townsfolk at their trades. Beside each throne stands **a sect sworn to guard it** under the eight-hundred-year-old **Covenant of Cloud and Throne** (云座之约): the sects do not rule mortals, and mortals do not bind cultivators. Since the Jade Lotus Heart was stolen, the spirit veins under the mortal lands have run thin, and someone has been forging edicts in the emperors' hands and decrees in the sect leaders' to set them at each other's throats. The ninth thread of the main tale follows him from court to court.
+
+| | |
+|---|---|
+| ![Liangdu, the Granary Throne](docs/screenshots/310-3d-liangdu-the-granary-throne.png) | ![Jinling-by-the-Tide](docs/screenshots/311-3d-jinling-by-the-tide.png) |
+| ![Pingcheng under the Snows](docs/screenshots/312-3d-pingcheng-under-the-snows.png) | ![The Golden Crane Sect](docs/screenshots/313-3d-the-golden-crane-sect.png) |
+| ![Longcheng of the Sands at dusk](docs/screenshots/314-3d-longcheng-of-the-sands.png) | ![Liangdu in pixels](docs/screenshots/315-liangdu-pixels.png) |
+| ![Emperor Xuande's summons](docs/screenshots/316-emperor-xuande.png) | ![Mother Yao takes an apprentice](docs/screenshots/317-mother-yao-takes-an-apprentice.png) |
+| ![The journal: the Thrones and the Crafts, and the Hundred Arts](docs/screenshots/318-journal-the-thrones-and-the-crafts.png) | ![The world map: six capitals, six sects](docs/screenshots/319-world-map-the-six-courts.png) |
+
+#### Six thrones and six sects
+
+| Realm | Capital | Ruler (mortal) | Sworn sect | Its leader (cultivator) | Guild's art |
+|---|---|---|---|---|---|
+| 大梁 Great Liang | Liangdu, the Granary Throne (west of the Golden River) | Emperor Xuande | 金鹤宗 the Golden Crane Sect | Sect Master He Lingxiao | 灵植 Spirit Farming |
+| 南陈 Southern Chen | Jinling-by-the-Tide (the tidelands) | Empress Chen Yuhua | 破浪宗 the Tidebreaker Sect | Sect Mistress Lan Ruoshui | 炼器 Artifact Refining |
+| 西蜀 Western Shu | Jincheng of the Brocade (the plum hills) | Emperor Wenhe | 赤鼎宗 the Crimson Cauldron Sect | Sect Master Dan Qiu | 炼丹 Alchemy |
+| 北魏 Northern Wei | Pingcheng under the Snows (the frost peaks) | Emperor Wei Lie | 千符观 the Thousand Talisman Abbey | Abbess Fu Yinzi | 符箓 Talisman Craft |
+| 东齐 Eastern Qi | Linzi of the Maples (the autumn woods) | Emperor Qi Yuan, aged nine | 万阵门 the Sect of Myriad Arrays | Sect Master Zhen Wuji | 阵法 Formations |
+| 大燕 Great Yan | Longcheng of the Sands (the red badlands) | Emperor Murong Tuo | 御兽堂 the Beast-Taming Hall | Hall Master Shou Tianlang | 御兽 Beast Taming |
+
+Each capital is a levelled square of yellow paving with the palace hall, the **Dragon Throne** (a new ray-cast prop: a gilded seat on a three-step dais, dragons up its arms, under a yellow canopy whose fringe stirs), **imperial parasols**, stone lions, a drum tower, townhouses, stalls and the guild's workshop. The emperor holds court on the throne with a minister, a palace steward, a guard captain and a maid about them. The sect's seat stands on its own marble terrace nearby, with its leader and two disciples. The Covenant is painted on a sign in every square.
+
+```mermaid
+flowchart LR
+  subgraph thrones["The six thrones (mortal)"]
+    L["大梁 Liangdu<br/>Emperor Xuande"]
+    C["南陈 Jinling<br/>Empress Chen Yuhua"]
+    S["西蜀 Jincheng<br/>Emperor Wenhe"]
+    W["北魏 Pingcheng<br/>Emperor Wei Lie"]
+    Q["东齐 Linzi<br/>Emperor Qi Yuan"]
+    Y["大燕 Longcheng<br/>Emperor Murong Tuo"]
+  end
+  subgraph sects["The six sworn sects (cultivators)"]
+    GC["金鹤宗 He Lingxiao"]
+    TB["破浪宗 Lan Ruoshui"]
+    CC["赤鼎宗 Dan Qiu"]
+    TA["千符观 Fu Yinzi"]
+    MA["万阵门 Zhen Wuji"]
+    BH["御兽堂 Shou Tianlang"]
+  end
+  L --- GC
+  C --- TB
+  S --- CC
+  W --- TA
+  Q --- MA
+  Y --- BH
+  FL(["Fei Lian, Grand Tutor to six thrones<br/>forges edicts and decrees in every hand"]) -. "sets each against each" .-> thrones
+  FL -. " " .-> sects
+  P(["a petal of the Jade Lotus Heart,<br/>broken off the night it was stolen"]) --> FL
+```
+
+#### The tale: 1,200 quests in six books
+
+The ninth thread opens once Elder Mo has sent her out and she stands at late Qi Condensation: a rider in imperial yellow is asking along every road for "the Azure Cloud's wandering disciple". Each book is one court's trouble and two hundred quests: **hand-written beats** with questions that lean her heart toward one of the four Daos, the court's **ceremonies** (main quests: the first furrow cut with a golden plough, the quenching of the year's first blade in the tide, the burning of forged edicts, the twelve chairs), the long wait for her realm to catch up, and its trouble at the end with four fates to choose from. Between them come the court's life (side quests): **favours** for the court and its townsfolk, **lessons in the guild's art**, tribute carried between the capitals, tales carried to the jianghu's folk, hunts round the capital, sittings at shrines in every land, and walks to places from the Sword Tomb to Penglai.
+
+| Book | Court | The trouble | Who waits at the end |
+|---|---|---|---|
+| I · 空仓 The Empty Granaries | Great Liang | The harvest was fair and the granaries are empty: grey carts buy up the rice before the tithe | Magistrate Gou, the Granary Rat |
+| II · 破宗弩 The Sect-Breaker Bows | Southern Chen | Crossbows whose green-jade bolts drink qi; a Tidebreaker disciple shot and made mortal | Kuai Tong, Maker of the Sect-Breaker Bows |
+| III · 万年丹 The Elixir of Ten Thousand Years | Western Shu | A dying emperor fed an elixir that pours qi into a body with no meridians | Xu Fu, the False Immortal |
+| IV · 焚诏 The Burning Edicts | Northern Wei | An edict conscripting every cultivator, in a hand the Iron Emperor swears is not his | General Helian, Burner of Edicts |
+| V · 临淄城 The Walls of Linzi | Eastern Qi | Array walls you can see through and cannot cross, woken by a mortal regent | Regent Sima Heng |
+| VI · 天命 The Mandate of Heaven | Great Yan | Six thrones and six sects meet at twelve chairs; the Grand Tutor comes up out of a tomb | Fei Lian, Grand Tutor to Six Thrones |
+
+**Tied to the main tale.** The Jade Lotus Heart had nine petals; every account since its theft speaks of eight. The Blood Moon's thief broke one off in the dark and sold it to the man who taught all six emperors to write and whom seven sects turned away at nine for having no spiritual roots. He spends it book by book: jade bolts in Chen, ground petal in Shu's elixir, jade dust in Wei's vermilion seals, the stone that wakes Qi's walls, and at last the **Seal of Heaven's Mandate**, which lets a mortal command qi. What becomes of the petal follows what became of the Heart: laid among the roots where it was planted, drawn into her palm if she drank it, set back beside it in the Hall of Clouds if it came home, or carried next to her own heart if the Blood Moon still has it.
+
+```mermaid
+flowchart TD
+  O{{"metElder + late Qi Condensation"}} --> B1
+  B1["I · Great Liang<br/>grey carts, a forged decree, a watermark:<br/>a brush crossed with a tablet"] --> B2
+  B2["II · Southern Chen<br/>jade bolts: 'it grew, it's a petal'"] --> B3
+  B3["III · Western Shu<br/>a ninth petal in the old records;<br/>the emperor was his experiment"] --> B4
+  B4["IV · Northern Wei<br/>jade dust in the vermilion;<br/>collars that make soldiers obey"] --> B5
+  B5["V · Eastern Qi<br/>a box that answers in an old man's voice"] --> B6
+  B6["VI · Great Yan<br/>twelve chairs, the tomb door, the Seal of Heaven's Mandate"] --> F{"what became<br/>of the Heart?"}
+  F -- planted --> P1["the petal among its roots: a ninth leaf"]
+  F -- drunk --> P2["the petal into her palm"]
+  F -- "home (or drawn back out of her)" --> P3["the ninth petal back in the Hall of Clouds"]
+  F -- "still stolen" --> P4["carried next to her heart"]
+```
+
+#### 百艺 The Hundred Arts: professions
+
+Eight arts, each with a master in the world (six in the capitals' guild halls, the healer and the imperial chef in the squares of Jincheng and Liangdu). A master offers to take her on; after that she may **practise once a day** of the calendar, and every lesson (and every lesson quest of the tale) raises her through **six ranks: Apprentice, Journeyman, Adept, Expert, Master, Grandmaster**. Each rank strengthens her, and each lesson leaves something in her hands. Her arts show in the journal and on the menu's Status page, and are kept in the save's counters, so no new save version.
+
+| Art | Master | Each rank gives | A day's practice gives |
+|---|---|---|---|
+| 灵植 Spirit Farming | Old Field-Master Tian Lao, Liangdu | +2% vitality | spirit stones |
+| 炼器 Artifact Refining | Forge-Master Ou Ye, Jinling | +3% attack | spirit stones |
+| 炼丹 Alchemy | Mother Yao of the Pill Guild, Jincheng | +4% qi | a Healing Pill of her own making |
+| 符箓 Talisman Craft | Talisman-Brusher Huang Yi, Pingcheng | +4% defence | a Qi Gathering Pill |
+| 阵法 Formations | Array-Wright Gongshu, Linzi | +2% defence, +2% qi | cultivation |
+| 御兽 Beast Taming | Tamer Ah Qiao, Longcheng | +1 speed | spirit stones |
+| 医道 The Healer's Dao | Physician Hua Tuo the Younger, Jincheng | +3% vitality | full vitality and qi |
+| 灵膳 Spirit Cuisine | Imperial Chef Yi Ya, Liangdu | +1% vitality, +1% qi | full vitality and qi |
+
+```mermaid
+stateDiagram-v2
+  [*] --> Unlearned
+  Unlearned --> Apprentice: a master takes her on (or a beat of the tale)
+  Apprentice --> Journeyman: 4 lessons
+  Journeyman --> Adept: 12
+  Adept --> Expert: 26
+  Expert --> Master: 48
+  Master --> Grandmaster: 80
+  note right of Apprentice
+    once a day per art: talk to its master
+    lesson quests of the tale count double
+  end note
+```
+
+#### Ten mortals to every cultivator
+
+The jianghu was crowded with cultivators: about four of its folk in five were mortal. Now each capital and the farms about it hold **230 townsfolk**, every one at a trade (farmers sowing, smiths at the anvil, weavers, cooks kneading dough, porters, merchants at the abacus, scribes, herb-sellers grinding, woodcutters, fishers, guards, maids, courtiers bowing with their tablets, children with kites), with a line of their own for each trade. They stand only where they can walk to the palace square. Counting every NPC of the open world (`casteOf` in `world/courts.ts`; the fox-folk, merfolk, ghosts and the like are counted apart), there are now **2,318 mortals to 235 cultivators: 9.9 to 1**, checked by a test.
+
+#### The fine grid: squares half the size
+
+The land is now shaped, drawn and walked in **cells half a tile across** (`world/refine.ts`). Each tile is split into 2 × 2 cells, worked out from the tile and its four neighbours the way the Scale2x upscaler works, so every shore, cliff top, snow line, path edge and biome border steps in squares half as big, with its staircases rounded into diagonals. The cells are not stored: they are a pure function of the tile map, so anything the story does to the land shows in them at once. Buildings, trees and rocks keep square footings; rooms and arenas stay square; no corner may climb or drop more than a level; and water never eats a road, a bridge or a stair.
+
+- **3D:** chunks are meshed from the cells (a tile whose four cells agree is still one quad, so most of the land costs no more), with cliff walls along every cell edge and the ground texture painted per cell.
+- **Isometric pixels:** a tile's rounded corners are painted over its top in its neighbours' ground (or water, or lava).
+- **Her footing:** where she can stand, how high she stands and where a cliff stops her are all read from the cells, as is the 3D view's tap-to-walk.
+
+| Before (297) | After, same place and camera |
+|---|---|
+| ![The coast before](docs/screenshots/297-3d-the-new-coast.png) | ![The coast on the fine grid](docs/screenshots/307-3d-the-coast-on-the-fine-grid.png) |
+
+| Half-tile steps | The taller hills |
+|---|---|
+| ![Half-tile steps at the shore](docs/screenshots/308-3d-half-tile-steps.png) | ![Hills over the Golden River country](docs/screenshots/309-3d-the-taller-hills.png) |
+
+```mermaid
+flowchart LR
+  T["Tile map<br/>(kind + height per tile)"] --> R{"fineKey(fi, fj)<br/>Scale2x corner rule"}
+  N["the tile's four neighbours"] --> R
+  R -- "never: across >1 level,<br/>under a prop, in a room,<br/>water over a road" --> K["the tile itself"]
+  R -- "a real diagonal edge" --> V["the neighbours' kind + height"]
+  K & V --> C["2 × 2 cells per tile"]
+  C --> M3["3D chunks<br/>merged quads + cell-edge walls"]
+  C --> ISO["iso: rounded-corner overlay"]
+  C --> F["footing: canStand · groundZ · pick"]
+```
+
+#### Taller land
+
+Every wild biome's hills rise **half again as far** on top of broad new swells, the cap on rolling hills went from 5 to 9 levels, and **ten new mountain ranges** stand over the ash wastes, the steppe, the sands, the Golden River country, the river bluffs, the Tidewater cliffs, the Stairlands, the maple heights, the marsh tors and the tea-cloud hills. Snow now caps only the true heights (level 10 and above). The mean height of the land rose from **1.28 to 1.90 levels**, and the share of land four or more levels up went from **4.4% to 13.4%**. Regions, roads and rivers keep their ground, and the slopes still ease down to meet them a level per tile, so everything stays reachable on foot (the world tests walk to every NPC, beast and door).
+
+#### 12 new animations, 20 new characters, 2 new props
+
+**Sow**, **grind** (herbs in a mortar), **inscribe** (a talisman, with a breath of qi), **array** (planting formation flags), **tame** (gentling a beast), **pulse** (taking a pulse), **knead**, **proclaim** (reading out a decree), **enthrone** (an emperor holding court), **audience** (a courtier's bow behind the tablet of office), **appraise** (a blade held to the light) and **fanning**. Lin Yue learns the eight craft moves; the townsfolk and courtiers use the rest. New characters: the six emperors and empresses, the six sect leaders, the alchemist, the physician, the tamer, the minister, the palace steward, the palace maid, the imperial guard and the Grand Tutor.
+
+| The arts at work and the courts at ceremony |
+|---|
+| ![](docs/art/courts-moves.gif) |
+
+#### Plot holes mended
+
+- **Willow Creek's East Ward** stands from the very first day, yet its sign said it was "built the year the Heart came home". It now says it was built in the good years before the Heart was stolen.
+- **Watchman Tie** said that past Willow Creek's arch the highway was "the Emperor's problem", which no longer makes sense with six emperors. Now it is "some emperor's problem. There are six of them."
+- **A Heart drunk and then drawn back out of her** by Elder Mo still carries the drinking's flag in the save. Anything that asks what became of the Heart (the petal's fate, the farmers' soil) now treats it as home on its shrine, not as drunk.
+- **The farmers' soil** is "thin, and thinner every year" only while the Heart is gone; once it is home or planted it has "begun to come back".
+- **The courts never get ahead of their own tale.** A ceremony that belongs to a later part of its book (opening Linzi's gates, the twelve chairs, the oath at the Iron Emperor's father's grave) waits until the tale reaches it. The emperors, guides and sect leaders keep what they only learn later to themselves until then. The jianghu's gossip no longer reports an outcome before it happens.
+
 ### The world reshaped: bays and headlands, the Sea of Pearls, the Nine Springs, odd-shaped houses, and 1,200 more quests
 
 The jianghu used to be cut out of the clouds along ruler lines: a big rectangle of land with square corners, square biome patches and a square island under the City of Nine Tiers. Now the coast has bays, coves and headlands; the biomes run into one another in lobes and tongues; the Stairlands are a ragged island; and south of the Tidewater Reach, where there used to be nothing but cloud, a **real sea** opens up with **eight isles** of their own shapes, joined by plank bridges. Under one of them a stair goes down to the **underworld**.
@@ -1807,6 +1973,7 @@ flowchart LR
 - **The Founder's Road and the Great Daos (Vitest):** comprehension's five stages and the realm cap, the stat gifts, the Dao Domain and seeing through an Echo, all 1000 quests (deterministic, ten books, every NPC and landmark really in the world, rising realms), the whole Road walked to its end with the land, the outfits and the ending following, eating a Dao and what it costs, the questions whose deeper answers need deeper understanding, every Echo and the Dao-Eater in battle, Hailing's walls, canals and bridges, the busy street folk and their words, the new props and moves, and the mended plot holes (Bao never supplies himself, officers and children speak as themselves, the crimson front remembers Xue, endings where she stayed).
 - **The City of Nine Tiers and standing (Vitest):** all 1000 quests (ten books, at least ten hand-written beats and two questions in each, every NPC and landmark really in the world, rising realms, never below a book's own gate), the whole tale walked to its end with every fate, the outfits and the ending, the gates opening to her realm alone, the terraces at their heights with a stair and a seal at every gate, folk on every tier, the bars holding her below her realm in the running game, the forms of address, crowds that kneel and call her Senior, a line for every realm from every new townsperson, Jinhe's new walls and Willow Creek's East Ward, the inns' upper floors and the realm they ask, the storeyed props and the ten new moves.
 - **The Ten Halls (Vitest):** all 1000 quests (ten books, at least ten hand-written beats in each, every NPC and landmark really in the world or Room Seven, rising realms), the Selection with the crowd coming and going, Room Seven filling up, the whole tale walked to its end with every hall's trouble and fate, the outfits and the ending, bouts and sittings that only count where they should, roommates never sent for while the tale has them elsewhere, the court and its troubles on reachable ground, the new props and moves, each beginning's word at the herald, and the mended plot holes (the Dao-Eater's nine Daos, the founder's sword).
+- **The Thrones and the Crafts, the Hundred Arts and the fine grid (Vitest):** all 1200 quests (six books, every NPC and landmark really in the world, rising realms), the whole tale walked to its end with every fate, the craft ranks it raises and the ending, ceremonies that never come before their part of the tale, words held back until the tale gets there, the petal's fate following the Heart's, the six capitals and sects on the map with their thrones, 230 townsfolk at their trades in each, the ratio of mortals to cultivators (between 9 and 11 to 1), the eight arts' masters, ranks, stat gifts and once-a-day lessons, the new props and twelve new moves, and the fine grid (half-size cells, rounded ponds and staircases, no new cliffs, roads never eaten, rooms and footings square, every soul standing on a cell they can stand on, the 3D chunk's covered area).
 - **E2E (Playwright):** the Founder's Road opening with Qingxu at Foundation Establishment and the journal's Great Daos page, Hailing's lion dancers and its bun seller; the wardrobe, the calendar turning at the sundial and a notice taken and set aside from the journal; and  fullscreen title and health check, opening narration and walking, walking from the sect into the village in one world, Elder Mo's briefing through to world-map travel, a battle won through the UI, tea and the shop at the crossroads teahouse (with Enter skipping the typewriter text), stepping inside the crossroads teahouse to hear the storyteller and walking back out, a save/reload/continue round trip with the leaderboard, and the gallery canvases painting (now with the indoor folk and every room).
 
 ## Project layout
