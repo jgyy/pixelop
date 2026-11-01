@@ -485,6 +485,121 @@ const PROPS = {
       houseDetails(r, cx, cy, W, 24, ROOF_GREY);
     },
   },
+  // a round earthen house (圆楼) of the isles: one ring of rammed-earth wall three storeys high, a ring of roof sloping in to an open courtyard, a well at its heart
+  tulou: {
+    foot: [0, 0, 1, 1],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    emit: "smoke",
+    paint: (r) => {
+      const cx = T / 2;
+      const cy = T / 2;
+      const R = T * 0.95;
+      const EARTH = ramp("#d8b888", { lo: "#6a4a3a" });
+      r.prism(cx, cy, R + 1.2, 0, 3, 24, m(PAL.stone, 1));
+      r.prism(cx, cy, R, 3, 26, 24, md(EARTH, 2, { shader: (sh, tone) => {
+        const a = Math.atan2(sh.p[1] - cy, sh.p[0] - cx);
+        const z = sh.p[2];
+        if (sh.n[2] > 0.5) return tone(EARTH);
+        // a timber band at each floor, small windows on the two upper floors, and the one gate facing east
+        if (Math.abs(z - 11) < 0.7 || Math.abs(z - 19) < 0.7) return tone(PAL.woodDark);
+        if (Math.abs(a) < 0.16 && z < 10) return Math.abs(a) < 0.02 ? tone(PAL.woodDark) : tone(PAL.wood);
+        const slot = ((a / TAU) * 20 + 20) % 1;
+        if (z > 13 && z < 17.5 && Math.abs(slot - 0.5) < 0.12) return "#ffd890";
+        if (z > 21 && z < 24.5 && Math.abs(slot - 0.5) < 0.1) return tone(PAL.woodDark);
+        return tone(EARTH);
+      } }));
+      // the roof ring slopes up and in to the courtyard's edge; the courtyard itself is open, packed earth round a well
+      r.cone(cx, cy, R + 5, 25, R - 8, 33, 24, md(ROOF_GREY, 3, { shader: (sh, tone) => {
+        const d = Math.hypot(sh.p[0] - cx, sh.p[1] - cy);
+        if (sh.n[2] > 0.95 && d < R - 8.2) return d < 2.6 ? "#1a2a4a" : d < 3.4 ? tone(PAL.stone) : hash2(Math.floor(sh.p[0]), Math.floor(sh.p[1]), 5) > 0.85 ? "#8a6a4a" : "#a8845a";
+        return roofTiles(ROOF_GREY)(sh, tone);
+      } }));
+      r.cone(cx, cy, R - 7.6, 33, R - 8.4, 34, 24, m(PAL.woodDark, 4));
+    },
+  },
+  // an eight-sided tower (八角楼) of three storeys, each roof a little smaller than the one below, a gilt finial on top
+  octotower: {
+    foot: [0, 0, 1, 1],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      const cx = T / 2;
+      const cy = T / 2;
+      const W = T * 0.62;
+      r.prism(cx, cy, W + 3, 0, 3, 8, m(PAL.stone, 1), Math.PI / 8);
+      const tiers: [number, number, number][] = [
+        [W, 3, 18],
+        [W - 3, 24, 36],
+        [W - 6, 42, 52],
+      ];
+      tiers.forEach(([w, z0, z1], k) => {
+        r.prism(cx, cy, w, z0, z1, 8, md(WALL, 2 + k, { shader: (sh, tone) => {
+          if (sh.n[2] > 0.5) return tone(WALL);
+          const a = ((Math.atan2(sh.p[1] - cy, sh.p[0] - cx) + TAU) % (TAU / 8)) / (TAU / 8);
+          if (Math.abs(a - 0.5) > 0.42) return tone(PILLAR);
+          if (sh.p[2] < z0 + 1.2 || sh.p[2] > z1 - 1.4) return tone(PAL.woodDark);
+          return Math.abs(a - 0.5) < 0.16 && sh.p[2] > z0 + 3 && sh.p[2] < z1 - 3 ? (k === 0 && sh.n[0] > 0.6 ? tone(PAL.wood) : "#ffd890") : tone(WALL);
+        } }), Math.PI / 8);
+        r.cone(cx, cy, w + 7, z1, w - 3, z1 + 6, 8, md(ROOF_TEAL, 6 + k, { shader: roofTiles(ROOF_TEAL) }), Math.PI / 8);
+        for (let e = 0; e < 8; e++) {
+          const a = (e / 8) * TAU + Math.PI / 8;
+          r.sweep([[cx + Math.cos(a) * (w + 5), cy + Math.sin(a) * (w + 5), z1 + 1], [cx + Math.cos(a) * (w + 8.5), cy + Math.sin(a) * (w + 8.5), z1 + 4]], [1, 0.4], m(ROOF_TEAL, 9));
+        }
+      });
+      r.cone(cx, cy, W - 9, 58, 0.5, 66, 8, m(ROOF_TEAL, 10), Math.PI / 8);
+      r.sphere([cx, cy, 67.5], 1.8, m(PAL.gold, 11));
+    },
+  },
+  // a beehive hut of coral stone, the kind the divers of the isles sleep in: low, round, a dark doorway, a net drying on top
+  domehut: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      const CORAL = ramp("#e8d8c0", { lo: "#7a6a6a" });
+      r.ellipsoid([0, 0, 2], [T * 0.48, T * 0.48, 16], md(CORAL, 1, { shader: (sh, tone) => {
+        if (sh.p[2] < 2) return null;
+        if (sh.n[0] > 0.55 && Math.abs(sh.p[1]) < 3 && sh.p[2] < 10) return "#2a1a1a";
+        const rows = Math.floor(sh.p[2] / 2.4);
+        return (rows + Math.floor((Math.atan2(sh.p[1], sh.p[0]) / TAU) * 18 + (rows % 2) * 0.5)) % 7 === 0 ? tone(PAL.stone) : tone(CORAL);
+      } }));
+      r.cone(0, 0, 3.6, 15, 0.6, 20, 6, m(PAL.straw, 2));
+      r.sweep([[-5, -6, 12], [0, -3, 16.5], [5, -6, 12]], 0.35, m(PAL.brown, 3));
+    },
+  },
+  // a crescent hall (月牙堂): a long house bent round like the new moon, its barrel roof following the curve
+  crescenthall: {
+    foot: [0, 0, 2, 2],
+    blocks: true,
+    frames: 1,
+    fps: 1,
+    paint: (r) => {
+      const cx = T * 1.5;
+      const cy = T * 1.5;
+      const R = T * 1.05;
+      const arc: [number, number][] = [];
+      for (let k = 0; k <= 10; k++) {
+        const a = Math.PI * 0.2 + (k / 10) * Math.PI * 1.1;
+        arc.push([cx + Math.cos(a) * R, cy + Math.sin(a) * R]);
+      }
+      // a stone footing and plastered wall segments round the curve, a gold-lit window in each, posts at the joins
+      for (let k = 0; k < arc.length; k++) {
+        const [x, y] = arc[k];
+        const a = Math.PI * 0.2 + (k / 10) * Math.PI * 1.1;
+        r.prism(x, y, 7.4, 0, 3, 4, m(PAL.stone, 1), a + Math.PI / 4);
+        r.prism(x, y, 6.6, 3, 20, 4, md(WALL, 2, { shader: (sh, tone) => (sh.n[2] > 0.5 ? tone(WALL) : sh.p[2] > 9 && sh.p[2] < 15 && k % 2 === 0 && Math.abs(Math.hypot(sh.p[0] - cx, sh.p[1] - cy) - R) > 3 ? "#ffd890" : tone(WALL)) }), a + Math.PI / 4);
+        r.sweep([[x, y, 3], [x, y, 21]], 0.9, m(PILLAR, 3));
+      }
+      // the barrel roof along the curve, ridged, with an upturned eave at each end
+      r.sweep(arc.map(([x, y]): V3 => [x, y, 21]), 7.6, md(ROOF_RED, 4, { shader: roofTiles(ROOF_RED) }));
+      r.sweep(arc.map(([x, y]): V3 => [x, y, 28.2]), 0.9, m(PAL.black, 5));
+      for (const k of [0, arc.length - 1]) r.sphere([arc[k][0], arc[k][1], 30], 1.4, m(PAL.gold, 6));
+    },
+  },
   pavilion: {
     foot: [0, 0, 1, 1],
     blocks: true,
