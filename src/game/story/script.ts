@@ -12,6 +12,12 @@ export type Speaker = HumanId | "narrator";
 
 export type Step =
   | { say: Speaker; text: string; name?: string }
+  /**
+   * A close-up: the camera pushes in on someone (an actor key, when they are
+   * in the world) and the screen goes to letterbox, with their face filling
+   * one side of it and the shot named under it, while they say their line.
+   */
+  | { closeup: CloseUp }
   | { narrate: string[] }
   | { emote: string; icon: Emote; wait?: number }
   | { face: string; to: string }
@@ -37,6 +43,19 @@ export type Step =
   /** Stop here: skip whatever was left of the script (a fight that a choice talked its way out of). */
   | { end: true }
   | { choose: Choice[]; prompt?: string };
+
+/** A close-up shot of a cutscene: who is in it, how it is framed, and what they say. */
+export interface CloseUp {
+  who: Speaker;
+  name?: string;
+  /** How the shot is framed and what it lingers on (shown as the shot's caption). */
+  shot: string;
+  text: string;
+  /** The actor the camera pushes in on (an NPC key or "hero"). */
+  focus?: string;
+  /** Where in a run of close-ups this one stands (shown on the slate). */
+  scene?: string;
+}
 
 /**
  * One answer to a question put to the heroine. Picking it runs its steps in
