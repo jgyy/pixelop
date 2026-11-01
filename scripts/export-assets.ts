@@ -436,6 +436,25 @@ const hallWork: [HumanId, AnimId][] = [
 ];
 writeGif("grandhall-moves.gif", showcase(hallWork.map(([id, anim]): Cell => ({ id, anim, dir: 1, label: `${charDef(id).name.split(" ").pop()} ${anim}` })), 7, 2, seconds), 12);
 
+// the Thrones and the Crafts: the arts at work and the courts at ceremony
+const courtMoves: [CharId, AnimId][] = [
+  ["heroine", "sow"],
+  ["alchemist", "grind"],
+  ["talismanabbess", "inscribe"],
+  ["formationmaster", "array"],
+  ["tamer", "tame"],
+  ["physician", "pulse"],
+  ["heroine", "knead"],
+  ["minister", "proclaim"],
+  ["emperorliang", "enthrone"],
+  ["minister", "audience"],
+  ["cauldronmaster", "appraise"],
+  ["palacemaid", "fanning"],
+  ["empresschen", "enthrone"],
+  ["emperorqi", "enthrone"],
+];
+writeGif("courts-moves.gif", showcase(courtMoves.map(([id, anim]): Cell => ({ id, anim, dir: 1, label: `${charDef(id).name.split(" ").pop()} ${anim}` })), 7, 2, seconds), 12);
+
 
 // 2. Portraits
 const portraitIds = HUMAN_IDS.filter((id) => charDef(id).portrait);
