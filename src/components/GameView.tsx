@@ -305,6 +305,11 @@ export function GameView({ initial, intro, onQuit }: { initial: GameState; intro
                 ✥ {ui.peoples.title}: {ui.peoples.objective}
               </div>
             )}
+            {ui.seas && (
+              <div className={`errand peoples ${ui.seas.arc}`} data-testid="seas-quest">
+                ≋ {ui.seas.title}: {ui.seas.objective}
+              </div>
+            )}
             {ui.notices.length > 0 && (
               <div className="errand notice" data-testid="notice">
                 ✉ {ui.notices[0].text}
@@ -655,6 +660,25 @@ function JournalPanel({ journal, ui, game, onClose }: { journal: NonNullable<UiS
               {ui.peoplesList.map((f) => (
                 <li key={f.people} className={`front-${f.state === "marked" ? "freed" : f.state === "visiting" ? "burning" : "waiting"}`} title={`${f.home}: ${f.custom}`}>
                   <span className="cn">{f.hanzi}</span> {f.people} · {f.home} <b>{f.state === "marked" ? (f.fate ?? "Marked") : f.state === "visiting" ? "Visiting" : "Not yet met"}</b>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+      {ui.seas && (
+        <section data-testid="journal-seas">
+          <h4>
+            ≋ {ui.seas.chapter} · {ui.seasDone}/{ui.seasCount}
+          </h4>
+          <p>
+            <strong>{ui.seas.title}</strong> — {ui.seas.objective}
+          </p>
+          {ui.seasList && (
+            <ul className="fronts steles">
+              {ui.seasList.map((f) => (
+                <li key={f.book} className={`front-${f.state === "settled" ? "freed" : f.state === "visiting" ? "burning" : "waiting"}`} title={f.where}>
+                  <span className="cn">{f.hanzi}</span> {f.book} · {f.where} <b>{f.state === "settled" ? (f.fate ?? "Settled") : f.state === "visiting" ? "Under way" : "Not yet reached"}</b>
                 </li>
               ))}
             </ul>

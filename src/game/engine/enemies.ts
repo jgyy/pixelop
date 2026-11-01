@@ -2,8 +2,9 @@ import type { CharId } from "../art/characters";
 import type { HallBossId } from "../world/halls";
 import type { TierBossId } from "../world/tiers";
 import type { PeopleBossId, PeopleFoeId } from "../world/peoples";
+import type { SeaBossId, SeaFoeId } from "../world/isles";
 
-export type EnemyId = "fox" | "wolf" | "serpent" | "serpentKing" | "cultist" | "jiangshi" | "bandit" | "swordsman" | "patriarch" | "emberwyrm" | "stonehound" | "poisoner" | "phoenixguard" | "traitor" | "elderMo" | DeepFoeId | HollowId | WarFoeId | WarBossId | EchoId | HallBossId | "wdspar" | TierBossId | "tjring" | PeopleFoeId | PeopleBossId;
+export type EnemyId = "fox" | "wolf" | "serpent" | "serpentKing" | "cultist" | "jiangshi" | "bandit" | "swordsman" | "patriarch" | "emberwyrm" | "stonehound" | "poisoner" | "phoenixguard" | "traitor" | "elderMo" | DeepFoeId | HollowId | WarFoeId | WarBossId | EchoId | HallBossId | "wdspar" | TierBossId | "tjring" | PeopleFoeId | PeopleBossId | SeaFoeId | SeaBossId;
 
 /** What lives in the four deeps found since: the hollow under Frostveil, the tomb under the sands, the sea cave and the bamboo's roots. */
 export type DeepFoeId = "frostfang" | "rimewyrm" | "dunewyrm" | "pearlwyrm" | "shadowvixen" | "smuggler";
@@ -268,7 +269,43 @@ const peopleBosses = Object.fromEntries(
   }),
 ) as Record<PeopleBossId, EnemyDef>;
 
+/**
+ * The troubles of the Sea of Pearls and the Nine Springs (see world/isles.ts):
+ * what each book sends against her in the wilds and the deeps, and who waits
+ * at the end of it, tuned to the realm each book asks of her.
+ */
+const SEA_FOE_LOOK: [SeaFoeId, string, CharId, number, string, string, string, string][] = [
+  ["blacksail", "Black Sail Raider", "bandit", 4, "Boarding Hook", "Broadside", "#3a3a4a", "A raider of the Black Sail comes over the rocks with a hook in one hand and a knife in his teeth."],
+  ["tideserpent", "Tide-Gorged Serpent", "serpent", 7, "Brine Fang", "Undertow", "#4ad0c0", "A serpent swollen with seawater heaves itself out of the shallows, hissing brine."],
+  ["drownedguard", "Drowned Shrimp-Soldier", "merfolkM", 10, "Coral Halberd", "Pressure of the Deep", "#5ab0e0", "One of the Dragon King's drowned guards lurches upright, still at his post after a hundred years, eyes full of sea."],
+  ["hungryghost", "Hungry Ghost", "ghost", 13, "Grasping Cold", "Thousand-Year Hunger", "#b8c8ff", "A hungry ghost with a needle-thin throat drifts out of the dead trees, mouth open on nothing."],
+  ["lostsoul", "Lost Soul", "jiangshi", 16, "Clutching Hand", "Forget Your Name", "#a890ff", "A soul who would not drink the soup stumbles toward you, asking for a name that isn't yours."],
+  ["ledgerwraith", "Ledger Wraith", "hollow", 19, "Red Ink Lash", "Strike Out Her Years", "#ff6a6a", "A wraith made of crossed-out names unrolls itself from the ledgers and reaches for your page."],
+];
+const SEA_BOSS_LOOK: [SeaBossId, string, CharId, number, string, string, string][] = [
+  ["heifan", "Hei Fan, Queen of the Black Sail", "piratequeen", 5, "Gilded Cutlass", "Black Sail Tempest", "#e8c050"],
+  ["haiyao", "Hai Yao, the Tide Witch", "marshwitch", 8, "Brine Staff", "The Tide That Will Not Turn", "#4ad0c0"],
+  ["aoshun", "Ao Shun, the Drowned Dragon King", "dragonlord", 11, "Rain-Pearl Saber", "Wrath of the Four Seas", "#5af0ff"],
+  ["niutou", "Ox-Head, Warden of the Ghost Gate", "soulguard", 14, "Soul-Hook Spear", "Drag Down to the Springs", "#ff6040"],
+  ["yinbroker", "Broker Yin of the Ghost Market", "merchant", 17, "Abacus of Bones", "Buy Your Memories", "#c8a0ff"],
+  ["moxie", "Mo Xie, the False King of the Tenth Court", "sovereign", 20, "Brush of Judgement", "Rewrite the Ledger", "#ff3a3a"],
+];
+const seaFoes = Object.fromEntries(
+  SEA_FOE_LOOK.map(([id, name, sprite, level, basic, special, colour, intro]) => {
+    const c = (level - 3) / 3;
+    return [id, { id, name, sprite, level, hp: Math.round(150 + 95 * c + 8 * c * c), atk: Math.round(22 + 6 * c), def: Math.round(7 + 3 * c), exp: Math.round(60 + 70 * c), stones: Math.round(12 + 8 * c), basic, special: { name: special, power: 1.6, every: 3, colour }, intro, speed: 1.2, aggro: 3 } satisfies EnemyDef];
+  }),
+) as Record<SeaFoeId, EnemyDef>;
+const seaBosses = Object.fromEntries(
+  SEA_BOSS_LOOK.map(([id, name, sprite, level, basic, special, colour]) => {
+    const c = (level - 3) / 2;
+    return [id, { id, name, sprite, level, hp: Math.round(270 + 200 * c + 18 * c * c), atk: Math.round(22 + 5.4 * c), def: Math.round(7 + 3.2 * c), exp: Math.round(260 + 320 * c), stones: Math.round(80 + 60 * c), basic, special: { name: special, power: 1.8, every: 3, drain: c >= 5 ? 0.2 : undefined, colour }, boss: true, speed: 0, aggro: 1.4 } satisfies EnemyDef];
+  }),
+) as Record<SeaBossId, EnemyDef>;
+
 export const ENEMIES: Record<EnemyId, EnemyDef> = {
+  ...seaFoes,
+  ...seaBosses,
   ...peopleFoes,
   ...peopleBosses,
   ...tierBosses,
