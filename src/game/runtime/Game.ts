@@ -339,7 +339,7 @@ export class Game {
     if (this.interior || this.world.hallHere) return this.toast("Cloudmane waits outside — there's no room for a horse in here.");
     const h = this.world.hero;
     if (h.flying) {
-      if (!this.world.def.map.standable(Math.floor(h.x), Math.floor(h.y))) return this.toast("Cloudmane can't stand on water.");
+      if (!this.world.standableAt(h.x, h.y)) return this.toast("Cloudmane can't stand on water.");
       h.flying = false;
     }
     h.char = "rider";
@@ -786,7 +786,7 @@ export class Game {
       if (Math.hypot(d.i + 0.5 - h.x, d.j + 0.5 - h.y) > 0.75) continue;
       if ((dx * d.dir[0] + dy * d.dir[1]) / (Math.hypot(dx, dy) || 1) < 0.6) continue;
       // only once she is up against the wall (or the room's open edge)
-      if (w.canStand(h.x + d.dir[0] * 0.45, h.y + d.dir[1] * 0.45, w.def.map.height(Math.floor(h.x), Math.floor(h.y)), false)) continue;
+      if (w.canStand(h.x + d.dir[0] * 0.45, h.y + d.dir[1] * 0.45, w.heightAt(h.x, h.y), false)) continue;
       if (d.to === "out") {
         if (it?.def.below) this.changeFloor(it.def.below);
         else this.exitInterior();
@@ -1123,7 +1123,7 @@ export class Game {
   /** Step off the flying sword — unless she is hovering over water, where she would sink. */
   private land(): void {
     const h = this.world.hero;
-    if (h.flying && this.world.def.map.standable(Math.floor(h.x), Math.floor(h.y))) h.flying = false;
+    if (h.flying && this.world.standableAt(h.x, h.y)) h.flying = false;
   }
 
   private startBattle(enemy: EnemyId, key: string): void {

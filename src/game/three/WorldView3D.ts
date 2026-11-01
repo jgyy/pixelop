@@ -293,8 +293,8 @@ export class WorldView3D implements View3D {
       const y = -(near.z + dir.z * d);
       const i = Math.floor(x);
       const j = Math.floor(y);
-      if (!m.inside(i, j) || m.kind(i, j) === "void") continue;
-      if (near.y + dir.y * d <= m.surface(i, j) * LEVEL) return [x, y];
+      if (!m.inside(i, j) || this.world!.kindAt(x, y) === "void") continue;
+      if (near.y + dir.y * d <= this.world!.surfaceAt(x, y) * LEVEL) return [x, y];
     }
     return null;
   }
@@ -464,14 +464,14 @@ export class WorldView3D implements View3D {
     const seasonAt = (i: number, j: number): Season | null => w.seasonHere(i, j, season);
     slot.pending = true;
     if (!this.workers.length) {
-      this.chunkReady(slot, version, buildChunk(def.map, slot.ci, slot.cj, { base: def.base, floating: def.floating, rocky: w.cave, season: seasonAt }));
+      this.chunkReady(slot, version, buildChunk(def.map, slot.ci, slot.cj, { base: def.base, floating: def.floating, rocky: w.cave, season: seasonAt, smooth: w.smooth }));
       return;
     }
     const id = ++this.jobSeq;
     this.jobs.set(id, { slot, version });
     this.busy++;
     const win = mapWindow(def.map, slot.ci, slot.cj, seasonAt);
-    this.workers[id % this.workers.length].postMessage({ id, ci: slot.ci, cj: slot.cj, win, base: def.base, floating: def.floating, rocky: w.cave }, [win.kinds.buffer, win.heights.buffer, win.seasons.buffer]);
+    this.workers[id % this.workers.length].postMessage({ id, ci: slot.ci, cj: slot.cj, win, base: def.base, floating: def.floating, rocky: w.cave, smooth: w.smooth }, [win.kinds.buffer, win.heights.buffer, win.seasons.buffer, win.blocked.buffer]);
   }
 
   private chunkPainted(id: number, chunk: Chunk): void {

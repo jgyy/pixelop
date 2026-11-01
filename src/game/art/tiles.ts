@@ -412,6 +412,39 @@ export function foamOverlay(map: TileMap, i: number, j: number): PixelBuffer | n
   return b;
 }
 
+/**
+ * The fine grid's corners on a tile's top (see world/refine.ts): where a
+ * quarter of the tile has been rounded off into its neighbours' ground, that
+ * quarter is painted over in the neighbours' ground (or water, or lava).
+ * Null for the many tiles whose four cells are all their own.
+ */
+export function fineOverlay(kindAt: (fi: number, fj: number) => TileKind, i: number, j: number, seed = 8): PixelBuffer | null {
+  const own = kindAt(i * 2, j * 2) === kindAt(i * 2 + 1, j * 2) && kindAt(i * 2, j * 2) === kindAt(i * 2, j * 2 + 1) && kindAt(i * 2, j * 2) === kindAt(i * 2 + 1, j * 2 + 1);
+  const quads = [kindAt(i * 2, j * 2), kindAt(i * 2 + 1, j * 2), kindAt(i * 2, j * 2 + 1), kindAt(i * 2 + 1, j * 2 + 1)];
+  // the tile's own kind is the one most of its cells keep
+  const counts = new Map<TileKind, number>();
+  for (const k of quads) counts.set(k, (counts.get(k) ?? 0) + 1);
+  const mine = [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
+  if (own) return null;
+  const b = new PixelBuffer(TILE_W, TILE_H);
+  let any = false;
+  for (let py = 0; py < TILE_H; py++)
+    for (let px = 0; px < TILE_W; px++) {
+      const sx = px - 16 + 0.5;
+      const sy = py + 0.5;
+      const a = (sx / 16 + sy / 8) / 2;
+      const c2 = (sy / 8 - sx / 16) / 2;
+      if (a < 0 || c2 < 0 || a >= 1 || c2 >= 1) continue;
+      const k = quads[(a >= 0.5 ? 1 : 0) + (c2 >= 0.5 ? 2 : 0)];
+      if (k === mine || k === "void") continue;
+      const liquid = LIQUID[k];
+      const c = liquid ? pick(liquid === "lava" ? LAVA : liquid === "paddy" ? PADDY : WATER, 0.45 + hash2(px, py, seed) * 0.2) : TEX[k as keyof typeof TEX](seed)(i + a, j + c2);
+      b.px(px, py, c);
+      any = true;
+    }
+  return any ? b : null;
+}
+
 // ----------------------------------------------------------------------------- 3D view
 /** The continuous ground texture of a solid tile kind (null for void and liquids), as the 3D view paints its tile tops. */
 export function groundTexture(kind: TileKind, seed = 8): Tex | null {

@@ -4,6 +4,7 @@ import { LEGACY_REGION_ORIGIN, TEMPLATE_SIZE, toWorld, WORLD_H, WORLD_SCALE, WOR
 import { addCultivation, breakthrough, statsFor, type Stats } from "./realms";
 import { daoStats } from "./dao";
 import { wuStats } from "./comprehension";
+import { craftStats } from "./crafts";
 import { swallowPill } from "./cultivation";
 
 export const SKILL_IDS = ["strike", "palm", "lotus", "swords", "thunder"] as const;
@@ -108,8 +109,8 @@ export function newGame(name = "Lin Yue"): GameState {
   };
 }
 
-/** Her stats: what her realm gives her, strengthened by the Great Daos she comprehends and reshaped by the Dao she walks. */
-export const stats = (g: GameState): Stats => daoStats(wuStats(statsFor(g.realm, g.stage), g), g);
+/** Her stats: what her realm gives her, strengthened by the Great Daos she comprehends and the arts she has learned, and reshaped by the Dao she walks. */
+export const stats = (g: GameState): Stats => daoStats(craftStats(wuStats(statsFor(g.realm, g.stage), g), g), g);
 
 const clampVitals = (g: GameState): GameState => {
   const s = stats(g);

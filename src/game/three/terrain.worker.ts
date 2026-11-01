@@ -9,11 +9,12 @@ interface Job {
   base: number;
   floating: boolean;
   rocky: boolean;
+  smooth: boolean;
 }
 
 self.onmessage = (e: MessageEvent<Job>) => {
-  const { id, ci, cj, win, base, floating, rocky } = e.data;
+  const { id, ci, cj, win, base, floating, rocky, smooth } = e.data;
   const map = windowMap(win);
-  const chunk = buildChunk(map, ci, cj, { base, floating, rocky, season: map.season });
+  const chunk = buildChunk(map, ci, cj, { base, floating, rocky, smooth, season: map.season });
   (self as unknown as Worker).postMessage({ id, chunk }, [chunk.tex.buffer]);
 };

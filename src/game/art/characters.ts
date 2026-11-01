@@ -166,7 +166,20 @@ export type AnimId =
   | "copy"
   | "stir"
   | "fanfire"
-  | "recite";
+  | "recite"
+  // the Thrones and the Crafts: the arts' work and the courts' ceremony
+  | "sow"
+  | "grind"
+  | "inscribe"
+  | "array"
+  | "tame"
+  | "pulse"
+  | "knead"
+  | "proclaim"
+  | "enthrone"
+  | "audience"
+  | "appraise"
+  | "fanning";
 
 export interface Anim {
   fps: number;
@@ -1637,6 +1650,128 @@ human.recite = {
   pose: (i) => {
     const say = i % 2 === 0;
     return { t: i, held: "ledger", handL: [-2.6, 5.6, 15.4], handR: [2.6, 5.6, 15.4], lean: say ? 0.05 : 0.01, bob: say ? 0.25 : 0, eyes: i === 5 ? "blink" : "open", mouth: say ? "open" : "neutral", wind: [0, -0.2, 0] };
+  },
+};
+
+// ---- the Thrones and the Crafts: the arts at work, and the courts at ceremony
+// sowing spirit rice: a step along the furrow, the seed hand flung low and wide in an arc
+human.sow = {
+  n: 8,
+  fps: 7,
+  loop: true,
+  pose: (i, n) => {
+    const a = ph(i, n);
+    const fling = Math.max(0, Math.sin(a));
+    return { t: a, held: "seedling", lean: 0.14, handR: [2.4 + fling * 3.6, 2 + fling * 3, 10 + fling * 2], handL: [-2.6, 3.6, 11.4], footL: [-1.7, Math.sin(a) * 1.2, Math.max(0, Math.sin(a)) * 0.6], footR: [1.7, -Math.sin(a) * 1.2, Math.max(0, -Math.sin(a)) * 0.6], eyes: i === 6 ? "blink" : "open", mouth: "neutral", wind: [0, -0.3, 0] };
+  },
+};
+// grinding herbs in a mortar for the pill cauldron: the pestle rolled round and round in both hands
+human.grind = {
+  n: 8,
+  fps: 8,
+  loop: true,
+  pose: (i, n) => {
+    const a = ph(i, n);
+    return { t: a, held: "bowl", stance: "kneel", lean: 0.22, handL: [-2, 5.4, 9.6], handR: [Math.cos(a) * 1.4, 5.6 + Math.sin(a) * 1.2, 10.6 + Math.sin(a * 2) * 0.3], eyes: i % 4 === 3 ? "blink" : "open", mouth: "neutral", wind: [0, -0.2, 0] };
+  },
+};
+// brushing a talisman: the brush held upright, one long stroke down the yellow paper, a flick, and a breath of qi into it
+human.inscribe = {
+  n: 10,
+  fps: 7,
+  loop: false,
+  pose: (i) => {
+    const down = Math.min(1, i / 6);
+    const qi = i >= 8;
+    return { t: i, held: "brush", handL: [-2.4, 6.4, 16], handR: [0.6 + (i === 7 ? 1.6 : 0), 6.6, 19 - down * 6], lean: 0.08, flash: qi ? 0.14 : 0, eyes: qi ? "glow" : "open", mouth: qi ? "open" : "neutral", wind: [0, -0.2, qi ? 0.4 : 0] };
+  },
+};
+// laying out a formation: a flag planted to the left, then the right, and both palms pressed toward the ground as the array wakes
+human.array = {
+  n: 10,
+  fps: 6,
+  loop: false,
+  pose: (i) => {
+    const side = i < 3 ? -1 : i < 6 ? 1 : 0;
+    const press = i >= 6 ? Math.min(1, (i - 5) / 2) : 0;
+    return { t: i, held: side ? "token" : undefined, lean: 0.12 + press * 0.12, handR: side ? [side * 5.4, 4.4, 7 + (i % 3) * 1.6] : [2.6, 5.4, 10 - press * 2], handL: side ? [-side * 3, 2, 12] : [-2.6, 5.4, 10 - press * 2], footL: [-2.2, 0.4, 0], footR: [2.2, -0.4, 0], flash: press * 0.12, eyes: press ? "glow" : "open", mouth: "neutral", wind: [0, -0.2, press * 0.5] };
+  },
+};
+// gentling a spirit beast: crouched low, one palm held out flat and still, the other slowly raised and lowered
+human.tame = {
+  n: 8,
+  fps: 5,
+  loop: true,
+  pose: (i, n) => {
+    const a = ph(i, n);
+    return { t: a, stance: "kneel", lean: 0.16, handR: [3, 6.4, 11.4], handL: [-2.6, 4.4, 11 + Math.sin(a) * 2], eyes: i === 5 ? "blink" : "open", mouth: "smile", bob: Math.sin(a) * 0.2, wind: [0, -0.2, 0] };
+  },
+};
+// taking a pulse: two fingers on a wrist held out in front, the head bowed to listen, a nod at the end
+human.pulse = {
+  n: 8,
+  fps: 4,
+  loop: true,
+  pose: (i) => ({ t: i, lean: 0.18 + (i === 7 ? 0.08 : 0), handL: [-0.6, 6.2, 12.4], handR: [0.8, 6.4, 13 + (i % 4 === 1 ? 0.3 : 0)], eyes: i < 6 ? "closed" : "open", mouth: i === 7 ? "smile" : "neutral", bob: i === 7 ? 0.3 : 0, wind: [0, -0.2, 0] }),
+};
+// kneading dough for spirit buns: both heels of the hands pushing forward and down, rocking with it
+human.knead = {
+  n: 6,
+  fps: 7,
+  loop: true,
+  pose: (i, n) => {
+    const push = Math.max(0, Math.sin(ph(i, n)));
+    return { t: ph(i, n), lean: 0.18 + push * 0.12, handL: [-1.8, 5 + push * 2, 10 - push * 1.4], handR: [1.8, 5 + push * 2, 10 - push * 1.4], bob: -push * 0.4, eyes: i === 4 ? "blink" : "open", mouth: "smile", wind: [0, -0.2, 0] };
+  },
+};
+// reading out an imperial decree: the scroll unrolled at arm's length, the chin lifted, the voice carrying
+human.proclaim = {
+  n: 8,
+  fps: 5,
+  loop: true,
+  pose: (i) => {
+    const say = i % 2 === 0;
+    return { t: i, held: "decree", handL: [-4.2, 5.4, 17.6], handR: [4.2, 5.4, 17.6], lean: -0.08, bob: say ? 0.3 : 0, eyes: i === 5 ? "blink" : "open", mouth: say ? "open" : "neutral", wind: [0, -0.2, 0.1] };
+  },
+};
+// an emperor on the throne: sat straight-backed, one hand on the knee, the other raised palm-out to bid the court rise
+human.enthrone = {
+  n: 8,
+  fps: 4,
+  loop: true,
+  pose: (i) => {
+    const bid = i >= 4 && i <= 6 ? 1 : 0;
+    return { t: i, stance: "sit", lean: -0.04, handL: [-3, 3.6, 11.4], handR: [3 + bid * 0.6, 3.4 + bid * 2.4, 11.6 + bid * 6], eyes: i === 2 ? "blink" : "open", mouth: bid ? "open" : "neutral", bob: 0, wind: [0, -0.15, 0] };
+  },
+};
+// a courtier at audience: the tablet of office held up before the face in both hands, a deep bow, and up again
+human.audience = {
+  n: 8,
+  fps: 5,
+  loop: false,
+  pose: (i) => {
+    const bow = [0, 0.3, 0.55, 0.6, 0.6, 0.4, 0.15, 0][i];
+    return { t: i, held: "token", lean: bow, handL: [-0.8, 4.6, 17 - bow * 4], handR: [0.8, 4.6, 17 - bow * 4], eyes: bow > 0.5 ? "closed" : "open", mouth: "neutral", wind: [0, -0.2, 0] };
+  },
+};
+// a refiner appraising a blade or a pill against the light: held up and turned, one eye narrowed, a slow nod
+human.appraise = {
+  n: 8,
+  fps: 5,
+  loop: true,
+  pose: (i, n) => {
+    const turn = Math.sin(ph(i, n)) * 1.2;
+    return { t: ph(i, n), held: "cup", handR: [2 + turn, 4.4, 19.4], handL: [-2.6, 3, 13], lean: -0.1, eyes: i % 4 === 2 ? "fierce" : "open", mouth: i === 6 ? "smile" : "neutral", bob: i === 6 ? 0.3 : 0, wind: [0, -0.2, 0] };
+  },
+};
+// a court lady's fan: opened with a flick, fluttered beneath the chin, and snapped shut
+human.fanning = {
+  n: 8,
+  fps: 8,
+  loop: true,
+  pose: (i) => {
+    const flutter = i >= 2 && i <= 6 ? Math.sin(i * 2.6) * 0.8 : 0;
+    return { t: i, handR: [1.6 + flutter, 4.4, 19 + (i >= 2 && i <= 6 ? 1 : -2)], handL: [-2.4, 2.4, 12.2], lean: 0.04, eyes: i === 4 ? "closed" : "open", mouth: "smile", wind: [flutter * 0.3, -0.2, 0.2] };
   },
 };
 
