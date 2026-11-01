@@ -5,6 +5,7 @@ import type { InteriorDef } from "./interiors";
 import { flockmates, packmates } from "./crowds";
 import { PatchPainter, type TerrainPatch } from "./terrain";
 import { LIQUID, TileMap, type TileKind } from "./tilemap";
+import { SEA_CAST, SEA_SPOTS, seaFolkKey, seaGuideKey, seaPatronKey } from "./isles";
 
 /**
  * The jianghu underground. Each cave is a map of its own beneath a mouth in
@@ -15,7 +16,7 @@ import { LIQUID, TileMap, type TileKind } from "./tilemap";
  * and mushrooms are the only light besides her own.
  */
 
-export const CAVE_IDS = ["emberMine", "grotto", "vein", "icesoul", "sandtomb", "tidecave", "bambooroots"] as const;
+export const CAVE_IDS = ["emberMine", "grotto", "vein", "icesoul", "sandtomb", "tidecave", "bambooroots", "underworld", "drowned"] as const;
 export type CaveId = (typeof CAVE_IDS)[number];
 
 /** Where a cave's mouth stands, on the authoring grid of the open world (the world tile is twice that). */
@@ -27,6 +28,9 @@ export const CAVE_MOUTH: Record<CaveId, { at: [number, number]; prop: PropId }> 
   sandtomb: { at: [351, 349], prop: "cavemouth" },
   tidecave: { at: [598, 236], prop: "cavemouth" },
   bambooroots: { at: [98, 136], prop: "cavemouth" },
+  // the Ghost Gate on its black isle in the Sea of Pearls, and the Dragon King's door on his (see world/isles.ts)
+  underworld: { at: [397, 712], prop: "cavemouth" },
+  drowned: { at: [596, 731], prop: "cavemouth" },
 };
 
 /**
@@ -834,7 +838,197 @@ function buildBambooRoots(): InteriorDef {
   });
 }
 
-const BUILDERS: Record<CaveId, () => InteriorDef> = { emberMine: buildEmberMine, grotto: buildGrotto, vein: buildVein, icesoul: buildIcesoul, sandtomb: buildSandTomb, tidecave: buildTideCave, bambooroots: buildBambooRoots };
+
+// ----------------------------------------------------------------------------- the Nine Springs
+const SPRINGS: Chamber[] = [
+  { c: [106, 60], r: 6, h: 9 },
+  { c: [90, 60], r: 5, h: 8 },
+  { c: [68, 44], r: 13, h: 6, kind: "plaza" },
+  { c: [70, 80], r: 11, h: 5 },
+  { c: [48, 94], r: 7, h: 5, kind: "wood" },
+  { c: [90, 98], r: 7, h: 7, kind: "marble" },
+  { c: [42, 62], r: 10, h: 4, kind: "moss" },
+  { c: [32, 30], r: 8, h: 7, kind: "marble" },
+  { c: [18, 74], r: 12, h: 7, kind: "marble" },
+  { c: [24, 104], r: 8, h: 3 },
+  { c: [54, 18], r: 7, h: 8, kind: "plaza" },
+  { c: [12, 46], r: 7, h: 7, kind: "marble" },
+];
+const SPRINGS_TUNNELS: Tunnel[] = [
+  { a: 0, b: 1, width: 3.4 },
+  { a: 1, b: 2, width: 3, via: [[82, 50]] },
+  { a: 1, b: 3, width: 3, via: [[84, 72]] },
+  // (both over the Naihe Bridge first: Meng Po's pavilion and the Terrace of Gazing Homeward lie across the River of Forgetting)
+  { a: 3, b: 4, width: 2.8, via: [[70, 86], [58, 92]] },
+  { a: 3, b: 5, width: 2.6, via: [[70, 86], [80, 94]] },
+  { a: 2, b: 6, width: 3 },
+  { a: 6, b: 8, width: 3, via: [[30, 66]] },
+  { a: 2, b: 10, width: 2.8, via: [[60, 28]] },
+  { a: 10, b: 7, width: 2.6, via: [[42, 22]] },
+  { a: 7, b: 11, width: 2.6, via: [[20, 36]] },
+  { a: 11, b: 8, width: 2.8 },
+  { a: 8, b: 9, width: 2.6, via: [[20, 90]] },
+  { a: 4, b: 9, width: 2.4, via: [[36, 100]] },
+];
+/** Where the people of the last two books of the Sea of Pearls stand in the Nine Springs (chamber index for each book). */
+const SPRINGS_HOME = [4, 8];
+
+/** The underworld: down from the Ghost Gate, along the Yellow Springs road to the Ghost Market, over the Naihe Bridge, past Meng Po's pavilion, and on to the Ten Courts. */
+function buildSprings(): InteriorDef {
+  const npcs: NpcPlacement[] = [];
+  const enemies: EnemySpawn[] = [];
+  const interacts: Interactable[] = [];
+  [4, 5].forEach((b, n) => {
+    const C = SEA_CAST[b];
+    const [cx, cy] = SPRINGS[SPRINGS_HOME[n]].c;
+    const sp = SEA_SPOTS;
+    const s = 0.7;
+    const at = ([dx, dy]: [number, number]): [number, number] => [Math.round(cx + dx * s), Math.round(cy + dy * s)];
+    npcs.push({ key: seaPatronKey(b), name: C.patron.name, char: C.patron.char, ...xy(at(sp.patron)), dir: 2, anim: C.patron.anim });
+    npcs.push({ key: seaGuideKey(b), name: C.guide.name, char: C.guide.char, ...xy(at(sp.guide)), dir: 2 });
+    C.folk.forEach((f, k) => npcs.push({ key: seaFolkKey(b, k), name: f.name, char: f.char, ...xy(at(sp.folk[k])), dir: k % 2 ? 6 : 2, anim: f.anim }));
+    enemies.push({ key: `seaboss-${b}`, enemy: C.boss, ...xy(at(sp.boss)), range: 0, when: (f) => !!f[`seas:boss:${b}`] });
+  });
+  enemies.push(
+    { key: "springs-soul-1", enemy: "lostsoul", i: 42, j: 58, range: 2 },
+    { key: "springs-soul-2", enemy: "lostsoul", i: 46, j: 66, range: 2 },
+    { key: "springs-soul-3", enemy: "lostsoul", i: 74, j: 88, range: 1.5 },
+    { key: "springs-wraith-1", enemy: "ledgerwraith", i: 54, j: 20, range: 1.5 },
+    { key: "springs-wraith-2", enemy: "ledgerwraith", i: 20, j: 100, range: 1.5 },
+    { key: "springs-wraith-3", enemy: "ledgerwraith", i: 12, j: 48, range: 1.2 },
+  );
+  interacts.push(
+    { key: "springs-stele", kind: "sign", i: 103, j: 57, text: "黄泉路 · THE ROAD OF YELLOW SPRINGS. “All roads come here. This is the only one that admits it.”" },
+    { key: "springs-market-sign", kind: "sign", i: 74, j: 36, text: "The Ghost Market. Paper money accepted. Real money also accepted. Memories accepted at a fair rate; ask the broker." },
+    { key: "springs-naihe-sign", kind: "sign", i: 76, j: 72, text: "奈何桥 · THE NAIHE BRIDGE. Across it, Meng Po's soup, and after the soup, nothing you remember. “No help for it,” the name says." },
+    { key: "springs-terrace-sign", kind: "sign", i: 92, j: 94, text: "望乡台 · THE TERRACE OF GAZING HOMEWARD. From here the dead may see their homes one last time. Lin Yue looks, and sees Willow Creek, very small, with its lamps lit." },
+    { key: "springs-mirror-sign", kind: "sign", i: 34, j: 26, text: "孽镜台 · THE MIRROR OF RETRIBUTION. It shows each soul what it did. It shows her a girl with a sword, and then, before she can look away, everything after." },
+    { key: "springs-yama-sign", kind: "sign", i: 22, j: 64, text: "The Fifth Court. KING YAMA HEARS ALL CASES. A smaller board below: “Cases heard in order. The order is his.”" },
+    { key: "springs-shrine", kind: "shrine", i: 88, j: 102 },
+    { key: "springs-chest-1", kind: "chest", i: 58, j: 50 },
+    { key: "springs-chest-2", kind: "chest", i: 30, j: 108 },
+    { key: "springs-herb", kind: "herb", i: 38, j: 70 },
+  );
+  return cave({
+    key: "underworld",
+    name: "The Nine Springs",
+    hanzi: "九泉",
+    subtitle: "Below the Ghost Gate, where every road in the jianghu ends",
+    size: 120,
+    chambers: SPRINGS,
+    tunnels: SPRINGS_TUNNELS,
+    shape: (m) => {
+      // the River of Forgetting runs across the bridge chamber, and the Naihe Bridge crosses it
+      m.path([[52, 70], [62, 78], [72, 82], [84, 84], [92, 80]], 3.4, "deep", 3);
+      m.path([[70, 72], [70, 86]], 2.4, "wood", 5);
+      // the pool of blood under the Ninth Court, and its lava gutters
+      m.disc(24, 106, 4, "lava", 2, 0.8, 61);
+      // the Mirror of Retribution's court is still water round a stone dais
+      m.disc(32, 33, 2.4, "water", 7, 0.4, 62);
+    },
+    props: (m) => {
+      const out = [
+        P("redlantern", 98, 54),
+        P("redlantern", 98, 66),
+        P("redlantern", 84, 54),
+        P("stall", 62, 40),
+        P("stall", 70, 38),
+        P("stall", 76, 46),
+        P("stall", 60, 50),
+        P("lanterns", 68, 44),
+        P("cauldron", 46, 92),
+        P("table", 50, 96),
+        P("lotus", 60, 76),
+        P("lotus", 82, 84),
+        P("wisps", 40, 56),
+        P("wisps", 48, 64),
+        P("wisps", 36, 66),
+        P("dais", 18, 70),
+        P("banner", 12, 66),
+        P("banner", 24, 66),
+        P("brazier", 10, 78),
+        P("brazier", 26, 78),
+        P("shelf", 50, 14),
+        P("shelf", 54, 14),
+        P("shelf", 58, 14),
+        P("screen", 32, 28),
+        P("bones", 20, 102),
+        P("bones", 30, 100),
+        P("pavilion", 92, 100),
+        P("torch", 102, 54),
+      ];
+      strew(m, out, ["glowshroom", "stalagmite", "bones", "wisps", "rock"], 0.05, 131, [...SPRINGS.map((c) => c.c), ...alongTunnels(SPRINGS, SPRINGS_TUNNELS), ...npcs.map((n): [number, number] => [n.i, n.j]), ...enemies.map((e): [number, number] => [e.i, e.j])]);
+      return out;
+    },
+    npcs,
+    enemies,
+    interacts,
+    critters: [
+      { key: "bat-sp1", char: "bat", i: 64, j: 60 },
+      { key: "bat-sp2", char: "bat", i: 30, j: 90 },
+    ],
+    weather: "spores",
+    night: 0.82,
+    tint: "#6a5ab0",
+  });
+}
+
+// ----------------------------------------------------------------------------- the Drowned Palace
+const DROWNED: Chamber[] = [
+  { c: [56, 32], r: 5, h: 3 },
+  { c: [40, 30], r: 8, h: 3, kind: "marble" },
+  { c: [20, 22], r: 8, h: 5, kind: "marble" },
+  { c: [32, 48], r: 7, h: 2, kind: "moss" },
+  { c: [14, 44], r: 5, h: 3 },
+];
+const DROWNED_TUNNELS: Tunnel[] = [
+  { a: 0, b: 1, width: 3.2 },
+  { a: 1, b: 2, width: 3, via: [[30, 24]] },
+  { a: 1, b: 3, width: 2.8 },
+  { a: 3, b: 4, width: 2.6 },
+];
+
+/** Under the Dragon King's isle: his palace, drowned when he was, coral grown over the throne. */
+function buildDrowned(): InteriorDef {
+  return cave({
+    key: "drowned",
+    name: "The Drowned Palace",
+    hanzi: "水晶宫",
+    subtitle: "The Dragon King's crystal palace, under the sea he forgot he ruled",
+    size: 64,
+    chambers: DROWNED,
+    tunnels: DROWNED_TUNNELS,
+    shape: (m) => {
+      m.disc(40, 36, 2.6, "water", 3, 0.5, 71);
+      m.disc(32, 52, 3, "deep", 2, 0.5, 72);
+    },
+    props: (m) => {
+      const out = [P("dais", 18, 20), P("crystal", 14, 18), P("crystal", 24, 16), P("crystal", 36, 26), P("tidepool", 44, 26), P("tidepool", 28, 44), P("glowshroom", 36, 50), P("lotus", 40, 36), P("torch", 52, 28)];
+      strew(m, out, ["crystal", "tidepool", "stalagmite", "glowshroom"], 0.06, 141, [...DROWNED.map((c) => c.c), ...alongTunnels(DROWNED, DROWNED_TUNNELS)]);
+      return out;
+    },
+    npcs: [],
+    enemies: [
+      { key: "seaboss-2", enemy: "aoshun", i: 20, j: 24, range: 0, when: (f) => !!f["seas:boss:2"] },
+      { key: "drowned-guard-1", enemy: "drownedguard", i: 40, j: 28, range: 1.5 },
+      { key: "drowned-guard-2", enemy: "drownedguard", i: 32, j: 46, range: 1.5 },
+      { key: "drowned-guard-3", enemy: "drownedguard", i: 14, j: 42, range: 1 },
+    ],
+    interacts: [
+      { key: "drowned-stele", kind: "sign", i: 50, j: 30, text: "水晶宫 · THE CRYSTAL PALACE. The doors are coral now. Someone has written on them, in a fine old hand: “Gone to sleep. Do not wake. —A.”" },
+      { key: "drowned-chest", kind: "chest", i: 12, j: 46 },
+      { key: "drowned-herb", kind: "herb", i: 28, j: 50 },
+    ],
+    critters: [{ key: "bat-dr1", char: "bat", i: 30, j: 34 }],
+    weather: "drips",
+    night: 0.7,
+    tint: "#3ab0c0",
+  });
+}
+
+const xy = ([i, j]: [number, number]) => ({ i, j });
+
+const BUILDERS: Record<CaveId, () => InteriorDef> = { emberMine: buildEmberMine, grotto: buildGrotto, vein: buildVein, icesoul: buildIcesoul, sandtomb: buildSandTomb, tidecave: buildTideCave, bambooroots: buildBambooRoots, underworld: buildSprings, drowned: buildDrowned };
 const cache = new Map<CaveId, InteriorDef>();
 
 /** Build (once) and return a cave. */
