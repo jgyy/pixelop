@@ -8,6 +8,7 @@ import type { HumanId } from "../art/characters";
 import { say, type Step } from "./script";
 import { giveAttire } from "./wardrobe";
 import { sectHasNews, sectNpcScript, sectPreBattle, sectVictory, veinEpilogue } from "./sects";
+import { grandHallErrand, grandHallHasNews, grandHallNpcScript } from "./grandhalls";
 import { crowdNpcScript } from "./crowd";
 import { veinFate } from "../world/caves";
 import { calendarAt, worldTime } from "../world/calendar";
@@ -96,7 +97,7 @@ export function errand(g: GameState): string | null {
   if (f.haiMet && !f.haiPeach) return "The Sea-Swallow's errand: bring Captain Hai a peach from Auntie Rong's orchard, east of the Lotus Lake.";
   if (f.haiPeach && !f.haiCoat) return "The Sea-Swallow's errand: take the peach to Captain Hai at Wavecrest Harbour, east over the Rainbow Bridge.";
   if (f.heartReturned && !f.festivalSeen) return "Willow Creek is lighting its lanterns. Go home to the village for the festival.";
-  return null;
+  return grandHallErrand(f);
 }
 
 /** Why a region is sealed on the world map, or null if it is open. */
@@ -230,7 +231,7 @@ export function hasNews(key: string, g: GameState): boolean {
     case "almanac":
       return yearHasNews(key, g, calendarAt(worldTime(g)));
     default:
-      return sectHasNews(key, g) ?? false;
+      return sectHasNews(key, g) ?? grandHallHasNews(key, g) ?? false;
   }
 }
 
@@ -866,7 +867,7 @@ export function npcScript(key: string, g: GameState): Step[] {
     case "restporter":
       return [named("porter", "Porter Lao", pick(g, ["Eating. Talking costs breath, and breath costs noodles.", "From the terraces to the sands with tea, from the sands to the harbour with salt. Then home to sleep for a week.", "My pole's older than me. My father's. Same shoulders, too."])), { anim: "restporter", name: "eat" }];
     default:
-      return warNpcScript(key, g) ?? roadNpcScript(key, g) ?? hallsNpcScript(key, g) ?? tiersNpcScript(key, g) ?? peoplesNpcScript(key, g) ?? tierFolkScript(key, g) ?? quarterNpcScript(key, g) ?? sectNpcScript(key, g) ?? townNpcScript(key, g) ?? tideNpcScript(key, g) ?? crowdNpcScript(key, g) ?? [say("narrator", "…")];
+      return warNpcScript(key, g) ?? roadNpcScript(key, g) ?? hallsNpcScript(key, g) ?? tiersNpcScript(key, g) ?? peoplesNpcScript(key, g) ?? tierFolkScript(key, g) ?? quarterNpcScript(key, g) ?? sectNpcScript(key, g) ?? grandHallNpcScript(key, g) ?? townNpcScript(key, g) ?? tideNpcScript(key, g) ?? crowdNpcScript(key, g) ?? [say("narrator", "…")];
   }
 }
 

@@ -12,6 +12,8 @@ import { layRoad } from "./roadside";
 import { STREET_FOLK, TIDE_FOLK } from "./road";
 import { DORM_AT, FIELD, GREAT_HALL_AT, HALL_BOSS_AT, HALL_BOSSES, HALL_CAST, HALL_SITES, HALLS, HOPEFULS, hallMasterKey, MISSION_AT, OUTER_FOLK, RING, SPARRERS, STONE_AT } from "./halls";
 import { PatchPainter, type TerrainPatch } from "./terrain";
+import { applyHallLayer, type GrandHall } from "./grandhalls";
+import { buildDebates, buildPavilion, DEBATES, PAVILION } from "./sectHalls";
 import { flockmates, neighbours, packmates } from "./crowds";
 import { EAST_WARD, JINHE_QUARTERS, WILLOW_WARD, type Quarter } from "./quarters";
 import { CONCORD_AT, elderKey, ENVOY_AT, ENVOY_KEY, folkKey, guideKey, HOME_R, HOME_SPOTS, homeKey, PEOPLES } from "./peoples";
@@ -39,6 +41,8 @@ export interface WorldDef extends AreaDef {
   landmarks: Landmark[];
   /** Ground she may not step onto until a flag is set: each tier of the City of Nine Tiers, sealed below its realm (world tiles, [x0, y0, x1, y1)). */
   bars: Bar[];
+  /** The sects' grand halls, whose storeys show and hide in the footprint they stand on. */
+  halls: GrandHall[];
 }
 
 export interface Bar {
@@ -2116,6 +2120,71 @@ function buildWorld(): WorldDef {
   const occupied = new Set<number>();
   for (const x of [...fnpcs, ...fenemies, ...finteracts]) for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) occupied.add((x.j + dj) * WORLD_W + x.i + di);
   const free = (i: number, j: number) => !fine.isBlocked(i, j) && !occupied.has(j * WORLD_W + i);
+  // 12c½. the sects' grand halls, three storeys high and raised in the world itself (see world/grandhalls.ts and world/sectHalls.ts)
+  const halls: GrandHall[] = [];
+  const hallMarks: Landmark[] = [];
+  const walkers: NpcPlacement[] = [];
+  {
+    const clearRect = (i0: number, j0: number, i1: number, j1: number) => {
+      const keep = kept.filter((p) => p.i < i0 || p.i > i1 || p.j < j0 || p.j > j1);
+      kept.length = 0;
+      kept.push(...keep);
+      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) fine.block(i, j, false);
+    };
+    const claim = (h: GrandHall, pad: number) => {
+      const [i0, j0, i1, j1] = h.rect;
+      for (let j = j0 - pad; j <= j1 + pad; j++) for (let i = i0 - pad; i <= i1 + pad; i++) occupied.add(j * WORLD_W + i);
+    };
+    // the Pavilion of Drifting Scriptures, on an isle of its own moored east of the sect, and a plank walkway out to it from the Cloudstep Isles
+    {
+      const [cx, cy, r, ht] = [468, 138, 24, 2];
+      fine.disc(cx, cy, r, "grass", ht, 1.6, 231);
+      fine.disc(cx, cy, r - 4, "plaza", ht, 0, 1);
+      fine.path([[441, 105], [450, 112], [458, 119]], 1.4, "wood", ht);
+      const [i0, j0] = [cx - Math.floor(PAVILION.w / 2), cy - Math.floor(PAVILION.h / 2)];
+      clearRect(i0 - 3, j0 - 3, i0 + PAVILION.w + 2, j0 + PAVILION.h + 2);
+      const h = buildPavilion(WORLD_W, i0, j0, ht + 1);
+      halls.push(h);
+      claim(h, 2);
+      // stone lions at the door, lanterns along the walk, pines and blossom round the isle's rim
+      const [dx, dy] = h.door[0];
+      kept.push({ id: "lion", i: dx - 3, j: dy + 2 }, { id: "lion", i: dx + 4, j: dy + 2 }, { id: "lantern", i: dx - 2, j: dy + 5 }, { id: "lantern", i: dx + 3, j: dy + 5 }, { id: "censer", i: dx, j: dy + 6 });
+      for (let a = 0; a < 18; a++) {
+        const t = (a / 18) * Math.PI * 2;
+        const [i, j] = [Math.round(cx + Math.cos(t) * (r - 2.5)), Math.round(cy + Math.sin(t) * (r - 2.5))];
+        if (fine.kind(i, j) === "grass" && !occupied.has(j * WORLD_W + i)) kept.push({ id: a % 3 === 0 ? "cherry" : a % 3 === 1 ? "pine" : "lantern", i, j });
+      }
+      hallMarks.push({ key: "cangjing", name: h.name, hanzi: h.hanzi, icon: "pagoda", x: cx, y: cy });
+      // disciples on their way to and from the pavilion: round the hall with an armful of scrolls, and out along the planks to the sect
+      const [i1, j1] = [h.rect[2], h.rect[3]];
+      walkers.push(
+        { key: "gh-walk1", name: "A Disciple Walking Off a Lecture", char: "discipleM", i: i0 - 2, j: j0 - 2, dir: 2, route: [[i0 - 2, j0 - 2], [i1 + 2, j0 - 2], [i1 + 2, j1 + 3], [i0 - 2, j1 + 3]] },
+        { key: "gh-walk2", name: "A Disciple Carrying Scrolls to the Sect", char: "outerF", i: 461, j: 122, dir: 8, route: [[461, 122], [450, 112], [442, 106]] },
+      );
+    }
+    // the Hall of Ten Thousand Debates, outside the Ten Halls' south gate, its door on the road
+    {
+      const [i0, j0, ground] = [286, 968, 1];
+      const [i1, j1] = [i0 + DEBATES.w - 1, j0 + DEBATES.h - 1];
+      clearRect(i0 - 3, j0 - 3, i1 + 3, j1 + 3);
+      for (let j = j0 - 3; j <= j1 + 3; j++) for (let i = i0 - 3; i <= i1 + 3; i++) fine.set(i, j, i >= i0 - 1 && i <= i1 + 1 && j >= j0 - 1 && j <= j1 + 1 ? "plaza" : "grass", ground);
+      const h = buildDebates(WORLD_W, i0, j0, ground + 1);
+      halls.push(h);
+      claim(h, 3);
+      const [dx, dy] = h.door[0];
+      // a paved forecourt from the door out to the south road
+      fine.rect(dx + 1, dy - 1, dx + 8, dy + 2, "plaza", ground);
+      kept.push({ id: "lion", i: dx + 2, j: dy - 3 }, { id: "lion", i: dx + 2, j: dy + 4 }, { id: "banner", i: dx + 4, j: dy - 3 }, { id: "banner", i: dx + 4, j: dy + 4 }, { id: "lantern", i: dx + 6, j: dy - 2 }, { id: "lantern", i: dx + 6, j: dy + 3 });
+      hallMarks.push({ key: "wanlun", name: h.name, hanzi: h.hanzi, icon: "hall", x: (i0 + i1) / 2, y: (j0 + j1) / 2 });
+      // supper goes in by the south gate and argument comes out of it
+      walkers.push(
+        { key: "gh-walk3", name: "A Porter With the Refectory's Rice", char: "porter", i: dx + 7, j: dy, dir: 2, anim: "carry", route: [[dx + 7, dy], [321, dy], [321, 963]] },
+        { key: "gh-walk4", name: "Two Debaters Still Arguing on the Road", char: "outerM", i: 321, j: 966, dir: 14, route: [[321, 966], [321, dy + 1], [dx + 6, dy + 1]] },
+      );
+    }
+    for (const h of halls) applyHallLayer(fine, h, h.shell);
+    fnpcs.push(...walkers);
+  }
   {
     // the Dragon Vein's mouth lies under a rockfall until the conclave is called
     const p = new PatchPainter(fine);
@@ -2372,7 +2441,8 @@ function buildWorld(): WorldDef {
     regionOf,
     regions,
     waypoints,
-    landmarks: [...landmarks.map((l) => ({ ...l, x: l.x * S + (S - 1) / 2, y: l.y * S + (S - 1) / 2 })), ...roadMarks],
+    landmarks: [...landmarks.map((l) => ({ ...l, x: l.x * S + (S - 1) / 2, y: l.y * S + (S - 1) / 2 })), ...roadMarks, ...hallMarks],
+    halls,
     patches,
     bars: Array.from({ length: TIER_COUNT - 1 }, (_, n): Bar => ({ key: `tier-${n + 1}`, rect: tierWorldRect(n + 1), flag: gateFlag(n + 1), why: `${WARDEN_NAMES[n + 1]} bars the stair to ${TIER_SITES[n + 1].name}` })),
   };
