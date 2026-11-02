@@ -516,6 +516,25 @@ describe("Game runtime", () => {
     expect(game.world.hero.idleAnim).toBe("idle");
   });
 
+  it("steps down off her sword with a bend of the knees, and skims low over open water", () => {
+    const game = fresh();
+    game.debugPatch({ flags: { metElder: true, villageArrived: true, villageSaved: true, metZhou: true, metHuli: true, lakeArrived: true }, realm: 1 });
+    game.debugTeleport("lake", 16.5, 20.5); // on the jetty
+    game.toggleFly();
+    game.keyDown("KeyD"); // out over the open water
+    game.debugSkipTime(0.4 * WORLD_SCALE);
+    expect(game.world.hero.anim).toBe("skim");
+    game.keyUp("KeyD");
+    // back on the jetty, up and down again
+    game.debugTeleport("lake", 16.5, 20.5);
+    game.toggleFly();
+    expect(game.world.hero.anim).toBe("fly");
+    game.toggleFly();
+    expect(game.world.hero.anim).toBe("alight");
+    game.debugSkipTime(0.6);
+    expect(game.world.hero.anim).toBe("idle");
+  });
+
   it("scripted walks are at a walking pace even straight after a run", () => {
     const game = fresh();
     const h = game.world.hero;

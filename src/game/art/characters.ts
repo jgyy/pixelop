@@ -209,7 +209,16 @@ export type AnimId =
   | "whirl"
   | "thrust"
   | "phoenix"
-  | "starfall";
+  | "starfall"
+  // the Encircling Sea: what she does at chests, herbs, shores, seals and the edge of the world
+  | "openchest"
+  | "pluck"
+  | "windback"
+  | "recoil"
+  | "skim"
+  | "alight"
+  | "seagaze"
+  | "skipstone";
 
 export interface Anim {
   fps: number;
@@ -2074,6 +2083,185 @@ human.starfall = {
   },
 };
 
+// opening a chest: down on one knee, the lid heaved up with both hands, then up on her feet holding the find aloft
+human.openchest = {
+  n: 10,
+  fps: 8,
+  loop: false,
+  pose: (i) => {
+    const kneel = i >= 1 && i <= 6;
+    const heave = [0, 0, 0.2, 0.6, 1, 1, 0.8, 0, 0, 0][i];
+    const aloft = i >= 7 ? Math.min(1, (i - 6) / 2) : 0;
+    return {
+      t: i,
+      stance: kneel ? "kneel" : "stand",
+      lean: kneel ? 0.22 - heave * 0.14 : 0.02,
+      handL: aloft ? [-2.4, 2.4, 13 + aloft * 10] : [-2.6, 5.4, 6 + heave * 5],
+      handR: aloft ? [2.4, 2.4, 13 + aloft * 10] : [2.6, 5.4, 6 + heave * 5],
+      held: aloft ? "token" : undefined,
+      lift: i === 8 ? 1.2 : 0,
+      eyes: heave === 1 ? "closed" : "open",
+      mouth: heave > 0.5 || aloft ? "open" : "neutral",
+      flash: i === 5 ? 0.18 : 0,
+      wind: [0, -0.2, aloft * 0.4],
+    };
+  },
+};
+// plucking a herb: crouch, pinch it off at the root, and lift it to her nose for a sniff
+human.pluck = {
+  n: 9,
+  fps: 7,
+  loop: false,
+  pose: (i) => {
+    const low = [0, 0.6, 1, 1, 1, 0.6, 0.2, 0, 0][i];
+    const sniff = i >= 6 ? 1 : 0;
+    return {
+      t: i,
+      stance: low > 0.5 ? "kneel" : "stand",
+      lean: 0.24 * low,
+      handR: sniff ? [1, 4.2, 20.4] : [2, 5.6 - low, 10 - low * 6.6 + (i === 4 ? 1.4 : 0)],
+      handL: [-3.4, 3 * low, 10 - low * 2],
+      held: i >= 4 ? "seedling" : undefined,
+      eyes: sniff && i >= 7 ? "closed" : "open",
+      mouth: sniff ? "smile" : "neutral",
+      wind: [0, -0.2, 0],
+    };
+  },
+};
+// at the edge of the world: a gale off the Encircling Sea throws her back, an arm up across her face, feet skidding
+human.windback = {
+  n: 8,
+  fps: 9,
+  loop: false,
+  pose: (i) => {
+    const gust = [0.3, 1, 1, 0.9, 0.8, 0.6, 0.3, 0][i];
+    return {
+      t: i * 1.3,
+      lean: -0.22 * gust,
+      handR: [1.6, 4.6, 22 - gust * 2],
+      handL: [-5 - gust, -1.6 * gust, 13],
+      footL: [-2.1, 1.4 * gust, 0],
+      footR: [2.1, -2.2 * gust, 0],
+      bob: -0.6 * gust,
+      eyes: gust > 0.7 ? "closed" : "open",
+      mouth: gust > 0.9 ? "open" : "neutral",
+      wind: [Math.sin(i * 1.7) * 0.8, 2.6 * gust, 0.6 * gust],
+    };
+  },
+};
+// a sealed way or a barred stair: she walks into the ward and stumbles back from it, a hand up
+human.recoil = {
+  n: 7,
+  fps: 10,
+  loop: false,
+  pose: (i) => {
+    const k = [0.4, 1, 0.8, 0.6, 0.4, 0.2, 0][i];
+    return {
+      t: i,
+      lean: -0.18 * k,
+      handR: [3.2, 4 + k * 1.4, 16 + k * 3],
+      handL: [-4.6, 0.4, 11.6],
+      footR: [1.8, -2.4 * k, 0],
+      flash: i === 1 ? 0.35 : 0,
+      eyes: i === 1 ? "hurt" : "open",
+      mouth: i <= 2 ? "open" : "neutral",
+      wind: [0, 1.2 * k, 0],
+    };
+  },
+};
+// riding her sword low over the open sea: crouched, one hand trailing at her side, spray at the sword's tip
+human.skim = {
+  n: 6,
+  fps: 9,
+  loop: true,
+  pose: (i, n) => {
+    const a = ph(i, n);
+    return {
+      t: a * 2,
+      sword: "under",
+      stance: "stand",
+      footL: [-1.8, -2.2, 0],
+      footR: [1.8, 2, 0],
+      handL: [-6, -3.4, 9.6 + Math.sin(a) * 0.8],
+      handR: [5, 2.8, 13],
+      bob: -1.2 + Math.cos(a) * 0.3,
+      lean: 0.24,
+      eyes: "open",
+      mouth: "smile",
+      wind: [Math.sin(a) * 0.5, -2.4, 0.3],
+      aura: { kind: "wind", k: 0.35 },
+    };
+  },
+};
+// stepping down off the sword: a little drop, knees bending to take it, and up again
+human.alight = {
+  n: 5,
+  fps: 12,
+  loop: false,
+  pose: (i) => {
+    const air = [1, 0.5, 0, 0, 0][i];
+    const give = [0, 0.3, 1, 0.5, 0][i];
+    return {
+      t: i,
+      lift: air * 3,
+      bob: -give * 1.6,
+      lean: 0.12 * give,
+      handL: [-5 - air, -1, 13 + air * 2],
+      handR: [5 + air, -1, 13 + air * 2],
+      footL: [-2 - give * 0.4, 0.4, air],
+      footR: [2 + give * 0.4, -0.4, air],
+      eyes: "open",
+      mouth: give > 0.6 ? "open" : "smile",
+      wind: [0, 0.4, air],
+    };
+  },
+};
+// on a shore, looking out over the sea: a hand at her brow, her hair and sleeves blown back by the sea wind
+human.seagaze = {
+  n: 12,
+  fps: 5,
+  loop: false,
+  pose: (i) => {
+    const k = [0, 0.6, 1, 1, 1, 1, 1, 1, 1, 1, 0.5, 0][i];
+    const gust = Math.sin(i * 1.1) * 0.6;
+    return {
+      t: i,
+      lean: -0.04 * k,
+      handR: [1.8, 2.8 + 2.4 * k, 11.2 + 12.4 * k],
+      handL: [-4.6, 0.2, 11.4 + gust * 0.4],
+      footL: [-2, 0.6, 0],
+      footR: [2, -0.6, 0],
+      eyes: i === 6 ? "blink" : "open",
+      mouth: i >= 7 && i <= 9 ? "smile" : "neutral",
+      wind: [gust, 1.4 * k, 0.5],
+    };
+  },
+};
+// skipping a stone over the water: a crouch and a low side-arm throw, then a watch as it skips away
+human.skipstone = {
+  n: 10,
+  fps: 9,
+  loop: false,
+  pose: (i) => {
+    const wind = [0, 0.6, 1, 0.4, -0.6, -1, -0.6, 0, 0, 0][i];
+    const thrown = i >= 5;
+    return {
+      t: i,
+      lean: 0.1 + Math.abs(wind) * 0.1,
+      bob: -Math.abs(wind) * 0.8,
+      handR: [4.6 + wind * 1.6, 2 - wind * 4, 9.6],
+      handL: [-4.4, 1.4, 12],
+      footL: [-2, 1.2, 0],
+      footR: [2, -1.2, 0],
+      held: thrown && i >= 9 ? undefined : "pebble",
+      toss: thrown ? [3 + (i - 5) * 2, 8 + (i - 5) * 6, 5 + ((i - 5) % 2) * 3] : undefined,
+      eyes: "open",
+      mouth: i >= 8 ? "smile" : "neutral",
+      wind: [0, -0.4, 0],
+    };
+  },
+};
+
 // ----------------------------------------------------------------------------- beast poses
 const beast: Partial<Record<AnimId, AnimSpec<BeastPose>>> = {
   idle: { n: 6, fps: 6, loop: true, pose: (i, n) => ({ t: ph(i, n) }) },
@@ -2800,6 +2988,15 @@ const MORE: [AnimId, HumanId[]][] = [
   ["thrust", ["heroine"]],
   ["phoenix", ["heroine"]],
   ["starfall", ["heroine"]],
+  // the Encircling Sea and its shores
+  ["openchest", ["heroine"]],
+  ["pluck", ["heroine", "herbalist"]],
+  ["windback", ["heroine"]],
+  ["recoil", ["heroine"]],
+  ["skim", ["heroine", "discipleM", "discipleF", "swordsman"]],
+  ["alight", ["heroine"]],
+  ["seagaze", ["heroine", "boatwoman", "captain", "fishwife"]],
+  ["skipstone", ["heroine", "boy", "child"]],
   // and what the Hanging City's and the Cliff Port's folk are seen doing between
   ["pant", ["porter"]],
   ["carry", ["porter"]],
