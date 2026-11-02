@@ -455,6 +455,41 @@ const courtMoves: [CharId, AnimId][] = [
 ];
 writeGif("courts-moves.gif", showcase(courtMoves.map(([id, anim]): Cell => ({ id, anim, dir: 1, label: `${charDef(id).name.split(" ").pop()} ${anim}` })), 7, 2, seconds), 12);
 
+// the Southern Heights: the arts' second and third moves, her techniques' own moves, the hoist rope, a cloud to ride, sword flight
+const artMoves: [CharId, AnimId][] = [
+  ["farmer", "water"],
+  ["heroine", "harvest"],
+  ["smith", "bellows"],
+  ["smith", "quench"],
+  ["alchemist", "pillroll"],
+  ["alchemist", "lidlift"],
+  ["heroine", "talismantoss"],
+  ["scholar", "sealpress"],
+  ["formationmaster", "luopan"],
+  ["formationmaster", "pace"],
+  ["tamer", "feed"],
+  ["tamer", "whistle"],
+  ["physician", "acupuncture"],
+  ["physician", "moxa"],
+  ["cook", "wok"],
+  ["cook", "chopveg"],
+  ["villagerM", "haul"],
+  ["monk", "cloudride"],
+  ["discipleF", "fly"],
+  ["heroine", "dash"],
+  ["heroine", "palmstrike"],
+  ["heroine", "swordcall"],
+  ["heroine", "lotussutra"],
+  ["heroine", "thundercall"],
+  ["heroine", "whirl"],
+  ["heroine", "thrust"],
+  ["heroine", "phoenix"],
+  ["heroine", "starfall"],
+];
+writeGif("heights-moves.gif", showcase(artMoves.map(([id, anim]): Cell => ({ id, anim, dir: 1, label: `${charDef(id).name.split(" ").pop()} ${anim}` })), 7, 2, seconds), 12);
+const fleet = (["junk", "skiff", "skyjunk"] as CharId[]).map((id): Cell => ({ id, anim: "idle", dir: "spin", label: charDef(id).name }));
+writeGif("ships.gif", showcase(fleet, 3, 1, seconds), 8);
+
 
 // 2. Portraits
 const portraitIds = HUMAN_IDS.filter((id) => charDef(id).portrait);

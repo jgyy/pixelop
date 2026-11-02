@@ -514,4 +514,24 @@ test.describe("Jade Lotus Ascension", () => {
     await expect(page.getByTestId("journal-founding")).toContainText("Choosing the Ground");
     await expect(page.getByTestId("journal-sect")).toContainText("Elder of the Sword");
   });
+  test("the Southern Heights: the hermit on the tallest pillar teaches the whirlwind, ships and fliers go round, and Q looses it in battle", async ({ page }) => {
+    await startNewGame(page);
+    await patch(page, { flags: { metElder: true, villageSaved: true, villageArrived: true, metZhou: true }, realm: 1, stage: 0, qi: 200 });
+    // the junks, the skiffs, the sword-riders and the cloud-ships are all out, wherever she is
+    expect(await page.evaluate(() => window.__pixelop!.game.world.actors.filter((a) => a.voyage).length)).toBeGreaterThan(25);
+    await standBy(page, "pf-hermit");
+    await expect(page.getByTestId("prompt")).toContainText("Hermit");
+    await page.keyboard.press("KeyE");
+    await expect(page.getByTestId("dialog")).toContainText("Hermit Who Holds Up Heaven");
+    await finishDialogue(page);
+    await expect.poll(async () => (await state(page)).skills).toContain("whirlwind");
+    // she stands on the pillar's top, forty levels up
+    expect(await page.evaluate(() => Math.round(window.__pixelop!.game.world.hero.z))).toBeGreaterThanOrEqual(38);
+    await battle(page, "fox");
+    await expect(page.getByTestId("skill-whirlwind")).toBeVisible();
+    await expect(page.getByTestId("skill-whirlwind")).toContainText("Q");
+    await page.waitForTimeout(1500);
+    await page.keyboard.press("KeyQ");
+    await expect(page.getByTestId("battle-menu")).toContainText("Cloudstep Whirlwind");
+  });
 });

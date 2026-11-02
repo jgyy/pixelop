@@ -23,6 +23,7 @@ import { peoplesEpilogue, peoplesNpcScript, peoplesPreBattle, peoplesVictory } f
 import { seasEpilogue, seasNpcScript, seasPreBattle, seasVictory } from "./seas";
 import { courtsEpilogue, courtsNpcScript, courtsPreBattle, courtsVictory } from "./courts";
 import { foundingEpilogue, foundingNpcScript, foundingPreBattle, foundingVictory } from "./founding";
+import { heightsNpcScript } from "./heights";
 import { quarterNpcScript, tierFolkScript } from "./standing";
 import { tideNpcScript } from "./tide";
 import { townNpcScript } from "./town";
@@ -870,7 +871,7 @@ export function npcScript(key: string, g: GameState): Step[] {
     case "restporter":
       return [named("porter", "Porter Lao", pick(g, ["Eating. Talking costs breath, and breath costs noodles.", "From the terraces to the sands with tea, from the sands to the harbour with salt. Then home to sleep for a week.", "My pole's older than me. My father's. Same shoulders, too."])), { anim: "restporter", name: "eat" }];
     default:
-      return warNpcScript(key, g) ?? roadNpcScript(key, g) ?? hallsNpcScript(key, g) ?? tiersNpcScript(key, g) ?? peoplesNpcScript(key, g) ?? seasNpcScript(key, g) ?? courtsNpcScript(key, g) ?? foundingNpcScript(key, g) ?? tierFolkScript(key, g) ?? quarterNpcScript(key, g) ?? sectNpcScript(key, g) ?? grandHallNpcScript(key, g) ?? townNpcScript(key, g) ?? tideNpcScript(key, g) ?? crowdNpcScript(key, g) ?? [say("narrator", "…")];
+      return warNpcScript(key, g) ?? roadNpcScript(key, g) ?? hallsNpcScript(key, g) ?? tiersNpcScript(key, g) ?? peoplesNpcScript(key, g) ?? seasNpcScript(key, g) ?? courtsNpcScript(key, g) ?? foundingNpcScript(key, g) ?? heightsNpcScript(key, g) ?? tierFolkScript(key, g) ?? quarterNpcScript(key, g) ?? sectNpcScript(key, g) ?? grandHallNpcScript(key, g) ?? townNpcScript(key, g) ?? tideNpcScript(key, g) ?? crowdNpcScript(key, g) ?? [say("narrator", "…")];
   }
 }
 

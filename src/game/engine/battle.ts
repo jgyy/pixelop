@@ -31,6 +31,10 @@ export const SKILLS: Record<SkillId, Skill> = {
   swords: { id: "swords", name: "Myriad Swords Return", hanzi: "万剑归宗", qi: 25, power: 0.85, hits: 3, description: "Summon three flying swords to strike in succession.", key: "3" },
   lotus: { id: "lotus", name: "Lotus Heart Sutra", hanzi: "莲心诀", qi: 15, power: 0, hits: 0, heal: 0.35, description: "Recite the sutra to restore 35% HP.", key: "4" },
   thunder: { id: "thunder", name: "Nine Heavens Thunder", hanzi: "九霄雷", qi: 40, power: 1.35, hits: 2, pierce: 0.3, description: "Call down twin bolts of tribulation lightning.", key: "5" },
+  whirlwind: { id: "whirlwind", name: "Cloudstep Whirlwind", hanzi: "踏云旋风", qi: 20, power: 0.62, hits: 4, description: "Spring into the air and spin through the foe, four cuts in one turn. Taught by the Hermit Who Holds Up Heaven.", key: "Q" },
+  dragon: { id: "dragon", name: "Azure Dragon Sword Qi", hanzi: "青龙剑气", qi: 30, power: 2.2, hits: 1, pierce: 0.6, description: "A lunge that looses a dragon of jade sword qi; pierces most of DEF. Opens at Nascent Soul.", key: "W" },
+  phoenix: { id: "phoenix", name: "Vermilion Phoenix Ascends", hanzi: "朱雀焚天", qi: 50, power: 1.15, hits: 3, pierce: 0.2, description: "Wings of fire unfold and the phoenix dives three times. Opens at Soul Transformation.", key: "E" },
+  starfall: { id: "starfall", name: "Starfall Lotus Rain", hanzi: "星落莲雨", qi: 45, power: 0.5, hits: 6, heal: 0.1, description: "Stars come down like lotus petals: six small strikes, and a little vitality back. Taught by Lady Xuan of the Hanging City.", key: "R" },
 };
 
 export type BattleAction = { type: "skill"; skill: SkillId } | { type: "item"; item: "heal" | "qi" } | { type: "flee" };

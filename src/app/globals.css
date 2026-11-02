@@ -747,15 +747,25 @@ button {
   left: 50%;
   bottom: 3%;
   transform: translateX(-50%);
-  width: min(980px, 96vw);
+  width: min(1080px, 96vw);
   display: grid;
-  grid-template-columns: 1.4fr 1fr;
+  grid-template-columns: 1.7fr 1fr;
   gap: 10px;
 }
 .skills {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 6px;
+}
+/* once she knows more than six techniques, three to a row and a little tighter, so the arena stays in sight */
+.skills.many {
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 4px;
+}
+.skills.many .btn {
+  padding-top: 3px;
+  padding-bottom: 3px;
+  font-size: 0.9em;
 }
 .skills .btn small {
   display: block;

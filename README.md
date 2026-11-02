@@ -109,6 +109,135 @@ New moves: Lin Yue **rummages** in her satchel when the menu opens and **shades 
 - A foundling who runs up the sky bridge before facing the fox is no longer greeted for the "fox blood on her sleeve", or told she has "already met" the beast.
 
 
+### The Southern Heights: a city on a mountain, a forest of stone pillars, a cliff port, ships under sail, people in the air, and moves for every art and technique
+
+The jianghu used to lie flat: a hill here, a mesa there, a city of terraces. Below the Stairlands a new land now stands up out of it, the **Southern Heights** (南岳), with three places built around climbing. **Ships sail** the Sea of Pearls on fixed routes. **Disciples ride their swords** overhead, a **cloud-ship** carries the sects' business from the Azure Cloud to the Hanging City, and immortals drift past on little clouds. Every one of the **Hundred Arts** gets two more moves of its own, and every **technique** gets its own fighting move: the five she had and **four new ones**.
+
+| | |
+|---|---|
+| ![Xuancheng, the Hanging City](docs/screenshots/332-3d-the-hanging-city.png) | ![A terrace of the Hanging City](docs/screenshots/333-3d-a-terrace-of-the-hanging-city.png) |
+| ![The summit, thirty-eight levels up](docs/screenshots/334-3d-the-summit-of-the-hanging-city.png) | ![The Thousand-Pillar Forest](docs/screenshots/335-3d-the-thousand-pillar-forest.png) |
+| ![A grove in the air](docs/screenshots/336-3d-a-grove-in-the-air.png) | ![Yagang, the Cliff Port](docs/screenshots/337-3d-yagang-the-cliff-port.png) |
+| ![Junks on the Sea of Pearls](docs/screenshots/338-3d-junks-on-the-sea-of-pearls.png) | ![Sword-riders and the cloud-ship over Willow Creek](docs/screenshots/339-3d-sword-riders-and-the-cloud-ship.png) |
+| ![The hermit teaches the whirlwind](docs/screenshots/341-the-hermit-teaches-the-whirlwind.png) | ![The Southern Heights from the air](docs/screenshots/346-world-map-the-southern-heights.png) |
+
+#### Three places built to be climbed (`world/heights.ts`)
+
+| Place | Hanzi | How high | How you climb it |
+|---|---|---|---|
+| Xuancheng, the Hanging City | 悬城 | six ring terraces, each six levels above the last, round a summit **38 levels** up | Each terrace has one stair up, and no two stairs are at the same angle, so you walk part of the way round the mountain on every terrace. The summit spring falls down the south face from terrace to terrace, with a plank bridge across it on each one. **Rope hoists** at the cliff edges haul baskets up and down. |
+| The Thousand-Pillar Forest | 千柱林 | 48 sandstone pillars, **16 to 40 levels** tall | Four grove pillars each have a long stair up one side, a level a tile, starting where the ground meets it. Stone bridges run from each grove pillar to its neighbours, so you can walk a whole grove in the air. The tallest pillar (40 levels) has a pavilion, a chest and a hermit on top. |
+| Yagang, the Cliff Port | 崖港 | five steps down a sea cliff, five levels apart, from **21 levels** to the quay | The stairs switch between the north and south ends of each step. Below the quay there are three piers, junks tied up, and the harbour that the ferry and the skiffs come in to. |
+
+The land is joined to the Stairlands by a neck of land, and roads run from the City of Nine Tiers to the Hanging City's gate, on to the port, and west through the pillars. Every terrace has houses backed against the cliff, lanterns, prayer flags and wind chimes, and folk going round their work. You meet porters and water-carriers on the stairs, herb-gatherers on the pillar stairs, and stevedores, fishwives, boatwomen, merchants and ship's carpenters on the quay. In all there are sixty new folk (and the neighbours the crowds add round them), each with their own lines. A test walks the whole land on foot (a level a step at most) and checks that she can reach the summit, every grove pillar, every bridge and every step of the port.
+
+```mermaid
+flowchart TD
+  SL["The Stairlands<br/>(the City of Nine Tiers' flats)"] -->|road over the neck| G["Xuancheng's north gate<br/>terrace 0 · level 2"]
+  G --> T1["terrace 1 · level 8"] --> T2["terrace 2 · level 14"] --> T3["terrace 3 · level 20"] --> T4["terrace 4 · level 26"] --> T5["terrace 5 · level 32"] --> S["the summit · level 38<br/>pagoda, spring, Lady Xuan"]
+  G -->|road east| Q["Yagang's quay · level 1"] --> P1["step 1 · 6"] --> P2["step 2 · 11"] --> P3["step 3 · 16"] --> P4["step 4 · 21<br/>lighthouse"]
+  G -->|road west| F["the forest floor"]
+  F -->|long stair| G0["Grove of the First Step · 18"]
+  F -->|long stair| G1["Monkey Bridges · 24"]
+  F -->|long stair| G2["Hanging Gardens · 30"]
+  F -->|long stair| G3["Pillar That Holds Up Heaven · 40<br/>the hermit"]
+  G0 & G1 & G2 & G3 -.->|stone bridges| N["neighbouring pillars, same height"]
+```
+
+How it is built: the three places' ground is reserved before the coast is carved and the wild slopes are smoothed. It is raised only after the smoothing, which would otherwise have turned every pillar into a cone, and then furnished. Everything is worked out from fixed rules and noise, so there is no new save version.
+
+#### Ships that sail and people who fly (`world/voyages.ts`)
+
+Anything that travels a fixed loop is a **voyage**: a junk, a skiff, a sword-rider, a cloud-ship, a crane. Where it is on its loop depends only on the clock. A ship is where it would have been if she had watched it all day, it never stops when she walks away, and it never bumps into anything. A sea route is a loop of stops, and the actual course between them is **found over the water** (breadth-first over roomy water, passing under the isles' plank bridges, then straightened). A test samples every half tile of every sea route and checks it is water. Fliers hold their height above the land 3, 7 and 12 tiles ahead, so they rise over the Hanging City before they reach it.
+
+| Who | Where |
+|---|---|
+| The junk *Pearl of the South* (two), a salt junk | Hailing's quay → Pearlgate → the Lantern Reef → the Dragon King's isle → the Coral Ring → Ghost Gate → Penglai → Yagang → Turtleback |
+| The Yagang ferry | Yagang ↔ Hailing |
+| Fishing and pearl-divers' skiffs (seven) | round Turtleback, Crescent Isle, Pearlgate and off Yagang |
+| Azure Cloud disciples on their swords (seven) | the sect gate ↔ Willow Creek, and sword-flight practice round the sect |
+| The Azure Cloud's cloud-ship (two) | the sect → the Ten Halls → Jinhe → the City of Nine Tiers → the Hanging City → the pillars → home by the west |
+| The Golden Crane's cloud-ship | Hailing → the eastern capitals → Frostveil |
+| Sword-riders, an old immortal on his cloud | round the Hanging City's summit |
+| Cranes, a wandering immortal | over the Thousand-Pillar Forest and the Sea of Pearls |
+
+The ships are new sprites, ray-cast like the people and painted in all 16 facings, so a junk turns as it changes course: **the junk** (three masts with battened sails, a carved stern, pennants, a lantern and a bow wave), **the fishing skiff** (a lug sail, a woven awning and the fisher at the steering oar) and **the cloud-ship** (a lacquered hull on a churning bank of cloud, a pavilion amidships, white sails and jade streamers). Disciples, swordsmen and outer disciples can now ride a sword, and old immortals ride a little cloud (`cloudride`).
+
+| The ships | New moves |
+|---|---|
+| ![](docs/art/ships.gif) | ![](docs/art/heights-moves.gif) |
+
+```mermaid
+sequenceDiagram
+  participant B as buildWorld
+  participant V as chartVoyages
+  participant W as World (runtime)
+  participant R as Renderer (3D / pixels)
+  B->>V: the finished authoring grid
+  V->>V: snap each stop to roomy water, find the course between stops over the water, straighten it
+  V-->>B: Voyage[] (route, speed, height above the land, phase)
+  B-->>W: WorldDef.voyages
+  loop every frame, wherever she is
+    W->>W: voyageAt(route, clock): place and heading
+    W->>W: fliers ease to the highest ground ahead + their height
+  end
+  W->>R: actors (ships and fliers are sprites like everyone else)
+```
+
+#### Every art has more than one move
+
+Each of the eight arts now has **two more moves**. She goes through them in every lesson and every day's practice, and the masters go round them at their workshops all day.
+
+| Art | First move | New moves |
+|---|---|---|
+| Spirit Farming | plant | **water** (a copper can, a fan of water from the rose), **harvest** (a sickle drawn round, the sheaf lifted) |
+| Artifact Refining | hammer | **bellows** (pumping the forge), **quench** (the glowing blank plunged into the trough in a hiss of steam) |
+| Alchemy | grind | **pillroll** (a gold pill rolled between the palms), **lidlift** (the cauldron lid lifted, a lean back from the steam) |
+| Talisman Craft | inscribe | **sealpress** (the seal breathed on and leaned on), **talismantoss** (flung, it flares in the air) |
+| Formations | array | **luopan** (the geomancer's compass turned to the four quarters), **pace** (the Steps of Yu) |
+| Beast Taming | tame | **feed** (a handful scattered from the bowl), **whistle** (two fingers to the lips, an arm to send the beast round) |
+| The Healer's Dao | pulse | **acupuncture** (needles twirled home along a meridian), **moxa** (a smouldering stick circled over the skin) |
+| Spirit Cuisine | knead | **chopveg** (the cleaver rocking down the board), **wok** (rice tossed over a roaring flame) |
+
+There are also **haul** (hand over hand on a hoist rope), **cloudride** and sword flight for the sects' disciples. Twelve new things can be held in the hand: a watering can, a sickle, tongs, a pill, a talisman, a geomancer's compass, a needle, a wok, a cleaver, a rope, a bellows and a cauldron lid.
+
+#### Every technique has its own move, and four new techniques
+
+| Key | Technique | Hanzi | Her move | In battle |
+|---|---|---|---|---|
+| 1 | Azure Sword Strike | 青锋 | **dash**: low and fast, the blade trailing, a wind-trail behind | a crescent of light where the blade passed |
+| 2 | Jade Lotus Palm | 玉莲掌 | **palmstrike**: drawn to the hip, driven out flat | the qi orb blooms into a ring of rose petals |
+| 3 | Myriad Swords Return | 万剑归宗 | **swordcall**: two fingers to the sky | each sword in its own colour of qi |
+| 4 | Lotus Heart Sutra | 莲心诀 | **lotussutra**: sat in the lotus, a ring of petals opening round her | petals rise as her wounds close |
+| 5 | Nine Heavens Thunder | 九霄雷 | **thundercall**: the sword thrust up, the first bolt onto the blade | the other bolts onto the foe |
+| Q | **Cloudstep Whirlwind** | 踏云旋风 | **whirl**: a spring into the air, one full turn, down onto a knee | four cuts in one turn (taught by the hermit on the tallest pillar) |
+| W | **Azure Dragon Sword Qi** | 青龙剑气 | **thrust**: a lunge to full stretch | a dragon of jade qi coils across to the foe and pierces most of its defence (opens at Nascent Soul) |
+| E | **Vermilion Phoenix Ascends** | 朱雀焚天 | **phoenix**: arms flung wide, wings of fire, a rise off the ground | the phoenix dives three times (opens at Soul Transformation) |
+| R | **Starfall Lotus Rain** | 星落莲雨 | **starfall**: a hand raised to the night | six falling stars, and some vitality back (taught by Lady Xuan once her foundation is laid) |
+
+| The Azure Dragon | The Vermilion Phoenix |
+|---|---|
+| ![](docs/screenshots/342-battle-azure-dragon-sword-qi.png) | ![](docs/screenshots/343-battle-vermilion-phoenix-ascends.png) |
+| **Starfall Lotus Rain** | **Cloudstep Whirlwind** |
+| ![](docs/screenshots/344-battle-starfall-lotus-rain.png) | ![](docs/screenshots/345-battle-cloudstep-whirlwind.png) |
+
+```mermaid
+stateDiagram-v2
+  [*] --> Five: a new game (strike, palm, sutra, swords)
+  Five --> Thunder: Core Formation
+  Thunder --> Dragon: Nascent Soul
+  Dragon --> Phoenix: Soul Transformation
+  Five --> Whirlwind: climb to the hermit on the Pillar That Holds Up Heaven
+  Five --> Starfall: Lady Xuan, on the summit (Foundation Establishment or higher)
+  note right of Dragon
+    a save from before this update
+    gets its realm's techniques on loading
+  end note
+```
+
+The battle menu puts the techniques three to a row once she knows more than six, so the arena stays in sight. An older save gets the techniques its realm has already opened when it loads (`realmSkills`), so a Nascent Soul cultivator from before this update has the dragon straight away.
+
+
 ### The Founding: her own sect, a thousand main quests in close-up, the Celestial Court, and busy towns
 
 She has been a disciple of other people's sects for long enough. In a dead basin in the Yellow Sands, an Earth God no taller than her sash asks her to found a sect of her own, and the tenth thread of the main tale follows her doing it: **a thousand main quests**, every one of them played out in a **close-up cutscene**. She lays the first stone, names the sect for her Dao, takes in disciples nobody else would, seats six elders, judges their quarrels, and is written into heaven's Register of Sects while the **Jade Emperor**, the **Queen Mother of the West** and five gods of the Celestial Court look on. Her sect rises in the world **a building at a time**, fills with people **going round their work all day**, and grows a market town outside its gate. The six capitals get **granaries, mills, kilns, dye works, schools, bathhouses, post stations and a temple to the City God**, each worked by its own folk.

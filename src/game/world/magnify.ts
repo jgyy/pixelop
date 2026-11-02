@@ -45,6 +45,7 @@ export const STRUCTURE_SCALE: Partial<Record<PropId, number>> = {
   citywall: 2,
   citywallY: 2,
   watchtower: 2,
+  hoist: 2,
   operastage: 2,
   daostele: 2,
   eatenstele: 2,
