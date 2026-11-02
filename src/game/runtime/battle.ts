@@ -4,6 +4,7 @@ import type { Surface } from "../pixel/surface";
 import { sCircle, sLine, sRing } from "../pixel/surface";
 import { isoX, isoY } from "../iso/projection";
 import type { PropId } from "../art/props";
+import type { AnimId } from "../art/characters";
 import { ENEMIES, type EnemyId } from "../engine/enemies";
 import { openingWound, resolveTurn, woundLine, SKILLS, startBattle, type BattleAction, type BattleEvent, type BattleState } from "../engine/battle";
 import { realmLabel } from "../engine/realms";
@@ -19,7 +20,7 @@ import { World, type Actor } from "./world";
  */
 
 interface Projectile {
-  kind: "orb" | "sword" | "crescent" | "foxfire" | "venom";
+  kind: "orb" | "sword" | "crescent" | "foxfire" | "venom" | "dragon" | "feather" | "star";
   x0: number;
   y0: number;
   x1: number;
@@ -261,68 +262,7 @@ export class BattleScene {
           const sk = SKILLS[ev.skill];
           at(start, () => this.pushLog(`Lin Yue uses ${sk.name} (${sk.hanzi})!`));
           at(start + 0.15, () => (this.view.heroQi = Math.max(0, this.view.heroQi - sk.qi)));
-          if (ev.skill === "strike") {
-            at(start, () => {
-              this.heroGoal = [FOE_POS[0] - 1.1, FOE_POS[1] + 0.8];
-              this.world.setAnim(this.hero, "walk", this.clock);
-            });
-            at(start + 0.22, () => this.world.setAnim(this.hero, "attack", this.clock, true));
-            at(start + 0.42, () => this.hitFoe(ev.hits[0].damage, ev.hits[0].crit, ["#ffffff", "#9ff5de"]));
-            at(start + 0.75, () => {
-              this.heroGoal = [...HERO_POS];
-              this.world.setAnim(this.hero, "idle", this.clock);
-            });
-            t += 1.05;
-          } else if (ev.skill === "palm") {
-            at(start, () => this.world.setAnim(this.hero, "cast", this.clock, true));
-            at(start + 0.35, () => {
-              const [hx, hy] = this.center("hero");
-              const [fx, fy] = this.center("foe");
-              this.projectiles.push({ kind: "orb", x0: hx + 10, y0: hy - 2, x1: fx, y1: fy, start: this.clock, dur: 0.35, color: "#9ff5de" });
-            });
-            at(start + 0.7, () => {
-              this.hitFoe(ev.hits[0].damage, ev.hits[0].crit, ["#9ff5de", "#ffffff", "#f6a6c9"]);
-              const [fx, fy] = this.center("foe");
-              for (let i = 0; i < 12; i++) {
-                const a = (i / 12) * Math.PI * 2;
-                this.world.fx.emit({ x: fx, y: fy, vx: Math.cos(a) * 55, vy: Math.sin(a) * 28, life: 0.8, color: "#f6a6c9", size: 2 });
-              }
-            });
-            t += 1.2;
-          } else if (ev.skill === "swords") {
-            at(start, () => this.world.setAnim(this.hero, "victory", this.clock));
-            ev.hits.forEach((h, i) => {
-              at(start + 0.3 + i * 0.26, () => {
-                const [fx, fy] = this.center("foe");
-                this.projectiles.push({ kind: "sword", x0: fx - 70 + i * 50, y0: fy - 90, x1: fx - 4 + i * 4, y1: fy, start: this.clock, dur: 0.3, color: "#e3ecf7" });
-              });
-              at(start + 0.6 + i * 0.26, () => this.hitFoe(h.damage, h.crit, ["#e3ecf7", "#9ff5de", "#ffffff"]));
-            });
-            at(start + 1.5, () => this.world.setAnim(this.hero, "idle", this.clock));
-            t += 1.8;
-          } else if (ev.skill === "thunder") {
-            at(start, () => this.world.setAnim(this.hero, "cast", this.clock, true));
-            ev.hits.forEach((h, i) => {
-              at(start + 0.45 + i * 0.4, () => {
-                const [fx, fy] = this.center("foe");
-                this.bolts.push({ x: fx, y: fy + 10, at: this.clock, color: "#c8b0ff" });
-                this.flash = 0.7;
-                this.flashColor = "#e8e0ff";
-                this.hitFoe(h.damage, h.crit, ["#ffffff", "#c8b0ff", "#9ff5de"]);
-              });
-            });
-            at(start + 1.4, () => this.world.setAnim(this.hero, "idle", this.clock));
-            t += 1.6;
-          } else {
-            at(start, () => this.world.setAnim(this.hero, "cast", this.clock, true));
-            at(start + 0.3, () => {
-              const [hx, hy] = this.center("hero");
-              for (let i = 0; i < 26; i++) this.world.fx.emit({ x: hx - 18 + Math.random() * 36, y: hy + 14, vy: -30 - Math.random() * 40, vx: (Math.random() - 0.5) * 10, life: 1.2, color: i % 3 ? "#f6a6c9" : "#9ff5de", size: 2 });
-              this.view.heroHp = Math.min(this.view.heroHp + ev.heal, stats(after).maxHp);
-              this.world.fx.float(`+${ev.heal}`, hx, hy - 24, "#8aff9a", 2);
-            });
-            t += 1.2;
-          }
+          t += this.playSkill(ev, start, after);
           break;
         }
         case "item": {
@@ -438,6 +378,198 @@ export class BattleScene {
   }
 
   // ------------------------------------------------------------------ effects
+  /**
+   * Each technique's own choreography: the move she makes, what flies, what
+   * lands and how the screen answers it. Returns how long it takes.
+   */
+  private playSkill(ev: Extract<BattleEvent, { kind: "playerSkill" }>, start: number, after: GameState): number {
+    const at = (delay: number, fn: () => void) => this.after(delay, fn);
+    const hero = (anim: AnimId, hold = true) => this.world.setAnim(this.hero, anim, this.clock, hold);
+    const home = (when: number) =>
+      at(when, () => {
+        this.heroGoal = [...HERO_POS];
+        this.hero.flying = false;
+        this.world.setAnim(this.hero, "idle", this.clock);
+      });
+    const fx = this.world.fx;
+    const ring = (x: number, y: number, n: number, speed: number, color: string, life = 0.7, size = 2) => {
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2;
+        fx.emit({ x, y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed * 0.5, life, color, size });
+      }
+    };
+    switch (ev.skill) {
+      case "strike": {
+        // a low dash with a wind-trail, the cut, and a crescent of light where the blade passed
+        at(start, () => {
+          this.heroGoal = [FOE_POS[0] - 1.1, FOE_POS[1] + 0.8];
+          hero("dash", false);
+          const [hx, hy] = this.center("hero");
+          for (let i = 0; i < 10; i++) fx.emit({ x: hx - 6 + i, y: hy + 12, vx: -40 - i * 4, vy: -6, life: 0.4, color: i % 2 ? "#e8f8f0" : "#9ff5de", size: 1 });
+        });
+        at(start + 0.22, () => hero("attack"));
+        at(start + 0.36, () => {
+          const [fx0, fy0] = this.center("foe");
+          this.projectiles.push({ kind: "crescent", x0: fx0 - 10, y0: fy0, x1: fx0 + 6, y1: fy0 - 2, start: this.clock, dur: 0.18, color: "#e3ecf7" });
+        });
+        at(start + 0.42, () => this.hitFoe(ev.hits[0].damage, ev.hits[0].crit, ["#ffffff", "#9ff5de"]));
+        home(0.75 + start);
+        return 1.05;
+      }
+      case "palm": {
+        // drawn back to the hip, the palm driven out, a lotus of jade qi blooming on the foe
+        at(start, () => hero("palmstrike"));
+        at(start + 0.3, () => {
+          const [hx, hy] = this.center("hero");
+          const [fx0, fy0] = this.center("foe");
+          this.projectiles.push({ kind: "orb", x0: hx + 10, y0: hy - 2, x1: fx0, y1: fy0, start: this.clock, dur: 0.32, color: "#9ff5de" });
+          ring(hx + 10, hy - 2, 8, 30, "#9ff5de", 0.4, 1);
+        });
+        at(start + 0.64, () => {
+          this.hitFoe(ev.hits[0].damage, ev.hits[0].crit, ["#9ff5de", "#ffffff", "#f6a6c9"]);
+          const [fx0, fy0] = this.center("foe");
+          ring(fx0, fy0, 12, 55, "#f6a6c9", 0.8);
+          ring(fx0, fy0, 8, 30, "#ffffff", 0.5, 1);
+        });
+        home(start + 1.0);
+        return 1.2;
+      }
+      case "swords": {
+        // two fingers raised: the swords answer out of the sky, one after another, each in its own colour of qi
+        at(start, () => hero("swordcall"));
+        const cols = ["#e3ecf7", "#9ff5de", "#f2c55c", "#c8b0ff"];
+        ev.hits.forEach((h, i) => {
+          at(start + 0.3 + i * 0.24, () => {
+            const [fx0, fy0] = this.center("foe");
+            this.projectiles.push({ kind: "sword", x0: fx0 - 70 + i * 50, y0: fy0 - 90, x1: fx0 - 4 + i * 4, y1: fy0, start: this.clock, dur: 0.3, color: cols[i % cols.length] });
+          });
+          at(start + 0.6 + i * 0.24, () => this.hitFoe(h.damage, h.crit, [cols[i % cols.length], "#9ff5de", "#ffffff"]));
+        });
+        home(start + 0.6 + ev.hits.length * 0.24 + 0.3);
+        return 0.9 + ev.hits.length * 0.24 + 0.2;
+      }
+      case "thunder": {
+        // the sword thrust at the sky, the first bolt down onto the blade, the rest down onto the foe
+        at(start, () => hero("thundercall"));
+        at(start + 0.35, () => {
+          const [hx, hy] = this.center("hero");
+          this.bolts.push({ x: hx, y: hy - 20, at: this.clock, color: "#c8b0ff" });
+          this.flash = 0.4;
+          this.flashColor = "#e8e0ff";
+        });
+        ev.hits.forEach((h, i) => {
+          at(start + 0.6 + i * 0.4, () => {
+            const [fx0, fy0] = this.center("foe");
+            this.bolts.push({ x: fx0, y: fy0 + 10, at: this.clock, color: "#c8b0ff" });
+            this.flash = 0.7;
+            this.flashColor = "#e8e0ff";
+            this.hitFoe(h.damage, h.crit, ["#ffffff", "#c8b0ff", "#9ff5de"]);
+          });
+        });
+        home(start + 0.6 + ev.hits.length * 0.4 + 0.2);
+        return 0.9 + ev.hits.length * 0.4;
+      }
+      case "whirlwind": {
+        // she springs up beside the foe and spins through it, four cuts in one turn, and comes down on one knee
+        at(start, () => {
+          this.heroGoal = [FOE_POS[0] - 0.9, FOE_POS[1] + 0.6];
+          hero("dash", false);
+        });
+        at(start + 0.2, () => hero("whirl"));
+        ev.hits.forEach((h, i) => {
+          at(start + 0.3 + i * 0.13, () => {
+            const [fx0, fy0] = this.center("foe");
+            const a = i * 1.6;
+            this.projectiles.push({ kind: "crescent", x0: fx0 + Math.cos(a) * 14, y0: fy0 + Math.sin(a) * 8, x1: fx0 - Math.cos(a) * 8, y1: fy0 - Math.sin(a) * 6, start: this.clock, dur: 0.12, color: "#e8f8f0" });
+            this.hitFoe(h.damage, h.crit, ["#e8f8f0", "#9ff5de", "#ffffff"]);
+            ring(fx0, fy0 + 10, 10, 50, "#e8f8f0", 0.5, 1);
+          });
+        });
+        home(start + 0.3 + ev.hits.length * 0.13 + 0.4);
+        return 1.0 + ev.hits.length * 0.13;
+      }
+      case "dragon": {
+        // the lunge, and a dragon of jade sword qi pours off the point, coiling across to the foe
+        at(start, () => hero("thrust"));
+        at(start + 0.28, () => {
+          const [hx, hy] = this.center("hero");
+          const [fx0, fy0] = this.center("foe");
+          this.projectiles.push({ kind: "dragon", x0: hx + 14, y0: hy - 4, x1: fx0, y1: fy0, start: this.clock, dur: 0.5, color: "#4ac8b0" });
+        });
+        at(start + 0.8, () => {
+          this.hitFoe(ev.hits[0].damage, ev.hits[0].crit, ["#4ac8b0", "#9ff5de", "#ffffff"]);
+          const [fx0, fy0] = this.center("foe");
+          ring(fx0, fy0, 16, 70, "#4ac8b0", 0.9);
+          this.flash = 0.35;
+          this.flashColor = "#9ff5de";
+        });
+        home(start + 1.15);
+        return 1.35;
+      }
+      case "phoenix": {
+        // wings of fire unfold, she rises, and the phoenix dives on the foe again and again
+        at(start, () => {
+          hero("phoenix");
+          this.hero.flying = true;
+        });
+        at(start + 0.35, () => {
+          const [hx, hy] = this.center("hero");
+          for (let i = 0; i < 24; i++) fx.emit({ x: hx + (Math.random() - 0.5) * 30, y: hy + 6, vx: (Math.random() - 0.5) * 30, vy: -40 - Math.random() * 30, life: 0.9, color: i % 3 ? "#ffb040" : "#fff6c0", size: 2 });
+        });
+        ev.hits.forEach((h, i) => {
+          at(start + 0.5 + i * 0.32, () => {
+            const [hx, hy] = this.center("hero");
+            const [fx0, fy0] = this.center("foe");
+            this.projectiles.push({ kind: "feather", x0: hx + 6 - i * 10, y0: hy - 40 - i * 6, x1: fx0, y1: fy0, start: this.clock, dur: 0.24, color: "#ff7a2a" });
+          });
+          at(start + 0.74 + i * 0.32, () => {
+            this.hitFoe(h.damage, h.crit, ["#ffb040", "#f0601e", "#fff6c0"]);
+            const [fx0, fy0] = this.center("foe");
+            ring(fx0, fy0, 14, 60, i % 2 ? "#f0601e" : "#ffb040", 0.8);
+            this.flash = 0.4;
+            this.flashColor = "#ffb060";
+          });
+        });
+        home(start + 0.74 + ev.hits.length * 0.32 + 0.3);
+        return 1.1 + ev.hits.length * 0.32;
+      }
+      case "starfall": {
+        // a hand raised to the night: stars come down round the foe like lotus petals, and a little vitality comes back to her
+        at(start, () => hero("starfall"));
+        ev.hits.forEach((h, i) => {
+          at(start + 0.3 + i * 0.16, () => {
+            const [fx0, fy0] = this.center("foe");
+            const ox = Math.sin(i * 2.4) * 22;
+            this.projectiles.push({ kind: "star", x0: fx0 + ox - 30, y0: fy0 - 110, x1: fx0 + ox * 0.4, y1: fy0 + 4, start: this.clock, dur: 0.28, color: i % 2 ? "#c8d8ff" : "#f6a6c9" });
+          });
+          at(start + 0.58 + i * 0.16, () => this.hitFoe(h.damage, h.crit, ["#ffffff", "#c8d8ff", "#f6a6c9"]));
+        });
+        at(start + 0.6 + ev.hits.length * 0.16, () => {
+          if (!ev.heal) return;
+          const [hx, hy] = this.center("hero");
+          this.view.heroHp = Math.min(this.view.heroHp + ev.heal, stats(after).maxHp);
+          fx.float(`+${ev.heal}`, hx, hy - 24, "#8aff9a", 2);
+          ring(hx, hy + 12, 12, 30, "#f6a6c9", 0.9);
+        });
+        home(start + 0.8 + ev.hits.length * 0.16);
+        return 1.0 + ev.hits.length * 0.16;
+      }
+      default: {
+        // the Lotus Heart Sutra: sat in the lotus, petals rising round her, her wounds closing
+        at(start, () => hero("lotussutra"));
+        at(start + 0.3, () => {
+          const [hx, hy] = this.center("hero");
+          for (let i = 0; i < 26; i++) fx.emit({ x: hx - 18 + Math.random() * 36, y: hy + 14, vy: -30 - Math.random() * 40, vx: (Math.random() - 0.5) * 10, life: 1.2, color: i % 3 ? "#f6a6c9" : "#9ff5de", size: 2 });
+          ring(hx, hy + 14, 16, 26, "#f6a6c9", 1.1);
+          this.view.heroHp = Math.min(this.view.heroHp + ev.heal, stats(after).maxHp);
+          fx.float(`+${ev.heal}`, hx, hy - 24, "#8aff9a", 2);
+        });
+        home(start + 1.3);
+        return 1.5;
+      }
+    }
+  }
+
   private drawProjectiles(s: Surface, cx: number, cy: number): void {
     for (const p of this.projectiles) {
       const k = Math.min(1, (this.clock - p.start) / p.dur);
@@ -459,6 +591,37 @@ export class BattleScene {
         sLine(s, x - ux * 6 + 1, y - uy * 6, x + ux * 8 + 1, y + uy * 8, "#93a8c6");
         sLine(s, x - ux * 6 - uy * 3, y - uy * 6 + ux * 3, x - ux * 6 + uy * 3, y - uy * 6 - ux * 3, "#f2c55c");
         s.px(x + ux * 10, y + uy * 10, "#ffffff");
+      } else if (p.kind === "dragon") {
+        // a serpent of jade qi: a head of light and a body that coils behind it
+        const dx = p.x1 - p.x0;
+        const dy = p.y1 - p.y0;
+        for (let i = 14; i >= 0; i--) {
+          const back = Math.max(0, k - i * 0.04);
+          const bx = cx + p.x0 + dx * back + Math.sin(this.clock * 18 - i * 0.7) * (4 + i * 0.3);
+          const by = cy + p.y0 + dy * back + Math.cos(this.clock * 18 - i * 0.7) * 3;
+          sCircle(s, bx, by, Math.max(1, 5 - i * 0.28), alpha(i ? p.color : "#ffffff", i ? 0.85 - i * 0.04 : 1));
+        }
+        sCircle(s, x, y, 3, "#ffffff");
+        s.px(x + 2, y - 2, "#f2c55c");
+      } else if (p.kind === "feather") {
+        // the phoenix diving: a body of white fire and two trailing wings
+        sCircle(s, x, y, 5, alpha("#ffb040", 0.6));
+        sCircle(s, x, y, 3, "#fff6c0");
+        for (let i = 1; i < 10; i++) {
+          const tx = x - (p.x1 - p.x0) * 0.03 * i;
+          const ty = y - (p.y1 - p.y0) * 0.03 * i;
+          s.px(tx - i, ty - i * 0.6, alpha("#f0601e", 0.9 - i * 0.08));
+          s.px(tx + i, ty - i * 0.6, alpha("#f0601e", 0.9 - i * 0.08));
+          s.px(tx, ty, alpha("#ffb040", 0.8 - i * 0.07));
+        }
+      } else if (p.kind === "star") {
+        // a falling star with a tail
+        for (let i = 0; i < 8; i++) s.px(x - (p.x1 - p.x0) * 0.025 * i, y - (p.y1 - p.y0) * 0.025 * i, alpha(p.color, 0.9 - i * 0.1));
+        sCircle(s, x, y, 2, "#ffffff");
+        s.px(x - 3, y, alpha("#ffffff", 0.6));
+        s.px(x + 3, y, alpha("#ffffff", 0.6));
+        s.px(x, y - 3, alpha("#ffffff", 0.6));
+        s.px(x, y + 3, alpha("#ffffff", 0.6));
       } else {
         for (let a = -1.2; a <= 1.2; a += 0.08) {
           s.px(x + Math.cos(a) * 12, y + Math.sin(a) * 16, p.color);

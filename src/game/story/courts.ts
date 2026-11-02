@@ -426,6 +426,9 @@ function summonsReply(g: GameState): string {
 }
 
 /** What becomes of a lesson: she is the art's apprentice (if she wasn't) and a step further in it. */
+/** The rest of a lesson's work: each of the art's further moves in turn, the master's eye on her. */
+const craftMoves = (craft: CraftId): Step[] => CRAFT_DEFS[craft].moves.map((name) => ({ anim: "hero", name, wait: true }));
+
 const learnStep = (craft: CraftId, xp = 1): Step => ({ mutate: (s) => practise(apprentice(s, craft), craft, xp) });
 
 function beatSteps(q: CourtQuest, b: Beat, g: GameState): Step[] {
@@ -441,7 +444,7 @@ function beatSteps(q: CourtQuest, b: Beat, g: GameState): Step[] {
   }
   steps.push(...(b.after ?? []).map((l) => lineStep(l, q.book, g)), narr(fillStanding(b.done, g)));
   const craft = BEAT_CRAFT[q.book]?.[q.step];
-  if (craft) steps.push({ anim: "hero", name: CRAFT_DEFS[craft].anim, wait: true }, learnStep(craft), { toast: `You are now an apprentice of ${CRAFT_DEFS[craft].name} (${CRAFT_DEFS[craft].hanzi}) · see the Journal (J)` });
+  if (craft) steps.push({ anim: "hero", name: CRAFT_DEFS[craft].anim, wait: true }, ...craftMoves(craft), learnStep(craft), { toast: `You are now an apprentice of ${CRAFT_DEFS[craft].name} (${CRAFT_DEFS[craft].hanzi}) · see the Journal (J)` });
   steps.push(...finish(q, g));
   const C = COURTS[q.book];
   if (q.step === 0) steps.push({ toast: `${C.realm} (${C.hanzi}) · ${C.capital}` });
@@ -468,7 +471,7 @@ export function courtsTalk(key: string, g: GameState): Step[] | null {
       return [{ emote: key, icon: "!" }, { anim: "hero", name: RITE_ANIM[q.book], wait: true }, narr(fillStanding(q.done, g)), ...finish(q, g)];
     case "craft": {
       const craft = q.craft!;
-      return [{ anim: key, name: CRAFT_DEFS[craft].anim, wait: false }, { anim: "hero", name: CRAFT_DEFS[craft].anim, wait: true }, narr(fillStanding(q.done, g)), learnStep(craft, 2), { toast: `${CRAFT_DEFS[craft].name}: a lesson learned` }, ...finish(q, g)];
+      return [{ anim: key, name: CRAFT_DEFS[craft].moves[0], wait: false }, { anim: "hero", name: CRAFT_DEFS[craft].anim, wait: true }, ...craftMoves(craft), narr(fillStanding(q.done, g)), learnStep(craft, 2), { toast: `${CRAFT_DEFS[craft].name}: a lesson learned` }, ...finish(q, g)];
     }
     case "favour":
       return [{ anim: "hero", name: "nod", wait: true }, say(q.done), ...finish(q, g)];
@@ -668,8 +671,9 @@ export function masterScript(key: string, g: GameState): Step[] | null {
   const got = yieldOf(craft, g);
   return [
     say(`Today we ${D.verb}. Watch, then do.`),
-    { anim: key, name: D.anim, wait: false },
+    { anim: key, name: D.moves[0], wait: false },
     { anim: "hero", name: D.anim, wait: true },
+    ...craftMoves(craft),
     { mutate: (s) => markPractised(practise(yieldOf(craft, s).state, craft), craft, day) },
     { toast: `${D.name}: practised · ${got.text}` },
     ...(after > before ? [say(`You are ${craftRankName(after).toLowerCase()} now. I don't say that lightly.`), { toast: `${D.name}: you are now ${craftRankName(after)} (${D.title})` } as Step] : []),
