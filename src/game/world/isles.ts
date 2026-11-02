@@ -92,7 +92,7 @@ export const inLagoon = (s: Isle, i: number, j: number) => s.shape === "atoll" &
 
 /** The sea itself: what was cloud below the Tidewater Reach and east of the Stairlands, within a wandering shore. */
 export function inSea(i: number, j: number): boolean {
-  // (it keeps out of the strait of cloud the Nine-Arch Bridge crosses, north of the Stairlands)
+  // (it keeps out of the strait the Nine-Arch Bridge crosses, north of the Stairlands)
   if (j < 520 || (i < 284 && j < 600)) return false;
   const x = (i - 478) / 210;
   const y = (j - 664) / 140;

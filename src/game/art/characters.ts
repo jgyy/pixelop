@@ -218,7 +218,17 @@ export type AnimId =
   | "skim"
   | "alight"
   | "seagaze"
-  | "skipstone";
+  | "skipstone"
+  // the Contention of the Daos: envoys, councils, vows and a Dao heart that can waver
+  | "envoy"
+  | "cupfist"
+  | "rebuke"
+  | "unfurl"
+  | "sealtreaty"
+  | "mudra"
+  | "daovow"
+  | "daodoubt"
+  | "steadyheart";
 
 export interface Anim {
   fps: number;
@@ -2262,6 +2272,183 @@ human.skipstone = {
   },
 };
 
+// presenting credentials: a step in, a deep bow, the sealed scroll held out level in both hands, then straightening
+human.envoy = {
+  n: 10,
+  fps: 7,
+  loop: false,
+  pose: (i) => {
+    const k = [0, 0.3, 0.7, 1, 1, 1, 1, 0.7, 0.3, 0][i];
+    return {
+      t: i,
+      lean: 0.34 * k,
+      bob: -0.5 * k,
+      handL: [-1.4, 4.6 + 2.2 * k, 13.4 - 1.6 * k],
+      handR: [1.4, 4.6 + 2.2 * k, 13.4 - 1.6 * k],
+      held: "decree",
+      footL: [-1.7, 0.8 * k, 0],
+      footR: [1.7, -0.3, 0],
+      eyes: k > 0.9 ? "closed" : "open",
+      mouth: "neutral",
+      wind: [0, -0.3 * k, 0],
+    };
+  },
+};
+// fist in palm (抱拳): the right fist cupped in the left hand before the chest, a short bow over it
+human.cupfist = {
+  n: 7,
+  fps: 7,
+  loop: false,
+  pose: (i) => {
+    const up = Math.min(1, i / 2);
+    const bow = [0, 0, 0.4, 1, 1, 0.4, 0][i];
+    return { t: i, handL: [-0.8, 4.4 * up + 0.6, 11.2 + 4.6 * up], handR: [0.4, 4.8 * up + 0.6, 11.2 + 4.8 * up], lean: 0.18 * bow, bob: -0.3 * bow, eyes: "open", mouth: "neutral", wind: [0, -0.2, 0] };
+  },
+};
+// a flick of the sleeve (拂袖): the arm swept out across the body and away, the head turned, a step back
+human.rebuke = {
+  n: 8,
+  fps: 9,
+  loop: false,
+  pose: (i) => {
+    const sweep = [-1, -0.8, -0.2, 0.6, 1, 1, 0.8, 0.3][i];
+    const k = [0, 0.4, 0.8, 1, 1, 0.8, 0.5, 0.2][i];
+    return {
+      t: i,
+      handR: [1.8 + sweep * 4.6, 3.2 - Math.abs(sweep) * 1.4, 13.4 + k * 1.8],
+      handL: [-2, -1.8, 12],
+      lean: -0.08 * k,
+      footR: [1.8, -1.4 * k, 0],
+      eyes: k > 0.6 ? "fierce" : "open",
+      mouth: k > 0.8 ? "open" : "neutral",
+      wind: [sweep * 1.8, 0.8 * k, 0.3],
+    };
+  },
+};
+// unrolling a long scroll before a council: both hands together at the chest, drawn apart as it falls open
+human.unfurl = {
+  n: 10,
+  fps: 7,
+  loop: false,
+  pose: (i) => {
+    const open = Math.min(1, Math.max(0, (i - 2) / 4));
+    return { t: i, held: "decree", handL: [-0.8 - open * 4.4, 4.6, 14.6 - open * 0.8], handR: [0.8 + open * 4.4, 4.6, 14.6 - open * 0.8], lean: 0.06, eyes: i >= 7 && i <= 8 ? "closed" : "open", mouth: i >= 6 ? "open" : "neutral", wind: [0, -0.2, 0] };
+  },
+};
+// putting a seal to a treaty: a lean over the table, the seal breathed on and pressed down, then lifted to show the mark
+human.sealtreaty = {
+  n: 10,
+  fps: 7,
+  loop: false,
+  pose: (i) => {
+    const press = [0, 0.3, 0.7, 1, 1, 1, 0.5, 0, 0, 0][i];
+    const show = i >= 7 ? 1 : 0;
+    return {
+      t: i,
+      held: "seal",
+      handR: show ? [2.4, 3.2, 19.6] : [1, 5.2, 17 - press * 7.4],
+      handL: [-2.4, 5, 10.6],
+      lean: 0.06 + press * 0.26,
+      bob: -press * 0.4,
+      eyes: i === 1 ? "closed" : "open",
+      mouth: show ? "smile" : i === 1 ? "open" : "neutral",
+      wind: [0, -0.2, 0],
+    };
+  },
+};
+// forming a Dao's hand-seals: the hands turning through seal after seal before the chest, qi gathering, two fingers raised at the end
+human.mudra = {
+  n: 12,
+  fps: 8,
+  loop: false,
+  pose: (i) => {
+    const SEALS: [number, number, number][] = [
+      [0, 4.6, 14],
+      [-1, 5, 15.6],
+      [1, 4.4, 16.2],
+      [0, 5.2, 17],
+      [-0.6, 4.8, 15],
+      [0.6, 5, 16],
+    ];
+    const [x, y, z] = SEALS[i % SEALS.length];
+    const last = i >= 10;
+    return {
+      t: i,
+      handL: last ? [-3.6, 2, 13] : [x - 0.7, y, z],
+      handR: last ? [1.4, 3.4, 22] : [x + 0.7, y + 0.2, z + 0.4],
+      flash: i % 3 === 0 ? 0.12 : 0.04,
+      eyes: last ? "glow" : "closed",
+      mouth: i % 4 === 1 ? "open" : "neutral",
+      wind: [Math.sin(i) * 0.4, -0.2, 0.6],
+      aura: { kind: "stars", k: Math.min(1, i / 9) * 0.7 },
+    };
+  },
+};
+// swearing on her Dao: two fingers raised to heaven, the other hand flat on her heart, and heaven answering with a flicker of lightning
+human.daovow = {
+  n: 10,
+  fps: 6,
+  loop: false,
+  pose: (i) => {
+    const up = Math.min(1, i / 3);
+    const heard = i >= 5 && i <= 7;
+    return {
+      t: i,
+      handR: [1.6, 2 + up, 13 + up * 12],
+      handL: [-1.2, 3.4, 16.4],
+      lean: -0.04 * up,
+      flash: heard ? 0.25 : 0,
+      eyes: heard ? "glow" : up === 1 ? "closed" : "open",
+      mouth: i >= 3 && i <= 4 ? "open" : "neutral",
+      wind: [0, 0.2, heard ? 1.2 : 0.3],
+      aura: heard ? { kind: "thunder", k: 0.5 } : undefined,
+    };
+  },
+};
+// the Dao heart wavering: a hand clutched to the chest, a stagger, down on one knee for a breath, and up again
+human.daodoubt = {
+  n: 10,
+  fps: 7,
+  loop: false,
+  pose: (i) => {
+    const k = [0.2, 0.7, 1, 1, 1, 0.8, 0.6, 0.4, 0.2, 0][i];
+    const down = i >= 3 && i <= 6;
+    return {
+      t: i * 1.4,
+      stance: down ? "kneel" : "stand",
+      handR: [0.8, 3.6, 16.4 - (down ? 2 : 0)],
+      handL: down ? [-3.4, 4, 6] : [-4.8, 1, 11.4 - k],
+      lean: 0.2 * k,
+      bob: -0.8 * k,
+      flash: i === 2 ? 0.3 : 0,
+      eyes: i === 2 ? "hurt" : k > 0.6 ? "closed" : "open",
+      mouth: k > 0.8 ? "open" : "neutral",
+      wind: [Math.sin(i * 2.1) * 0.6, 0.3, 0],
+    };
+  },
+};
+// steadying the Dao heart: sat in the lotus, palms turned down and pressed slowly toward the dantian, petals settling round her
+human.steadyheart = {
+  n: 12,
+  fps: 4,
+  loop: false,
+  pose: (i) => {
+    const press = Math.min(1, i / 8);
+    return {
+      t: i * 0.5,
+      stance: "sit",
+      handL: [-1.8, 4, 17 - press * 5],
+      handR: [1.8, 4, 17 - press * 5],
+      bob: i % 4 === 2 ? 0.3 : 0,
+      eyes: "closed",
+      mouth: i >= 9 ? "smile" : "neutral",
+      flash: i === 11 ? 0.1 : 0,
+      wind: [0, -0.2, 0.4 * (1 - press)],
+      aura: { kind: "lotus", k: 0.2 + press * 0.5 },
+    };
+  },
+};
+
 // ----------------------------------------------------------------------------- beast poses
 const beast: Partial<Record<AnimId, AnimSpec<BeastPose>>> = {
   idle: { n: 6, fps: 6, loop: true, pose: (i, n) => ({ t: ph(i, n) }) },
@@ -2543,6 +2730,12 @@ export const STYLES = {
   houmian: s({ robe: ramp("#5a3a6a", { lo: "#14081a" }), inner: PAL.white, trim: PAL.purple, sash: PAL.purple, hair: PAL.hairGrey, hairStyle: "long", hat: "scholar", hatRamp: PAL.black, weapon: "fan", weaponRamp: PAL.purple, flare: 5.8, hunch: 0.06, glowEyes: "#c88aff" }),
   falsestar: s({ robe: ramp("#2a2a4a", { lo: "#000008" }), inner: PAL.crimson, trim: PAL.gold, sash: PAL.crimson, hair: PAL.hairBlack, hairStyle: "long", hat: "scholar", hatRamp: PAL.gold, weapon: "fan", weaponRamp: PAL.crimson, flare: 6.2, cape: ramp("#4a0a2a", { lo: "#100004" }), glowEyes: "#ff4a6a", scale: 1.1 }),
   guwuchen: s({ robe: ramp("#f0f0f0", { lo: "#6a6a7a" }), inner: PAL.azure, trim: PAL.gold, sash: PAL.azure, hair: PAL.hairWhite, beard: PAL.hairWhite, hairStyle: "topknot", hat: "crown", hatRamp: PAL.steel, weapon: "jian", weaponRamp: ramp("#e8f8ff"), scale: 1.14, flare: 6.4, cape: ramp("#c8d8f0", { lo: "#3a4a6a" }), eye: "#2a3a5a" }),
+  // Fusang: the Synod's Speaker, its Seat-holders and envoy, the Keeper of the Fusang tree, and the Unfettered of Wuji
+  synodspeaker: s({ robe: ramp("#fff6dc", { lo: "#7a5a2a" }), inner: PAL.gold, trim: ramp("#ffe08a"), sash: PAL.gold, hair: PAL.hairBlack, hairStyle: "long", female: true, hat: "crown", hatRamp: ramp("#ffd24a", { lo: "#8a4a00" }), weapon: "whisk", eye: "#5a3a10", flare: 6.6, scale: 1.08, cape: ramp("#f2c55c", { lo: "#6a3a00" }), shawl: ramp("#fff2c8") }),
+  seatholder: s({ robe: ramp("#f4f0e4", { lo: "#5a5a6a" }), inner: PAL.gold, trim: PAL.gold, sash: ramp("#c8a050"), hair: PAL.hairGrey, hairStyle: "topknot", hat: "scholar", hatRamp: ramp("#e8d090"), weapon: "fan", weaponRamp: PAL.gold, eye: "#3a3a2a", flare: 6, hunch: 0.03 }),
+  synodenvoy: s({ robe: ramp("#c8d4f0", { lo: "#2a3a6a" }), inner: PAL.white, trim: PAL.gold, sash: PAL.gold, hair: PAL.hairBlack, hairStyle: "bun", female: true, eye: "#2a2a4a", flare: 5.6, shawl: ramp("#fff0c0") }),
+  dawnkeeper: s({ robe: ramp("#8a6a3a", { lo: "#2a1a0a" }), inner: PAL.paper, trim: ramp("#7ad07a"), sash: ramp("#5a8a3a"), hair: PAL.hairWhite, beard: PAL.hairWhite, hairStyle: "topknot", hat: "straw", hatRamp: PAL.straw, weapon: "staff", weaponRamp: PAL.wood, skin: PAL.skinTan, hunch: 0.12, flare: 5 }),
+  unfettered: s({ robe: ramp("#8a9098", { lo: "#2a2e34" }), inner: PAL.paper, trim: ramp("#c8f0e8"), sash: ramp("#5a6a70"), hair: PAL.hairGrey, beard: PAL.hairGrey, hairStyle: "wild", skin: PAL.skinTan, weapon: "saber", flare: 4.6, hem: 4.4, shoes: PAL.brown, shawl: ramp("#c8d0d4") }),
 } satisfies Record<string, HumanStyle>;
 
 export type HumanId = keyof typeof STYLES;
@@ -2852,6 +3045,11 @@ const HUMAN_ANIMS: Record<HumanId, AnimId[]> = {
   palacemaid: ["idle", "walk", "talk", "nod", "bow", "fanning", "sweep", "pour", "kneel", "whisper"],
   imperialguard: ["idle", "walk", "talk", "nod", "salute", "spear", "march", "look", "kowtow"],
   grandtutor: ["idle", "walk", "talk", "nod", "bow", "audience", "proclaim", "write", "read", "attack", "cast", "hurt", "defeat", "kowtow", "laugh"],
+  synodspeaker: ["idle", "walk", "talk", "nod", "bow", "mudra", "rebuke", "sealtreaty", "daodoubt", "levitate", "domain", "meditate", "think", "attack", "cast", "hurt", "defeat"],
+  seatholder: ["idle", "walk", "talk", "nod", "bow", "read", "write", "lecture", "think", "rebuke", "mudra", "unfurl", "pour", "warmhands", "seagaze", "windback", "thundercall", "kowtow", "attack", "cast", "hurt", "defeat"],
+  synodenvoy: ["idle", "walk", "talk", "nod", "bow", "envoy", "cupfist", "unfurl", "cry", "seagaze", "read", "think"],
+  dawnkeeper: ["idle", "walk", "talk", "nod", "bow", "rake", "meditate", "seagaze", "pluck", "recoil", "laugh", "think", "steadyheart"],
+  unfettered: ["idle", "walk", "talk", "nod", "bow", "laugh", "shrug", "beckon", "abacus", "unfurl", "seagaze", "cupfist", "row", "attack", "hurt"],
   fdsteward: ["idle", "walk", "talk", "nod", "bow", "abacus", "write", "read", "think", "point", "laugh", "fan"],
   fdelder0: ["idle", "walk", "talk", "nod", "bow", "sworddance", "point", "practice", "salute", "attack", "cast", "hurt", "defeat", "think"],
   fdelder1: ["idle", "walk", "talk", "nod", "bow", "stir", "grind", "fanfire", "brew", "laugh", "think"],
@@ -2997,6 +3195,28 @@ const MORE: [AnimId, HumanId[]][] = [
   ["alight", ["heroine"]],
   ["seagaze", ["heroine", "boatwoman", "captain", "fishwife"]],
   ["skipstone", ["heroine", "boy", "child"]],
+  // the Contention of the Daos: the Witness, the envoys and the powers at the Council
+  ["envoy", ["heroine", "minister", "nobleM", "nobleF", "concordenvoy", "envoy", "scholar"]],
+  ["cupfist", ["heroine", "swordsman", "envoy", "discipleM", "discipleF", "tidebreaker", "general"]],
+  ["rebuke", ["heroine", "swordsman", "envoy", "minister", "nobleM", "emperorwei", "emperoryan", "inquisitor", "tidebreaker", "cultist"]],
+  ["unfurl", ["heroine", "concordenvoy", "foxguide", "scholar", "starregistrar", "archivist", "minister"]],
+  ["sealtreaty", ["heroine", "minister", "emperorliang", "empresschen", "emperorshu", "emperorwei", "emperorqi", "emperoryan"]],
+  ["mudra", ["heroine", "keeper", "abbot", "hermit"]],
+  ["daovow", ["heroine", "discipleM", "discipleF"]],
+  ["daodoubt", ["heroine", "swordsman"]],
+  ["steadyheart", ["heroine", "monk", "abbot"]],
+  // and what the courts' people are seen doing in the tale
+  ["whisper", ["emperorliang"]],
+  ["stargaze", ["emperorqi"]],
+  ["fanning", ["nobleF"]],
+  ["decree", ["emperorwei"]],
+  ["toast", ["emperoryan"]],
+  ["sniff", ["foxguide"]],
+  ["lecture", ["elder"]],
+  ["seagaze", ["tidebreaker"]],
+  ["kowtow", ["swordsman"]],
+  ["envoy", ["foxguide"]],
+  ["bow", ["cultist"]],
   // and what the Hanging City's and the Cliff Port's folk are seen doing between
   ["pant", ["porter"]],
   ["carry", ["porter"]],
@@ -3223,6 +3443,11 @@ const NAMES: Record<CharId, [string, string]> = {
   palacemaid: ["Palace Maid", "The Inner Palace"],
   imperialguard: ["Imperial Guard", "The Gate of the Court"],
   grandtutor: ["Fei Lian", "Grand Tutor to Six Thrones"],
+  synodspeaker: ["Xi He", "Speaker of the Synod of Ten Seats"],
+  seatholder: ["Seat-Holder", "The Synod of Ten Seats"],
+  synodenvoy: ["Mei Zhao", "Envoy of the Synod"],
+  dawnkeeper: ["Hou Qing", "Keeper of the Fusang Tree"],
+  unfettered: ["Feng Buji", "Harbour-Master of Wuji"],
   fdsteward: ["Steward Bai Qiu", "Steward of Her Sect"],
   fdelder0: ["Elder Jiang", "Elder of the Sword"],
   fdelder1: ["Elder Kang Lin", "Elder of Pills"],

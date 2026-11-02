@@ -56,7 +56,7 @@ export const TIER_BOOKS: TierBook[] = [
           ["narr", "The crowd at the gate is mostly porters and fishwives. They listen to the decree the way people listen to weather."],
         ],
         after: [
-          ["tj-herald", "You, {title} — you carry a sect's token. The city will want to weigh you. Over the bridge, through the strait of cloud. You cannot miss it: it is the only mountain that has stairs on the outside."],
+          ["tj-herald", "You, {title} — you carry a sect's token. The city will want to weigh you. Over the bridge, across the strait. You cannot miss it: it is the only mountain that has stairs on the outside."],
         ],
         done: "He presses a slip of yellow paper into her hand: a summons to the Weighing Hall, with a blank where her realm will go.",
       },
@@ -1693,7 +1693,7 @@ export const TIER_BOOKS: TierBook[] = [
           ["tj-warden", "Spirit Severing, late. The seal parts. Pass, Exalted One. The Sovereign is expecting you. He has had a second seat built."],
           ["narr", "Heaven's Step is a single marble terrace at the top of the world, the summit of the mountain cut flat, and on it a palace with golden doors, and in front of the palace, a man in white and gold looking down at the city as if it were a garden he had planted."],
         ],
-        done: "From the top of the stair she can see all nine tiers below her, and the strait of cloud, and Jinhe, and on a very clear day the sea of clouds in the north where the Azure Cloud floats.",
+        done: "From the top of the stair she can see all nine tiers below her, and the strait, and Jinhe, and on a very clear day the cloud in the north where the Azure Cloud floats.",
       },
       {
         step: 9,
@@ -1826,7 +1826,7 @@ export const TIER_BOOKS: TierBook[] = [
           ["narr", "The hall of the Array, every thread taut. The Sovereign on the pan, in white and gold, his soul blazing, his weight added to the city's, and the beam rising."],
           ["tj-ahlou", "He's lifting it! Exalted One — the city's lifting!"],
         ],
-        done: "Gao Qiong turns on the pan. Behind him, through the hall's high window, the strait of cloud is falling away.",
+        done: "Gao Qiong turns on the pan. Behind him, through the hall's high window, the strait is going dark under the evening.",
       },
     ],
     petitions: [

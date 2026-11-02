@@ -1,6 +1,6 @@
 import { fbm, hash2 } from "../pixel/noise";
 import { propDef, type PropId } from "../art/props";
-import type { AnimId } from "../art/characters";
+import { hasAnim, type AnimId } from "../art/characters";
 import { AREA_IDS, festive, getArea, placementTiles, type AreaDef, type AreaId, type Critter, type EnemySpawn, type Interactable, type NpcPlacement, type PropPlacement } from "./areas";
 import { getInterior, INTERIOR_IDS } from "./interiors";
 import { roomDoors } from "./rooms";
@@ -9,7 +9,9 @@ import { companionOf, magnifyMap, magnifyProp, pointTile, STRUCTURE_SCALE } from
 import { LIQUID, TileMap, TILE_KINDS, type TileKind } from "./tilemap";
 import { CAVE_IDS, CAVE_MOUTH, deepFolk } from "./caves";
 import { FINE, fineFloor, fineKind } from "./refine";
-import { inEdge, inSky, nearEdge, straitAt } from "./oceans";
+import { coastWarp, inEdge, inSky, nearEdge, straitAt } from "./oceans";
+import { CN_BOSSES, CN_FOES, CN_GROUND, DAWN_LANDING, FENG, FUSANG_FOLK, FUSANG_TOWNSFOLK, fusangTown, FUSANG_ROADS, fusangLand, HALL_OF_WRITS, KEEPER, SEAT_RING, SEATS, SPEAKER, TEN_SEATS, WUJI, YANGGU } from "./fusang";
+import { envoyKey, POWERS } from "./powers";
 import { COURT_COUNT, COURT_SPOTS, COURTS, WANDERING_CRAFTS, courtDiscipleKey, courtEmperorKey, courtFolkKey, courtGuideKey, courtLeaderKey, courtMasterKey, craftMasterKey, TOWNSFOLK_PER_COURT, townKey, townLook, townName, townTrade } from "./courts";
 import { BUILDINGS, builtFlag, CITY_GOD_AT, cityGodKey, discFlag, disciple, DISCIPLE_SLOTS, EARTH_GOD, elderFlag, ELDERS, FACILITIES, facilityWorkerKey, FOUNDING_BOOKS, FOUNDING_BOSSES, FOUNDING_C, FOUNDING_FOES, godFlag, GODS, MARKET, MARKET_C, marketFlag, STEWARD } from "./founding";
 import { inLagoon, isleByKey, isleDepth, ISLES as SEA_ISLES, SEA_BOOK_COUNT, SEA_BRIDGES, SEA_CAST, SEA_SPOTS, seaFolkKey, seaGuideKey, seaPatronKey } from "./isles";
@@ -81,7 +83,7 @@ const GROUND: Ground[] = [...MAINLAND, "marsh", "terraces", "desert", "harbor", 
 const SKY: AreaId[] = ["sect", "peak"];
 
 /** Wild biomes: each ground region's own, the southern lands below the highway, and the far south and east the world grew into. */
-type WildId = Ground | "wastes" | "stoneforest" | "fields" | "highlands" | "marshland" | "terracehills" | "plum" | "sands" | "badlands" | "autumn" | "steppe" | "frostlands" | "coast" | "riverlands" | "tidelands" | "stairlands" | "heights";
+type WildId = Ground | "wastes" | "stoneforest" | "fields" | "highlands" | "marshland" | "terracehills" | "plum" | "sands" | "badlands" | "autumn" | "steppe" | "frostlands" | "coast" | "riverlands" | "tidelands" | "stairlands" | "heights" | "dawnlands";
 
 interface WildStyle {
   ground: (i: number, j: number) => TileKind;
@@ -127,6 +129,8 @@ const BIOME: Record<Exclude<WildId, "marsh" | "terraces" | "desert" | "harbor" |
   stairlands: { ground: (i, j) => (fbm(i * 0.18, j * 0.18, 162) > 0.62 ? "meadow" : hash2(i, j, 163) > 0.9 ? "moss" : "grass"), lift: 0, hills: 2, trees: ["karst", "bamboo", "pine", "karst", "cherry"], treeP: 0.06, extras: ["tallgrass", "rock", "butterflies"], extraP: 0.05 },
   // the Southern Heights below the Stairlands: mossy uplands of pine and bamboo between the pillars (see world/heights.ts)
   heights: { ground: (i, j) => (fbm(i * 0.16, j * 0.16, 166) > 0.6 ? "moss" : hash2(i, j, 167) > 0.82 ? "meadow" : "grass"), lift: 0, hills: 2.4, trees: ["pine", "bamboo", "pine", "karst", "maple"], treeP: 0.06, extras: ["tallgrass", "rock", "butterflies"], extraP: 0.05 },
+  // Fusang, the Dawn Continent: blossom and maple on rolling green under the Fusang tree, moss in the hollows
+  dawnlands: { ground: (i, j) => (fbm(i * 0.17, j * 0.17, 168) > 0.63 ? "moss" : fbm(i * 0.12, j * 0.12, 169) > 0.56 ? "meadow" : "grass"), lift: 1, hills: 3, trees: ["cherry", "maple", "pine", "cherry", "bamboo", "peachtree"], treeP: 0.08, extras: ["tallgrass", "butterflies", "rock", "tallgrass"], extraP: 0.06 },
   riverlands: { ground: (i, j) => (j > 538 + fbm(i * 0.1, j * 0.1, 150) * 12 ? "sand" : fbm(i * 0.16, j * 0.16, 151) > 0.6 ? "meadow" : "grass"), lift: 0, hills: 1.4, trees: ["willow", "maple", "haystack", "cherry", "willow"], treeP: 0.04, extras: ["tallgrass", "reeds", "butterflies", "tallgrass"], extraP: 0.06 },
 };
 // the new regions' own surroundings take after the lands they stand in
@@ -153,10 +157,13 @@ const ZONES: [WildId, [number, number, number, number]][] = [
   ["riverlands", [10, 458, 290, 552]],
   // and the Tidewater Reach, the south-east, round the port of Hailing
   ["tidelands", [470, 456, 630, 548]],
-  // and across the strait of cloud, the Stairlands round the City of Nine Tiers
+  // and across the strait, the Stairlands round the City of Nine Tiers
   ["stairlands", [140, 560, 310, 658]],
   // and below them, the Southern Heights: the Hanging City, the Thousand-Pillar Forest and the Cliff Port
   ["heights", [20, 670, 280, 790]],
+  // and across the Strait of Dawn, Fusang
+  ["dawnlands", [672, 80, 764, 300]],
+  ["dawnlands", [668, 300, 760, 500]],
 ];
 
 /** The old highway across the whole mainland, below the four regions. */
@@ -267,6 +274,8 @@ const BRANCHES: { pts: [number, number][]; valley?: boolean }[] = [
   { pts: [[222, 452], [206, 457], [192, 462], [181, 462]] },
   // …and out of its south gate, down to the road from Jinhe's west gate
   { pts: [[160, 481], [159, 494], [158, 506]] },
+  // the Dawn Causeway over the Strait of Dawn to Fusang, and the roads that join Fusang's places (see world/fusang.ts)
+  ...FUSANG_ROADS.map((pts) => ({ pts })),
   // and a track in to each of the peoples' homes (see world/peoples.ts)
   // (it stops short of the heart of the home, where its people keep what matters most to them)
   ...PEOPLES.map((p) => {
@@ -281,13 +290,13 @@ const RIVERS: { pts: [number, number][]; kind: "water" | "lava"; width: number }
   { kind: "water", width: 3, pts: [[177, 108], [165, 110], [150, 116], [138, 121], [127, 124]] },
   // …and east past the watermill into the Lotus Lake…
   { kind: "water", width: 3, pts: [[207, 121], [222, 121], [238, 119], [252, 121], [265, 121]] },
-  // …which spills over the eastern edge of the world as a waterfall.
+  // …which spills over the falls into the gorge the Strait of the Rising Sun now fills.
   { kind: "water", width: 2.6, pts: [[280, 125], [296, 127], [310, 128], [324, 129]] },
   // The bamboo stream runs on west and south through the stone forest and off the southern cliffs.
   { kind: "water", width: 2.6, pts: [[93, 132], [86, 138], [81, 148], [78, 160], [75, 176], [80, 192], [76, 208], [72, 220], [70, 232], [74, 260], [80, 300], [84, 340], [80, 380], [84, 420], [82, 464], [86, 500], [82, 530], [80, 560]] },
   // A hot stream from the highland spring winds south to the world's edge too.
   { kind: "water", width: 2.2, pts: [[252, 195], [257, 206], [255, 218], [258, 232], [262, 260], [270, 290], [268, 330], [275, 380], [272, 420], [274, 464], [278, 490], [272, 520], [276, 560]] },
-  // The Jade River runs down out of the eastern snows and pours off the eastern edge into the sea of clouds.
+  // The Jade River runs down out of the eastern snows and out into the Strait of Dawn.
   { kind: "water", width: 3, pts: [[520, 108], [532, 130], [548, 152], [575, 172], [606, 186], [648, 194]] },
   // In the ashen wastes, lava wells up and sinks back into a burning pool.
   { kind: "lava", width: 2.4, pts: [[56, 192], [60, 204], [57, 216], [60, 230]] },
@@ -299,12 +308,12 @@ const inRect = (id: AreaId, i: number, j: number) => {
 };
 
 /**
- * The land below the clouds: the old mainland, the southern lands it grew
- * into (joined to it all along its southern shore), and the eastern lands
- * beyond the gorge, which meet the south below it. Wavecrest Harbour's bay
- * is the world's eastern edge.
+ * The lowlands of the Encircling Sea: the old mainland, the southern lands
+ * it grew into (joined to it all along its southern shore), the eastern
+ * lands beyond the gorge, which meet the south below it, and, across the
+ * Strait of Dawn from Wavecrest Harbour's bay, Fusang.
  */
-const mainlandMask = (i: number, j: number) => {
+function lowlands(i: number, j: number): boolean {
   const n = (fbm(i * 0.06, j * 0.06, 41) - 0.5) * 9 + (fbm(i * 0.2, j * 0.2, 42) - 0.5) * 2;
   const old = j >= 92 + n && j <= 226 + n && i >= 3 + n * 0.6 && i <= 320 + n * 0.6;
   // the new lands' outer shores wander in broad bays and headlands
@@ -314,16 +323,28 @@ const mainlandMask = (i: number, j: number) => {
   const river = j >= 400 + n && j <= 546 + n + shore * 0.3 && i >= 8 + n * 0.6 - shore * 0.3 && i <= 466 + n * 0.6 + shore * 0.2;
   // the Tidewater Reach, round the port of Hailing and its lagoon
   const tide = j >= 440 + n && j <= 548 + n + shore * 0.3 && i >= 460 + n * 0.6 && i <= 628 + n * 0.6 + shore * 0.2;
-  // the Stairlands across the strait, round the City of Nine Tiers
-  const stair = stairBlob(i, j) || heightsLand(i, j);
   const east = j >= 56 + n - shore && j <= 448 + n + shore && i >= 346 + n * 0.6 && (j > 222 && j < 282 ? i <= 621 : i <= 636 + n * 0.6 + shore);
-  return old || south || east || river || tide || stair;
-};
+  return old || south || east || river || tide || fusangLand(i, j);
+}
+const mainlandMask = (i: number, j: number) => lowlands(i, j) || stairBlob(i, j) || heightsLand(i, j);
+
+/**
+ * Where the old lands' ruled outlines throw out headlands: the same lands
+ * seen through a warped lens (see coastWarp), so their shores bulge out in
+ * capes and peninsulas the coast is then carved back into bays from. Never
+ * under the sect's cloud, never into the Sea of Pearls, and never across
+ * Wavecrest Harbour's own bay.
+ */
+function headland(i: number, j: number): boolean {
+  if (j > 552 || inSky(i, j) || (i > 612 && i < 650 && j > 226 && j < 280)) return false;
+  const [dx, dy] = coastWarp(i, j);
+  return lowlands(Math.round(i + dx), Math.round(j + dy));
+}
 
 /**
  * The Stairlands: no longer a cut-out slab but an island of lobes and
  * headlands round the City of Nine Tiers' lowest tier, held clear of the
- * strait of cloud the Nine-Arch Bridge crosses.
+ * strait the Nine-Arch Bridge crosses.
  */
 function stairBlob(i: number, j: number): boolean {
   if (j < 560) return false;
@@ -361,6 +382,9 @@ const RANGES: { key: string; c: [number, number]; r: number; peak: number; seed:
   { key: "mapleheights", c: [520, 290], r: 26, peak: 8, seed: 516 },
   { key: "marshtors", c: [96, 286], r: 18, peak: 5, seed: 517 },
   { key: "teacloud", c: [226, 404], r: 20, peak: 7, seed: 518 },
+  // the spine of Fusang, between the Valley of Sunrise and the free port
+  { key: "dawnspine", c: [742, 300], r: 30, peak: 9, seed: 519 },
+  { key: "sunrisewall", c: [744, 160], r: 22, peak: 7, seed: 520 },
 ];
 
 /** How many levels the ranges lift a wild tile. */
@@ -491,7 +515,7 @@ function chamfer(W: number, H: number, seed: (n: number) => boolean): Float32Arr
  * wandering depth into bays, coves and headlands. Ten tiles of land stay
  * round anything of note: regions, roads, rivers and sites.
  */
-function carveCoast(m: TileMap, fixed: Uint8Array): Uint8Array {
+function carveCoast(m: TileMap, fixed: Uint8Array, capes: Uint8Array): Uint8Array {
   const W = m.w;
   const H = m.h;
   const VOID = 0;
@@ -502,8 +526,12 @@ function carveCoast(m: TileMap, fixed: Uint8Array): Uint8Array {
   const core = chamfer(W, H, (n) => shore[n] >= R);
   m.each((i, j) => {
     const n = j * W + i;
-    if (near[n] <= 10 || m.kinds[n] === VOID) return;
-    const bite = 2 + Math.max(0, fbm(i * 0.022, j * 0.022, 325) - 0.42) * 170 + fbm(i * 0.07, j * 0.07, 326) * 10;
+    // (Fusang's shores were never ruled: they are left as they are)
+    if (near[n] <= 10 || m.kinds[n] === VOID || fusangLand(i, j)) return;
+    // the capes stand out to sea where the ruled shore ran (though they are worn back at their tips)
+    if (capes[n] && shore[n] > 2 + fbm(i * 0.11, j * 0.11, 328) * 3) return;
+    // bays come and go along a shore every few dozen tiles (a slow bite alone only moves a ruled shore back in parallel)
+    const bite = 2 + Math.max(0, fbm(i * 0.022, j * 0.022, 325) - 0.42) * 170 + Math.max(0, fbm(i * 0.045, j * 0.045, 327) - 0.44) * 120 + fbm(i * 0.07, j * 0.07, 326) * 10;
     if (core[n] <= R && shore[n] > bite) return;
     carve[n] = 1;
   });
@@ -528,10 +556,9 @@ function applyCoast(m: TileMap, fixed: Uint8Array, wildOf: Uint8Array, carve: Ui
     const n = j * W + i;
     if (!was.has(n)) was.set(n, [m.kinds[n], m.heights[n], wildOf[n], fixed[n]]);
     wildOf[n] = 0;
-    if (!inSky(i, j)) {
-      m.set(i, j, "water", 0);
-      fixed[n] = 2;
-    } else m.set(i, j, "void", 0);
+    // it falls away into whatever lies beyond: open sea (laid down with its shallows along the new shore once the coast is
+    // done, so the shallows follow the bays rather than the old ruled outline), or sky under the sect's cloud
+    m.set(i, j, "void", 0);
   };
   m.each((i, j) => {
     const n = j * W + i;
@@ -585,13 +612,18 @@ function buildWorld(): WorldDef {
   const fixed = new Uint8Array(COARSE_W * COARSE_H);
   /** Each wild tile's biome, as 1 + its index into WILD_IDS (0 = not wild). */
   const wildOf = new Uint8Array(COARSE_W * COARSE_H);
+  /** Land that stands only because the warped outline threw it out as a cape. */
+  const capes = new Uint8Array(COARSE_W * COARSE_H);
   const fix = (i: number, j: number, v: 1 | 2) => {
     if (m.inside(i, j)) fixed[j * COARSE_W + i] = v;
   };
 
   // 1. the mainland wilds
   m.each((i, j) => {
-    if (!mainlandMask(i, j) && !GROUND.some((id) => inRect(id, i, j))) return;
+    const main = mainlandMask(i, j);
+    if (!main && !headland(i, j) && !GROUND.some((id) => inRect(id, i, j))) return;
+    // a cape the warped outline threw out past the ruled one stands where the coast is carved (see carveCoast)
+    if (!main) capes[j * COARSE_W + i] = 1;
     const r = wildRegion(i, j);
     wildOf[j * COARSE_W + i] = r + 1;
     const st = WILD[WILD_IDS[r]];
@@ -801,6 +833,18 @@ function buildWorld(): WorldDef {
     site(c.c, 11, "plaza", Math.max(1, Math.min(7, m.height(c.c[0], c.c[1]))), 0.4);
     site(c.sect.c, 6.5, "marble", Math.max(1, Math.min(8, m.height(c.sect.c[0], c.sect.c[1]))), 0.5);
   }
+  // 4⅝. Fusang: the City of Ten Seats round the Synod's square, the Valley of Sunrise under the Fusang tree, the Hall of Writs
+  // on its crag of marble, the free port of Wuji, and the causeway's landing (see world/fusang.ts)
+  {
+    const lvl = (c: [number, number], lo: number, hi: number) => Math.max(lo, Math.min(hi, m.height(c[0], c[1])));
+    site(TEN_SEATS, 14, "plaza", lvl(TEN_SEATS, 1, 5), 0.4);
+    site(TEN_SEATS, 4, "marble", lvl(TEN_SEATS, 1, 5), 0.2);
+    site(YANGGU, 9, "meadow", lvl(YANGGU, 1, 5), 0.7);
+    site(YANGGU, 3.2, "moss", lvl(YANGGU, 1, 5), 0.2);
+    site(HALL_OF_WRITS, 7, "marble", lvl(HALL_OF_WRITS, 2, 6), 0.4);
+    site(WUJI, 10, "dirt", 1, 0.6);
+    site(DAWN_LANDING, 3.6, "plaza", 1, 0.3);
+  }
   // 4¾. the Withered Lotus Basin, where she founds her own sect: a bowl of old paving round a marble heart, and the
   // market town's square of beaten earth outside its gate (see world/founding.ts)
   {
@@ -868,7 +912,7 @@ function buildWorld(): WorldDef {
     m.set(i, j, "wood", 1);
     fix(i, j, 2);
   });
-  // the Nine-Arch Bridge: planks across the strait of cloud from the cliffs below Jinhe to the foot of the City of Nine Tiers
+  // the Nine-Arch Bridge: planks across the strait from the cliffs below Jinhe to the foot of the City of Nine Tiers
   for (let j = 540; j < FLATS[1] + 2; j++)
     for (let i = AVENUE[0]; i <= AVENUE[1]; i++) {
       if (m.kind(i, j) !== "void" && j > 552) continue;
@@ -958,12 +1002,12 @@ function buildWorld(): WorldDef {
   m.each((i, j) => {
     const n = j * COARSE_W + i;
     // (the Stairlands and the Southern Heights already have shores of their own shape: only the old lands' ruled edges fall away)
-    if (!fixed[n] && m.kinds[n] !== 0 && nearEdge(i, j) && !stairBlob(i, j) && !heightsLand(i, j)) {
+    if (!fixed[n] && m.kinds[n] !== 0 && nearEdge(i, j) && !stairBlob(i, j) && !heightsLand(i, j) && !fusangLand(i, j)) {
       m.set(i, j, "void", 0);
       wildOf[n] = 0;
     }
   });
-  const coast = carveCoast(m, fixed);
+  const coast = carveCoast(m, fixed, capes);
 
   // 6¾. the Sea of Pearls (see world/isles.ts): the cloud south of the Tidewater Reach turns to sea, its isles rise out of it,
   // each a shape of its own, and plank bridges string them together and out to Hailing's quay and the Stairlands
@@ -2392,6 +2436,99 @@ function buildWorld(): WorldDef {
     // the two arts with no court of their own keep their masters in a capital's square
     for (const W of WANDERING_CRAFTS) npcs.push({ key: craftMasterKey(W.craft), name: W.master.name, char: W.master.char, ...xy(at(COURTS[W.court].c, W.at)), dir: 2, anim: W.master.anim, jobs: artRound(W.craft, xy(at(COURTS[W.court].c, W.at)), W.master.anim) });
     void COURT_COUNT;
+
+    // Fusang (see world/fusang.ts and world/powers.ts): the Synod's square with its ten seats under ten parasols, the
+    // Speaker and the Seat-holders, the envoys of every power come to the Great Council, the Fusang tree and its keeper,
+    // the Hall of Writs on its marble crag, the free port of Wuji and its exiles, and the Dawn Causeway's landing
+    {
+      const T = TEN_SEATS;
+      put("hall", T, [[0, -11]]);
+      put("dais", T, [[0, 0]]);
+      put("stele", T, [[0, 3]]);
+      SEAT_RING.forEach((d) => put("parasol", T, [d]));
+      put("tenlamps", T, [[-12, -6]]);
+      put("drumtower", T, [[12, -6]]);
+      put("townhouse", T, [[-16, 6], [16, 6], [-14, 14], [14, 14], [0, 18], [-18, -4], [18, -4]]);
+      put("stall", T, [[-8, 12], [8, 12]]);
+      put("shopflag", T, [[-6, 15], [6, 15]]);
+      put("banner", T, [[-4, -9], [4, -9]]);
+      put("lantern", T, [[-11, 4], [11, 4]]);
+      put("fountain", T, [[0, 9]]);
+      const xyOf = (o: [number, number], d: [number, number]) => xy(at(o, d));
+      // the Seat-holders in their seats (the Seat of Life and Death stands empty, the Speaker holds the Void at the head of the ring)
+      const ring = (dao: string) => SEAT_RING[["water", "wood", "wind", "fire", "earth", "metal", "thunder", "ice", "lifedeath", "void"].indexOf(dao)];
+      for (const seat of SEATS) npcs.push({ key: seat.key, name: seat.name, char: seat.char, ...xyOf(T, ring(seat.dao)), dir: 2, anim: "read" });
+      // (and if the Witness ended her in her own Void, the Seat of the Void stands empty after)
+      npcs.push({ key: SPEAKER.key, name: SPEAKER.name, char: SPEAKER.char, ...xyOf(T, [0, -5]), dir: 2, anim: "meditate", when: (f) => !f["cn:fate:5:slaughter"] });
+      P("cushion", ...at(T, ring("lifedeath")));
+      // the envoys of the powers, in a wider ring round the seats (the Synod's own envoy waits at the causeway, and the Unfettered's at the landing)
+      const benches = POWERS.filter((pw) => pw.key !== "synod" && pw.key !== "unfettered");
+      benches.forEach((pw, n) => {
+        const a = (n / benches.length) * Math.PI * 2;
+        const d: [number, number] = [Math.round(Math.cos(a) * 12.5), Math.round(Math.sin(a) * 9.5)];
+        npcs.push({ key: envoyKey(pw.key), name: pw.envoy.name, char: pw.envoy.char, ...xyOf(T, d), dir: 2, wander: 0.6 });
+      });
+      npcs.push({ key: envoyKey("synod"), name: POWERS.find((pw) => pw.key === "synod")!.envoy.name, char: "synodenvoy", ...xy(at([628, 214], [0, 0])), dir: 6, anim: "seagaze" });
+      npcs.push({ key: envoyKey("unfettered"), name: POWERS.find((pw) => pw.key === "unfettered")!.envoy.name, char: "unfettered", ...xy(at(DAWN_LANDING, [-2, 3])), dir: 6, anim: "seagaze", when: (f) => !f["cn:qiaotaken"] });
+      it("cn-seats-sign", "sign", ...at(T, [4, 9]), "THE CITY OF TEN SEATS · 十座城. Seat of the Synod, which keeps the Ten Writs. Under it, cut small: “What is written, is. What is struck, is not.” And under that, scratched in later by someone with a knife: “The bowl is useful for the emptiness in it.”");
+      it("cn-seats-stele", "sign", ...at(T, [-4, 3]), "The stele of the Ten Writs. Ten lines, one for each Great Dao, cut deep and gilded. Below the tenth, the stone has been dressed smooth, as if an eleventh line was cut there once and ground away.");
+      it("cn-seats-shrine", "shrine", ...at(T, [-7, -7]));
+      mark("cn-seats", "The City of Ten Seats", "十座城", "dais", ...T);
+      // the Valley of Sunrise: the Fusang tree, its keeper, pilgrims and the leaves that fall green
+      const Y = YANGGU;
+      put("spirittree", Y, [[0, -2]]);
+      put("cherry", Y, [[-6, 2], [6, 3], [-4, -7], [5, -6]]);
+      put("leafpile", Y, [[-3, 4], [3, 5], [7, -1]]);
+      put("prayerflags", Y, [[-7, -3]]);
+      put("censer", Y, [[0, 4]]);
+      npcs.push({ key: KEEPER.key, name: KEEPER.name, char: KEEPER.char, ...xyOf(Y, [2, 3]), dir: 2, anim: "rake" });
+      it("cn-yanggu-shrine", "shrine", ...at(Y, [-2, 5]));
+      it("cn-yanggu-sign", "sign", ...at(Y, [4, 7]), "THE VALLEY OF SUNRISE · 旸谷. Here the sun comes up through the Fusang tree. Here the ten suns bathed. Here, by the Synod's leave, it rises alone.");
+      mark("cn-yanggu", "The Fusang Tree", "扶桑", "spirittree", ...Y);
+      // the Hall of Writs, where the Ten Writs (and an eleventh) are kept and heretics are heard
+      const H = HALL_OF_WRITS;
+      put("hall", H, [[0, -3]]);
+      put("bell", H, [[0, 2]]);
+      put("lion", H, [[-3, 3], [3, 3]]);
+      put("scroll", H, [[-5, 0], [5, 0]]);
+      it("cn-writs-sign", "sign", ...at(H, [4, 5]), "THE HALL OF WRITS · 律堂. Where the Ten Writs are kept, the struck readings are burned, and those who hold them are asked, once, to recant.");
+      mark("cn-writs", "The Hall of Writs", "律堂", "hall", ...H);
+      // Wuji, the free port of the Unfettered, every door painted with a struck reading
+      const U = WUJI;
+      put("house", U, [[-6, -3], [6, -3], [-7, 4], [7, 4], [0, -7]]);
+      put("lighthouse", U, [[0, 9]]);
+      put("fishrack", U, [[-4, 7], [4, 7]]);
+      put("barrels", U, [[-2, 3], [3, 3]]);
+      put("stall", U, [[-3, -1]]);
+      npcs.push({ key: FENG.key, name: FENG.name, char: FENG.char, ...xyOf(U, [0, 1]), dir: 2, anim: "laugh" });
+      it("cn-wuji-sign", "sign", ...at(U, [5, -1]), "WUJI · 无羁港. Free port. No writs, no tolls, no Inquisition. Readings of every Dao for sale or for nothing, in grey board. Mind the poet.");
+      it("cn-wuji-chest", "chest", ...at(U, [-6, 0]));
+      mark("cn-wuji", "Wuji, the Free Port", "无羁港", "lighthouse", ...U);
+      // the townsfolk of each place
+      const PLACE = { seats: T, wuji: U, yanggu: Y, writs: H, landing: DAWN_LANDING } as const;
+      FUSANG_FOLK.forEach((f, n) => {
+        const a = (n * 2.39996) % (Math.PI * 2);
+        const r = f.at === "seats" ? 15 : 5 + (n % 3);
+        npcs.push({ key: f.key, name: f.name, char: f.char, ...xy(at(PLACE[f.at], [Math.round(Math.cos(a) * r), Math.round(Math.sin(a) * r * 0.8)], 2)), dir: n % 4 ? 2 : 6, anim: f.anim, wander: f.anim ? undefined : 1 });
+      });
+      // and their hundreds of townsfolk, scattered through the city's streets, along the port's quays, under the tree
+      const SPREAD = { seats: 19, wuji: 12, yanggu: 9, writs: 8 } as const;
+      for (let n = 0; n < FUSANG_TOWNSFOLK; n++) {
+        const f = fusangTown(n);
+        const a = hash2(n, 1, 741) * Math.PI * 2;
+        const r = 3 + Math.sqrt(hash2(n, 2, 742)) * SPREAD[f.place];
+        npcs.push({ key: f.key, name: f.name, char: f.char, ...xy(at(PLACE[f.place], [Math.round(Math.cos(a) * r), Math.round(Math.sin(a) * r * 0.85)], 2)), dir: n % 4 ? 2 : 6, anim: hasAnim(f.char, f.anim) ? f.anim : undefined, wander: hasAnim(f.char, f.anim) ? undefined : 1 });
+      }
+      // the causeway's landing on Fusang's shore
+      put("lantern", DAWN_LANDING, [[-2, -2], [2, -2]]);
+      it("cn-landing-sign", "sign", ...at(DAWN_LANDING, [2, 2]), "THE DAWN CAUSEWAY · 破晓长堤. Two hours to Wavecrest, the strait under you the whole way. The eleventh span sings in a west wind. It is a loose plank.");
+      mark("cn-landing", "The Dawn Causeway", "破晓长堤", "lantern", ...DAWN_LANDING);
+      // each book's trouble, where it is met, and who waits at the end of it
+      CN_GROUND.forEach((g, k) => {
+        enemies.push({ key: `cnboss-${k}`, enemy: CN_BOSSES[k], ...xyOf(g, [0, -4]), range: 0, when: (f) => !!f[`cn:boss:${k}`] });
+        ([[-10, 4], [9, 6], [-6, -9], [8, -8]] as [number, number][]).forEach((d, n) => enemies.push({ key: `cnfoe-${k}-${n}`, enemy: CN_FOES[k], ...xy(at(g, d, 2)), range: 2.5, when: (f) => !!f[`cn:book:${k}`] }));
+      });
+    }
   }
 
   // 8⅞. the Founding: her sect in the Withered Lotus Basin, raised a building at a time, with its steward, elders,
@@ -2581,6 +2718,31 @@ function buildWorld(): WorldDef {
 
   // 9½. now that everyone and everything stands where it will, let the coast fall away round them
   applyCoast(m, fixed, wildOf, coast, [...interacts, ...npcs, ...enemies, ...critters, ...props].map((x) => [x.i, x.j] as [number, number]));
+  // what fell away became open sea, and the shallows are laid again along the shore as it now runs
+  {
+    m.each((i, j) => {
+      const k = m.kind(i, j);
+      // (the shallows laid along the old shore go back to deep water first)
+      if (k === "water" && sea[j * COARSE_W + i]) m.set(i, j, "deep", 0);
+      if (k !== "void" || inSky(i, j)) return;
+      m.set(i, j, "deep", 0);
+      fix(i, j, 2);
+      sea[j * COARSE_W + i] = 1;
+    });
+    const shallows: [number, number][] = [];
+    m.each((i, j) => {
+      if (m.kind(i, j) !== "deep" || !sea[j * COARSE_W + i] || inEdge(i, j)) return;
+      for (let b = -2; b <= 2; b++)
+        for (let a = -2; a <= 2; a++) {
+          const k = m.kind(i + a, j + b);
+          if (k !== "void" && !LIQUID[k]) {
+            shallows.push([i, j]);
+            return;
+          }
+        }
+    });
+    for (const [i, j] of shallows) m.set(i, j, "water", 0);
+  }
   // 9¾. and anyone (or any round or post of theirs) the sea, the straits and the edge of the world left in the water steps ashore
   {
     const wet = (i: number, j: number) => {

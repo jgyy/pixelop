@@ -214,7 +214,7 @@ export class WorldMap {
     }
     const cx = Math.round(this.camX);
     const cy = Math.round(this.camY);
-    // the whole world floats on a sea of clouds
+    // the sky behind the Encircling Sea (only the sect's cloud is still cloud)
     drawSky(s, "day", t, cx * 0.5, cy * 0.5 - s.height * 0.6);
     s.sprite(map, cx, cy);
     // water shimmer

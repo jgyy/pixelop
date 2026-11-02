@@ -17,6 +17,10 @@ import { COARSE_H, COARSE_W, WORLD_SCALE } from "./layout";
  *   western half of the Golden River country, across the Reedwater Strait;
  * - the Southern Continent (南洲): the Stairlands and the Southern Heights,
  *   across the strait the Nine-Arch Bridge spans;
+ * - Fusang (扶桑洲), the Dawn Continent, across the Strait of Dawn from
+ *   Wavecrest Harbour: the Valley of Sunrise where the Fusang tree stands,
+ *   the City of Ten Seats where the Synod legislates the Great Daos, and the
+ *   Unbound's free port of Wuji on its southern horn;
  * - the Sea of Pearls' archipelago, and, above it all, the floating realm of
  *   the Azure Cloud Sect, which still rides its own cloud (the only place
  *   left where the world drops away into sky).
@@ -28,6 +32,20 @@ import { COARSE_H, COARSE_W, WORLD_SCALE } from "./layout";
  * Kept free of map-building code, so the runtime can ask where the edge is
  * without building the world.
  */
+
+/**
+ * How far the coast is pushed about (authoring tiles): broad swells that
+ * throw out headlands and bite in bays a few dozen tiles deep, and a finer
+ * ripple on them, so no shore runs ruled along the box it was drawn in.
+ */
+export function coastWarp(i: number, j: number): [number, number] {
+  const big = 30;
+  const mid = 11;
+  return [
+    (fbm(i * 0.011, j * 0.011, 620) - 0.5) * 2 * big + (fbm(i * 0.04, j * 0.04, 622) - 0.5) * 2 * mid,
+    (fbm(i * 0.011, j * 0.011, 621) - 0.5) * 2 * big + (fbm(i * 0.04, j * 0.04, 623) - 0.5) * 2 * mid,
+  ];
+}
 
 /** The deep-water band round the world's edge, in authoring tiles. */
 export const EDGE = 7;
@@ -95,7 +113,23 @@ export const STRAITS: Strait[] = [
     pts: [[-4, 243], [40, 242], [80, 244], [112, 246], [121, 270], [122, 300], [121, 340], [119, 380], [119, 420], [118, 460], [118, 500], [118, 530], [118, 562]],
     width: 12,
   },
+  {
+    // between Wavecrest Harbour's coast and Fusang, crossed only by the Dawn Causeway
+    key: "dawn",
+    name: "The Strait of Dawn",
+    hanzi: "破晓海峡",
+    pts: [[652, 150], [650, 200], [654, 252], [650, 300], [652, 360]],
+    width: 16,
+  },
 ];
+
+/** Each strait's bounding box, grown by half its width, its wandering shores and the furthest its course can meander. */
+const STRAIT_BOXES = STRAITS.map((st) => {
+  const grow = st.width / 2 + 2 + 14;
+  const xs = st.pts.map((p) => p[0]);
+  const ys = st.pts.map((p) => p[1]);
+  return [Math.min(...xs) - grow, Math.min(...ys) - grow, Math.max(...xs) + grow, Math.max(...ys) + grow] as const;
+});
 
 /** Distance from a point to a polyline. */
 function lineDistance(pts: [number, number][], x: number, y: number): number {
@@ -111,10 +145,18 @@ function lineDistance(pts: [number, number][], x: number, y: number): number {
   return best;
 }
 
-/** The strait an authoring tile lies in, if any (its shores wander a little). */
+/**
+ * The strait an authoring tile lies in, if any. Its course meanders (the
+ * point is pushed about by slow noise before it is measured against the
+ * ruled line) and its shores wander a little more on top of that.
+ */
 export function straitAt(i: number, j: number): Strait | null {
+  // most of the world is nowhere near a strait: only the ones whose box (grown by the meander) holds the tile are measured
+  if (!STRAIT_BOXES.some(([x0, y0, x1, y1]) => i >= x0 && i <= x1 && j >= y0 && j <= y1)) return null;
+  const wx = (fbm(i * 0.021, j * 0.021, 630) - 0.5) * 22 + (fbm(i * 0.06, j * 0.06, 632) - 0.5) * 5;
+  const wy = (fbm(i * 0.021, j * 0.021, 631) - 0.5) * 22 + (fbm(i * 0.06, j * 0.06, 633) - 0.5) * 5;
   for (const s of STRAITS) {
-    const d = lineDistance(s.pts, i + 0.5, j + 0.5);
+    const d = lineDistance(s.pts, i + 0.5 + wx, j + 0.5 + wy);
     if (d < s.width / 2 + (fbm(i * 0.09, j * 0.09, 612 + s.key.length) - 0.5) * 3) return s;
   }
   return null;
@@ -133,4 +175,5 @@ export const CONTINENTS: Continent[] = [
   { key: "east", name: "The Eastern Continent", hanzi: "东洲", c: [470, 200] },
   { key: "west", name: "The Western Continent", hanzi: "西洲", c: [56, 340] },
   { key: "south", name: "The Southern Continent", hanzi: "南洲", c: [150, 720] },
+  { key: "fusang", name: "Fusang, the Dawn Continent", hanzi: "扶桑洲", c: [716, 300] },
 ];

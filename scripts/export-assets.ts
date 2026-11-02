@@ -487,6 +487,24 @@ const artMoves: [CharId, AnimId][] = [
   ["heroine", "starfall"],
 ];
 writeGif("heights-moves.gif", showcase(artMoves.map(([id, anim]): Cell => ({ id, anim, dir: 1, label: `${charDef(id).name.split(" ").pop()} ${anim}` })), 7, 2, seconds), 12);
+// the Contention of the Daos: the Witness's new moves, and the people of Fusang at the Council
+const council: [CharId, AnimId][] = [
+  ["heroine", "envoy"],
+  ["heroine", "cupfist"],
+  ["heroine", "rebuke"],
+  ["heroine", "unfurl"],
+  ["heroine", "sealtreaty"],
+  ["heroine", "mudra"],
+  ["heroine", "daovow"],
+  ["heroine", "daodoubt"],
+  ["heroine", "steadyheart"],
+  ["synodspeaker", "mudra"],
+  ["seatholder", "rebuke"],
+  ["synodenvoy", "envoy"],
+  ["dawnkeeper", "rake"],
+  ["unfettered", "laugh"],
+];
+writeGif("contention-moves.gif", showcase(council.map(([id, anim]): Cell => ({ id, anim, dir: 1, label: `${charDef(id).name.split(" ").pop()} ${anim}` })), 7, 2, seconds), 12);
 const fleet = (["junk", "skiff", "skyjunk"] as CharId[]).map((id): Cell => ({ id, anim: "idle", dir: "spin", label: charDef(id).name }));
 writeGif("ships.gif", showcase(fleet, 3, 1, seconds), 8);
 

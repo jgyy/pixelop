@@ -109,6 +109,125 @@ New moves: Lin Yue **rummages** in her satchel when the menu opens and **shades 
 - A foundling who runs up the sky bridge before facing the fox is no longer greeted for the "fox blood on her sleeve", or told she has "already met" the beast.
 
 
+### The Contention of the Daos: Fusang, a world of powers with secrets, Daos that are law, and coasts that are no longer boxes
+
+The world grew east. Across the **Strait of Dawn** from Wavecrest Harbour lies a fifth continent, **Fusang (扶桑洲), the Dawn Continent**, where the sun comes up through the branches of the Fusang tree and the **Synod of Ten Seats** rules what each Great Dao *means*. Every coast was redrawn too: the old continents were rectangles with ruled edges and ruler-straight straits; now their shores are thrown out in capes and bitten into bays, and the straits meander.
+
+The eleventh thread of the main tale, **the Contention of the Daos (百道争鸣)**, is **900 quests** in six books. Lin Yue is asked to the Synod's **Great Council** as its Witness, while **twenty-two powers** (six thrones, the six sects sworn to them, the Azure Cloud, the Blood Moon, the Iron Banner, the Orthodox Alliance, the Concord of a Hundred Peoples, the Celestial Court, the Nine Springs, the Dragon King, the Synod and the exiles of Wuji) pull at her and at each other.
+
+| | |
+|---|---|
+| ![The world before: four boxes](docs/screenshots/356-chart-before.png) | ![The world now: five continents, ragged coasts, meandering straits](docs/screenshots/357-chart-of-the-five-continents.png) |
+| ![The City of Ten Seats](docs/screenshots/358-3d-the-city-of-ten-seats.png) | ![The Valley of Sunrise, its pilgrims and the Fusang tree](docs/screenshots/359-3d-the-valley-of-sunrise.png) |
+| ![The Dawn Causeway over the Strait of Dawn](docs/screenshots/360-3d-the-dawn-causeway.png) | ![Wuji, the free port of the Unfettered](docs/screenshots/361-3d-wuji-the-free-port.png) |
+| ![The Hall of Writs](docs/screenshots/362-3d-the-hall-of-writs.png) | ![A bay bitten out of a ruled shore](docs/screenshots/363-3d-a-ragged-coast.png) |
+| ![A Dao debate](docs/screenshots/367-a-dao-debate.png) | ![The powers of the world](docs/screenshots/368-the-powers-of-the-world.png) |
+| ![The Synod of Ten Seats, on the Powers page](docs/screenshots/369-the-synod-of-ten-seats.png) | ![A wavering Dao heart](docs/screenshots/370-a-wavering-dao-heart.png) |
+| ![The journal](docs/screenshots/371-journal-the-contention-of-the-daos.png) | ![The world map](docs/screenshots/372-world-map-five-continents.png) |
+
+#### A world that is not a set of boxes (`world/oceans.ts`, `world/fusang.ts`)
+
+- **Capes:** the old lands are seen a second time through a warped lens (`coastWarp`: broad swells and a finer ripple, up to ~40 authoring tiles), and whatever land the warped outline throws out past the ruled one stands as a cape.
+- **Bays:** the coast-carver's bite now comes and goes every few dozen tiles (a second, faster noise), so a shore is eaten into bays instead of being moved back in parallel. What falls away becomes **open sea**, and the shallows are laid again along the shore as it now runs (before, the carved land became a band of shallow water that kept the old rectangle's outline).
+- **Straits** meander: a point is pushed about by slow noise before it is measured against the strait's ruled line.
+- **Fusang** is built from five warped lobes, with its own biome (blossom and maple, the **dawnlands**), two ranges, and four places: the **City of Ten Seats**, the **Valley of Sunrise** with the Fusang tree, the **Hall of Writs** and **Wuji**, the free port of the Unfettered. The **Dawn Causeway** leaves the highway below the snows and crosses the Strait of Dawn on planks.
+- The world only grew east (`COARSE_W` 648 → 776), so every older save position is still the same spot.
+
+```mermaid
+flowchart LR
+  subgraph build["buildWorld (authoring grid)"]
+    L["lowlands(): the ruled outlines<br/>+ fusangLand(): five warped lobes"] --> H["headland(): the same lands through coastWarp<br/>(capes past the ruled edge)"]
+    H --> E["nearEdge margin<br/>(Fusang exempt: its shore was never ruled)"]
+    E --> C["carveCoast: slow bite + fast bite<br/>capes kept, Fusang kept"]
+    C --> ST["straitAt: warped course<br/>(Rising Sun · Reedwater · Dawn)"]
+    ST --> SEA["cloud → sea · shallows"]
+    SEA --> AC["applyCoast after placement<br/>fallen land → open sea"]
+    AC --> SH["shallows relaid along the new shore"]
+  end
+  SH --> M["Magnify ×2 → Scale4x fine grid → 3D chunks"]
+```
+
+#### The powers, and what lies between them (`world/powers.ts`, `story/powers.ts`)
+
+Each power holds a **doctrine**: a Dao of the heart it holds right, one it holds a crime, and a Great Dao it honours above the others. **How it receives her** is worked out, not tallied: her Dao against its doctrine (deeper Daos weigh more), how well she understands its patron Great Dao, and what she has done for or against it. **Forty ties** join the powers (covenant, marriage, tribute, debt, hostage-bond, schism, feud, war…), and **eighteen of them are not what they seem**: each has a public face and a hidden truth she can uncover. A few:
+
+```mermaid
+flowchart LR
+  yan["大燕 Great Yan"] -- "tribute (face)<br/>pact: let the Banner cross the Sands (truth)" --> ib["铁旗 Iron Banner"]
+  wei["北魏 Northern Wei"] -- "war (face)<br/>sold two passes (truth)" --> ib
+  wei -. "cold peace (face)<br/>a written Mandate if Wei signs first (truth)" .-> syn["十座议 the Synod"]
+  liang["大梁 Great Liang"] -- "marriage (face)<br/>a princess held as surety (truth)" --> chen["南陈 Southern Chen"]
+  liang -- "covenant (face)<br/>the Granary Seal in pawn (truth)" --> gc["金鹤宗 Golden Crane"]
+  chen -- "covenant (face)<br/>half-sisters (truth)" --> tb["破浪宗 Tidebreakers"]
+  shu["西蜀 Western Shu"] -- "covenant (face)<br/>alive only on its pills (truth)" --> cc["赤鼎宗 Crimson Cauldron"]
+  orth["正道联盟 Orthodox Alliance"] -- "alliance (face)<br/>paid with Fusang's silver (truth)" --> syn
+  orth -- "feud<br/>carried out the Purge (truth)" --> con["百族盟 the Concord"]
+  syn -- "feud<br/>wrote the Writ of Strange Blood (truth)" --> con
+  syn -- "schism" --> unf["无羁盟 the Unfettered"]
+  cel["天庭 Celestial Court"] -. "rivalry: who rules on the Dao?" .-> syn
+  classDef p fill:#241a40,stroke:#3fb59a,color:#fff6dc;
+  class yan,ib,wei,syn,liang,chen,gc,tb,shu,cc,orth,con,unf,cel p;
+```
+
+The Menu has a new **Powers (势力)** page: the web of every power (each node ringed by how it receives her), every tie as she knows it (coloured by its warmth, dashed while its truth is hidden), and for the chosen power its doctrine, its view of her and why, and each tie's face or truth.
+
+#### The Daos, taken seriously
+
+- **The Ten Writs:** every Great Dao is read three ways in the tale: as the Synod's Writ has it, as the exiles' struck reading has it, and as she has come to see it herself. In a **Dao debate** she may uphold the Writ, speak for the struck reading, or silence the square; she may **speak her own reading only if she truly comprehends that Dao** (Entry in the first books, Lesser and then Greater Mastery later). If she tries without it, she falters in front of everyone, and her Dao heart takes a doubt. A reading she can say goes into the Council's record and deepens her grasp of it.
+- **The Dao heart (道心):** once she walks a Dao to its Path or deeper, acting for another Dao **doubts** it (twice as hard for the Dao hers is most at war with), and acting for her own settles it. A **wavering** heart loses a tier of her Dao's gifts, a **cracked** one two, and a cracked heart feeds her heart demons with every further doubt. **Vigils** under the Fusang tree steady it. The Status page and journal show her heart's state, and she is told when it wavers, cracks or steadies.
+- **A Dao is kept alive by being walked:** in Fusang, where each Dao may be read only one way, the Daos are starving: the river has no eddies, the furnaces burn cold, the dawn reaches the Fusang tree a breath later each spring, and every reading the Synod struck in three thousand years has gathered under its roots as **the Unwritten**.
+
+```mermaid
+stateDiagram-v2
+  [*] --> Steady
+  Steady --> Wavering: 6 doubts (acting against a Dao at Path or deeper)
+  Wavering --> Cracked: 12 doubts
+  Cracked --> Cracked: every further doubt feeds her heart demons
+  Wavering --> Steady: her own Dao, or a vigil under the Fusang tree
+  Cracked --> Wavering: her own Dao, or a vigil
+  note right of Wavering: her Dao's gifts lose a tier (two when cracked)
+```
+
+#### The tale: six books, 900 quests
+
+| Book | | What happens | Who waits at the end |
+|---|---|---|---|
+| I | 破晓之使 The Envoy of the Dawn | Mei Zhao waits at the causeway; the Speaker's story of the ten suns; how a Writ is made, and what recanting does to a Dao heart | Bai Lü, Inquisitor-Captain of the Causeway |
+| II | 十律西行 The Ten Writs Go West | She carries the Writs to the six thrones: Wei signs first, Shu refuses, Chen names a price, Liang has no seal, Qi already knew, and Yan's tribute turns out to have bought the Iron Banner's road | Murong Ce, Spymaster of Great Yan |
+| III | 无羁之港 The Unfettered of Wuji | The exiles who would not recant, the Synod's fleet, the Dragon King's storm out of season, heaven's warning | Ling Shuang, Seat of Ice and Grand Inquisitor |
+| IV | 异血之律 The Writ of Strange Blood | The Purge was a ruling, written in the City of Ten Seats and never struck: the eleventh writ | Duanmu Jue, Keeper of the Writ |
+| V | 饿道 The Starving Daos | The Daos thin in Fusang; the Speaker's fear of ten suns; Yan Ling, who died of recanting | The Unwritten |
+| VI | 论道大会 The Great Council of the Daos | Every power speaks; the Witness proposes; the Council votes | Xi He, Speaker of the Synod |
+
+Between the beats come Dao debates, **mediations** (side with one power, find terms both can keep, speak for those the quarrel hurts, or set them at each other: each moves the tie and her standing), **intrigues** (eighteen, one for each hidden truth: keep it, expose it, use it to mend, or sell it), letters carried between the powers, vigils and hunts. **The vote** depends on what she proposes (a Charter of a Hundred Daos, striking the Writs, the eleventh writ first, or signing), the Seats her beats have turned, how many powers trust her and how warm the web runs; it ends in a **Charter**, the Writs **struck**, the Writs **amended**, or the Writs **signed**, and the epilogue remembers which.
+
+```mermaid
+flowchart TD
+  O["Core Formation, the far roads open"] --> B1["I · The Envoy of the Dawn"] --> B2["II · The Ten Writs Go West"] --> B3["III · The Unfettered of Wuji"] --> B4["IV · The Writ of Strange Blood"] --> B5["V · The Starving Daos"] --> B6["VI · The Great Council"]
+  B6 --> P{"What does the Witness propose?"}
+  P -- "sign" --> S["Signed: the Daos mean one thing each"]
+  P -- "charter / strike / mercy" --> V{"Seats turned ≥ 4,<br/>powers trusting her − powers hostile ≥ 6,<br/>the web not bitter?"}
+  V -- yes --> C["Charter of a Hundred Daos<br/>(or every Writ struck)"]
+  V -- no --> A["Amended: the eleventh writ struck,<br/>the struck readings read into the record"]
+```
+
+#### Nine new moves and five new characters
+
+**envoy** (credentials presented with a deep bow), **cupfist** (fist in palm), **rebuke** (the sleeve flicked away), **unfurl** (a scroll drawn open before a council), **sealtreaty** (a seal pressed to a treaty and shown), **mudra** (a Dao's hand-seals, qi gathering), **daovow** (two fingers to heaven, and heaven answering), **daodoubt** (the Dao heart wavering: a stagger to one knee) and **steadyheart** (palms pressed to the dantian in the lotus). The emperors, envoys and Seat-holders share the moves that suit them. New characters: **Xi He**, Speaker of the Synod; the **Seat-holders**; **Mei Zhao**, the Synod's envoy; **Hou Qing**, Keeper of the Fusang tree; and **Feng Buji** of Wuji. Twelve new foes and bosses, and twenty townsfolk for Fusang's places.
+
+| The new moves and people | |
+|---|---|
+| ![](docs/art/contention-moves.gif) | ![Forming a Dao's seals](docs/screenshots/364-3d-forming-a-daos-seals.png) ![Swearing on her Dao](docs/screenshots/365-3d-swearing-on-her-dao.png) ![Presenting credentials](docs/screenshots/366-3d-presenting-credentials.png) |
+
+#### Plot holes mended
+
+- **How did the Iron Banner cross the Yellow Sands, which Great Yan holds?** Yan's spring tribute was a toll: it let the horde through on the understanding it would ride on into Liang and the jianghu (Book II).
+- **Who authorised the Purge of Strange Blood?** Twenty sects gave the same reason in the same words: someone wrote it once. It was the Synod's eleventh writ, carried out by the Orthodox Alliance (Book IV).
+- **Who pays the Orthodox Alliance's disciple-buyers** at the new sects' gates in the Founding? Fusang's silver (Book IV).
+- **How is Emperor Wenhe alive after Xu Fu's elixir?** His heart stopped and started again; the Crimson Cauldron's monthly pills draw off the elixir's qi, and the Nine Springs' ledger was never corrected. That is why Shu will never sign the Writ of Life and Death.
+- **The world is no longer a raft in the clouds,** but the folk still said it was. Willow Creek's gossip, the Lotus Lake's crowd, Captain Hai, Lin Yue's first sight of the harbour, the Hailing pilots and the City of Nine Tiers all spoke of water pouring "off the edge of the world into the clouds" or of a "strait of cloud". They now speak of the straits, the sea and Fusang on the horizon.
+- **A Dao that cost nothing to betray** was no Dao. The Dao heart now remembers.
+
 ### The Encircling Sea: four continents, a world's edge, quarter-tile ground and moves for the shore
 
 The ground no longer hangs in a sea of cloud. **It stands in a real sea that runs out to every edge of the world**, and the land is broken into **four continents** by straits a few dozen tiles across. The roads cross the straits on plank bridges. Only the Azure Cloud Sect still rides its own cloud, the one place left where the world drops away into sky.

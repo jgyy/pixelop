@@ -189,7 +189,8 @@ export function neighbours(g: Ground, npcs: readonly NpcPlacement[], enemies: re
   npcs.forEach((p, n) => {
     // the peoples' homes keep their own folk (a human villager at every fox's elbow would be a strange hollow)
     // and the six capitals' townsfolk are crowd enough (see world/courts.ts), as are her sect's folk and its gods (see world/founding.ts)
-    if (p.key.startsWith("crowd:") || p.key.startsWith("pe-") || p.key.startsWith("ct-") || p.key.startsWith("fd-")) return;
+    // (and Fusang keeps its own hundreds of townsfolk, see world/fusang.ts)
+    if (p.key.startsWith("crowd:") || p.key.startsWith("pe-") || p.key.startsWith("ct-") || p.key.startsWith("fd-") || p.key.startsWith("cn-")) return;
     const at = besideOf(g, p.i, p.j, 2, 5, taken, 301 + n) ?? besideOf(g, p.i, p.j, 1, 10, taken, 301 + n);
     if (!at) return;
     take(taken, m, at[0], at[1]);

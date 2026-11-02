@@ -5,8 +5,9 @@ import type { PeopleBossId, PeopleFoeId } from "../world/peoples";
 import type { SeaBossId, SeaFoeId } from "../world/isles";
 import type { CourtBossId, CourtFoeId } from "../world/courts";
 import type { FoundingBossId, FoundingFoeId } from "../world/founding";
+import type { CnBossId, CnFoeId } from "../world/fusang";
 
-export type EnemyId = "fox" | "wolf" | "serpent" | "serpentKing" | "cultist" | "jiangshi" | "bandit" | "swordsman" | "patriarch" | "emberwyrm" | "stonehound" | "poisoner" | "phoenixguard" | "traitor" | "elderMo" | DeepFoeId | HollowId | WarFoeId | WarBossId | EchoId | HallBossId | "wdspar" | TierBossId | "tjring" | PeopleFoeId | PeopleBossId | SeaFoeId | SeaBossId | CourtFoeId | CourtBossId | FoundingFoeId | FoundingBossId;
+export type EnemyId = "fox" | "wolf" | "serpent" | "serpentKing" | "cultist" | "jiangshi" | "bandit" | "swordsman" | "patriarch" | "emberwyrm" | "stonehound" | "poisoner" | "phoenixguard" | "traitor" | "elderMo" | DeepFoeId | HollowId | WarFoeId | WarBossId | EchoId | HallBossId | "wdspar" | TierBossId | "tjring" | PeopleFoeId | PeopleBossId | SeaFoeId | SeaBossId | CourtFoeId | CourtBossId | FoundingFoeId | FoundingBossId | CnFoeId | CnBossId;
 
 /** What lives in the four deeps found since: the hollow under Frostveil, the tomb under the sands, the sea cave and the bamboo's roots. */
 export type DeepFoeId = "frostfang" | "rimewyrm" | "dunewyrm" | "pearlwyrm" | "shadowvixen" | "smuggler";
@@ -371,7 +372,42 @@ const foundingBosses = Object.fromEntries(
   }),
 ) as Record<FoundingBossId, EnemyDef>;
 
+/**
+ * The troubles of the Contention of the Daos (see world/fusang.ts): what
+ * each book sends against the Council's Witness, and who waits at the end.
+ */
+const CN_FOE_LOOK: [CnFoeId, string, CharId, number, string, string, string, string][] = [
+  ["writhound", "Writ-Bound Hound", "wolf", 10, "Chained Fang", "Hunt the Heretic", "#fff2c8", "One of the Inquisition's hounds comes at you, a strip of sealed Writ knotted to its collar, nose to the ground."],
+  ["sealrunner", "Murong Seal-Runner", "enforcer", 12, "Hidden Blade", "Burn the Letters", "#ff8a3a", "A runner in Yan's sand-coloured livery comes out of the dune with a knife and a satchel of letters he means to burn."],
+  ["dawninquisitor", "Dawn Inquisitor", "inquisitor", 14, "Writ-Chain", "Recant!", "#bfe8ff", "An inquisitor of the Synod steps down from a launch, chain in hand, reading your Dao off you as he comes."],
+  ["purgekeeper", "Purge-Keeper of the Alliance", "swordsman", 16, "Old Orthodox Blade", "The Writ Was Lawful", "#d8e0f0", "An old swordsman in Alliance white bars the archive stair. He was there, in the Purge. He has never stopped guarding it."],
+  ["starvedreading", "Starving Reading", "hollow", 18, "Unread Hunger", "Read Me", "#9ff5de", "A struck reading of some Great Dao crawls up out of the roots, thin as paper, begging to be read and ready to eat whoever can."],
+  ["voidwarden", "Warden of the Ten Seats", "tierwarden", 20, "Seal-Staff", "Order in the Council", "#fff6dc", "A warden of the Synod plants his staff in the square. The Speaker has ordered the Council held, and he holds it."],
+];
+const CN_BOSS_LOOK: [CnBossId, string, CharId, number, string, string, string][] = [
+  ["bailu", "Bai Lü, Inquisitor-Captain of the Causeway", "inquisitor", 11, "Chain of the Writ of Ice", "Frozen Testimony", "#bfe8ff"],
+  ["murongce", "Murong Ce, Spymaster of Great Yan", "nobleM", 13, "Twin Knives", "Every Secret Buried", "#ff8a3a"],
+  ["lingshuang", "Ling Shuang, Seat of Ice and Grand Inquisitor", "seatholder", 15, "Fan of Rime", "Decide, and Hold", "#bfe8ff"],
+  ["duanmujue", "Duanmu Jue, Keeper of the Writ of Strange Blood", "justiciar", 17, "Purge-Blade", "The Collars Remember", "#ff6a6a"],
+  ["unwritten", "The Unwritten, Every Struck Reading", "hollowsage", 19, "Ten Thousand Whispers", "Read Us", "#9ff5de"],
+  ["xihe", "Xi He, Speaker of the Synod", "synodspeaker", 21, "Whisk of the Void", "The Void Holds Everything", "#fff6dc"],
+];
+const cnFoes = Object.fromEntries(
+  CN_FOE_LOOK.map(([id, name, sprite, level, basic, special, colour, intro]) => {
+    const c = (level - 3) / 3;
+    return [id, { id, name, sprite, level, hp: Math.round(150 + 95 * c + 8 * c * c), atk: Math.round(22 + 6 * c), def: Math.round(7 + 3 * c), exp: Math.round(60 + 70 * c), stones: Math.round(12 + 8 * c), basic, special: { name: special, power: 1.6, every: 3, colour }, intro, speed: 1.2, aggro: 3 } satisfies EnemyDef];
+  }),
+) as Record<CnFoeId, EnemyDef>;
+const cnBosses = Object.fromEntries(
+  CN_BOSS_LOOK.map(([id, name, sprite, level, basic, special, colour]) => {
+    const c = (level - 3) / 2;
+    return [id, { id, name, sprite, level, hp: Math.round(270 + 200 * c + 18 * c * c), atk: Math.round(22 + 5.4 * c), def: Math.round(7 + 3.2 * c), exp: Math.round(260 + 320 * c), stones: Math.round(80 + 60 * c), basic, special: { name: special, power: 1.8, every: 3, drain: c >= 5 ? 0.2 : undefined, colour }, boss: true, speed: 0, aggro: 1.4 } satisfies EnemyDef];
+  }),
+) as Record<CnBossId, EnemyDef>;
+
 export const ENEMIES: Record<EnemyId, EnemyDef> = {
+  ...cnFoes,
+  ...cnBosses,
   ...foundingFoes,
   ...foundingBosses,
   ...courtFoes,
