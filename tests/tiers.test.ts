@@ -1,3 +1,4 @@
+import { LIQUID } from "@/game/world/tilemap";
 import { describe, expect, it } from "vitest";
 import { newGame, type GameState } from "@/game/engine/state";
 import { levelIndex, REALMS } from "@/game/engine/realms";
@@ -209,13 +210,13 @@ describe("the city on the land", () => {
   const m = w.map;
   const S = WORLD_SCALE;
 
-  it("stands across a strait of cloud below Jinhe, at the end of the Nine-Arch Bridge, in land the world grew south to hold", () => {
+  it("stands across a strait below Jinhe, at the end of the Nine-Arch Bridge, in land the world grew south to hold", () => {
     expect(m.h).toBe(800 * S);
     for (const key of ["tianjie", "ninearch", "weighhall", "summit"]) expect(w.landmarks.some((l) => l.key === key), key).toBe(true);
-    // the bridge's planks cross the void between Jinhe's cliffs and the city's flats
+    // the bridge's planks cross the strait (sea, now, not cloud) between Jinhe's cliffs and the city's flats
     const bridge = w.landmarks.find((l) => l.key === "ninearch")!;
     expect(m.kind(Math.floor(bridge.x), Math.floor(bridge.y))).toBe("wood");
-    expect(m.kind(Math.floor(bridge.x) - 12, Math.floor(bridge.y))).toBe("void");
+    expect(LIQUID[m.kind(Math.floor(bridge.x) - 12, Math.floor(bridge.y))]).toBe("water");
     // the city belongs to the Cloudmist lands
     expect(regionAt(w, TIANJIE_C[0] * S, TIANJIE_C[1] * S)).toBe("terraces");
   });
