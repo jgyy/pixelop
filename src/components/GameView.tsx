@@ -984,7 +984,7 @@ function BattleMenu({ ui, act }: { ui: UiSnapshot; act: (a: BattleAction) => voi
   const busy = b.busy;
   return (
     <div className="battle-menu" data-testid="battle-menu">
-      <div className="skills panel">
+      <div className={`skills panel${b.skills.length > 6 ? " many" : ""}`}>
         {b.skills.map((id) => {
           const sk = SKILLS[id];
           return (

@@ -1,5 +1,5 @@
 import { hash2, fbm } from "../pixel/noise";
-import type { AnimId, HumanId } from "../art/characters";
+import type { AnimId, CharId, HumanId } from "../art/characters";
 import { footTiles, propDef, type PropId } from "../art/props";
 import type { EnemyId } from "../engine/enemies";
 import { LIQUID, TileMap, type TileKind } from "./tilemap";
@@ -77,6 +77,29 @@ export interface Critter {
   j: number;
 }
 
+/**
+ * Something that travels a fixed loop for ever, whoever is watching: a junk
+ * sailing between the ports, a fishing skiff, a disciple on her sword, a
+ * cloud-ship of the sects. Its place is a pure function of the clock, so it
+ * never stops when the heroine walks away and never bumps into anything.
+ */
+export interface Voyage {
+  key: string;
+  /** What she would call it (a ship's name, or who is flying). */
+  name?: string;
+  char: CharId;
+  anim: AnimId;
+  /** A closed loop of world points it travels round. */
+  route: [number, number][];
+  /** Tiles a second. */
+  speed: number;
+  /** Height above the land it keeps (0 on the water). */
+  alt: number;
+  /** Where on the loop it is at clock zero, as a fraction of the loop. */
+  phase: number;
+  outfit?: string;
+}
+
 export interface EnemySpawn {
   key: string;
   enemy: EnemyId;
@@ -123,6 +146,8 @@ export interface AreaDef {
   enemies: EnemySpawn[];
   interacts: Interactable[];
   critters?: Critter[];
+  /** Ships under sail and folk in the air, going round their loops. */
+  voyages?: Voyage[];
   /** Changes the story makes to the land (see world/terrain.ts). */
   patches?: TerrainPatch[];
   /** The story can change a region's sky as well as its ground (the blood moon lifting, or spreading). */

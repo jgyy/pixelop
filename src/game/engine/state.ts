@@ -7,7 +7,7 @@ import { wuStats } from "./comprehension";
 import { craftStats } from "./crafts";
 import { swallowPill } from "./cultivation";
 
-export const SKILL_IDS = ["strike", "palm", "lotus", "swords", "thunder"] as const;
+export const SKILL_IDS = ["strike", "palm", "lotus", "swords", "thunder", "whirlwind", "dragon", "phoenix", "starfall"] as const;
 export type SkillId = (typeof SKILL_IDS)[number];
 
 /**
@@ -71,11 +71,13 @@ function fromLegacyWorld(x: number, y: number): { area: AreaId; x: number; y: nu
 }
 
 export const GameStateSchema = SaveFields.transform((s) => {
-  if (s.version === 5) return { ...s, version: 5 as const };
-  if (s.version === 4) return { ...s, version: 5 as const, x: Math.min(WORLD_W, s.x * WORLD_SCALE), y: Math.min(WORLD_H, s.y * WORLD_SCALE) };
-  if (s.version === 3) return { ...s, version: 5 as const, ...fromLegacyWorld(s.x, s.y) };
+  // a save from before a realm's technique existed gets it now (a Nascent Soul who has never seen the dragon of sword qi)
+  const skills = realmSkills(s.realm, s.skills);
+  if (s.version === 5) return { ...s, skills, version: 5 as const };
+  if (s.version === 4) return { ...s, skills, version: 5 as const, x: Math.min(WORLD_W, s.x * WORLD_SCALE), y: Math.min(WORLD_H, s.y * WORLD_SCALE) };
+  if (s.version === 3) return { ...s, skills, version: 5 as const, ...fromLegacyWorld(s.x, s.y) };
   const [x, y] = local(s.area, s.x, s.y);
-  return { ...s, version: 5 as const, x, y };
+  return { ...s, skills, version: 5 as const, x, y };
 });
 
 export type GameState = z.output<typeof GameStateSchema>;
@@ -128,13 +130,26 @@ export function gainCultivation(g: GameState, amount: number): { state: GameStat
   return { state: clampVitals(next), stagesGained: r.stagesGained };
 }
 
-/** Survive the tribulation: next realm, full vitals, and Core Formation unlocks the thunder technique. */
+/** The techniques a realm opens by itself: Core Formation the thunder, Nascent Soul the dragon of sword qi, Soul Transformation the phoenix. */
+export const REALM_SKILLS: [number, SkillId][] = [
+  [2, "thunder"],
+  [3, "dragon"],
+  [4, "phoenix"],
+];
+
+/** Her techniques with every one her realm has opened added (the dragon and the phoenix are only ever added, never taken). */
+export function realmSkills(realm: number, skills: SkillId[]): SkillId[] {
+  const out = [...skills];
+  for (const [r, id] of REALM_SKILLS) if (realm >= r && !out.includes(id)) out.push(id);
+  return out.length === skills.length ? skills : out;
+}
+
+/** Survive the tribulation: next realm, full vitals, and the techniques the new realm opens. */
 export function applyBreakthrough(g: GameState): GameState {
   const p = breakthrough(g);
   if (p.realm === g.realm) return g;
   const s = stats({ ...g, ...p });
-  const skills = p.realm >= 2 && !g.skills.includes("thunder") ? [...g.skills, "thunder" as const] : g.skills;
-  return { ...g, ...p, hp: s.maxHp, qi: s.maxQi, skills };
+  return { ...g, ...p, hp: s.maxHp, qi: s.maxQi, skills: realmSkills(p.realm, g.skills) };
 }
 
 export function heal(g: GameState, hp: number, qi: number): GameState {
