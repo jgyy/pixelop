@@ -1,3 +1,4 @@
+import { LIQUID } from "../world/tilemap";
 import { alpha } from "../pixel/color";
 import type { Surface } from "../pixel/surface";
 import { sRing } from "../pixel/surface";
@@ -169,7 +170,7 @@ const MOVE_KEYS: Record<string, [number, number]> = {
 
 const CONFIRM = new Set(["KeyE", "Enter", "Space", "NumpadEnter"]);
 /** One-shot animations that walking away interrupts. */
-const IDLE_FIDGETS = new Set<AnimId>(["rummage", "shade", "stretch", "look", "gather", "nod", "point", "cheer", "drink", "read", "pray", "clap", "laugh", "rear", "flute", "salute", "twirl", "taichi", "kick", "sworddance", "flame", "roar", "rally", "grieve", "bow", "banner", "horn", "comprehend", "domain", "acrobat", "firecracker", "liondance"]);
+const IDLE_FIDGETS = new Set<AnimId>(["rummage", "openchest", "pluck", "seagaze", "skipstone", "windback", "recoil", "alight", "shade", "stretch", "look", "gather", "nod", "point", "cheer", "drink", "read", "pray", "clap", "laugh", "rear", "flute", "salute", "twirl", "taichi", "kick", "sworddance", "flame", "roar", "rally", "grieve", "bow", "banner", "horn", "comprehend", "domain", "acrobat", "firecracker", "liondance"]);
 /** Seated or absorbed idles that a speaker keeps while talking instead of standing up. */
 const SEATED = new Set<AnimId>(["fish", "sit", "tell", "weave", "pray", "bandage", "grieve", "xiangqi", "puppet", "abacus", "row", "comprehend"]);
 const RUN_KEYS = ["ShiftLeft", "ShiftRight"];
@@ -399,13 +400,14 @@ export class Game {
     if (this.interior || this.world.hallHere) return this.toast("There's no room to ride a sword in here.");
     this.dismount();
     const h = this.world.hero;
-    if (h.flying) {
-      const m = this.world.def.map;
-      if (!m.standable(Math.floor(h.x), Math.floor(h.y), false)) return this.toast("You can't land here.");
-    }
+    // (she lands on the ground under her feet as the fine grid shapes it: a tile that is mostly land may still have water at its rounded corner)
+    if (h.flying && !this.world.canStand(h.x, h.y, this.world.heightAt(h.x, h.y), false)) return this.toast("You can't land here.");
     h.flying = !h.flying;
     if (h.idleAnim === "sit") h.idleAnim = "idle";
-    this.world.setAnim(h, h.flying ? "fly" : "idle", this.clock);
+    // up onto the sword, or a little drop and a bend of the knees as she steps down off it
+    if (h.flying) this.world.setAnim(h, this.flyAnim(), this.clock);
+    else if (h.char === "heroine") this.world.setAnim(h, "alight", this.clock, true);
+    else this.world.setAnim(h, "idle", this.clock);
     const [x, y] = [isoX(h.x, h.y), isoY(h.x, h.y, h.z)];
     this.world.fx.burst(x, y, 14, ["#9ff5de", "#ffffff"], 50);
     this.markDirty();
@@ -1498,7 +1500,7 @@ export class Game {
       if (!moved) this.tapTarget = null;
       w.trail(Math.hypot(h.x - x0, h.y - y0), this.clock);
       h.running = run;
-      if (h.holdUntil === undefined || IDLE_FIDGETS.has(h.anim)) w.setAnim(h, h.flying ? "fly" : run ? "run" : "walk", this.clock);
+      if (h.holdUntil === undefined || IDLE_FIDGETS.has(h.anim)) w.setAnim(h, h.flying ? this.flyAnim() : run ? "run" : "walk", this.clock);
       if (!h.flying && Math.random() < dt * (run ? 16 : 6) * (riding ? 2 : 1)) w.fx.emit({ x: isoX(h.x, h.y) - dx * 4 + (riding ? (Math.random() - 0.5) * 10 : 0), y: isoY(h.x, h.y, h.z), vx: -dx * (run ? 18 : 8) * (riding ? 1.6 : 1), vy: run ? -14 : -8, life: run ? 0.5 : 0.4, color: "#e8dcc8", gravity: 20, size: (run || riding) && Math.random() < 0.4 ? 2 : 1 });
       // Cloudmane's hooves leave little wisps of cloud
       if (riding && Math.random() < dt * 10) w.fx.emit({ x: isoX(h.x, h.y) + (Math.random() - 0.5) * 12, y: isoY(h.x, h.y, h.z) - 2, vx: -dx * 10, vy: -6, life: 0.7, color: Math.random() < 0.5 ? "#ffffff" : "#c8fff0" });
@@ -1507,7 +1509,7 @@ export class Game {
       this.lookOutAt = -99;
       w.setAnim(h, "shade", this.clock, true);
     } else if (h.holdUntil === undefined) {
-      w.setAnim(h, h.flying ? "fly" : h.idleAnim, this.clock);
+      w.setAnim(h, h.flying ? this.flyAnim() : h.idleAnim, this.clock);
       // left alone for a while, Lin Yue stretches or glances around (and Cloudmane rears now and then)
       this.idleTime += dt;
       if (riding && this.idleTime > 9) {
@@ -1516,7 +1518,7 @@ export class Game {
       } else if (!h.flying && !riding && this.idleTime > 8) {
         this.idleTime = -4;
         // first a stretch or a glance around; left alone longer, she hums, nods off or practises a pointing form
-        const pool: AnimId[] = this.fidgets++ < 1 ? ["look", "stretch"] : ["stretch", "look", "nod", "point", "cheer", "clap", "laugh", "flute", "salute", "twirl", "taichi", "kick", "sworddance", ...(this.state.flags.phxDone ? (["flame"] as AnimId[]) : []), ...this.weatherFidgets(), ...this.daoFidgets()];
+        const pool: AnimId[] = this.fidgets++ < 1 ? ["look", "stretch"] : ["stretch", "look", "nod", "point", "cheer", "clap", "laugh", "flute", "salute", "twirl", "taichi", "kick", "sworddance", ...(this.state.flags.phxDone ? (["flame"] as AnimId[]) : []), ...this.weatherFidgets(), ...this.daoFidgets(), ...this.shoreFidgets()];
         // left alone long enough, she sits down where she stands until she moves again
         if (this.fidgets > 4 && h.idleAnim === "idle") h.idleAnim = "sit";
         else {
@@ -1538,7 +1540,17 @@ export class Game {
       this.tapTarget = null;
       if (this.clock - this.sealToastAt > 3) {
         this.sealToastAt = this.clock;
+        if (!h.flying && h.char === "heroine") w.setAnim(h, "recoil", this.clock, true);
         this.toast(stairBarToast(why, this.state));
+      }
+    }
+    if (w.bumpedEdge) {
+      w.bumpedEdge = false;
+      this.tapTarget = null;
+      if (this.clock - this.sealToastAt > 3) {
+        this.sealToastAt = this.clock;
+        if (!h.flying && h.char === "heroine") w.setAnim(h, "windback", this.clock, true);
+        this.toast("The Encircling Sea runs on past the edge of the world. The wind turns her back.");
       }
     }
     if (w.bumped) {
@@ -1547,6 +1559,7 @@ export class Game {
       this.tapTarget = null;
       if (this.clock - this.sealToastAt > 3) {
         this.sealToastAt = this.clock;
+        if (!h.flying && h.char === "heroine") w.setAnim(h, "recoil", this.clock, true);
         this.toast(`${getArea(r).name}: ${lockReason(r, this.state) ?? "The way is sealed."}`);
       }
     }
@@ -1644,6 +1657,22 @@ export class Game {
   }
 
   /** What the hour and the season move her to do when she stands about outdoors: shiver in the snow, fly a kite in spring, gaze at the stars. */
+  /** On her sword: low and crouched, skimming, over open water; upright over the land. */
+  private flyAnim(): AnimId {
+    const h = this.world.hero;
+    if (h.char !== "heroine" || this.interior || this.world.cave) return "fly";
+    return LIQUID[this.world.kindAt(h.x, h.y)] === "water" ? "skim" : "fly";
+  }
+
+  /** By the water's edge she looks out to sea, or skips a stone across it. */
+  private shoreFidgets(): AnimId[] {
+    if (this.interior || this.world.cave) return [];
+    const h = this.world.hero;
+    for (const [dx, dy] of [[3, 0], [-3, 0], [0, 3], [0, -3], [2, 2], [-2, 2], [2, -2], [-2, -2]] as const)
+      if (LIQUID[this.world.kindAt(h.x + dx, h.y + dy)] === "water") return ["seagaze", "skipstone", "seagaze"];
+    return [];
+  }
+
   private weatherFidgets(): AnimId[] {
     if (this.interior) return [];
     const c = calendarAt(worldTime(this.state));
@@ -1847,7 +1876,7 @@ export class Game {
         break;
       case "herb": {
         h.dir = dirFrom(it.i + 0.5 - h.x, it.j + 0.5 - h.y);
-        if (!h.flying) this.world.setAnim(h, "gather", this.clock, true);
+        if (!h.flying) this.world.setAnim(h, "pluck", this.clock, true);
         this.state = { ...this.state, taken: [...this.state.taken, it.key] };
         this.world.taken.add(it.key);
         const s = stats(this.state);
@@ -1861,7 +1890,7 @@ export class Game {
       }
       case "chest": {
         h.dir = dirFrom(it.i + 0.5 - h.x, it.j + 0.5 - h.y);
-        if (!h.flying) this.world.setAnim(h, "gather", this.clock, true);
+        if (!h.flying) this.world.setAnim(h, "openchest", this.clock, true);
         const L = levelIndex(this.state.realm, this.state.stage);
         const stones = 25 + L * 10;
         this.state = { ...this.state, taken: [...this.state.taken, it.key], stones: this.state.stones + stones, pills: { heal: Math.min(99, this.state.pills.heal + 1), qi: Math.min(99, this.state.pills.qi + 1) } };

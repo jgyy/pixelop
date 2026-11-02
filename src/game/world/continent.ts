@@ -8,10 +8,11 @@ import { COARSE_H, COARSE_ORIGIN, COARSE_W, DOMAIN, heldBy, HOLDS, regionRect, t
 import { companionOf, magnifyMap, magnifyProp, pointTile, STRUCTURE_SCALE } from "./magnify";
 import { LIQUID, TileMap, TILE_KINDS, type TileKind } from "./tilemap";
 import { CAVE_IDS, CAVE_MOUTH, deepFolk } from "./caves";
-import { fineFloor, fineKind } from "./refine";
+import { FINE, fineFloor, fineKind } from "./refine";
+import { inEdge, inSky, nearEdge, straitAt } from "./oceans";
 import { COURT_COUNT, COURT_SPOTS, COURTS, WANDERING_CRAFTS, courtDiscipleKey, courtEmperorKey, courtFolkKey, courtGuideKey, courtLeaderKey, courtMasterKey, craftMasterKey, TOWNSFOLK_PER_COURT, townKey, townLook, townName, townTrade } from "./courts";
 import { BUILDINGS, builtFlag, CITY_GOD_AT, cityGodKey, discFlag, disciple, DISCIPLE_SLOTS, EARTH_GOD, elderFlag, ELDERS, FACILITIES, facilityWorkerKey, FOUNDING_BOOKS, FOUNDING_BOSSES, FOUNDING_C, FOUNDING_FOES, godFlag, GODS, MARKET, MARKET_C, marketFlag, STEWARD } from "./founding";
-import { inLagoon, inSea, isleByKey, isleDepth, ISLES as SEA_ISLES, SEA_BOOK_COUNT, SEA_BRIDGES, SEA_CAST, SEA_SPOTS, seaFolkKey, seaGuideKey, seaPatronKey } from "./isles";
+import { inLagoon, isleByKey, isleDepth, ISLES as SEA_ISLES, SEA_BOOK_COUNT, SEA_BRIDGES, SEA_CAST, SEA_SPOTS, seaFolkKey, seaGuideKey, seaPatronKey } from "./isles";
 import { layWar } from "./warfront";
 import { CRAFT_DEFS, type CraftId } from "../engine/crafts";
 import { layRoad } from "./roadside";
@@ -511,8 +512,8 @@ function carveCoast(m: TileMap, fixed: Uint8Array): Uint8Array {
 
 /**
  * Let the coast fall away where carveCoast marked it, but never within a few
- * tiles of anyone or anything placed in the wilds; where the shore falls into
- * the Sea of Pearls it becomes shallow water, not cloud.
+ * tiles of anyone or anything placed in the wilds; the shore falls into the
+ * sea as shallow water (only under the sect's cloud does it fall into sky).
  */
 function applyCoast(m: TileMap, fixed: Uint8Array, wildOf: Uint8Array, carve: Uint8Array, keep: [number, number][]): void {
   const W = m.w;
@@ -527,7 +528,7 @@ function applyCoast(m: TileMap, fixed: Uint8Array, wildOf: Uint8Array, carve: Ui
     const n = j * W + i;
     if (!was.has(n)) was.set(n, [m.kinds[n], m.heights[n], wildOf[n], fixed[n]]);
     wildOf[n] = 0;
-    if (inSea(i, j)) {
+    if (!inSky(i, j)) {
       m.set(i, j, "water", 0);
       fixed[n] = 2;
     } else m.set(i, j, "void", 0);
@@ -953,15 +954,52 @@ function buildWorld(): WorldDef {
 
   // 6½. the coast: the old lands were cut out of the clouds along straight lines, so the shore is
   // eaten back into bays, coves and headlands wherever nothing of note stands near it (see shoreline)
+  // (but first the wild land falls away from the world's edge, in a wandering margin the coast then eats into bays)
+  m.each((i, j) => {
+    const n = j * COARSE_W + i;
+    // (the Stairlands and the Southern Heights already have shores of their own shape: only the old lands' ruled edges fall away)
+    if (!fixed[n] && m.kinds[n] !== 0 && nearEdge(i, j) && !stairBlob(i, j) && !heightsLand(i, j)) {
+      m.set(i, j, "void", 0);
+      wildOf[n] = 0;
+    }
+  });
   const coast = carveCoast(m, fixed);
 
   // 6¾. the Sea of Pearls (see world/isles.ts): the cloud south of the Tidewater Reach turns to sea, its isles rise out of it,
   // each a shape of its own, and plank bridges string them together and out to Hailing's quay and the Stairlands
+  // 6⅞. and the Encircling Sea (see world/oceans.ts): every bit of cloud below the land, but the cloud the sect rides on,
+  // turns to sea; straits part the land into continents (the roads cross them on planks); the world's edge is deep water
+  const strait = new Uint8Array(COARSE_W * COARSE_H);
   {
     m.each((i, j) => {
-      if (m.kind(i, j) !== "void" || !inSea(i, j)) return;
+      const n = j * COARSE_W + i;
+      const edge = inEdge(i, j);
+      const s = !edge && straitAt(i, j);
+      if (!edge && !s) return;
+      const k = m.kind(i, j);
+      if (k === "void" && inSky(i, j) && !edge) return;
+      // a hand-built region or a landmark's levelled ground stands; a road crossing a strait becomes a plank bridge
+      if (fixed[n] === 1) return;
+      if (fixed[n] === 2 && k !== "void" && !LIQUID[k] && !edge) {
+        m.set(i, j, "wood", Math.max(1, m.height(i, j)));
+        return;
+      }
+      m.set(i, j, "deep", 0);
+      fixed[n] = 2;
+      wildOf[n] = 0;
+      strait[n] = 1;
+    });
+  }
+  /** The sea itself (not the lakes and rivers of the land, whose deeps keep their own banks). */
+  const sea = new Uint8Array(COARSE_W * COARSE_H);
+  {
+    m.each((i, j) => {
+      const n = j * COARSE_W + i;
+      if (strait[n]) sea[n] = 1;
+      if (m.kind(i, j) !== "void" || inSky(i, j)) return;
       m.set(i, j, "deep", 0);
       fix(i, j, 2);
+      sea[n] = 1;
     });
     for (const s of SEA_ISLES) {
       const [cx, cy] = s.c;
@@ -985,7 +1023,7 @@ function buildWorld(): WorldDef {
     // the shallows: green water within two tiles of any shore, the deep blue past that
     const shallows: [number, number][] = [];
     m.each((i, j) => {
-      if (m.kind(i, j) !== "deep" || !inSea(i, j)) return;
+      if (m.kind(i, j) !== "deep" || !sea[j * COARSE_W + i] || inEdge(i, j)) return;
       for (let b = -2; b <= 2; b++)
         for (let a = -2; a <= 2; a++) {
           const k = m.kind(i + a, j + b);
@@ -2543,6 +2581,50 @@ function buildWorld(): WorldDef {
 
   // 9½. now that everyone and everything stands where it will, let the coast fall away round them
   applyCoast(m, fixed, wildOf, coast, [...interacts, ...npcs, ...enemies, ...critters, ...props].map((x) => [x.i, x.j] as [number, number]));
+  // 9¾. and anyone (or any round or post of theirs) the sea, the straits and the edge of the world left in the water steps ashore
+  {
+    const wet = (i: number, j: number) => {
+      const k = m.kind(i, j);
+      return !m.inside(i, j) || k === "void" || !!LIQUID[k] || inEdge(i, j);
+    };
+    // the land that can be walked to from the highway (a level a step at most, the bridges included)
+    const N = COARSE_W * COARSE_H;
+    const joined = new Uint8Array(N);
+    const walk = (n: number) => m.kinds[n] !== 0 && (!LIQUID[TILE_KINDS[m.kinds[n]]] || TILE_KINDS[m.kinds[n]] === "wood");
+    const q = [166 * COARSE_W + 200];
+    joined[q[0]] = 1;
+    for (let qi = 0; qi < q.length; qi++) {
+      const n = q[qi];
+      const i = n % COARSE_W;
+      for (const nb of [i > 0 ? n - 1 : -1, i < COARSE_W - 1 ? n + 1 : -1, n - COARSE_W, n + COARSE_W]) {
+        if (nb < 0 || nb >= N || joined[nb] || !walk(nb) || Math.abs(m.heights[nb] - m.heights[n]) > 1) continue;
+        joined[nb] = 1;
+        q.push(nb);
+      }
+    }
+    const ashore = (i: number, j: number): [number, number] => {
+      if (!sea[j * COARSE_W + i] && !inEdge(i, j)) return [i, j];
+      for (let r = 1; r <= 24; r++)
+        for (let b = -r; b <= r; b++)
+          for (let a = -r; a <= r; a++) {
+            if (Math.max(Math.abs(a), Math.abs(b)) !== r) continue;
+            const n = (j + b) * COARSE_W + i + a;
+            if (!wet(i + a, j + b) && !sea[n] && joined[n]) return [i + a, j + b];
+          }
+      return [i, j];
+    };
+    const step = <T extends { i: number; j: number }>(list: T[]) => {
+      for (const x of list) [x.i, x.j] = ashore(x.i, x.j);
+    };
+    step(interacts);
+    step(enemies);
+    step(critters);
+    for (let k = 0; k < npcs.length; k++) {
+      const n = npcs[k];
+      const [i, j] = ashore(n.i, n.j);
+      npcs[k] = { ...n, i, j, route: n.route?.map(([x, y]) => ashore(x, y)), jobs: n.jobs?.map((s) => ({ ...s, at: ashore(...s.at) })) };
+    }
+  }
 
   // 10. scatter trees and undergrowth over the wilds, clear of roads and landmarks
   const taken = new Set(props.map((p) => p.j * COARSE_W + p.i));
@@ -2994,7 +3076,7 @@ function buildWorld(): WorldDef {
           const j = Math.round(cy + Math.sin(a) * r + (hash2(k, r, 733) - 0.5) * 2);
           const idx = j * WORLD_W + i;
           // (and on ground the fine grid has not rounded off into water: they stand in the middle of their tile)
-          if (!seen.has(idx) || !free(i, j) || touched.has(idx) || fixedAt(i, j) === 2 || !fineFloor(fineKind(fine, i * 2 + 1, j * 2 + 1), false)) continue;
+          if (!seen.has(idx) || !free(i, j) || touched.has(idx) || fixedAt(i, j) === 2 || !fineFloor(fineKind(fine, i * FINE + FINE / 2, j * FINE + FINE / 2), false)) continue;
           const t = townTrade(b, n);
           fnpcs.push({ key: townKey(b, n), name: townName(b, n), char: townLook(b, n), i, j, dir: Math.floor(hash2(b, n, 734) * 16), anim: hash2(b, n, 735) < 0.6 ? t.anim : undefined, wander: hash2(b, n, 736) < 0.4 ? 2 : undefined });
           for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) occupied.add((j + dj) * WORLD_W + i + di);
@@ -3002,6 +3084,11 @@ function buildWorld(): WorldDef {
         }
     });
   }
+
+  // 12g. what cloud the magnifying left at the rim of the sect's own (a rounded-off corner) is sea too
+  fine.each((i, j) => {
+    if (fine.kinds[j * WORLD_W + i] === 0 && !inSky(Math.floor(i / S), Math.floor(j / S))) fine.set(i, j, "deep", 0);
+  });
 
   // 13. which region owns each tile
   const regionOf = regionOwners(fine);

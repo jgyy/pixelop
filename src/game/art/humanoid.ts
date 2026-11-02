@@ -83,7 +83,7 @@ export interface HumanPose {
   /** Extra light-blue tint (qi casting) or white (hit flash) applied after. */
   flash?: number;
   /** Something held in the hands: a bamboo dizi flute, a rice bowl and chopsticks, juggling balls, a smith's hammer, a writing brush, a paper lantern, a hoe, a woodsman's axe, a carrying pole with two baskets, a shuttlecock or an oiled-paper umbrella. */
-  held?: "flute" | "bowl" | "balls" | "hammer" | "brush" | "lantern" | "hoe" | "axe" | "pole" | "shuttlecock" | "umbrella" | "pickaxe" | "torch" | "ladle" | "fireball" | "rake" | "seedling" | "snowball" | "kite" | "warbanner" | "drum" | "bandage" | "horn" | "lionhead" | "puppet" | "abacus" | "firecracker" | "xiangqi" | "oar" | "pillow" | "bucket" | "token" | "pointer" | "rag" | "seal" | "steelyard" | "cup" | "decree" | "ledger" | "can" | "sickle" | "tongs" | "pill" | "talisman" | "luopan" | "needle" | "wok" | "cleaver" | "rope" | "bellows" | "lid";
+  held?: "flute" | "bowl" | "balls" | "hammer" | "brush" | "lantern" | "hoe" | "axe" | "pole" | "shuttlecock" | "umbrella" | "pickaxe" | "torch" | "ladle" | "fireball" | "rake" | "seedling" | "snowball" | "kite" | "warbanner" | "drum" | "bandage" | "horn" | "lionhead" | "puppet" | "abacus" | "firecracker" | "xiangqi" | "oar" | "pillow" | "bucket" | "token" | "pointer" | "rag" | "seal" | "steelyard" | "cup" | "decree" | "ledger" | "can" | "sickle" | "tongs" | "pill" | "talisman" | "luopan" | "needle" | "wok" | "cleaver" | "rope" | "bellows" | "lid" | "pebble";
   /** Where a tossed thing (the shuttlecock) is, in pose space. */
   toss?: V3;
   /** Riding a little cloud (an immortal's way of travelling). */
@@ -575,6 +575,11 @@ export function paintHuman(st: HumanStyle, p: HumanPose, facing: number, o: Rend
   } else if (p.held === "snowball") {
     const c = add(U(p.toss ? p.toss : handR), [0, 0.4 * S, 0.6 * S]);
     r.sphere(c, Math.max(1.1, Rr(1.4)), mat(ramp4("#ffffff", "#f0f6ff", "#c8d8f0", "#8a9ab8"), 9));
+  } else if (p.held === "pebble") {
+    // a flat grey skipping stone, in the hand or out over the water, with a ring of spray each time it touches
+    const c = add(U(p.toss ? p.toss : handR), [0, 0.4 * S, 0.4 * S]);
+    r.ellipsoid(c, [Math.max(1, Rr(1.1)), Math.max(1, Rr(1.1)), Math.max(0.6, Rr(0.5))], mat(ramp4("#e0e0d8", "#a8a8a0", "#6a6a66", "#3a3a3a"), 9));
+    if (p.toss && p.toss[2] < 7) for (let k = 0; k < 3; k++) r.sphere(add(c, [(k - 1) * 0.9 * S, 0, -0.6 * S]), Rr(0.35), mat(ramp4("#ffffff", "#c8f0ff", "#7ac0e0", "#3a7aa8"), 9, { outline: undefined }));
   } else if (p.held === "kite") {
     // a paper carp kite flying high on a long string, tugging on the wind
     const grip = U(handR);

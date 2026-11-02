@@ -139,3 +139,23 @@ describe("terrain", () => {
     }
   });
 });
+
+describe("moves for the Encircling Sea", () => {
+  const NEW = ["openchest", "pluck", "windback", "recoil", "skim", "alight", "seagaze", "skipstone"] as const;
+  it("gives Lin Yue eight new moves, each its own drawing, distinct frame to frame", () => {
+    const idle = getAnim("heroine", "idle", 2).frames[0];
+    for (const anim of NEW) {
+      expect(charDef("heroine").anims, anim).toContain(anim);
+      const a = getAnim("heroine", anim, 2);
+      expect(a.frames.length, anim).toBeGreaterThanOrEqual(5);
+      const differs = (p: PixelBuffer, q: PixelBuffer) => p.data.some((v, k) => v !== q.data[k]);
+      expect(differs(a.frames[Math.floor(a.frames.length / 2)], idle), anim).toBe(true);
+      expect(differs(a.frames[0], a.frames[a.frames.length - 2]), anim).toBe(true);
+    }
+    // the skipping stone leaves her hand and skips away
+    expect(getAnim("heroine", "skipstone", 2).frames.length).toBe(10);
+    // and the folk of the shore share some of them
+    expect(charDef("boatwoman").anims).toContain("seagaze");
+    expect(charDef("herbalist").anims).toContain("pluck");
+  });
+});

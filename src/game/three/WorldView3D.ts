@@ -27,7 +27,7 @@ import type { Actor, World } from "../runtime/world";
 import { dirInView, type View3D } from "../runtime/view";
 import { propHeight, propModel, sways } from "./propModels";
 import { hash2 } from "../pixel/noise";
-import { buildChunk, CHUNK, LEVEL, mapWindow, type Chunk, type Mesh as MeshData } from "./terrain";
+import { buildChunk, CHUNK, LEVEL, mapWindow, oceanFrame, type Chunk, type Mesh as MeshData } from "./terrain";
 import * as GL from "./shaders";
 
 /** Tiles per sprite pixel: the art's own scale, so the folk stand true to the halls they walk in. */
@@ -165,6 +165,8 @@ export class WorldView3D implements View3D {
   private overlayH = 1;
   private viewport = new Viewport(0, 0, 1, 1);
   private seasonKey = "";
+  /** The Encircling Sea past the open world's edge. */
+  private ocean: Mesh | null = null;
   /** Set once the ground round the camera has been painted (for screenshots and tests). */
   ready = false;
 
@@ -380,6 +382,13 @@ export class WorldView3D implements View3D {
     this.ready = false;
     this.world = w;
     this.camera.target = Vector3.Zero();
+    // the open world's sea runs on past the map's edge to the horizon
+    this.ocean?.dispose();
+    this.ocean = null;
+    if (w.world) {
+      this.ocean = this.meshFrom("ocean", oceanFrame(w.def.map.w, w.def.map.h, 600 * DRAW_SCALE), this.liquidMat);
+      this.ocean.renderingGroupId = 1;
+    }
     // bucket the props by chunk, once
     this.spots.clear();
     const m = w.def.map;

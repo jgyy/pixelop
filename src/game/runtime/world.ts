@@ -13,6 +13,7 @@ import { isWorldDef, regionAt, type WorldDef } from "../world/continent";
 import { regionDistance, WORLD_SCALE } from "../world/layout";
 import { LIQUID, TILE_KINDS, type TileMap } from "../world/tilemap";
 import { FINE, fineFloor, fineView, unpackHeight, unpackKind, type FineView } from "../world/refine";
+import { pastEdge } from "../world/oceans";
 import { applyPatches, patchMaxHeight } from "../world/terrain";
 import { applyHallLayer, hallMaxHeight, inHall, insideFlag, STOREY, storeyFlag, type GrandHall, type HallLayer } from "../world/grandhalls";
 import { ENEMIES, type EnemyId } from "../engine/enemies";
@@ -227,6 +228,8 @@ export class World {
   barred: (x: number, y: number, fromX: number, fromY: number) => string | null = () => null;
   /** Why she was last turned back by such ground (cleared by the game). */
   bumpedBar: string | null = null;
+  /** Set when the heroine runs into the limit of the Encircling Sea at the world's edge. */
+  bumpedEdge = false;
   /** Ambient day/night cycle (only in the open world). */
   dayNight: boolean;
   /** A building's cutaway room rather than open sky. */
@@ -753,7 +756,13 @@ export class World {
       if (why) this.bumpedBar = why;
       return !!why;
     };
-    const tryAt = (x: number, y: number) => this.canStand(x, y, from, fly) && !blockedByActor(x, y) && !sealedAt(x, y) && !barAt(x, y);
+    // nobody goes out past the deep water at the world's edge: not on foot, not under sail, not on a flying sword
+    const edgeAt = (x: number, y: number) => {
+      if (!this.world || !pastEdge(x, y, this.def.map.w, this.def.map.h)) return false;
+      if (a.kind === "hero") this.bumpedEdge = true;
+      return true;
+    };
+    const tryAt = (x: number, y: number) => !edgeAt(x, y) && this.canStand(x, y, from, fly) && !blockedByActor(x, y) && !sealedAt(x, y) && !barAt(x, y);
     if (tryAt(a.x + dx, a.y + dy)) {
       a.x += dx;
       a.y += dy;
