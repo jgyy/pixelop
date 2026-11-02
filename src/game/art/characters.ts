@@ -4,6 +4,7 @@ import { BEAST_H, BEAST_OX, BEAST_OY, BEAST_W, DUNE_WYRM, EMBER_WYRM, FOX_STYLE,
 import { CLOUDMANE, gaitAt, HORSE_H, HORSE_OX, HORSE_OY, HORSE_W, paintHorse, paintRider, RIDER_H, RIDER_OX, RIDER_OY, RIDER_W, WILD_HORSE, type HorsePose } from "./horse";
 import { HUMAN_H, HUMAN_OX, HUMAN_OY, HUMAN_W, paintHuman, REST_HAND_L, REST_HAND_R, type HumanPose, type HumanStyle } from "./humanoid";
 import { PAL, ramp } from "./palette";
+import { paintVessel, VESSEL_BOX, type VesselId } from "./vessels";
 
 /**
  * Every character in the game: a style plus a set of animations. Frames are
@@ -179,7 +180,36 @@ export type AnimId =
   | "enthrone"
   | "audience"
   | "appraise"
-  | "fanning";
+  | "fanning"
+  // the Southern Heights: the Hundred Arts' second and third moves, the hoist rope, a cloud to ride, and sword flight for everyone
+  | "water"
+  | "harvest"
+  | "bellows"
+  | "quench"
+  | "pillroll"
+  | "lidlift"
+  | "talismantoss"
+  | "sealpress"
+  | "luopan"
+  | "pace"
+  | "feed"
+  | "whistle"
+  | "acupuncture"
+  | "moxa"
+  | "wok"
+  | "chopveg"
+  | "haul"
+  | "cloudride"
+  // her techniques, each with a move of its own
+  | "dash"
+  | "palmstrike"
+  | "swordcall"
+  | "lotussutra"
+  | "thundercall"
+  | "whirl"
+  | "thrust"
+  | "phoenix"
+  | "starfall";
 
 export interface Anim {
   fps: number;
@@ -1775,6 +1805,275 @@ human.fanning = {
   },
 };
 
+// ---- the Southern Heights: each of the Hundred Arts has more than one move now
+// watering the spirit rice: the can tipped forward, a fan of water running from the rose, a step along the row
+human.water = {
+  n: 8,
+  fps: 6,
+  loop: true,
+  pose: (i, n) => {
+    const tip = Math.max(0, Math.sin(ph(i, n)));
+    return { t: ph(i, n), held: "can", toss: tip > 0.3 ? [0, 0, 0] : undefined, lean: 0.12 + tip * 0.08, handR: [3, 3.6 + tip * 1.4, 12 - tip * 1.6], handL: [-3.2, 2, 11.4], footL: [-1.7, 0.6, 0], footR: [1.7, -0.4, 0], eyes: i === 6 ? "blink" : "open", mouth: "smile", wind: [0, -0.3, 0] };
+  },
+};
+// reaping: bent to the stalks, the sickle drawn round in an arc and the cut sheaf lifted in the other hand
+human.harvest = {
+  n: 8,
+  fps: 8,
+  loop: true,
+  pose: (i, n) => {
+    const a = ph(i, n);
+    const cut = Math.sin(a);
+    return { t: a, held: "sickle", stance: i % 4 < 2 ? "kneel" : "stand", lean: 0.32, handR: [2 + cut * 3, 5 + Math.cos(a) * 1.4, 7 + Math.max(0, cut) * 1.6], handL: [-2.4, 5.4, 8 + Math.max(0, -cut) * 3], eyes: "open", mouth: "neutral", bob: -0.4, wind: [0, -0.2, 0] };
+  },
+};
+// working the forge's bellows: the handle pumped in and out, the whole body behind each push
+human.bellows = {
+  n: 6,
+  fps: 7,
+  loop: true,
+  pose: (i, n) => {
+    const push = (Math.sin(ph(i, n)) + 1) / 2;
+    return { t: ph(i, n), held: "bellows", lean: 0.16 + push * 0.12, handR: [1.2, 3.4 + push * 2.2, 9.4 - push * 1.4], handL: [-2.4, 3 + push * 1.6, 10 - push], footL: [-1.7, 1.4, 0], footR: [1.7, -1.2, 0], eyes: i === 4 ? "blink" : "open", mouth: push > 0.8 ? "open" : "neutral", wind: [0, -0.2, 0] };
+  },
+};
+// quenching a blade: the glowing blank held up in the tongs, then plunged into the trough in a hiss of steam
+human.quench = {
+  n: 10,
+  fps: 7,
+  loop: false,
+  pose: (i) => {
+    const down = i < 3 ? 0 : Math.min(1, (i - 2) / 3);
+    const hot = i < 5;
+    return { t: i, held: "tongs", flash: hot ? 0.12 : 0, lean: 0.06 + down * 0.24, handR: [2.4, 4 + down * 1.2, 16 - down * 9], handL: [-2.6, 2.4, 11.6], eyes: i >= 5 && i <= 7 ? "closed" : "open", mouth: i === 6 ? "open" : "neutral", wind: [0, -0.2, i >= 5 ? 0.6 : 0] };
+  },
+};
+// rolling a pill between the palms, round and round until it shines
+human.pillroll = {
+  n: 8,
+  fps: 8,
+  loop: true,
+  pose: (i, n) => {
+    const a = ph(i, n);
+    return { t: a, held: "pill", handL: [-1.2 + Math.cos(a) * 0.8, 5.6, 14 + Math.sin(a) * 0.6], handR: [1.2 - Math.cos(a) * 0.8, 5.6, 14.6 - Math.sin(a) * 0.6], lean: 0.1, eyes: i % 4 === 1 ? "closed" : "open", mouth: "smile", flash: i === 0 ? 0.08 : 0, wind: [0, -0.2, 0] };
+  },
+};
+// lifting the cauldron's lid to look in: up, a lean back from the steam, a peer, and down again
+human.lidlift = {
+  n: 10,
+  fps: 6,
+  loop: false,
+  pose: (i) => {
+    const up = [0, 0.4, 0.8, 1, 1, 1, 1, 0.8, 0.4, 0][i];
+    return { t: i, held: "lid", handR: [3, 5, 10 + up * 6], handL: [-2.4, 3, 11.6], lean: up > 0.9 && i < 6 ? -0.14 : 0.18, eyes: i === 4 ? "closed" : "open", mouth: i === 4 ? "open" : "neutral", wind: [0, -0.3, up * 0.4] };
+  },
+};
+// a talisman flung: drawn back between two fingers, thrown forward, and it flares in the air before her
+human.talismantoss = {
+  n: 10,
+  fps: 9,
+  loop: false,
+  pose: (i) => {
+    const thrown = i >= 4;
+    const fly = Math.max(0, i - 4);
+    return { t: i, held: "talisman", toss: thrown ? [2, 6 + fly * 3, 20 + fly * 0.4] : undefined, handR: thrown ? [3, 8, 18] : [3.4, -1 + i, 19], handL: [-3, 3.4, 15], lean: thrown ? 0.18 : -0.08, flash: thrown && fly > 2 ? 0.14 : 0, eyes: thrown ? "fierce" : "open", mouth: i === 4 ? "open" : "neutral", wind: [0, -0.6, 0.2] };
+  },
+};
+// pressing the seal onto a talisman: the seal breathed on, set down, leaned on with both hands, and lifted
+human.sealpress = {
+  n: 8,
+  fps: 5,
+  loop: false,
+  pose: (i) => {
+    const press = [0, 0, 0.5, 1, 1, 1, 0.4, 0][i];
+    return { t: i, held: "seal", handR: [1, 5.2, 18 - press * 9 - (i < 2 ? -1.6 : 0)], handL: [-1, 5, 14 - press * 5], lean: 0.08 + press * 0.24, eyes: i < 2 ? "closed" : "open", mouth: i === 1 ? "open" : "neutral", wind: [0, -0.2, 0] };
+  },
+};
+// reading the geomancer's compass: held level before her, turned to the four quarters, a nod when the needle settles
+human.luopan = {
+  n: 10,
+  fps: 5,
+  loop: true,
+  pose: (i, n) => ({ t: ph(i, n) * 2, held: "luopan", handL: [-2.6, 5.4, 13], handR: [2.6, 5.4, 13], lean: 0.16, bob: i === 8 ? 0.3 : 0, eyes: i === 4 ? "blink" : "open", mouth: i === 8 ? "smile" : "neutral", wind: [0, -0.2, 0] }),
+};
+// pacing the Steps of Yu round a formation: a dragging, deliberate step, the sword-fingers held up before the face
+human.pace = {
+  n: 8,
+  fps: 5,
+  loop: true,
+  pose: (i, n) => {
+    const a = ph(i, n);
+    return { t: a, lean: 0.04, footL: [-1.8, Math.sin(a) * 2.6, Math.max(0, Math.sin(a)) * 0.4], footR: [1.8, -Math.sin(a) * 2.6, Math.max(0, -Math.sin(a)) * 0.4], handR: [0.8, 6, 21], handL: [-3.4, 1, 12], flash: i % 4 === 0 ? 0.08 : 0, eyes: "closed", mouth: i % 2 ? "open" : "neutral", wind: [0, -0.3, 0.1] };
+  },
+};
+// feeding a spirit beast: crouched, a handful scattered from the bowl, a coaxing hand held out
+human.feed = {
+  n: 8,
+  fps: 6,
+  loop: true,
+  pose: (i, n) => {
+    const toss = Math.max(0, Math.sin(ph(i, n)));
+    return { t: ph(i, n), held: "bowl", stance: "kneel", lean: 0.12, handL: [-2.4, 5, 10], handR: [2.6 + toss * 2, 5 + toss * 3, 11 + toss * 2], eyes: i === 5 ? "blink" : "open", mouth: "smile", wind: [0, -0.2, 0] };
+  },
+};
+// a tamer's whistle: two fingers to the lips, a long call, and a wave of the free arm to send the beast round
+human.whistle = {
+  n: 8,
+  fps: 5,
+  loop: false,
+  pose: (i) => {
+    const call = i >= 1 && i <= 5;
+    return { t: i, handR: call ? [0.6, 5.4, 21.4] : [3, 2, 13], handL: i >= 5 ? [-6, 2 + (i - 5) * 2, 20] : [-4.4, 0.6, 11.2], lean: call ? -0.08 : 0, eyes: call ? "closed" : "open", mouth: call ? "open" : "smile", bob: call ? 0.2 : 0, wind: [0, -0.3, 0] };
+  },
+};
+// setting needles: one hand steadies, the other twirls the needle home, and moves along the meridian to the next
+human.acupuncture = {
+  n: 10,
+  fps: 6,
+  loop: true,
+  pose: (i) => {
+    const step = Math.floor(i / 5);
+    const twirl = i % 5;
+    return { t: i, held: "needle", lean: 0.24, handL: [-1.6 + step * 1.6, 6.6, 10.4], handR: [step * 1.6 + (twirl % 2 ? 0.3 : -0.3), 6.6, 12.4 - Math.min(twirl, 3) * 0.6], eyes: twirl === 4 ? "blink" : "open", mouth: "neutral", wind: [0, -0.2, 0] };
+  },
+};
+// moxibustion: a smouldering stick of mugwort held just above the skin, circled slowly, a wisp of smoke rising
+human.moxa = {
+  n: 8,
+  fps: 5,
+  loop: true,
+  pose: (i, n) => {
+    const a = ph(i, n);
+    return { t: a, held: "torch", stance: "kneel", lean: 0.2, handR: [1 + Math.cos(a) * 1.2, 6.4 + Math.sin(a) * 1.2, 11.4], handL: [-2.4, 5, 10], eyes: i === 6 ? "blink" : "open", mouth: "neutral", wind: [0, -0.2, 0.2] };
+  },
+};
+// tossing a wok over a roaring flame: the pan jerked back, the rice flying up and caught again
+human.wok = {
+  n: 8,
+  fps: 10,
+  loop: true,
+  pose: (i, n) => {
+    const a = ph(i, n);
+    const up = Math.max(0, Math.sin(a));
+    return { t: a, held: "wok", toss: up > 0.2 ? [3, 8, 13 + up * 6] : undefined, handR: [3, 3 - up * 1.4, 12 + up * 1.6], handL: [-3, 4, 11], lean: 0.08, flash: i === 2 ? 0.06 : 0, eyes: i === 6 ? "blink" : "open", mouth: up > 0.8 ? "open" : "smile", wind: [0, -0.2, 0.3] };
+  },
+};
+// chopping vegetables: the cleaver rocking down the board, quick and even
+human.chopveg = {
+  n: 6,
+  fps: 12,
+  loop: true,
+  pose: (i) => ({ t: i, held: "cleaver", lean: 0.2, handR: [2, 5.6 + i * 0.2, i % 2 ? 9 : 11.4], handL: [-1.6, 6, 9.4], eyes: "open", mouth: "neutral", wind: [0, -0.2, 0] }),
+};
+// hauling on a hoist rope hand over hand, leaning back into it as the basket comes up
+human.haul = {
+  n: 8,
+  fps: 7,
+  loop: true,
+  pose: (i, n) => {
+    const a = ph(i, n);
+    const s = Math.sin(a);
+    return { t: a, held: "rope", lean: -0.2, handL: [-0.6, 5, 15 + s * 3], handR: [0.6, 4, 12 - s * 3], footL: [-1.8, 2, 0], footR: [1.8, -1.6, 0], bob: -Math.abs(s) * 0.4, eyes: "open", mouth: Math.abs(s) > 0.9 ? "open" : "neutral", wind: [0, -0.2, 0] };
+  },
+};
+// riding a cloud: stood easy on a little cloud, hands folded in the sleeves, the robe streaming behind
+human.cloudride = {
+  n: 8,
+  fps: 5,
+  loop: true,
+  pose: (i, n) => ({ t: ph(i, n), cloud: true, lift: 2 + Math.sin(ph(i, n)) * 0.5, handL: [-1.4, 4.4, 13], handR: [1.4, 4.4, 13], lean: -0.04, eyes: i === 6 ? "blink" : "closed", mouth: "smile", wind: [Math.sin(ph(i, n)) * 0.4, -2, 0.3] }),
+};
+
+// ---- her techniques: each skill she fights with has a move of its own
+// Azure Sword Strike: a low dash, the blade trailing behind, the body nearly flat to the ground
+human.dash = {
+  n: 6,
+  fps: 14,
+  loop: true,
+  pose: (i, n) => {
+    const a = ph(i, n);
+    return { t: a * 2, sword: "hand", swordDir: [0.2, -0.6, -0.3], lean: 0.42, bob: -1, footL: [-1.6, Math.sin(a) * 5, Math.max(0, Math.cos(a)) * 2], footR: [1.6, -Math.sin(a) * 5, Math.max(0, -Math.cos(a)) * 2], handR: [4.4, -2.6, 11], handL: [-4, -3, 12.6], eyes: "fierce", mouth: "neutral", wind: [0, -3, 0.6], aura: { kind: "wind", k: 0.6 } };
+  },
+};
+// Jade Lotus Palm: drawn back to the hip, a step in, the palm driven out flat with a burst of jade qi
+human.palmstrike = {
+  n: 8,
+  fps: 10,
+  loop: false,
+  pose: (i) => {
+    const out = i < 3 ? 0 : Math.min(1, (i - 2) / 2);
+    return { t: i, handR: [2.6, -1.6 + out * 9.6, 13 + out * 4], handL: [-3.6, 2 - out * 3, 13], footL: [-1.8, out * 2.4, 0], footR: [1.8, -out * 1.6, 0], lean: out * 0.22 - 0.06, flash: out > 0.9 && i < 7 ? 0.25 : 0, eyes: out ? "fierce" : "open", mouth: i === 4 ? "open" : "neutral", wind: [0, -1.2, 0.4], aura: out > 0.9 ? { kind: "lotus", k: 0.6 } : undefined };
+  },
+};
+// Myriad Swords Return: two fingers raised to the sky, the other hand at the heart, and swords answering out of the clouds
+human.swordcall = {
+  n: 10,
+  fps: 7,
+  loop: false,
+  pose: (i) => {
+    const raise = Math.min(1, i / 3);
+    return { t: i * 0.6, handR: [2.4, 1.6, 13 + raise * 15], handL: [-1.4, 4.4, 15.4], lean: -0.1 * raise, lift: raise * 1.2, flash: i >= 4 ? 0.12 + (i % 2) * 0.06 : 0, eyes: i >= 4 ? "glow" : "open", mouth: i === 3 ? "open" : "neutral", wind: [0, -0.6, 1 * raise], aura: i >= 3 ? { kind: "wind", k: raise } : undefined };
+  },
+};
+// Lotus Heart Sutra: sat in the lotus, palms together, a ring of rose petals opening round her
+human.lotussutra = {
+  n: 10,
+  fps: 5,
+  loop: true,
+  pose: (i, n) => ({ t: ph(i, n), stance: "sit", handL: [-0.6, 5.2, 16.6], handR: [0.6, 5.2, 16.6], lift: 0.8 + Math.sin(ph(i, n)) * 0.4, flash: 0.1, eyes: "closed", mouth: i % 3 === 0 ? "open" : "neutral", wind: [0, -0.2, 0.5], aura: { kind: "lotus", k: 0.6 + Math.sin(ph(i, n)) * 0.2 } }),
+};
+// Nine Heavens Thunder: the sword thrust up at the sky, the bolt coming down onto it, braced against the shock
+human.thundercall = {
+  n: 10,
+  fps: 8,
+  loop: false,
+  pose: (i) => {
+    const up = Math.min(1, i / 3);
+    const strike = i >= 4 && i <= 7;
+    return { t: i * 1.3, sword: "hand", swordDir: [0, 0.1, 1], handR: [2.6, 1.6, 14 + up * 13], handL: [-3.6, 2.6, 13.4], footL: [-2.4, 0.6, 0], footR: [2.4, -0.6, 0], lean: -0.08, bob: strike ? -0.6 : 0, flash: strike ? 0.3 : 0, eyes: strike ? "glow" : "fierce", mouth: strike ? "open" : "neutral", wind: [Math.sin(i * 2) * 0.8, -1, 1.2], aura: strike ? { kind: "thunder", k: 1 } : undefined };
+  },
+};
+// Cloudstep Whirlwind: a spring into the air, a full turn with the blade out flat, and down onto one knee
+human.whirl = {
+  n: 10,
+  fps: 12,
+  loop: false,
+  pose: (i) => {
+    const air = Math.sin((Math.min(i, 8) / 8) * Math.PI);
+    return { t: i, sword: "hand", swordDir: [Math.cos(i * 0.8), Math.sin(i * 0.8), -0.1], lift: air * 7, stance: i === 9 ? "kneel" : "stand", handR: [4.4, 3, 15], handL: [-5, 0, 16], footL: [-1.4, 1, air * 2], footR: [1.4, -1, air * 1.4], lean: 0.08, eyes: "fierce", mouth: "neutral", wind: [Math.sin(i) * 1.6, -1.6, 0.8], aura: i < 9 ? { kind: "wind", k: 1 } : undefined };
+  },
+};
+// Azure Dragon Sword Qi: a lunge to full stretch, the blade level, and a dragon of jade qi pouring off its point
+human.thrust = {
+  n: 8,
+  fps: 10,
+  loop: false,
+  pose: (i) => {
+    const out = i < 2 ? 0 : Math.min(1, (i - 1) / 2);
+    return { t: i, sword: "hand", swordDir: [0, 1, 0.05], handR: [1.6, -1 + out * 8, 15], handL: [-4.4, -3 * out, 17], footL: [-1.8, out * 4.6, 0], footR: [1.8, -out * 3.4, 0], lean: out * 0.3, bob: -out * 0.8, flash: out > 0.9 ? 0.2 : 0, eyes: "fierce", mouth: i === 3 ? "open" : "neutral", wind: [0, -2, 0.4], aura: out > 0.9 ? { kind: "dragon", k: 1 } : undefined };
+  },
+};
+// Vermilion Phoenix: arms flung wide and up, wings of fire unfolding from her shoulders, a rise off the ground
+human.phoenix = {
+  n: 10,
+  fps: 8,
+  loop: false,
+  pose: (i) => {
+    const open = Math.min(1, i / 4);
+    return { t: i * 0.9, handL: [-4 - open * 4, 1, 14 + open * 10], handR: [4 + open * 4, 1, 14 + open * 10], lift: open * 2.4, lean: -0.12 * open, flash: open > 0.9 ? 0.22 : 0.06, eyes: open > 0.5 ? "glow" : "fierce", mouth: i === 5 ? "open" : "neutral", wind: [0, -0.4, 1.4 * open], aura: { kind: "flame", k: open } };
+  },
+};
+// Starfall Lotus Rain: one hand up to the night, the other turned down, and stars coming down round her
+human.starfall = {
+  n: 10,
+  fps: 6,
+  loop: false,
+  pose: (i, n) => {
+    const up = Math.min(1, i / 3);
+    return { t: ph(i, n) * 2, handR: [2.4, 2, 14 + up * 14], handL: [-4.4, 3, 9], lift: up * 1.4, lean: -0.1, flash: 0.1 + (i % 2) * 0.08, eyes: "glow", mouth: "neutral", wind: [0, -0.3, 0.8], aura: { kind: "stars", k: up } };
+  },
+};
+
 // ----------------------------------------------------------------------------- beast poses
 const beast: Partial<Record<AnimId, AnimSpec<BeastPose>>> = {
   idle: { n: 6, fps: 6, loop: true, pose: (i, n) => ({ t: ph(i, n) }) },
@@ -2155,7 +2454,7 @@ function winterLook(id: HumanId): Partial<HumanStyle> | undefined {
 
 /** Whether a character has a look of that name (their own outfits, or the folk's winter wool). */
 export const hasOutfit = (id: HumanId, outfit: string) => !!OUTFITS[id]?.[outfit] || (outfit === WINTER && !!winterLook(id));
-export type BeastId = "fox" | "wolf" | "serpent" | "serpentKing" | "crane" | "bat" | "horse" | "emberwyrm" | "stonehound" | "frostfang" | "rimewyrm" | "dunewyrm" | "pearlwyrm" | "shadowvixen";
+export type BeastId = "fox" | "wolf" | "serpent" | "serpentKing" | "crane" | "bat" | "horse" | "emberwyrm" | "stonehound" | "frostfang" | "rimewyrm" | "dunewyrm" | "pearlwyrm" | "shadowvixen" | VesselId;
 /** Lin Yue on Cloudmane, her spirit horse. */
 export type MountId = "rider";
 export type CharId = HumanId | BeastId | MountId;
@@ -2471,6 +2770,50 @@ const MORE: [AnimId, HumanId[]][] = [
   ["sleep", ["outerF"]],
   ["think", ["scholar", "outerF"]],
   ["pray", ["outerM"]],
+  // the Southern Heights: every art has its second and third moves, the hoists are hauled, the immortals ride their clouds,
+  // and every disciple who can fly a sword does
+  ["water", ["heroine", "farmer", "villagerF", "villagerM", "teapicker", "nomad", "orchardist"]],
+  ["harvest", ["heroine", "farmer", "villagerF", "villagerM", "teapicker", "orchardist"]],
+  ["bellows", ["heroine", "smith", "miner"]],
+  ["quench", ["heroine", "smith", "miner"]],
+  ["pillroll", ["heroine", "herbalist", "alchemist", "medic", "cauldronmaster", "qing", "physician"]],
+  ["lidlift", ["heroine", "herbalist", "alchemist", "cauldronmaster", "qing", "cook"]],
+  ["talismantoss", ["heroine", "monk", "novice", "scholar", "archivist"]],
+  ["sealpress", ["heroine", "monk", "novice", "scholar", "archivist"]],
+  ["luopan", ["heroine", "scholar", "monk", "archivist", "formationmaster"]],
+  ["pace", ["heroine", "monk", "scholar", "formationmaster"]],
+  ["feed", ["heroine", "nomad", "boy", "child", "herbalist", "farmer", "tamer", "beastlord"]],
+  ["whistle", ["heroine", "nomad", "boy", "child", "farmer", "tamer", "beastlord"]],
+  ["acupuncture", ["heroine", "medic", "herbalist", "physician"]],
+  ["moxa", ["heroine", "medic", "herbalist", "physician"]],
+  ["wok", ["heroine", "cook", "fishwife", "villagerF", "teawoman"]],
+  ["chopveg", ["heroine", "cook", "fishwife", "villagerF", "teawoman"]],
+  ["haul", ["villagerM", "porter", "boatwoman", "smith", "miner"]],
+  ["cloudride", ["elder", "hermit", "yearelder", "ning", "kongming", "monk"]],
+  ["fly", ["discipleM", "discipleF", "swordsman", "outerM", "outerF"]],
+  ["dash", ["heroine"]],
+  ["palmstrike", ["heroine"]],
+  ["swordcall", ["heroine"]],
+  ["lotussutra", ["heroine"]],
+  ["thundercall", ["heroine"]],
+  ["whirl", ["heroine"]],
+  ["thrust", ["heroine"]],
+  ["phoenix", ["heroine"]],
+  ["starfall", ["heroine"]],
+  // and what the Hanging City's and the Cliff Port's folk are seen doing between
+  ["pant", ["porter"]],
+  ["carry", ["porter"]],
+  ["plant", ["villagerF"]],
+  ["gather", ["herbalist"]],
+  ["look", ["villagerM", "lady", "boatwoman", "captain"]],
+  ["chant", ["monk"]],
+  ["sweep", ["monk"]],
+  ["castnet", ["fishwife"]],
+  ["row", ["boatwoman"]],
+  ["abacus", ["merchant"]],
+  ["write", ["scholar"]],
+  ["read", ["scholar"]],
+  ["fanning", ["nobleF"]],
 ];
 for (const [anim, ids] of MORE) for (const id of ids) if (!HUMAN_ANIMS[id].includes(anim)) HUMAN_ANIMS[id].push(anim);
 
@@ -2710,6 +3053,9 @@ const NAMES: Record<CharId, [string, string]> = {
   serpentKing: ["Serpent King", "Ancient Lake Guardian"],
   crane: ["Spirit Crane", "Messenger of the Sect"],
   bat: ["Blood Bat", "Valley Vermin"],
+  junk: ["Sea Junk", "Three Masts, Battened Sails"],
+  skiff: ["Fishing Skiff", "Works the Shallows"],
+  skyjunk: ["Cloud-Ship", "The Sects' Ship of the Air"],
   horse: ["Wild Horse", "Highland Herd"],
   emberwyrm: ["Ember Wyrm", "Fire in the Vein"],
   stonehound: ["Stone Hound", "Guardian of the Dragon Vein"],
@@ -2736,6 +3082,10 @@ const BEAST_ANIMS: Record<BeastId, AnimId[]> = {
   dunewyrm: ["idle", "walk", "attack", "hurt"],
   pearlwyrm: ["idle", "walk", "attack", "hurt"],
   shadowvixen: ["idle", "walk", "run", "attack", "hurt", "sniff", "sleep"],
+  // ships under sail and the sects' cloud-ship: they only ride the swell
+  junk: ["idle"],
+  skiff: ["idle"],
+  skyjunk: ["idle"],
 };
 const RIDER_ANIMS: AnimId[] = ["idle", "walk", "run", "rear"];
 
@@ -2744,6 +3094,7 @@ export const BEAST_IDS = Object.keys(BEAST_ANIMS) as BeastId[];
 export const CHAR_IDS: CharId[] = [...HUMAN_IDS, ...BEAST_IDS, "rider"];
 
 const isHuman = (id: CharId): id is HumanId => id in STYLES;
+const isVessel = (id: CharId): id is VesselId => id in VESSEL_BOX;
 /** Rank-and-file foes, who never speak in a dialogue box. */
 const FACELESS = new Set<string>(["jiangshi", "cultist", "bandit", "raider", "ironguard", "bannerman", "hollow", "hollowsage", "inquisitor", "severed"]);
 
@@ -2765,6 +3116,10 @@ export function charDef(id: CharId): CharacterDef {
     };
   }
   if (id === "bat") return { id, name, title, w: 40, h: 32, ox: 20, oy: 26, anims: BEAST_ANIMS[id], portrait: false };
+  if (isVessel(id)) {
+    const b = VESSEL_BOX[id];
+    return { id, name, title, w: b.w, h: b.h, ox: b.ox, oy: b.oy, anims: BEAST_ANIMS[id], portrait: false };
+  }
   if (id === "rider") return { id, name, title, w: RIDER_W, h: RIDER_H, ox: RIDER_OX, oy: RIDER_OY, anims: RIDER_ANIMS, portrait: false };
   if (id === "horse") return { id, name, title, w: HORSE_W, h: HORSE_H, ox: HORSE_OX, oy: HORSE_OY, anims: BEAST_ANIMS[id], portrait: false };
   return { id, name, title, w: BEAST_W, h: BEAST_H, ox: BEAST_OX, oy: BEAST_OY, anims: BEAST_ANIMS[id], portrait: false };
@@ -2796,6 +3151,7 @@ function paintFrame(id: CharId, anim: AnimId, i: number, dir: number, outfit?: s
     if (id === "horse") return paintHorse(WILD_HORSE, hp, a);
     return paintRider(styleOf("heroine", outfit), CLOUDMANE, hp, (ridden[anim] ?? ridden.idle!)(i, spec.n), a);
   }
+  if (isVessel(id)) return paintVessel(id, i, VESSEL_FRAMES, a);
   const spec = beast[anim] ?? beast.idle!;
   const pose = spec.pose(i, spec.n);
   switch (id) {
@@ -2827,6 +3183,9 @@ function paintFrame(id: CharId, anim: AnimId, i: number, dir: number, outfit?: s
   }
 }
 
+/** Frames in a vessel's swell. */
+const VESSEL_FRAMES = 6;
+
 const cache = new Map<string, Anim>();
 
 /** Lazily painted animation for a character in one of 16 directions (and, for people, one of their outfits). */
@@ -2839,7 +3198,7 @@ export function getAnim(id: CharId, anim: AnimId, dir: number, outfit?: string):
   let a = cache.get(key);
   if (!a) {
     const spec = (isHuman(id) ? human[real] : id === "rider" || id === "horse" ? horse[real] : beast[real]) ?? (isHuman(id) ? human.idle! : beast.idle!);
-    const n = id === "bat" ? 6 : spec.n;
+    const n = id === "bat" ? 6 : isVessel(id) ? VESSEL_FRAMES : spec.n;
     a = { fps: spec.fps, loop: spec.loop, frames: Array.from({ length: n }, (_, i) => paintFrame(id, real, i, d, dress || undefined)) };
     cache.set(key, a);
   }

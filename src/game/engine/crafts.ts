@@ -26,6 +26,9 @@ import type { GameState } from "./state";
 export const CRAFTS = ["farming", "refining", "alchemy", "talisman", "formation", "taming", "healing", "cuisine"] as const;
 export type CraftId = (typeof CRAFTS)[number];
 
+/** The arts' further moves (each an animation of the same name). */
+export type CraftMove = "water" | "harvest" | "bellows" | "quench" | "pillroll" | "lidlift" | "talismantoss" | "sealpress" | "luopan" | "pace" | "feed" | "whistle" | "acupuncture" | "moxa" | "wok" | "chopveg";
+
 /** What practising an art leaves in her hands. */
 export type CraftYield = { kind: "stones"; n: number } | { kind: "pill"; pill: "heal" | "qi"; n: number } | { kind: "rest" } | { kind: "insight"; k: number };
 
@@ -39,6 +42,8 @@ export interface CraftDef {
   verb: string;
   /** The animation she practises it with. */
   anim: "plant" | "hammer" | "grind" | "inscribe" | "array" | "tame" | "pulse" | "knead";
+  /** The rest of a day's work at it, played after the first move: every art is more than one motion. */
+  moves: CraftMove[];
   /** What each rank adds to her (fractions of a stat, or whole points of speed). */
   gift: Partial<Record<keyof Stats, number>>;
   yields: CraftYield;
@@ -47,14 +52,14 @@ export interface CraftDef {
 }
 
 export const CRAFT_DEFS: Record<CraftId, CraftDef> = {
-  farming: { id: "farming", name: "Spirit Farming", hanzi: "灵植", title: "Spirit Farmer", verb: "tend the spirit fields", anim: "plant", gift: { maxHp: 0.02 }, yields: { kind: "stones", n: 12 }, blurb: "Spirit rice and qi-fed herbs. The art the whole jianghu eats from, and the first the courts tax." },
-  refining: { id: "refining", name: "Artifact Refining", hanzi: "炼器", title: "Refiner", verb: "work the spirit forge", anim: "hammer", gift: { atk: 0.03 }, yields: { kind: "stones", n: 20 }, blurb: "Swords, bells and mirrors folded with qi. Every rank puts more of the forge into her strikes." },
-  alchemy: { id: "alchemy", name: "Alchemy", hanzi: "炼丹", title: "Alchemist", verb: "tend the pill cauldron", anim: "grind", gift: { maxQi: 0.04 }, yields: { kind: "pill", pill: "heal", n: 1 }, blurb: "Pills out of herbs and fire. A good alchemist's qi runs deeper, and her satchel is never empty." },
-  talisman: { id: "talisman", name: "Talisman Craft", hanzi: "符箓", title: "Talisman Master", verb: "brush talismans", anim: "inscribe", gift: { def: 0.04 }, yields: { kind: "pill", pill: "qi", n: 1 }, blurb: "Cinnabar on yellow paper, and a word of power in every stroke. Each rank wards her a little more." },
-  formation: { id: "formation", name: "Formations", hanzi: "阵法", title: "Formation Master", verb: "lay out an array", anim: "array", gift: { def: 0.02, maxQi: 0.02 }, yields: { kind: "insight", k: 0.06 }, blurb: "Stones, flags and the lie of the land, set so qi runs where it should. It steadies her footing and her breath." },
-  taming: { id: "taming", name: "Beast Taming", hanzi: "御兽", title: "Beast Tamer", verb: "work with the spirit beasts", anim: "tame", gift: { spd: 1 }, yields: { kind: "stones", n: 14 }, blurb: "Spirit beasts are not won by beating them. Each rank makes her a little quicker on her feet, as the beasts are." },
-  healing: { id: "healing", name: "The Healer's Dao", hanzi: "医道", title: "Physician", verb: "take pulses and set needles", anim: "pulse", gift: { maxHp: 0.03 }, yields: { kind: "rest" }, blurb: "Needles, pulses and a quiet hand. A healer is hard to wear down, and leaves each lesson whole." },
-  cuisine: { id: "cuisine", name: "Spirit Cuisine", hanzi: "灵膳", title: "Spirit Chef", verb: "cook with spirit ingredients", anim: "knead", gift: { maxHp: 0.01, maxQi: 0.01 }, yields: { kind: "rest" }, blurb: "Spirit rice, beast meat and a wok hot enough to temper qi. Every lesson ends with a meal." },
+  farming: { id: "farming", name: "Spirit Farming", hanzi: "灵植", title: "Spirit Farmer", verb: "tend the spirit fields", anim: "plant", moves: ["water", "harvest"], gift: { maxHp: 0.02 }, yields: { kind: "stones", n: 12 }, blurb: "Spirit rice and qi-fed herbs. The art the whole jianghu eats from, and the first the courts tax." },
+  refining: { id: "refining", name: "Artifact Refining", hanzi: "炼器", title: "Refiner", verb: "work the spirit forge", anim: "hammer", moves: ["bellows", "quench"], gift: { atk: 0.03 }, yields: { kind: "stones", n: 20 }, blurb: "Swords, bells and mirrors folded with qi. Every rank puts more of the forge into her strikes." },
+  alchemy: { id: "alchemy", name: "Alchemy", hanzi: "炼丹", title: "Alchemist", verb: "tend the pill cauldron", anim: "grind", moves: ["pillroll", "lidlift"], gift: { maxQi: 0.04 }, yields: { kind: "pill", pill: "heal", n: 1 }, blurb: "Pills out of herbs and fire. A good alchemist's qi runs deeper, and her satchel is never empty." },
+  talisman: { id: "talisman", name: "Talisman Craft", hanzi: "符箓", title: "Talisman Master", verb: "brush talismans", anim: "inscribe", moves: ["sealpress", "talismantoss"], gift: { def: 0.04 }, yields: { kind: "pill", pill: "qi", n: 1 }, blurb: "Cinnabar on yellow paper, and a word of power in every stroke. Each rank wards her a little more." },
+  formation: { id: "formation", name: "Formations", hanzi: "阵法", title: "Formation Master", verb: "lay out an array", anim: "array", moves: ["luopan", "pace"], gift: { def: 0.02, maxQi: 0.02 }, yields: { kind: "insight", k: 0.06 }, blurb: "Stones, flags and the lie of the land, set so qi runs where it should. It steadies her footing and her breath." },
+  taming: { id: "taming", name: "Beast Taming", hanzi: "御兽", title: "Beast Tamer", verb: "work with the spirit beasts", anim: "tame", moves: ["feed", "whistle"], gift: { spd: 1 }, yields: { kind: "stones", n: 14 }, blurb: "Spirit beasts are not won by beating them. Each rank makes her a little quicker on her feet, as the beasts are." },
+  healing: { id: "healing", name: "The Healer's Dao", hanzi: "医道", title: "Physician", verb: "take pulses and set needles", anim: "pulse", moves: ["acupuncture", "moxa"], gift: { maxHp: 0.03 }, yields: { kind: "rest" }, blurb: "Needles, pulses and a quiet hand. A healer is hard to wear down, and leaves each lesson whole." },
+  cuisine: { id: "cuisine", name: "Spirit Cuisine", hanzi: "灵膳", title: "Spirit Chef", verb: "cook with spirit ingredients", anim: "knead", moves: ["chopveg", "wok"], gift: { maxHp: 0.01, maxQi: 0.01 }, yields: { kind: "rest" }, blurb: "Spirit rice, beast meat and a wok hot enough to temper qi. Every lesson ends with a meal." },
 };
 
 /** The ranks of an art, and the practice it takes to reach each. */

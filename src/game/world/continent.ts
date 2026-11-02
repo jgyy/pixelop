@@ -13,7 +13,10 @@ import { COURT_COUNT, COURT_SPOTS, COURTS, WANDERING_CRAFTS, courtDiscipleKey, c
 import { BUILDINGS, builtFlag, CITY_GOD_AT, cityGodKey, discFlag, disciple, DISCIPLE_SLOTS, EARTH_GOD, elderFlag, ELDERS, FACILITIES, facilityWorkerKey, FOUNDING_BOOKS, FOUNDING_BOSSES, FOUNDING_C, FOUNDING_FOES, godFlag, GODS, MARKET, MARKET_C, marketFlag, STEWARD } from "./founding";
 import { inLagoon, inSea, isleByKey, isleDepth, ISLES as SEA_ISLES, SEA_BOOK_COUNT, SEA_BRIDGES, SEA_CAST, SEA_SPOTS, seaFolkKey, seaGuideKey, seaPatronKey } from "./isles";
 import { layWar } from "./warfront";
+import { CRAFT_DEFS, type CraftId } from "../engine/crafts";
 import { layRoad } from "./roadside";
+import { furnishHeights, heightsLand, HEIGHTS_ROADS, raiseHeights, reserveHeights, type SkyStair } from "./heights";
+import { chartVoyages } from "./voyages";
 import { STREET_FOLK, TIDE_FOLK } from "./road";
 import { DORM_AT, FIELD, GREAT_HALL_AT, HALL_BOSS_AT, HALL_BOSSES, HALL_CAST, HALL_SITES, HALLS, HOPEFULS, hallMasterKey, MISSION_AT, OUTER_FOLK, RING, SPARRERS, STONE_AT } from "./halls";
 import { PatchPainter, type TerrainPatch } from "./terrain";
@@ -77,7 +80,7 @@ const GROUND: Ground[] = [...MAINLAND, "marsh", "terraces", "desert", "harbor", 
 const SKY: AreaId[] = ["sect", "peak"];
 
 /** Wild biomes: each ground region's own, the southern lands below the highway, and the far south and east the world grew into. */
-type WildId = Ground | "wastes" | "stoneforest" | "fields" | "highlands" | "marshland" | "terracehills" | "plum" | "sands" | "badlands" | "autumn" | "steppe" | "frostlands" | "coast" | "riverlands" | "tidelands" | "stairlands";
+type WildId = Ground | "wastes" | "stoneforest" | "fields" | "highlands" | "marshland" | "terracehills" | "plum" | "sands" | "badlands" | "autumn" | "steppe" | "frostlands" | "coast" | "riverlands" | "tidelands" | "stairlands" | "heights";
 
 interface WildStyle {
   ground: (i: number, j: number) => TileKind;
@@ -121,6 +124,8 @@ const BIOME: Record<Exclude<WildId, "marsh" | "terraces" | "desert" | "harbor" |
   tidelands: { ground: (i, j) => (fbm(i * 0.14, j * 0.14, 152) > 0.62 ? "sand" : fbm(i * 0.2, j * 0.2, 153) > 0.6 ? "meadow" : "grass"), lift: 0, hills: 1.2, trees: ["palm", "willow", "palm", "reeds", "pine"], treeP: 0.035, extras: ["reeds", "tallgrass", "butterflies"], extraP: 0.06 },
   // the Stairlands across the strait: karst pinnacles and terraced green round the City of Nine Tiers
   stairlands: { ground: (i, j) => (fbm(i * 0.18, j * 0.18, 162) > 0.62 ? "meadow" : hash2(i, j, 163) > 0.9 ? "moss" : "grass"), lift: 0, hills: 2, trees: ["karst", "bamboo", "pine", "karst", "cherry"], treeP: 0.06, extras: ["tallgrass", "rock", "butterflies"], extraP: 0.05 },
+  // the Southern Heights below the Stairlands: mossy uplands of pine and bamboo between the pillars (see world/heights.ts)
+  heights: { ground: (i, j) => (fbm(i * 0.16, j * 0.16, 166) > 0.6 ? "moss" : hash2(i, j, 167) > 0.82 ? "meadow" : "grass"), lift: 0, hills: 2.4, trees: ["pine", "bamboo", "pine", "karst", "maple"], treeP: 0.06, extras: ["tallgrass", "rock", "butterflies"], extraP: 0.05 },
   riverlands: { ground: (i, j) => (j > 538 + fbm(i * 0.1, j * 0.1, 150) * 12 ? "sand" : fbm(i * 0.16, j * 0.16, 151) > 0.6 ? "meadow" : "grass"), lift: 0, hills: 1.4, trees: ["willow", "maple", "haystack", "cherry", "willow"], treeP: 0.04, extras: ["tallgrass", "reeds", "butterflies", "tallgrass"], extraP: 0.06 },
 };
 // the new regions' own surroundings take after the lands they stand in
@@ -149,6 +154,8 @@ const ZONES: [WildId, [number, number, number, number]][] = [
   ["tidelands", [470, 456, 630, 548]],
   // and across the strait of cloud, the Stairlands round the City of Nine Tiers
   ["stairlands", [140, 560, 310, 658]],
+  // and below them, the Southern Heights: the Hanging City, the Thousand-Pillar Forest and the Cliff Port
+  ["heights", [20, 670, 280, 790]],
 ];
 
 /** The old highway across the whole mainland, below the four regions. */
@@ -307,7 +314,7 @@ const mainlandMask = (i: number, j: number) => {
   // the Tidewater Reach, round the port of Hailing and its lagoon
   const tide = j >= 440 + n && j <= 548 + n + shore * 0.3 && i >= 460 + n * 0.6 && i <= 628 + n * 0.6 + shore * 0.2;
   // the Stairlands across the strait, round the City of Nine Tiers
-  const stair = stairBlob(i, j);
+  const stair = stairBlob(i, j) || heightsLand(i, j);
   const east = j >= 56 + n - shore && j <= 448 + n + shore && i >= 346 + n * 0.6 && (j > 222 && j < 282 ? i <= 621 : i <= 636 + n * 0.6 + shore);
   return old || south || east || river || tide || stair;
 };
@@ -801,6 +808,9 @@ function buildWorld(): WorldDef {
     site(FOUNDING_C, 6, "marble", h, 0.2);
     site(MARKET_C, 12, "dirt", h, 0.4);
   }
+  // 4⅞. the Southern Heights: the Hanging City's and the Cliff Port's footing, and every pillar's ground, claimed now and raised once
+  // the wild slopes are smoothed (see world/heights.ts)
+  reserveHeights(m, fix);
 
   // 5. rivers, ponds, the hot spring and the lava pools
   for (const r of RIVERS)
@@ -892,6 +902,8 @@ function buildWorld(): WorldDef {
       run += len;
     }
   };
+  // into the Southern Heights: from the Stairlands to the Hanging City's gate, on to the Cliff Port, and west through the pillars
+  for (const pts of HEIGHTS_ROADS) road(pts, 2.2, () => 2);
   // to the Scarlet Phoenix: along the red flats to the mine, and up the mesa's western stair
   road([[512, 372], [540, 375], [560, 379], [571, 381]], 2.2, () => 2);
   ramp([[558, 364], [568, 366], [580, 369]], 2.2, 2, 7);
@@ -1047,6 +1059,10 @@ function buildWorld(): WorldDef {
     else if (h >= 10 && !LIQUID[k] && k !== "void" && (fbm(i * 0.4, j * 0.4, 77) > 0.35 || h >= 11)) m.set(i, j, ashen(i, j) ? "redrock" : "snow");
     else if (h >= 7 && (k === "grass" || k === "meadow" || k === "leaf") && fbm(i * 0.3, j * 0.3, 78) > 0.55) m.set(i, j, "moss");
   });
+
+  // 7½. the Southern Heights stand up: seven terraces of the Hanging City, the Cliff Port's five steps, the pillars,
+  // their stone bridges and the long stairs up the grove pillars (see world/heights.ts)
+  const skyStairs: SkyStair[] = raiseHeights(m, fix);
 
   // 8. the landmarks: their buildings, keepers, beasts and treasures
   const P = (id: PropId, i: number, j: number) => props.push({ id, i, j });
@@ -2323,7 +2339,7 @@ function buildWorld(): WorldDef {
       npcs.push({ key: courtEmperorKey(b), name: C.emperor.name, char: C.emperor.char, ...xyOf(c, sp.emperor), dir: 2, anim: C.emperor.anim });
       npcs.push({ key: courtGuideKey(b), name: C.guide.name, char: C.guide.char, ...xyOf(c, sp.guide), dir: 2, anim: C.guide.anim, wander: C.guide.anim ? undefined : 1 });
       C.folk.forEach((f, n) => npcs.push({ key: courtFolkKey(b, n), name: f.name, char: f.char, ...xyOf(c, sp.folk[n]), dir: n % 2 ? 6 : 2, anim: f.anim }));
-      npcs.push({ key: courtMasterKey(b), name: C.master.name, char: C.master.char, ...xyOf(c, sp.master), dir: 4, anim: C.master.anim });
+      npcs.push({ key: courtMasterKey(b), name: C.master.name, char: C.master.char, ...xyOf(c, sp.master), dir: 4, anim: C.master.anim, jobs: artRound(C.craft, xyOf(c, sp.master), C.master.anim) });
       npcs.push({ key: courtLeaderKey(b), name: C.sect.leader.name, char: C.sect.leader.char, ...xyOf(sc, sp.leader), dir: 2, anim: C.sect.leader.anim });
       C.sect.disciples.forEach((f, n) => npcs.push({ key: courtDiscipleKey(b, n), name: f.name, char: f.char, ...xyOf(sc, sp.disciples[n]), dir: n % 2 ? 6 : 2, anim: f.anim }));
       enemies.push({ key: `courtboss-${b}`, enemy: C.boss, ...xyOf(c, sp.boss), range: 0, when: (f) => !!f[`courts:boss:${b}`] });
@@ -2336,7 +2352,7 @@ function buildWorld(): WorldDef {
       mark(`ct-${C.sect.key}`, C.sect.name.replace(/^the /, "The "), C.sect.hanzi, "pavilion", ...sc);
     });
     // the two arts with no court of their own keep their masters in a capital's square
-    for (const W of WANDERING_CRAFTS) npcs.push({ key: craftMasterKey(W.craft), name: W.master.name, char: W.master.char, ...xy(at(COURTS[W.court].c, W.at)), dir: 2, anim: W.master.anim });
+    for (const W of WANDERING_CRAFTS) npcs.push({ key: craftMasterKey(W.craft), name: W.master.name, char: W.master.char, ...xy(at(COURTS[W.court].c, W.at)), dir: 2, anim: W.master.anim, jobs: artRound(W.craft, xy(at(COURTS[W.court].c, W.at)), W.master.anim) });
     void COURT_COUNT;
   }
 
@@ -2432,6 +2448,23 @@ function buildWorld(): WorldDef {
       }
       npcs.push({ key: cityGodKey(b), name: `The City God of ${C.capital.split(",")[0]}`, char: "citygod", ...xy(spot(C.c, CITY_GOD_AT)), dir: 2, anim: "read" });
     });
+  }
+
+  // 8⁹. the Southern Heights furnished: houses on every terrace, hoists on the cliffs, the forest's pines and hermit, the port's folk
+  {
+    const taken = new Set<number>();
+    for (const p of props) {
+      const [i0, j0, i1, j1] = placementTiles(p);
+      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) taken.add(j * COARSE_W + i);
+    }
+    for (const x of [...npcs, ...enemies, ...interacts, ...critters]) taken.add(x.j * COARSE_W + x.i);
+    const hz = furnishHeights(m, skyStairs, (i, j) => m.inside(i, j) && !taken.has(j * COARSE_W + i) && fixed[j * COARSE_W + i] !== 2);
+    props.push(...hz.props);
+    npcs.push(...hz.npcs);
+    enemies.push(...hz.enemies);
+    interacts.push(...hz.interacts);
+    critters.push(...hz.critters);
+    for (const l of hz.landmarks) mark(l.key, l.name, l.hanzi, l.icon, l.x, l.y);
   }
 
   // 9. wayside landmarks, rewards and wanderers along the highway
@@ -2541,6 +2574,9 @@ function buildWorld(): WorldDef {
       taken.add(idx);
     }
   });
+
+  // 10½. ships under sail on the Sea of Pearls, and folk and cloud-ships in the air (see world/voyages.ts)
+  const voyages = chartVoyages(m, WORLD_SCALE);
 
   // 11. magnify the authoring grid into the world: the land doubles, the
   // buildings grow with it (the ones she can enter to the size of their rooms),
@@ -2986,6 +3022,13 @@ function buildWorld(): WorldDef {
     fcritters.push(...flockmates(ground, fcritters));
   }
 
+  // a worker someone had to step aside (off a prop the world grew over their spot) starts their round where they now stand
+  for (let k = 0; k < fnpcs.length; k++) {
+    const n = fnpcs[k];
+    if (!n.jobs || (n.jobs[0].at[0] === n.i && n.jobs[0].at[1] === n.j)) continue;
+    fnpcs[k] = { ...n, jobs: [{ ...n.jobs[0], at: [n.i, n.j] }, ...n.jobs.slice(1)] };
+  }
+
   const waypoints = {} as Record<AreaId, [number, number]>;
   for (const id of AREA_IDS) waypoints[id] = toWorld(id, ...regions[id].arrive);
   const sect = regions.sect;
@@ -3003,6 +3046,7 @@ function buildWorld(): WorldDef {
     enemies: fenemies,
     interacts: finteracts,
     critters: fcritters,
+    voyages,
     regionOf,
     regions,
     waypoints,
@@ -3064,6 +3108,12 @@ function regionOwners(fine: TileMap): Uint8Array {
 }
 
 const xy = ([i, j]: [number, number]) => ({ i, j });
+
+/** A master's round of work at their art: the art's first move where they stand, then each further move a step to either side. */
+function artRound(craft: CraftId, at: { i: number; j: number }, first: AnimId | undefined): { at: [number, number]; anim: AnimId }[] {
+  const moves = CRAFT_DEFS[craft].moves;
+  return [{ at: [at.i, at.j], anim: first ?? CRAFT_DEFS[craft].anim }, { at: [at.i + 1, at.j], anim: moves[0] }, { at: [at.i, at.j + 1], anim: moves[1] }];
+}
 
 /** Height of the highway's centreline at a world x (for roadside decorations). */
 function roadY(x: number): number {

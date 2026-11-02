@@ -1994,6 +1994,36 @@ const PROPS = {
       r.ellipsoid([0, 21, 15 + bob], [1.4, 1.4, 1.8], m(PAL.red, 6));
     },
   },
+  // a rope hoist at the edge of a cliff terrace: a timber gantry leaning out over the drop, a windlass, and a basket of
+  // goods riding up and down on its rope far below
+  hoist: {
+    foot: [0, 0, 0, 0],
+    blocks: true,
+    frames: 12,
+    fps: 4,
+    paint: (r, f, n) => {
+      const timber = m(PAL.woodDark, 1);
+      for (const s of [-1, 1]) {
+        r.sweep([[s * 5, -4, 0], [s * 3, 6, 26]], 1, timber);
+        r.sweep([[s * 5, -8, 0], [s * 3, 6, 26]], 0.8, timber);
+      }
+      r.sweep([[-4, 6, 26], [4, 6, 26]], 1.2, timber);
+      // the windlass, its spokes turning as the basket moves
+      const turn = (f / n) * TAU * 2;
+      r.sweep([[-5, -6, 6], [5, -6, 6]], 1.4, m(PAL.wood, 2));
+      for (let k = 0; k < 4; k++) {
+        const a = turn + (k * TAU) / 4;
+        r.sweep([[6, -6, 6], [6, -6 + Math.cos(a) * 4, 6 + Math.sin(a) * 4]], 0.5, m(PAL.wood, 2));
+      }
+      // the basket rides up the cliff and down again (below the terrace's own floor, so it hangs out over the drop)
+      const ph = (Math.cos((f / n) * TAU) + 1) / 2;
+      const by = 10;
+      const bz = -36 + ph * 54;
+      r.sweep([[0, -6, 7], [0, 6, 26], [0, by, 26], [0, by, bz + 6]], 0.35, m(PAL.straw, 3));
+      r.cone(0, by, 3.2, bz, 4, bz + 5, 10, m(PAL.straw, 4, { shader: (s, tone) => (Math.sin(s.p[2] * 2.4) > 0.6 ? tone(PAL.brown) : tone(PAL.straw)) }));
+      r.ellipsoid([0, by, bz + 5.4], [2.6, 2.6, 1.6], m(ph > 0.5 ? PAL.red : PAL.gold, 5));
+    },
+  },
   // a stone lighthouse on the harbour point: its lamp turns, throwing a beam over the sea
   lighthouse: {
     foot: [0, 0, 0, 0],

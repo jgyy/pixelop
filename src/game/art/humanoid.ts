@@ -83,10 +83,16 @@ export interface HumanPose {
   /** Extra light-blue tint (qi casting) or white (hit flash) applied after. */
   flash?: number;
   /** Something held in the hands: a bamboo dizi flute, a rice bowl and chopsticks, juggling balls, a smith's hammer, a writing brush, a paper lantern, a hoe, a woodsman's axe, a carrying pole with two baskets, a shuttlecock or an oiled-paper umbrella. */
-  held?: "flute" | "bowl" | "balls" | "hammer" | "brush" | "lantern" | "hoe" | "axe" | "pole" | "shuttlecock" | "umbrella" | "pickaxe" | "torch" | "ladle" | "fireball" | "rake" | "seedling" | "snowball" | "kite" | "warbanner" | "drum" | "bandage" | "horn" | "lionhead" | "puppet" | "abacus" | "firecracker" | "xiangqi" | "oar" | "pillow" | "bucket" | "token" | "pointer" | "rag" | "seal" | "steelyard" | "cup" | "decree" | "ledger";
+  held?: "flute" | "bowl" | "balls" | "hammer" | "brush" | "lantern" | "hoe" | "axe" | "pole" | "shuttlecock" | "umbrella" | "pickaxe" | "torch" | "ladle" | "fireball" | "rake" | "seedling" | "snowball" | "kite" | "warbanner" | "drum" | "bandage" | "horn" | "lionhead" | "puppet" | "abacus" | "firecracker" | "xiangqi" | "oar" | "pillow" | "bucket" | "token" | "pointer" | "rag" | "seal" | "steelyard" | "cup" | "decree" | "ledger" | "can" | "sickle" | "tongs" | "pill" | "talisman" | "luopan" | "needle" | "wok" | "cleaver" | "rope" | "bellows" | "lid";
   /** Where a tossed thing (the shuttlecock) is, in pose space. */
   toss?: V3;
+  /** Riding a little cloud (an immortal's way of travelling). */
+  cloud?: boolean;
+  /** A technique's light about the body: phoenix flame, falling stars, lotus petals, crackling thunder or a dragon of qi. */
+  aura?: { kind: "flame" | "stars" | "lotus" | "thunder" | "dragon" | "wind"; k: number };
 }
+
+const CLOUD_RAMP = ramp4("#ffffff", "#eef6ff", "#c4d8f0", "#8aa4cc");
 
 export const HUMAN_W = 56;
 export const HUMAN_H = 60;
@@ -730,6 +736,128 @@ export function paintHuman(st: HumanStyle, p: HumanPose, facing: number, o: Rend
     // a thread-bound ledger open across the forearm, its columns of names in black and red
     const g = add(U(p.handL ?? REST_HAND_L), [1.6 * S, 1.2 * S, 1 * S]);
     r.box(add(g, [-2.4 * S, -1.6 * S, 0]), add(g, [2.4 * S, 1.6 * S, 0.5 * S]), mat(PAL.paper, 9, { shader: (s2, tone) => (s2.n[2] > 0.5 && Math.abs(((s2.p[0] - g[0]) / S + 30) % 0.9 - 0.45) < 0.1 ? (Math.abs(s2.p[0] - g[0]) < 0.25 * S ? tone(PAL.navy) : "#3a3040") : tone(PAL.paper)) }));
+  }
+
+  if (p.cloud) {
+    // a little cloud under the feet, churning
+    const c = CLOUD_RAMP;
+    for (let k = 0; k < 6; k++) {
+      const a = t + k * 1.05;
+      r.ellipsoid(G([Math.cos(a) * 3.4, Math.sin(a) * 2.4, -1.2 + Math.sin(a * 2) * 0.4]), [Rr(3), Rr(2.4), Rr(1.6)], mat(c, 11, { outline: undefined }));
+    }
+  }
+  if (p.aura && p.aura.k > 0) {
+    const { kind, k } = p.aura;
+    if (kind === "flame") {
+      // wings of vermilion fire spread from the shoulders
+      for (const side of [-1, 1])
+        for (let f = 0; f < 5; f++) {
+          const sp = f / 4;
+          const tip = U([side * (5 + sp * 9 * k), -2 - sp * 3, 17 + sp * 6 * k - f * 1.2 + Math.sin(t + f) * 0.6]);
+          r.sweep([U([side * 3.6, -2, 17]), tip], [Rr(1.4), Rr(0.3)], mat(f % 2 ? ramp4("#fff6c0", "#ffb040", "#f0601e", "#a81a10") : ramp4("#ffffff", "#fff0a0", "#ffb040", "#f0601e"), 12, { outline: undefined }));
+        }
+    } else if (kind === "stars") {
+      for (let f = 0; f < 7; f++) {
+        const a = t * 0.7 + f * 0.9;
+        r.sphere(U([Math.cos(a) * 7, Math.sin(a) * 4, 26 + ((f * 5 + t * 6) % 12) * k]), Rr(0.7), mat(ramp4("#ffffff", "#fff8d0", "#c8d8ff", "#7a8ae0"), 12, { outline: undefined }));
+      }
+    } else if (kind === "lotus") {
+      for (let f = 0; f < 8; f++) {
+        const a = (f / 8) * Math.PI * 2 + t * 0.4;
+        r.ellipsoid(G([Math.cos(a) * 6 * k, Math.sin(a) * 6 * k, 0.6 + (f % 2) * 0.8]), [Rr(1.6), Rr(1), Rr(0.6)], mat(PAL.rose, 12, { outline: undefined }));
+      }
+    } else if (kind === "thunder") {
+      // a crooked bolt down onto the raised blade
+      const pts: V3[] = [];
+      for (let f = 0; f < 6; f++) pts.push(U([Math.sin(t * 9 + f * 2.3) * 1.6, 2 + Math.cos(f * 1.7) * 1.2, 30 + f * 4 * k]));
+      r.sweep(pts, Rr(0.35), mat(ramp4("#ffffff", "#e8e0ff", "#c8b0ff", "#7a5ad0"), 12, { outline: undefined }));
+    } else if (kind === "dragon") {
+      // a serpent of jade qi coiling up the arm and out along the thrust
+      const pts: V3[] = [];
+      for (let f = 0; f < 9; f++) pts.push(add(U(handR), [Math.sin(t * 2 + f * 0.9) * 2, f * 1.4 * k, Math.cos(t * 2 + f * 0.9) * 2]));
+      r.sweep(pts, (u) => Rr(1.2 - u * 0.8), mat(PAL.qi, 12, { outline: undefined }));
+      r.sphere(pts[pts.length - 1], Rr(1.1), mat(PAL.jade, 12));
+    } else {
+      // a whirl of wind about the body
+      for (let f = 0; f < 10; f++) {
+        const a = t * 2 + f * 0.63;
+        r.sphere(G([Math.cos(a) * 7, Math.sin(a) * 7, 3 + f * 2.2]), Rr(0.5), mat(ramp4("#ffffff", "#e8f8f0", "#b8e0d0", "#6aa898"), 12, { outline: undefined }));
+      }
+    }
+  }
+  // the Hundred Arts' tools: the farmer's can and sickle, the refiner's tongs and bellows, the alchemist's pill and cauldron lid,
+  // the talisman master's paper, the formation master's compass, the healer's needle, the cook's wok and cleaver, the hoist rope
+  if (p.held === "can") {
+    // a copper watering can, its long spout tipped down and a thin fan of water running from the rose
+    const g = U(handR);
+    const c = add(g, [0, 1.6 * S, -2.4 * S]);
+    r.ellipsoid(c, [Rr(2), Rr(2.4), Rr(1.8)], mat(ramp4("#ffd0a0", "#d88a4a", "#9a5a2a", "#4a2a14"), 9));
+    const tip = add(c, [0, 5 * S, -1.8 * S]);
+    r.sweep([add(c, [0, 1.6 * S, 0]), tip], [Rr(0.6), Rr(0.35)], mat(ramp4("#ffd0a0", "#d88a4a", "#9a5a2a", "#4a2a14"), 9));
+    r.sweep([add(g, [0, -0.4 * S, 0.6 * S]), add(c, [0, -1.6 * S, 1 * S])], Rr(0.3), mat(PAL.woodDark, 9));
+    if (p.toss) for (let k = 0; k < 4; k++) r.sphere(add(tip, [((k % 2) - 0.5) * 0.8 * S, (0.5 + k * 0.4) * S, -(1 + k * 1.4) * S]), Rr(0.35), mat(ramp4("#ffffff", "#9ad8ff", "#4a8ac8", "#1a3a6a"), 9, { outline: undefined }));
+  } else if (p.held === "sickle") {
+    // a reaping sickle: a short haft and a crescent of bright iron
+    const g = U(handR);
+    r.sweep([add(g, [0, -0.6 * S, -1.6 * S]), add(g, [0, 0.4 * S, 2 * S])], Rr(0.4), mat(PAL.wood, 9));
+    const blade = [0, 1, 2, 3, 4].map((k): V3 => add(g, [Math.sin(k * 0.7) * 3.2 * S, (0.6 + Math.cos(k * 0.7) * 1.4) * S, (2 + k * 0.5) * S]));
+    r.sweep(blade, (u) => Rr(0.45 - u * 0.3), mat(PAL.steel, 9, { shader: (s2, tone) => (s2.lum > 0.55 ? "#ffffff" : tone(PAL.steel)) }));
+  } else if (p.held === "tongs") {
+    // smith's tongs gripping a blade blank still glowing from the forge (it dulls once quenched)
+    const g = U(handR);
+    const jaw = add(g, [0, 4.4 * S, -0.6 * S]);
+    for (const o of [-0.35, 0.35]) r.sweep([add(g, [o * S, -0.6 * S, 0]), add(jaw, [o * 0.6 * S, 0, 0])], Rr(0.28), mat(PAL.black, 9));
+    const hot = p.flash !== undefined && p.flash > 0;
+    r.sweep([jaw, add(jaw, [0, 6 * S, -1.4 * S])], [Rr(0.7), Rr(0.3)], mat(hot ? ramp4("#fffbe0", "#ffd070", "#f08a3a", "#a83a20") : PAL.steel, 9));
+  } else if (p.held === "pill") {
+    // a pill rolled between the palms, round and gold, with a glint
+    const c = scale3(add(U(p.handL ?? REST_HAND_L), U(handR)), 0.5);
+    r.sphere(add(c, [0, 0.6 * S, 0.4 * S]), Rr(0.9), mat(PAL.gold, 9, { shader: (s2, tone) => (s2.lum > 0.7 ? "#ffffff" : tone(PAL.gold)) }));
+  } else if (p.held === "talisman") {
+    // a yellow paper talisman with a red seal script, held up between two fingers (and flaring once thrown)
+    const g = p.toss ? U(p.toss) : add(U(handR), [0, 0.4 * S, 1.6 * S]);
+    r.box(add(g, [-0.9 * S, -0.1 * S, -2.6 * S]), add(g, [0.9 * S, 0.15 * S, 2.6 * S]), mat(PAL.paper, 9, { shader: (s2, tone) => (Math.abs(s2.p[0] - g[0]) < 0.25 * S && s2.p[2] > g[2] - 2 * S ? tone(PAL.red) : tone(PAL.paper)) }));
+    if (p.toss && p.flash) r.sphere(g, Rr(1.8), mat(ramp4("#ffffff", "#fff0a0", "#f2c55c", "#c08a30"), 9, { outline: undefined }));
+  } else if (p.held === "luopan") {
+    // a geomancer's compass: a lacquered square base with a turning disc of rings and a needle
+    const g = add(scale3(add(U(p.handL ?? REST_HAND_L), U(handR)), 0.5), [0, 1 * S, 0.4 * S]);
+    r.box(add(g, [-2.4 * S, -2.4 * S, -0.5 * S]), add(g, [2.4 * S, 2.4 * S, 0]), mat(PAL.red, 9));
+    r.cone(g[0], g[1], Rr(2.2), g[2], Rr(2.2), g[2] + Rr(0.4), 14, mat(PAL.gold, 9, { shader: (s2, tone) => (Math.abs(Math.hypot(s2.p[0] - g[0], s2.p[1] - g[1]) / S - 1.2) < 0.18 ? tone(PAL.black) : tone(PAL.gold)) }));
+    const a = t * 1.7;
+    r.sweep([add(g, [-Math.cos(a) * 1.6 * S, -Math.sin(a) * 1.6 * S, 0.5 * S]), add(g, [Math.cos(a) * 1.6 * S, Math.sin(a) * 1.6 * S, 0.5 * S])], Rr(0.18), mat(PAL.red, 9));
+  } else if (p.held === "needle") {
+    // a long silver acupuncture needle, pinched in the fingertips
+    const g = U(handR);
+    r.sweep([add(g, [0, 0.2 * S, 0.8 * S]), add(g, [0, 1.6 * S, -2.6 * S])], Rr(0.12), mat(PAL.steel, 9, { shader: () => "#ffffff" }));
+    r.sphere(add(g, [0, 0.2 * S, 0.9 * S]), Rr(0.3), mat(PAL.gold, 9));
+  } else if (p.held === "wok") {
+    // a black iron wok on its long handle, its rice tossed up out of it in a little arc
+    const g = U(handR);
+    const c = add(g, [0, 4.6 * S, -0.6 * S]);
+    r.sweep([g, add(c, [0, -2.6 * S, 0.4 * S])], Rr(0.4), mat(PAL.woodDark, 9));
+    r.ellipsoid(c, [Rr(3), Rr(3), Rr(1.1)], mat(PAL.black, 9));
+    if (p.toss) for (let k = 0; k < 5; k++) r.sphere(add(U(p.toss), [((k % 3) - 1) * 0.9 * S, ((k % 2) - 0.5) * 0.9 * S, (k % 3) * 0.4 * S]), Rr(0.45), mat(k % 2 ? PAL.white : PAL.orange, 9));
+  } else if (p.held === "cleaver") {
+    // a broad kitchen cleaver
+    const g = U(handR);
+    r.sweep([add(g, [0, -1.2 * S, 0]), g], Rr(0.45), mat(PAL.woodDark, 9));
+    r.box(add(g, [-0.2 * S, 0.2 * S, -1.6 * S]), add(g, [0.2 * S, 4 * S, 1 * S]), mat(PAL.steel, 9, { shader: (s2, tone) => (s2.lum > 0.5 ? "#ffffff" : tone(PAL.steel)) }));
+  } else if (p.held === "rope") {
+    // a hoist rope hauled hand over hand, running up out of the picture
+    const a = U(p.handL ?? REST_HAND_L);
+    const b = U(handR);
+    r.sweep([add(b, [0, 0.4 * S, -6 * S]), b, a, add(a, [0, 1.4 * S, 12 * S])], Rr(0.4), mat(PAL.straw, 9, { shader: (s2, tone) => (Math.sin(s2.u * 60) > 0.6 ? tone(PAL.brown) : tone(PAL.straw)) }));
+  } else if (p.held === "bellows") {
+    // a box bellows on the ground before the forge, its handle pumped in and out
+    const g = U(handR);
+    const box = G([0, 5.4, 0]);
+    r.box(add(box, [-2.4 * S, -1.8 * S, 0]), add(box, [2.4 * S, 1.8 * S, 4 * S]), mat(PAL.woodDark, 9));
+    r.sweep([g, add(box, [0, -1.8 * S, 2.2 * S])], Rr(0.45), mat(PAL.wood, 9));
+  } else if (p.held === "lid") {
+    // a bronze cauldron lid lifted off, steam coiling up from under it
+    const g = add(U(handR), [0, 1.2 * S, 0.6 * S]);
+    r.cone(g[0], g[1], Rr(2.6), g[2] - Rr(0.4), Rr(0.8), g[2] + Rr(1.4), 12, mat(ramp4("#f0d090", "#b08a40", "#6a4a20", "#3a2a1a"), 9));
+    r.sphere(add(g, [0, 0, 1.8 * S]), Rr(0.6), mat(PAL.jade, 9));
   }
 
   // ------------------------------------------------------------------ shawl, cape, tails, beard

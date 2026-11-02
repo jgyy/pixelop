@@ -20,6 +20,7 @@ import { Effects } from "./particles";
 import type { View3D } from "./view";
 import { CLIMATE, calendarAt, rainingAt, type Season } from "../world/calendar";
 import { groundTurns, seasonalProp, seasonTile } from "../art/seasons";
+import { loopLengths, voyageAt } from "../world/voyages";
 
 export { DAY_LENGTH, duskAt } from "../world/calendar";
 
@@ -78,6 +79,8 @@ export interface Actor {
   name?: string;
   /** Clock time a folk with a favour to ask may next beckon her over. */
   beckonAt?: number;
+  /** A traveller round a fixed loop (a ship, a sword-rider, a cloud-ship): its loop and running lengths. */
+  voyage?: { route: [number, number][]; lengths: number[]; speed: number; phase: number; alt: number };
 }
 
 interface PropInst {
@@ -411,6 +414,37 @@ export class World {
         a.alt = c.char === "bat" ? 2.2 : 0;
         this.actors.push(a);
       }
+    if (initial)
+      for (const v of this.def.voyages ?? []) {
+        const a = this.makeActor(v.key, "critter", v.char, v.route[0][0], v.route[0][1], 0, v.anim);
+        a.voyage = { route: v.route, lengths: loopLengths(v.route), speed: v.speed, phase: v.phase, alt: v.alt };
+        if (v.outfit) a.outfit = v.outfit;
+        if (v.name) a.name = v.name;
+        a.flying = v.alt > 0;
+        a.animStart = -hash2(Math.floor(v.phase * 97), v.key.length, 5) * 10;
+        this.voyageStep(a, this.clock, 99);
+        this.actors.push(a);
+      }
+  }
+
+  /**
+   * A traveller's place on its loop is a pure function of the clock, so a
+   * ship is where it would be had she watched it all day. Fliers keep their
+   * height over whatever rises ahead of them, and ease up and down to it.
+   */
+  private voyageStep(a: Actor, t: number, dt: number): void {
+    const v = a.voyage!;
+    const p = voyageAt(v, t, v.lengths);
+    a.x = p.x;
+    a.y = p.y;
+    if (p.dx || p.dy) a.dir = dirFrom(p.dx, p.dy);
+    let target = this.groundZ(a.x, a.y);
+    if (v.alt > 0) {
+      const l = Math.hypot(p.dx, p.dy) || 1;
+      for (const ahead of [3, 7, 12]) target = Math.max(target, this.groundZ(a.x + (p.dx / l) * ahead, a.y + (p.dy / l) * ahead));
+      target += v.alt;
+    }
+    a.z += (target - a.z) * Math.min(1, dt * 1.5);
   }
 
   /** Bumped whenever the story reshapes the land (the 3D view rebuilds its ground). */
@@ -831,6 +865,10 @@ export class World {
       if (a.holdUntil !== undefined && t >= a.holdUntil) {
         a.holdUntil = undefined;
         this.setAnim(a, a.target ? this.moveAnim(a) : a.idleAnim, t);
+      }
+      if (a.voyage) {
+        this.voyageStep(a, t, dt);
+        continue;
       }
       const far = a !== h && !a.target && Math.abs(a.x - h.x) + Math.abs(a.y - h.y) > ACTIVE_RANGE;
       if (far) continue;
