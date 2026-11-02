@@ -320,6 +320,11 @@ export function GameView({ initial, intro, onQuit }: { initial: GameState; intro
                 ⛩ {ui.founding.title}: {ui.founding.objective}
               </div>
             )}
+            {ui.contention && (
+              <div className={`errand peoples ${ui.contention.arc}`} data-testid="contention-quest">
+                ☯ {ui.contention.title}: {ui.contention.objective}
+              </div>
+            )}
             {ui.notices.length > 0 && (
               <div className="errand notice" data-testid="notice">
                 ✉ {ui.notices[0].text}
@@ -747,6 +752,29 @@ function JournalPanel({ journal, ui, game, onClose }: { journal: NonNullable<UiS
               {ui.foundingList.map((f) => (
                 <li key={f.book} className={`front-${f.state === "done" ? "freed" : f.state === "building" ? "burning" : "waiting"}`}>
                   <span className="cn">{f.hanzi}</span> {f.book} <b>{f.state === "done" ? (f.fate ?? "Done") : f.state === "building" ? "Under way" : "Not yet reached"}</b>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+      {ui.contention && (
+        <section data-testid="journal-contention">
+          <h4>
+            ☯ {ui.contention.chapter} · {ui.contentionDone}/{ui.contentionCount}
+          </h4>
+          <p>
+            <strong>{ui.contention.title}</strong> — {ui.contention.objective}
+          </p>
+          <p className="hint">
+            Dao heart: {ui.dao.heart}
+            {ui.powers ? ` · secrets of the powers uncovered: ${ui.powers.secrets.known}/${ui.powers.secrets.total} (see the Powers page of the Menu)` : ""}
+          </p>
+          {ui.contentionList && (
+            <ul className="fronts steles">
+              {ui.contentionList.map((f) => (
+                <li key={f.book} className={`front-${f.state === "done" ? "freed" : f.state === "going" ? "burning" : "waiting"}`}>
+                  <span className="cn">{f.hanzi}</span> {f.book} <b>{f.state === "done" ? (f.fate ?? "Done") : f.state === "going" ? "Under way" : "Not yet reached"}</b>
                 </li>
               ))}
             </ul>

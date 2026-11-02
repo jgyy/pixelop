@@ -14,7 +14,7 @@ test.describe("The game menu", () => {
     await page.keyboard.up("KeyD");
     const s1 = await state(page);
     expect(Math.hypot(s1.x - s0.x, s1.y - s0.y)).toBeLessThan(0.05);
-    for (const tab of ["skills", "bag", "bestiary", "people", "places", "settings", "controls"]) {
+    for (const tab of ["skills", "bag", "bestiary", "people", "places", "powers", "settings", "controls"]) {
       await page.getByTestId(`menu-tab-${tab}`).click();
       await expect(page.getByTestId(`menu-${tab}`)).toBeVisible();
     }
@@ -23,6 +23,12 @@ test.describe("The game menu", () => {
     await expect(page.getByTestId("place-valley")).toContainText("Sealed");
     await page.getByTestId("menu-tab-skills").click();
     await expect(page.getByTestId("menu-skill-strike")).toContainText("Azure Sword Strike");
+    // the powers of the world: every power in the web, and the chosen one's doctrine and ties
+    await page.getByTestId("menu-tab-powers").click();
+    await expect(page.locator("[data-testid^=power-]")).toHaveCount(22);
+    await page.getByTestId("power-yan").click();
+    await expect(page.getByTestId("powers-tab")).toContainText("Great Yan");
+    await expect(page.getByTestId("powers-tab")).toContainText("Iron Banner");
     // → pages through the tabs
     await page.getByTestId("menu-tab-status").click();
     await page.keyboard.press("ArrowRight");

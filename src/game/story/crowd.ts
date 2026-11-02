@@ -103,7 +103,7 @@ const BY_REGION: Partial<Record<AreaId, string[]>> = {
   sect: ["On a clear morning you can see Willow Creek from the bridge, small as a rice grain.", "The cranes nest under the eaves of the archive. Archivist Shen pretends to mind."],
   village: ["Willow Creek's had foxes in the bamboo and lanterns in the square. I prefer the lanterns.", "Granny Hua's tangyuan are the best in the province. Don't tell my wife I said so."],
   bamboo: ["The bamboo whispers when there's no wind. My father said it was gossip. My mother said it was the foxes.", "Don't follow lights in the bamboo at night. Follow the road. The road doesn't laugh at you."],
-  lake: ["Old Fisher Wen says the lotuses bloom brighter at the full moon. I've never been awake to check.", "The lake spills off the edge of the world at the falls. The spray makes rainbows every afternoon."],
+  lake: ["Old Fisher Wen says the lotuses bloom brighter at the full moon. I've never been awake to check.", "The lake spills over the falls into the strait below. The spray makes rainbows every afternoon."],
   valley: ["Nobody goes west to the red valley if they can help it. The rocks there are warm at night.", "Ash on the wind from the valley again. Shut the windows."],
   peak: ["Up here even the clouds keep their voices down.", "The thunder lives above us. We're only visiting."],
   marsh: ["Granny Ye knows every frog in the Mistmarsh by name. The frogs know her too. They go quiet when she passes.", "Stay on the boardwalks. The black pools keep what they're given."],

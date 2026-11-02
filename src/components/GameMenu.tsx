@@ -20,6 +20,7 @@ const TABS = [
   ["bestiary", "妖录", "Bestiary"],
   ["people", "群英", "People"],
   ["places", "地志", "Places"],
+  ["powers", "势力", "Powers"],
   ["settings", "设置", "Settings"],
   ["controls", "操作", "Controls"],
 ] as const;
@@ -94,6 +95,7 @@ export function GameMenu({ ui, game, settings, onSettings, onSave, onQuit }: { u
         {tab === "bestiary" && <BestiaryTab ui={ui} />}
         {tab === "people" && <PeopleTab ui={ui} />}
         {tab === "places" && <PlacesTab ui={ui} />}
+        {tab === "powers" && <PowersTab ui={ui} />}
         {tab === "settings" && <SettingsTab settings={settings} onSettings={onSettings} />}
         {tab === "controls" && <ControlsTab />}
       </section>
@@ -126,10 +128,12 @@ function StatusTab({ ui }: { ui: UiSnapshot }) {
     ["Attack", ui.stats.atk],
     ["Defence", ui.stats.def],
     ["Speed", ui.stats.spd],
-    ["Dao Heart", ui.dao.label ?? "—"],
+    ["Dao", ui.dao.label ?? "—"],
+    ["Dao Heart", `${ui.dao.heart}${ui.dao.doubt ? ` · ${ui.dao.doubt} doubt${ui.dao.doubt === 1 ? "" : "s"}` : ""}`],
     ["Great Daos", ui.wu.label ? `${ui.wu.label} · ${ui.wu.total} stages` : "—"],
     ["Attire", ui.attire.name],
     ["Arts", ui.crafts.length ? ui.crafts.map((c) => `${c.name} (${c.rank})`).join(" · ") : "—"],
+    ["The Contention", ui.contentionDone > 0 ? `${ui.contentionDone} / ${ui.contentionCount} quests` : "—"],
     ["Her sect", ui.foundingDone > 0 ? `${ui.foundingDone} / ${ui.foundingCount} of the Founding` : "—"],
     ["Beasts bested", s.kills],
     ["Spirit stones", s.stones],
@@ -416,4 +420,79 @@ function SpriteThumb({ char }: { char: CharId }) {
   }, [char, def]);
   // cropped to the figure, shown at twice its size
   return <canvas ref={ref} className="thumb" width={def.w} height={def.h} style={{ width: Math.min(120, def.w * 1.6), height: Math.min(120, def.w * 1.6) * (def.h / def.w) }} />;
+}
+
+/** Red for war through grey to jade for blood kin. */
+const WARMTH_COLOURS = ["#e0424a", "#e07a4a", "#c8a050", "#8a8aa0", "#7ab0a0", "#4ad0a0", "#3fe0b0"];
+
+/**
+ * The powers of the world: a web of every power (its node coloured by its
+ * banner, ringed by how it receives her) and every tie between them as she
+ * knows it (coloured by its warmth; dashed while its truth is hidden), and
+ * the chosen power's doctrine, its view of her and why, and its ties.
+ */
+function PowersTab({ ui }: { ui: UiSnapshot }) {
+  const P = ui.powers;
+  const [sel, setSel] = useState<string>("synod");
+  if (!P) return <p className="hint">—</p>;
+  const n = P.powers.length;
+  const W = 300;
+  const R = 118;
+  const pos = new Map(P.powers.map((p, k) => [p.key, [W / 2 + Math.cos((k / n) * Math.PI * 2 - Math.PI / 2) * R, W / 2 + Math.sin((k / n) * Math.PI * 2 - Math.PI / 2) * R] as [number, number]]));
+  const edges = new Map<string, { a: string; b: string; warmth: number; hidden: boolean }>();
+  for (const p of P.powers) for (const t of p.ties) edges.set([p.key, t.withKey].sort().join("~"), { a: p.key, b: t.withKey, warmth: t.warmth, hidden: t.hidden });
+  const cur = P.powers.find((p) => p.key === sel) ?? P.powers[0];
+  return (
+    <div className="powers-tab" data-testid="powers-tab" style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+      <svg viewBox={`0 0 ${W} ${W}`} width={W} height={W} role="img" aria-label="The web of the powers" style={{ flex: "0 0 auto", maxWidth: "100%" }}>
+        {[...edges.values()].map((e) => {
+          const [x0, y0] = pos.get(e.a)!;
+          const [x1, y1] = pos.get(e.b)!;
+          const on = e.a === cur.key || e.b === cur.key;
+          return <line key={`${e.a}~${e.b}`} x1={x0} y1={y0} x2={x1} y2={y1} stroke={WARMTH_COLOURS[e.warmth + 3]} strokeWidth={on ? 2.4 : 1} strokeDasharray={e.hidden ? "3 3" : undefined} opacity={on ? 1 : 0.35} />;
+        })}
+        {P.powers.map((p) => {
+          const [x, y] = pos.get(p.key)!;
+          const ring = WARMTH_COLOURS[Math.max(0, Math.min(6, Math.round(p.standing / 3) + 3))];
+          return (
+            <g key={p.key} onClick={() => setSel(p.key)} style={{ cursor: "pointer" }} data-testid={`power-${p.key}`}>
+              <circle cx={x} cy={y} r={p.key === cur.key ? 11 : 8} fill={p.colour} stroke={ring} strokeWidth={3} />
+              <text x={x} y={y + 3} textAnchor="middle" fontSize={8} fill="#140a24">
+                {p.hanzi.slice(0, 2)}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+      <div style={{ flex: "1 1 260px", minWidth: 0 }}>
+        <p className="hint">
+          Secrets uncovered: {P.secrets.known} / {P.secrets.total} · the web runs {P.warmth >= 0 ? "warm" : "cold"} ({P.warmth})
+        </p>
+        <h3>
+          <span className="cn">{cur.hanzi}</span> {cur.name}
+        </h3>
+        <p className="hint">
+          {cur.leader} · {cur.seat}
+        </p>
+        <p>“{cur.doctrine}”</p>
+        <p className="hint">{cur.holds}</p>
+        <p>
+          <strong>
+            {cur.standingName} <span className="cn">{cur.standingHanzi}</span> ({cur.standing > 0 ? "+" : ""}
+            {cur.standing})
+          </strong>
+          : {cur.why.join("; ")}.
+        </p>
+        <ul className="power-ties">
+          {cur.ties.map((t) => (
+            <li key={t.withKey}>
+              <span style={{ color: WARMTH_COLOURS[t.warmth + 3] }}>■</span> <strong>{t.with}</strong> · {t.kind}
+              {t.hidden ? " · something lies under this" : ""}
+              <div className="hint">{t.truth ?? t.face}</div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
 }

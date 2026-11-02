@@ -409,6 +409,10 @@ const CULTIVATORS = new Set<HumanId>([
   "formationmaster",
   "beastlord",
   "hollowsage",
+  // Fusang: the Synod's Seat-holders and Speaker, and the Seat of Wind it exiled
+  "seatholder",
+  "synodspeaker",
+  "unfettered",
   // the Founding: her elders
   "fdelder0",
   "fdelder1",

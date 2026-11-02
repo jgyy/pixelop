@@ -70,7 +70,7 @@ export function tideNpcScript(key: string, g: GameState): Step[] | null {
           "A golden core in my harbour. I'll have the pilots salute when you pass. They'll do it badly; they are pilots.",
           `${realm.name}. When you walk down the quay the water goes flat under the boats. The tide-tables are going to be wrong for a week.`,
         ]),
-        f["hollowed:void"] ? "Nothing sails east any more. There's no horizon out there. A ship that can't see the edge of the world can't find its way back." : f["restored:void"] ? "The horizon's back. I stood on the quay and cried like a boy. Don't tell the pilots." : "Seven hundred ships a year come in past the isle. Spices from the west, pearls from the south, and gossip from everywhere.",
+        f["hollowed:void"] ? "Nothing sails east any more. There's no horizon out there. A ship that can't see Fusang's shore can't find its way back." : f["restored:void"] ? "The horizon's back. I stood on the quay and cried like a boy. Don't tell the pilots." : "Seven hundred ships a year come in past the isle. Spices from the west, pearls from the south, and gossip from everywhere.",
         f["war:won"] ? "The war's over, they say. The salt price came down the next morning. That's how a port knows peace." : "War up north. We hear the price of iron before we hear the battles.",
       ];
       break;

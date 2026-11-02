@@ -46,6 +46,15 @@ export const daoPoints = (g: Counted, id: DaoId) => Math.max(0, g.counters[`dao:
 
 /** The Dao that leads her heart, or null while none does (too few points, or two pulling level). */
 export function dominantDao(g: Counted): DaoId | null {
+  // asked of every soul in the world every frame (who has something to say to her), so remembered for as long as her counters are the same object
+  const known = LEAD.get(g.counters);
+  if (known !== undefined) return known;
+  const lead = leadOf(g);
+  LEAD.set(g.counters, lead);
+  return lead;
+}
+const LEAD = new WeakMap<Record<string, number>, DaoId | null>();
+function leadOf(g: Counted): DaoId | null {
   const ranked = [...DAO_IDS].sort((a, b) => daoPoints(g, b) - daoPoints(g, a));
   const top = daoPoints(g, ranked[0]);
   return top >= DAO_TIERS[0].at && top > daoPoints(g, ranked[1]) ? ranked[0] : null;
@@ -65,10 +74,45 @@ export function daoLabel(g: Counted): string | null {
   return d ? `${DAOS[d].name} · ${DAO_TIERS[daoTier(g) - 1].name}` : null;
 }
 
+// ----------------------------------------------------------------------------- the Dao heart (道心)
+/**
+ * A Dao is not a coat. Once she walks one deep (a Path or deeper), acting
+ * against it costs her: every choice made for another Dao is a doubt in
+ * her Dao heart (two for the Dao her own opposes), every choice made for
+ * her own settles one. A wavering heart loses a tier of what her Dao gives
+ * her, a cracked one two, and a cracked heart feeds her heart demons with
+ * every further doubt. Sitting in stillness with what she has done (the
+ * Contention's vigils, see story/contention.ts) steadies it again.
+ *
+ * Doubt lives in the counter `dao:doubt`.
+ */
+export const DOUBT = "dao:doubt";
+export const DOUBT_MAX = 30;
+export const HEART_STATES = [
+  { at: 0, name: "Steady", hanzi: "道心稳固" },
+  { at: 6, name: "Wavering", hanzi: "道心动摇" },
+  { at: 12, name: "Cracked", hanzi: "道心破碎" },
+] as const;
+
+export const daoDoubt = (g: Counted) => Math.max(0, Math.min(DOUBT_MAX, g.counters[DOUBT] ?? 0));
+/** 0 steady, 1 wavering, 2 cracked. */
+export const heartState = (g: Counted) => HEART_STATES.filter((h) => daoDoubt(g) >= h.at).length - 1;
+/** How deep her Dao still serves her, once her doubts are taken off. */
+export const steadyTier = (g: Counted) => Math.max(0, daoTier(g) - heartState(g));
+
+/** The Dao each Dao is most at war with. */
+const OPPOSED: Record<DaoId, DaoId> = { mercy: "slaughter", slaughter: "mercy", sword: "balance", balance: "sword" };
+export const opposedDao = (d: DaoId) => OPPOSED[d];
+
+/** Settle her doubts by `by` (a vigil, a promise kept). */
+export function steadyHeart<G extends Counted>(g: G, by: number): G {
+  return { ...g, counters: { ...g.counters, [DOUBT]: Math.max(0, daoDoubt(g) - by) } };
+}
+
 /** Her stats as her Dao reshapes them. */
 export function daoStats(base: Stats, g: Counted): Stats {
   const d = dominantDao(g);
-  const t = daoTier(g);
+  const t = steadyTier(g);
   if (!d || !t) return base;
   const s = { ...base };
   switch (d) {
@@ -95,12 +139,20 @@ export function daoStats(base: Stats, g: Counted): Stats {
 /** Lean her heart toward a Dao (her other Daos fade a little when she acts strongly against them). */
 export function walkDao<G extends Counted>(g: G, id: DaoId, by = 1): G {
   const counters = { ...g.counters, [`dao:${id}`]: daoPoints(g, id) + by };
+  // a heart that walks one Dao deep is shaken by acting for another, and settled by acting for its own
+  const lead = dominantDao(g);
+  if (lead && by > 0 && daoTier(g) >= 2) {
+    const doubt = daoDoubt(g);
+    const more = id === lead ? -by : id === OPPOSED[lead] ? 2 * by : by;
+    counters[DOUBT] = Math.max(0, Math.min(DOUBT_MAX, doubt + more));
+    if (more > 0 && heartState(g) >= 2) counters["cult:demon"] = Math.max(0, Math.min(100, (counters["cult:demon"] ?? 0) + more));
+  }
   // the sword and slaughter both kill; mercy is what slaughter wears away, and slaughter what mercy does
   const opposed: Partial<Record<DaoId, DaoId>> = { mercy: "slaughter", slaughter: "mercy" };
   const o = opposed[id];
   if (o && by > 0 && daoPoints(g, o) > 0) counters[`dao:${o}`] = Math.max(0, daoPoints(g, o) - 1);
   // and what she does feeds her heart demons or starves them (see cultivation.ts)
   const demon = id === "slaughter" ? 3 * by : id === "mercy" ? -2 * by : 0;
-  if (demon) counters["cult:demon"] = Math.max(0, Math.min(100, (g.counters["cult:demon"] ?? 0) + demon));
+  if (demon) counters["cult:demon"] = Math.max(0, Math.min(100, (counters["cult:demon"] ?? 0) + demon));
   return { ...g, counters };
 }

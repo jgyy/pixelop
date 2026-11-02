@@ -21,7 +21,7 @@ import { fillStanding, honorific, peerTitle, realmTier } from "./standing";
  * The City of Nine Tiers (九阶天城): the sixth thread of the main tale, a
  * thousand quests long.
  *
- * Across the strait of cloud below Jinhe, at the end of the Nine-Arch
+ * Across the strait below Jinhe, at the end of the Nine-Arch
  * Bridge, a whole mountain is cut into nine terraces round a summit. Its law
  * is the Stair Code: a person lives, trades and is heard on the tier their
  * realm allows. Mortals carry for everyone on the Mud Tier at its foot, and

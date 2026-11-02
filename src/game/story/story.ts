@@ -23,6 +23,7 @@ import { peoplesEpilogue, peoplesNpcScript, peoplesPreBattle, peoplesVictory } f
 import { seasEpilogue, seasNpcScript, seasPreBattle, seasVictory } from "./seas";
 import { courtsEpilogue, courtsNpcScript, courtsPreBattle, courtsVictory } from "./courts";
 import { foundingEpilogue, foundingNpcScript, foundingPreBattle, foundingVictory } from "./founding";
+import { contentionEpilogue, contentionNpcScript, contentionPreBattle, contentionVictory } from "./contention";
 import { heightsNpcScript } from "./heights";
 import { quarterNpcScript, tierFolkScript } from "./standing";
 import { tideNpcScript } from "./tide";
@@ -252,7 +253,7 @@ export function npcScript(key: string, g: GameState): Step[] {
           "Ho, cultivator! Bai's the name, the highway's my shop. Pills for the road?",
           f.foxesCleared ? "I've walked this road from the red valley to the lotus lake. The foxes are back to stealing chickens, thank heaven. Honest thieves." : "I've walked this road from the red valley to the lotus lake. Never seen the foxes this wild.",
           "Cranes take off whenever someone hurries past. Walk softly and you can get close!",
-          "They say the water from the Lotus Lake falls right off the edge of the world. I'd believe it.",
+          "They say the water from the Lotus Lake falls all the way down into the Strait of the Rising Sun. I'd believe it; you can hear it from here on a still night.",
         ])),
         { shop: true },
       ];
@@ -805,7 +806,7 @@ export function npcScript(key: string, g: GameState): Step[] {
           { anim: "hero", name: "twirl", wait: true },
           { toast: "Received the Sea-Swallow Coat · Press C to change your attire" },
         ];
-      return [say("captain", pick(g, [f.haiCoat ? "The coat suits you! Next season, come east with us. The isles have mountains that float upside down." : "Rong's orchard is by the Lotus Lake, west over the Rainbow Bridge. Ask for the oldest tree.", "The lighthouse? My sister keeps it. She keeps everything. Including my debts.", "There's a sea of clouds past the bay's edge, and the water spills right off into it. Best view in the world, if you don't fall in.", "Fish, silk, tea and gossip. A harbour runs on all four."]))];
+      return [say("captain", pick(g, [f.haiCoat ? "The coat suits you! Next season, come east with us. The isles have mountains that float upside down." : "Rong's orchard is by the Lotus Lake, west over the Rainbow Bridge. Ask for the oldest tree.", "The lighthouse? My sister keeps it. She keeps everything. Including my debts.", "Past the bay's mouth there's the Strait of Dawn, and past that, Fusang, where the sun gets up. The Synod there charges you a pearl to say a prayer wrong. Best view in the world, though.", "Fish, silk, tea and gossip. A harbour runs on all four."]))];
     case "alan":
       return [named("fishwife", "Fishwife Ah Lan", pick(g, ["Fresh mackerel! Dried squid! Healing pills, if you're the kind who needs those more than squid!", "My husband sails with Captain Hai. He says he misses my cooking. He means he misses eating.", "Qi pills from the sect, passed down the coast. Don't ask how. Fifteen stones."])), { shop: true }];
     case "dockporter":
@@ -871,7 +872,7 @@ export function npcScript(key: string, g: GameState): Step[] {
     case "restporter":
       return [named("porter", "Porter Lao", pick(g, ["Eating. Talking costs breath, and breath costs noodles.", "From the terraces to the sands with tea, from the sands to the harbour with salt. Then home to sleep for a week.", "My pole's older than me. My father's. Same shoulders, too."])), { anim: "restporter", name: "eat" }];
     default:
-      return warNpcScript(key, g) ?? roadNpcScript(key, g) ?? hallsNpcScript(key, g) ?? tiersNpcScript(key, g) ?? peoplesNpcScript(key, g) ?? seasNpcScript(key, g) ?? courtsNpcScript(key, g) ?? foundingNpcScript(key, g) ?? heightsNpcScript(key, g) ?? tierFolkScript(key, g) ?? quarterNpcScript(key, g) ?? sectNpcScript(key, g) ?? grandHallNpcScript(key, g) ?? townNpcScript(key, g) ?? tideNpcScript(key, g) ?? crowdNpcScript(key, g) ?? [say("narrator", "…")];
+      return warNpcScript(key, g) ?? roadNpcScript(key, g) ?? hallsNpcScript(key, g) ?? tiersNpcScript(key, g) ?? peoplesNpcScript(key, g) ?? seasNpcScript(key, g) ?? courtsNpcScript(key, g) ?? foundingNpcScript(key, g) ?? contentionNpcScript(key, g) ?? heightsNpcScript(key, g) ?? tierFolkScript(key, g) ?? quarterNpcScript(key, g) ?? sectNpcScript(key, g) ?? grandHallNpcScript(key, g) ?? townNpcScript(key, g) ?? tideNpcScript(key, g) ?? crowdNpcScript(key, g) ?? [say("narrator", "…")];
   }
 }
 
@@ -1088,7 +1089,7 @@ export function arrivalScript(area: AreaId, g: GameState): Step[] | null {
   if (area === "desert" && !f.desertArrived)
     return [{ mutate: (s) => setFlag(s, "desertArrived") }, say("heroine", "Sand as far as the sky. And there — palms, tents, smoke. An oasis.")];
   if (area === "harbor" && !f.harborArrived)
-    return [{ mutate: (s) => setFlag(s, "harborArrived") }, say("heroine", "Gulls, salt, sails… and past the bay the sea just pours off the edge of the world into the clouds. Hu Li would love this.")];
+    return [{ mutate: (s) => setFlag(s, "harborArrived") }, say("heroine", "Gulls, salt, sails… and past the bay, a whole other shore on the horizon where the sun comes up. Hu Li would love this.")];
   if (area === "frost" && !f.frostArrived)
     return [{ mutate: (s) => setFlag(s, "frostArrived") }, say("heroine", "So cold my breath freezes… and still the monks are practising, barefoot in the snow.")];
   if (area === "valley" && !f.valleyArrived)
@@ -1101,7 +1102,7 @@ export function arrivalScript(area: AreaId, g: GameState): Step[] | null {
 /** Dialogue before special fights. */
 export function preBattleScript(enemy: EnemyId, key: string, g?: GameState): Step[] | null {
   if (enemy === "patriarch") return xueConfrontation(g ?? newGame(), key);
-  const war = g && (warPreBattle(enemy, g) ?? roadPreBattle(enemy, g) ?? hallsPreBattle(enemy, g) ?? tiersPreBattle(enemy, g) ?? peoplesPreBattle(enemy, g) ?? seasPreBattle(enemy, g) ?? courtsPreBattle(enemy, g) ?? foundingPreBattle(enemy, g));
+  const war = g && (warPreBattle(enemy, g) ?? roadPreBattle(enemy, g) ?? hallsPreBattle(enemy, g) ?? tiersPreBattle(enemy, g) ?? peoplesPreBattle(enemy, g) ?? seasPreBattle(enemy, g) ?? courtsPreBattle(enemy, g) ?? foundingPreBattle(enemy, g) ?? contentionPreBattle(enemy, g));
   if (war) return war;
   const sect = sectPreBattle(enemy);
   if (sect) return sect;
@@ -1114,7 +1115,7 @@ export function victoryScript(enemy: EnemyId, key: string, area: AreaId, g: Game
   const steps: Step[] = [];
   const sect = sectVictory(enemy, key, g, won);
   if (sect) return sect;
-  const war = won ? (warVictory(enemy, g) ?? roadVictory(enemy, g) ?? hallsVictory(enemy, g) ?? tiersVictory(enemy, g) ?? peoplesVictory(enemy, g) ?? seasVictory(enemy, g) ?? courtsVictory(enemy, g) ?? foundingVictory(enemy, g)) : null;
+  const war = won ? (warVictory(enemy, g) ?? roadVictory(enemy, g) ?? hallsVictory(enemy, g) ?? tiersVictory(enemy, g) ?? peoplesVictory(enemy, g) ?? seasVictory(enemy, g) ?? courtsVictory(enemy, g) ?? foundingVictory(enemy, g) ?? contentionVictory(enemy, g)) : null;
   if (war) return war;
   if (enemy === "swordsman")
     return won
@@ -1200,6 +1201,7 @@ export function endingScript(g?: GameState): Step[] {
     ...(g && seasEpilogue(g) ? [seasEpilogue(g)!] : []),
     ...(g && courtsEpilogue(g) ? [courtsEpilogue(g)!] : []),
     ...(g && foundingEpilogue(g) ? [foundingEpilogue(g)!] : []),
+    ...(g && contentionEpilogue(g) ? [contentionEpilogue(g)!] : []),
     ...(g && daoEpilogue(g) ? [daoEpilogue(g)!] : []),
   ];
   return endingSteps(g ?? newGame(), epilogue);

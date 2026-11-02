@@ -1059,7 +1059,7 @@ function buildDesert(): AreaDef {
 // ----------------------------------------------------------------------------- Wavecrest Harbour
 function buildHarbor(): AreaDef {
   const m = new TileMap(32, 32, "grass", 1);
-  // the bay opens east, off the edge of the world
+  // the bay opens east, onto the Strait of Dawn
   m.each((i, j) => {
     const shore = 21 + Math.round(Math.sin(j * 0.45) * 1.4);
     if (i > shore + 1) m.set(i, j, i > shore + 4 ? "deep" : "water", 0);

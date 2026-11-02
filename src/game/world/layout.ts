@@ -39,6 +39,12 @@ import type { AreaId, OldAreaId } from "./ids";
  * Nine Springs (see world/isles.ts). Every older position is still the same
  * spot.
  *
+ * And then, for the first time, it grew east: a hundred and twenty-eight
+ * columns of sea and a fifth continent beyond Wavecrest Harbour, Fusang, the
+ * Dawn Continent, reached over the Strait of Dawn by the Dawn Causeway (see
+ * world/fusang.ts). The world only grew to the east, so every older position
+ * is still the same spot.
+ *
  * The world is laid out on an "authoring" grid (the hand-built region
  * templates and the landmarks are written in it) and then magnified
  * WORLD_SCALE times: every authoring tile becomes WORLD_SCALE × WORLD_SCALE
@@ -47,7 +53,7 @@ import type { AreaId, OldAreaId } from "./ids";
 export const WORLD_SCALE = 2;
 
 /** The authoring grid the world is laid out on. */
-export const COARSE_W = 648;
+export const COARSE_W = 776;
 export const COARSE_H = 800;
 export const WORLD_W = COARSE_W * WORLD_SCALE;
 export const WORLD_H = COARSE_H * WORLD_SCALE;
@@ -136,7 +142,8 @@ export const DOMAIN: Partial<Record<AreaId, [number, number, number, number][]>>
   terraces: [[140, 238, 280, 556], [140, 556, 320, 660]],
   desert: [[290, 330, 640, 452], [290, 452, 480, 556]],
   // the harbour also holds the Tidewater Reach in the south-east, round the port of Hailing
-  harbor: [[350, 150, 640, 330], [470, 456, 640, 556], [320, 556, 648, 800]],
+  // (and, across the Strait of Dawn, all of Fusang: the causeway sets out from the harbour's coast)
+  harbor: [[350, 150, 640, 330], [470, 456, 640, 556], [320, 556, 648, 800], [640, 40, 776, 800]],
   frost: [[350, 52, 640, 146]],
 };
 

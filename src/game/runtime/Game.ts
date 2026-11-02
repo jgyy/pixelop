@@ -32,6 +32,9 @@ import { seasBreath, seasChronicle, seasCultivated, seasDone, seasHasNews, seasH
 import { courtsBreath, courtsChronicle, courtsCultivated, courtsDone, courtsHasNews, courtsHunt, courtsLandmark, courtsLog, courtsTalk, COURTS_COUNT, syncCourtsFlags } from "../story/courts";
 import { craftSheet } from "../engine/crafts";
 import { foundingChronicle, foundingCultivated, foundingDone, foundingHasNews, foundingHunt, foundingLog, foundingTalk, FOUNDING_COUNT, sectSheet, syncFoundingFlags } from "../story/founding";
+import { contentionChronicle, contentionCultivated, contentionDone, contentionHasNews, contentionHunt, contentionLog, contentionTalk, CONTENTION_COUNT, heartLabel, syncContentionFlags } from "../story/contention";
+import { powersSheet } from "../story/powers";
+import { daoDoubt, heartState, HEART_STATES } from "../engine/dao";
 import { stairBarToast, syncTiersFlags, tiersBreath, tiersChronicle, tiersCultivated, tiersDone, tiersHasNews, tiersHunt, tiersLandmark, tiersLog, tiersTalk, TIERS_COUNT } from "../story/tiers";
 import { floorRefusal, standingJournal, standingLabel } from "../story/standing";
 import { BREATHS_PER_WU, comprehend, deepestWu, domainOpen, GREAT_DAOS, SHRINE_DAO, WU_TIERS, wuJournal, wuTotal } from "../engine/comprehension";
@@ -129,6 +132,14 @@ export interface UiSnapshot {
   foundingCount: number;
   /** The five books as they stand for her (in the journal). */
   foundingList: ReturnType<typeof foundingChronicle> | null;
+  /** The eleventh thread: the Contention of the Daos, nine hundred quests long, main and side (null before the Synod's envoy comes to the causeway). */
+  contention: (Quest & { arc: "main" | "side" }) | null;
+  contentionDone: number;
+  contentionCount: number;
+  /** The six books as they stand for her (in the journal). */
+  contentionList: ReturnType<typeof contentionChronicle> | null;
+  /** The powers of the world, how each receives her, and what lies between them (the menu's Powers page). */
+  powers: ReturnType<typeof powersSheet> | null;
   /** Her sect as it stands: its name, halls, elders, disciples and gods (in the journal). */
   sect: ReturnType<typeof sectSheet>;
   /** The arts she has learned, with her rank in each (the journal and the menu). */
@@ -138,7 +149,7 @@ export interface UiSnapshot {
   /** The Great Daos she comprehends: the deepest one for the HUD, every one in the journal, and whether her Dao Domain has opened. */
   wu: { label: string | null; colour: string | null; total: number; domain: boolean; paths: ReturnType<typeof wuJournal> | null };
   /** The Dao she walks: its name and depth (null while none leads), and every Dao's weight in her heart (in the journal). */
-  dao: { label: string | null; colour: string | null; creed: string | null; paths: { id: string; name: string; hanzi: string; colour: string; points: number; creed: string; gift: string }[] | null };
+  dao: { label: string | null; colour: string | null; creed: string | null; heart: string; doubt: number; paths: { id: string; name: string; hanzi: string; colour: string; points: number; creed: string; gift: string }[] | null };
   /** Her cultivation's condition: one line for the HUD (null while she is whole), and the full picture in the journal. */
   condition: { label: string | null; journal: ReturnType<typeof conditionJournal> | null };
   /** The notices (favours) she carries, and how many of the thousand she has fulfilled. */
@@ -896,6 +907,17 @@ export class Game {
     this.bannerUntil = this.clock + 3.5;
   }
 
+  /** Her Dao heart's state as she last heard of it (so she is told once when it wavers, cracks or steadies). */
+  private lastHeart = -1;
+  private heartNews(): void {
+    const h = heartState(this.state);
+    if (this.lastHeart >= 0 && h !== this.lastHeart) {
+      const H = HEART_STATES[h];
+      this.toast(h > this.lastHeart ? `Your Dao heart ${h === 2 ? "cracks" : "wavers"} (${H.hanzi}): you have acted against your Dao. Its gifts weaken; sit a vigil to steady it` : `Your Dao heart steadies (${H.hanzi})`);
+    }
+    this.lastHeart = h;
+  }
+
   private toast(text: string): void {
     this.toasts = [...this.toasts.slice(-2), { id: ++this.seq, text, until: this.clock + 4.5 }];
     this.markDirty();
@@ -1571,11 +1593,12 @@ export class Game {
     if (this.clock > this.syncAt) {
       this.syncAt = this.clock + 0.5;
       // the Founder's Road reaches her as her realm does, not only as its quests are done
-      this.state = syncFoundingFlags(syncCourtsFlags(syncSeasFlags(syncPeoplesFlags(syncTiersFlags(syncHallsFlags(syncRoadFlags(this.state)))))));
+      this.state = syncContentionFlags(syncFoundingFlags(syncCourtsFlags(syncSeasFlags(syncPeoplesFlags(syncTiersFlags(syncHallsFlags(syncRoadFlags(this.state))))))));
+      this.heartNews();
       w.syncPopulation(this.state.flags);
       this.landmarkEvents();
       if (this.mode !== "explore") return;
-      const grown = warCultivated(this.state) ?? roadCultivated(this.state) ?? hallsCultivated(this.state) ?? tiersCultivated(this.state) ?? peoplesCultivated(this.state) ?? seasCultivated(this.state) ?? courtsCultivated(this.state) ?? foundingCultivated(this.state);
+      const grown = warCultivated(this.state) ?? roadCultivated(this.state) ?? hallsCultivated(this.state) ?? tiersCultivated(this.state) ?? peoplesCultivated(this.state) ?? seasCultivated(this.state) ?? courtsCultivated(this.state) ?? foundingCultivated(this.state) ?? contentionCultivated(this.state);
       if (grown) return this.play(grown);
     }
     const touched = w.update(dt, this.clock, h.flying === true || this.clock < this.invulnerableUntil, true);
@@ -1637,7 +1660,7 @@ export class Game {
     const offering = offeringScript(key, g, cal);
     if (offering) pre.push(...offering);
     const news = hasNews(key, g);
-    const war = warTalk(key, g) ?? roadTalk(key, g) ?? hallsTalk(key, g) ?? tiersTalk(key, g) ?? peoplesTalk(key, g) ?? seasTalk(key, g) ?? courtsTalk(key, g) ?? foundingTalk(key, g);
+    const war = warTalk(key, g) ?? roadTalk(key, g) ?? hallsTalk(key, g) ?? tiersTalk(key, g) ?? peoplesTalk(key, g) ?? seasTalk(key, g) ?? courtsTalk(key, g) ?? foundingTalk(key, g) ?? contentionTalk(key, g);
     if (war) return news ? [...pre, ...npcScript(key, g), ...war] : [...pre, ...war];
     if (pre.length && !news) return pre;
     const story = npcScript(key, g);
@@ -1745,7 +1768,7 @@ export class Game {
 
   /** A foe of the horde beaten where the war wanted it beaten. */
   private warHunt(enemy: EnemyId): void {
-    for (const hunt of [() => warHunt(this.state, enemy, this.state.area), () => roadHunt(this.state, enemy), () => hallsHunt(this.state, enemy), () => tiersHunt(this.state, enemy), () => peoplesHunt(this.state, enemy), () => seasHunt(this.state, enemy), () => courtsHunt(this.state, enemy), () => foundingHunt(this.state, enemy)]) {
+    for (const hunt of [() => warHunt(this.state, enemy, this.state.area), () => roadHunt(this.state, enemy), () => hallsHunt(this.state, enemy), () => tiersHunt(this.state, enemy), () => peoplesHunt(this.state, enemy), () => seasHunt(this.state, enemy), () => courtsHunt(this.state, enemy), () => foundingHunt(this.state, enemy), () => contentionHunt(this.state, enemy)]) {
       const r = hunt();
       this.state = r.state;
       if (r.steps) return this.play(r.steps);
@@ -2057,7 +2080,7 @@ export class Game {
     }
     if (this.mode === "explore" && this.clock >= this.markerAt) this.refreshMarkers();
     const cal = calendarAt(worldTime(this.state));
-    for (const a of this.world.actors) if (a.kind === "npc") a.marker = this.mode === "explore" && ((hasNews(a.key, this.state) || yearHasNews(a.key, this.state, cal) || warHasNews(a.key, this.state) || roadHasNews(a.key, this.state) || hallsHasNews(a.key, this.state) || tiersHasNews(a.key, this.state) || peoplesHasNews(a.key, this.state) || seasHasNews(a.key, this.state) || courtsHasNews(a.key, this.state) || foundingHasNews(a.key, this.state) || daoHasNews(a.key, this.state) || cultivationHasNews(a.key, this.state)) || (this.bountyMarkers.get(a.key) ?? false));
+    for (const a of this.world.actors) if (a.kind === "npc") a.marker = this.mode === "explore" && ((hasNews(a.key, this.state) || yearHasNews(a.key, this.state, cal) || warHasNews(a.key, this.state) || roadHasNews(a.key, this.state) || hallsHasNews(a.key, this.state) || tiersHasNews(a.key, this.state) || peoplesHasNews(a.key, this.state) || seasHasNews(a.key, this.state) || courtsHasNews(a.key, this.state) || foundingHasNews(a.key, this.state) || contentionHasNews(a.key, this.state) || daoHasNews(a.key, this.state) || cultivationHasNews(a.key, this.state)) || (this.bountyMarkers.get(a.key) ?? false));
     if (this.world.hero.outfit !== currentAttire(this.state).id) this.dressHero();
     this.world.heroRealm = this.state.realm;
     this.world.heroDread = heartDemons(this.state) > 60;
@@ -2306,6 +2329,11 @@ export class Game {
       foundingDone: foundingDone(this.state),
       foundingCount: FOUNDING_COUNT,
       foundingList: this.journalOpen && foundingDone(this.state) > 0 ? foundingChronicle(this.state) : null,
+      contention: contentionLog(this.state, (id) => lockReason(id, this.state)),
+      contentionDone: contentionDone(this.state),
+      contentionCount: CONTENTION_COUNT,
+      contentionList: this.journalOpen && contentionDone(this.state) > 0 ? contentionChronicle(this.state) : null,
+      powers: this.journalOpen || this.menuOpen ? powersSheet(this.state) : null,
       sect: this.journalOpen ? sectSheet(this.state) : null,
       crafts: craftSheet(this.state),
       standing: { label: standingLabel(this.state), journal: this.journalOpen ? standingJournal(this.state) : null },
@@ -2317,7 +2345,7 @@ export class Game {
       })(),
       dao: (() => {
         const d = dominantDao(this.state);
-        return { label: daoLabel(this.state), colour: d ? DAOS[d].colour : null, creed: d ? DAOS[d].creed : null, paths: this.journalOpen ? daoJournal(this.state) : null };
+        return { label: daoLabel(this.state), colour: d ? DAOS[d].colour : null, creed: d ? DAOS[d].creed : null, heart: heartLabel(this.state), doubt: daoDoubt(this.state), paths: this.journalOpen ? daoJournal(this.state) : null };
       })(),
       condition: { label: conditionLabel(this.state), journal: this.journalOpen ? conditionJournal(this.state) : null },
       notices: carried(this.state).map((c) => ({ slot: c.slot, title: c.bounty.title, giver: folk(c.bounty.giver)?.name ?? "", text: progressText(c) })),
