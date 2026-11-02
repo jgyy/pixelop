@@ -109,6 +109,59 @@ New moves: Lin Yue **rummages** in her satchel when the menu opens and **shades 
 - A foundling who runs up the sky bridge before facing the fox is no longer greeted for the "fox blood on her sleeve", or told she has "already met" the beast.
 
 
+### The Encircling Sea: four continents, a world's edge, quarter-tile ground and moves for the shore
+
+The ground no longer hangs in a sea of cloud. **It stands in a real sea that runs out to every edge of the world**, and the land is broken into **four continents** by straits a few dozen tiles across. The roads cross the straits on plank bridges. Only the Azure Cloud Sect still rides its own cloud, the one place left where the world drops away into sky.
+
+- **The Middle Continent (中洲)**: the old mainland, the far south, the Yellow Sands, Jinhe's east and the Tidewater Reach.
+- **The Eastern Continent (东洲)**: the steppe, Frostveil's snows, the maple woods and Wavecrest Harbour's coast. You reach it over the Rainbow Bridge or across the **Strait of the Rising Sun (旭日海峡)**.
+- **The Western Continent (西洲)**: the Mistmarsh, Hundred Herb Valley and the western Golden River country, across the **Reedwater Strait (芦水海峡)**.
+- **The Southern Continent (南洲)**: the Stairlands and the Southern Heights, across the strait the Nine-Arch Bridge spans.
+- **The Sea of Pearls** archipelago, and above it all the floating sect.
+
+**The edge of the world:** a band of deep water runs round the whole map. Nobody passes its limit, whether walking, sailing or on a flying sword: the wind turns her back with a gust. In 3D the sea runs on past the map to the horizon.
+
+**Ground in quarter-tile cells:** the land is now shaped and walked in cells a quarter of a tile across (it was half). The fine grid runs the Scale2x pixel-art upscaler twice (Scale4x), so shores, cliff tops and the borders between kinds of ground come out as near-curves instead of staircases. Chunks merge cells that agree (a whole tile, then a quarter of it, then single cells), so the triangle count barely grows.
+
+**Eight new moves:** she opens chests on one knee and holds up what she finds, plucks a herb and smells it, braces against the gale at the world's edge, recoils from sealed ways and barred stairs, skims low over open water on her sword, bends her knees as she steps down off it, and by the water looks out to sea or skips a stone. Shore folk, sword disciples and children share some of these moves.
+
+**Bug fixed:** stepping down off the sword checked the coarse tile, so on the rounded fine grid she could land with her feet in water. It now checks the ground under her as she walks it.
+
+| | |
+|---|---|
+| ![The Strait of the Rising Sun, bridged](docs/screenshots/347-3d-the-strait-of-the-rising-sun.png) | ![The Reedwater Strait](docs/screenshots/348-3d-the-reedwater-strait.png) |
+| ![The edge of the world](docs/screenshots/349-3d-the-edge-of-the-world.png) | ![Quarter-tile shores](docs/screenshots/350-3d-quarter-tile-shores.png) |
+| ![Skimming the strait on her sword](docs/screenshots/351-3d-skimming-the-strait.png) | ![Looking out to sea](docs/screenshots/352-3d-looking-out-to-sea.png) |
+| ![The four continents, from above](docs/screenshots/354-chart-of-the-four-continents.png) | ![The eight new moves](docs/screenshots/355-new-moves.png) |
+
+```mermaid
+flowchart LR
+  subgraph build["buildWorld (authoring grid)"]
+    L["Land masks + regions + roads + rivers"] --> E["Wild land falls back from the world's edge<br/>(nearEdge, a wandering margin)"]
+    E --> C["carveCoast: bays and headlands"]
+    C --> ST["Straits cut (straitAt)<br/>roads → plank bridges"]
+    ST --> SEA["Every cloud tile outside the sect's (inSky) → deep sea<br/>shallows within 2 tiles of shore"]
+    SEA --> A["Placements in the new sea step ashore<br/>onto land joined to the highway"]
+  end
+  A --> M["Magnify ×2 → world tiles"] --> F["Fine grid: Scale2x × 2 = quarter-tile cells"]
+  F --> CH["3D chunks: cells merged tile → quarter → cell"]
+  F --> W["Walking, landing, standing (World)"]
+  OF["oceanFrame: sea to the horizon"] --> V["3D view"]
+  CH --> V
+```
+
+```mermaid
+flowchart TD
+  K["She moves"] --> P{"pastEdge(x, y)?"}
+  P -- yes --> B["blocked · bumpedEdge"] --> G["toast + windback move"]
+  P -- no --> S{"sealed region or barred stair?"}
+  S -- yes --> R["blocked · recoil move"]
+  S -- no --> F{"flying?"}
+  F -- "over water" --> SK["skim"]
+  F -- "over land" --> FL["fly"]
+  F -- "on foot" --> WK["walk / run"]
+```
+
 ### The Southern Heights: a city on a mountain, a forest of stone pillars, a cliff port, ships under sail, people in the air, and moves for every art and technique
 
 The jianghu used to lie flat: a hill here, a mesa there, a city of terraces. Below the Stairlands a new land now stands up out of it, the **Southern Heights** (南岳), with three places built around climbing. **Ships sail** the Sea of Pearls on fixed routes. **Disciples ride their swords** overhead, a **cloud-ship** carries the sects' business from the Azure Cloud to the Hanging City, and immortals drift past on little clouds. Every one of the **Hundred Arts** gets two more moves of its own, and every **technique** gets its own fighting move: the five she had and **four new ones**.
