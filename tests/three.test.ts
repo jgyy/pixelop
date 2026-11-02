@@ -145,7 +145,8 @@ describe("terrain chunks", () => {
     // painted, opaque texels where the ground is
     expect(c.tex[3]).toBe(255);
     expect(c.liquid.cells!.every((k) => k === 0)).toBe(true);
-    // on the fine grid the pond's and the hole's square corners are rounded off by a quarter tile each, so the land covers a tile more of each
+    // on the fine grid (two passes of the upscaler) each of the pond's and the hole's square corners is rounded off by
+    // five sixteenths of a tile: a quarter-tile cell at the corner, less its inner sixteenth, plus a sixteenth on either side of it
     const area = (m: typeof c.top) => {
       let a = 0;
       for (let k = 0; k < m.indices.length; k += 6) {
@@ -154,9 +155,9 @@ describe("terrain chunks", () => {
       }
       return a;
     };
-    expect(area(c.top)).toBeCloseTo(CHUNK * CHUNK - (water - 1) - (voids - 1));
-    expect(area(c.liquid)).toBeCloseTo(water - 1);
-    // most tiles still go down as a single quad: only the rounded ones are split into their four cells
+    expect(area(c.top)).toBeCloseTo(CHUNK * CHUNK - (water - 1.25) - (voids - 1.25));
+    expect(area(c.liquid)).toBeCloseTo(water - 1.25);
+    // most tiles still go down as a single quad: only the rounded ones are split, and only as far as they must be
     expect(c.top.indices.length / 6).toBeLessThan(CHUNK * CHUNK + 40);
   });
 

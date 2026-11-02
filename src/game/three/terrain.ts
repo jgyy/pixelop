@@ -4,7 +4,7 @@ import { groundTexture } from "../art/tiles";
 import { groundTurns, seasonTexel } from "../art/seasons";
 import { LIQUID, TILE_KINDS, type TileKind, type TileMap } from "../world/tilemap";
 import type { Season } from "../world/calendar";
-import { FINE, fineView, unpackHeight, unpackKind } from "../world/refine";
+import { FINE, fineKeys, unpackHeight, unpackKind } from "../world/refine";
 
 /**
  * Terrain for the 3D view, built a chunk at a time from the same tile map the
@@ -159,11 +159,12 @@ const CELLS = CHUNK * FINE;
 const CELL_TEXELS = TEXELS / FINE;
 
 /**
- * A chunk of ground, built on the fine grid (see world/refine.ts): cells
- * half a tile across, each with its own kind and height, so shores, cliff
- * tops and the borders between kinds of ground step in half-size squares.
- * Wherever a tile's four cells agree (most of the land), they are laid as one
- * quad; walls are raised along every cell edge where the land drops.
+ * A chunk of ground, built on the fine grid (see world/refine.ts): cells a
+ * quarter of a tile across, each with its own kind and height, so shores,
+ * cliff tops and the borders between kinds of ground step in quarter-size
+ * squares. Cells that agree are laid as one quad (a whole tile where all of
+ * its cells agree, as most of the land does, else a quarter of it, else cell
+ * by cell); walls are raised along every cell edge where the land drops.
  */
 export function buildChunk(map: GroundMap, ci: number, cj: number, opts: ChunkOpts): Chunk {
   const size = CHUNK * TEXELS;
@@ -171,29 +172,36 @@ export function buildChunk(map: GroundMap, ci: number, cj: number, opts: ChunkOp
   const top = emptyMesh();
   const liquid = emptyMesh(true);
   const walls = emptyMesh(true);
-  const fine = fineView(map, opts.smooth ?? true, map.isBlocked ? (i, j) => map.isBlocked!(i, j) : undefined);
   const f0 = ci * CELLS;
   const g0 = cj * CELLS;
   // the chunk's cells and a ring of one round them, packed, so each is worked out once
   const W = CELLS + 2;
-  const keys = new Int32Array(W * W);
-  for (let y = 0; y < W; y++) for (let x = 0; x < W; x++) keys[y * W + x] = fine.key(f0 + x - 1, g0 + y - 1);
+  const keys = fineKeys(map, f0 - 1, g0 - 1, W, W, opts.smooth ?? true, map.isBlocked ? (i, j) => map.isBlocked!(i, j) : undefined);
   const keyAt = (fi: number, fj: number) => keys[(fj - g0 + 1) * W + (fi - f0 + 1)];
   const U = 1 / FINE;
+  /** Split a square of cells until each piece is all one kind and height: [fi, fj, cells across]. */
+  const split = (fi: number, fj: number, n: number, out: [number, number, number][]) => {
+    const k = keyAt(fi, fj);
+    let same = true;
+    for (let b = 0; b < n && same; b++) for (let a = 0; a < n && same; a++) same = keyAt(fi + a, fj + b) === k;
+    if (same || n === 1) {
+      out.push([fi, fj, n]);
+      return;
+    }
+    const h = n / 2;
+    split(fi, fj, h, out);
+    split(fi + h, fj, h, out);
+    split(fi, fj + h, h, out);
+    split(fi + h, fj + h, h, out);
+  };
   for (let dj = 0; dj < CHUNK; dj++)
     for (let di = 0; di < CHUNK; di++) {
       const i = ci * CHUNK + di;
       const j = cj * CHUNK + dj;
       if (!map.inside(i, j)) continue;
       const season = opts.season(i, j);
-      const fi0 = i * FINE;
-      const fj0 = j * FINE;
-      const k00 = keyAt(fi0, fj0);
-      let whole = true;
-      for (let q = 1; q < FINE * FINE && whole; q++) whole = keyAt(fi0 + (q % FINE), fj0 + Math.floor(q / FINE)) === k00;
-      // a tile whose cells all agree is laid as one top; otherwise each cell is its own
-      const spans: [number, number, number][] = whole ? [[fi0, fj0, FINE]] : [];
-      if (!whole) for (let q = 0; q < FINE * FINE; q++) spans.push([fi0 + (q % FINE), fj0 + Math.floor(q / FINE), 1]);
+      const spans: [number, number, number][] = [];
+      split(i * FINE, j * FINE, FINE, spans);
       for (const [fi, fj, n] of spans) {
         const v = keyAt(fi, fj);
         const kind = unpackKind(v);
@@ -283,6 +291,40 @@ export function buildChunk(map: GroundMap, ci: number, cj: number, opts: ChunkOp
       }
     }
   return { ci, cj, top, tex, size, liquid, walls };
+}
+
+/**
+ * The Encircling Sea beyond the map's edge: four broad sheets of deep water
+ * framing the map, at the sea's own level, so the open world's sea runs on to
+ * the horizon instead of stopping at the last chunk. `reach` is how far out
+ * they go (tiles).
+ */
+export function oceanFrame(w: number, h: number, reach: number): Mesh {
+  const m = emptyMesh(true);
+  const y = -0.25 * LEVEL;
+  const sheet = (x0: number, j0: number, x1: number, j1: number) =>
+    quad(
+      m,
+      [
+        [x0, y, -j0],
+        [x1, y, -j0],
+        [x1, y, -j1],
+        [x0, y, -j1],
+      ],
+      [0, 1, 0],
+      [
+        [x0, j0],
+        [x1, j0],
+        [x1, j1],
+        [x0, j1],
+      ],
+      LIQUID_CODE.deep,
+    );
+  sheet(-reach, -reach, 0, h + reach);
+  sheet(w, -reach, w + reach, h + reach);
+  sheet(0, -reach, w, 0);
+  sheet(0, h, w, h + reach);
+  return m;
 }
 
 const RGB = new Map<string, readonly [number, number, number]>();

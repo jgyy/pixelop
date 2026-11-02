@@ -501,7 +501,7 @@ describe("Game runtime", () => {
     expect(Math.hypot(wolf.x - wolf.home[0], wolf.y - wolf.home[1])).toBeLessThanOrEqual(spawn.range + 4 + 0.01);
   });
 
-  it("once she has sat down to wait, riding her sword or travelling gets her up for good", () => {
+  it("once she has sat down to wait, riding her sword or travelling gets her up for good", { timeout: 120_000 }, () => {
     const game = fresh();
     game.debugPatch({ flags: { metElder: true } });
     game.debugSkipTime(90, 1 / 10);

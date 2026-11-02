@@ -1541,6 +1541,14 @@ export class Game {
         this.toast(stairBarToast(why, this.state));
       }
     }
+    if (w.bumpedEdge) {
+      w.bumpedEdge = false;
+      this.tapTarget = null;
+      if (this.clock - this.sealToastAt > 3) {
+        this.sealToastAt = this.clock;
+        this.toast("The Encircling Sea runs on past the edge of the world. The wind turns her back.");
+      }
+    }
     if (w.bumped) {
       const r = w.bumped;
       w.bumped = null;

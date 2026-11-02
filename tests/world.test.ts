@@ -199,11 +199,11 @@ describe("the continuous world", () => {
       const [x, y] = w.waypoints[id];
       expect(x > 324 * 2 || y > 232 * 2, id).toBe(true);
     }
-    // the Rainbow Bridge spans the gorge the great waterfall falls into
+    // the Rainbow Bridge spans the gorge the great waterfall falls into, where the Strait of the Rising Sun now runs
     const bridge = w.landmarks.find((l) => l.key === "rainbow");
     expect(bridge).toBeDefined();
     expect(walkable.has(Math.floor(bridge!.y) * m.w + Math.floor(bridge!.x))).toBe(true);
-    expect(m.kind(Math.floor(bridge!.x), Math.floor(bridge!.y) - 8)).toBe("void");
+    expect(LIQUID[m.kind(Math.floor(bridge!.x), Math.floor(bridge!.y) - 8)]).toBe("water");
     // the steppe and the coast answer to the harbour, the snowfields to the monastery
     expect(regionAt(w, 460 * 2, 192 * 2)).toBe("harbor");
     expect(regionAt(w, 560 * 2, 100 * 2)).toBe("frost");
