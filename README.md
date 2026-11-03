@@ -109,6 +109,101 @@ New moves: Lin Yue **rummages** in her satchel when the menu opens and **shades 
 - A foundling who runs up the sky bridge before facing the fox is no longer greeted for the "fox blood on her sleeve", or told she has "already met" the beast.
 
 
+### The Rim of the World: the Three Isles of the Immortals, Guixu, an Underworld chart, an autoplay bot and eight new moves
+
+The world grew again, east **and** south (`COARSE_W` 776 → 904, `COARSE_H` 800 → 896), and it is no longer a rectangle. The Encircling Sea used to run out at a ruled band round a box; now it ends at **a ragged, rounded rim** where the water pours over a lip of foam into the clouds below the world, and at the far south-east the rim bends in to **Guixu (归墟), the Returning Ruin**, the abyss every sea drains into. Past Fusang stand **the Three Isles of the Immortals (三仙山)**, Penglai, Fangzhang and Yingzhou, strung on causeways of white jade. The coasts that still ran straight are notched into coves and thrown out in spits. The world map has a second layer, **the Underworld (地下)**, and a whole-world view. And there is a bot that plays the game by itself, for testing a tale thousands of quests long.
+
+| | |
+|---|---|
+| ![The world before: a rectangle of sea](docs/screenshots/373-chart-before.png) | ![The world now: a rounded, ragged rim, the Three Isles, Guixu](docs/screenshots/374-chart-the-rim-of-the-world.png) |
+| ![The whole world at a glance (Z)](docs/screenshots/389b-world-map-the-whole-world.png) | ![The whole Underworld chart](docs/screenshots/391b-world-map-the-whole-underworld.png) |
+| ![The Underworld chart over the Drowned Palace](docs/screenshots/390-world-map-the-underworld.png) | ![The Underworld chart in the west](docs/screenshots/391-world-map-the-underworld-west.png) |
+| ![Penglai, the Golden Terraces](docs/screenshots/375-3d-penglai-the-golden-terraces.png) | ![The Garden of Peaches](docs/screenshots/376-3d-the-garden-of-peaches.png) |
+| ![The White Jade Causeway](docs/screenshots/377-3d-the-white-jade-causeway.png) | ![Fangzhang's Pool of a Hundred Years](docs/screenshots/378-3d-fangzhang-the-pool-of-a-hundred-years.png) |
+| ![Yingzhou of the Ocean Mist](docs/screenshots/379-3d-yingzhou-of-the-ocean-mist.png) | ![The Last Lamp at the lip of Guixu](docs/screenshots/380-3d-the-last-lamp-at-the-lip-of-guixu.png) |
+| ![The rim of the world off Penglai's northern cape](docs/screenshots/381-3d-the-rim-of-the-world.png) | ![The world map over the rim and the Three Isles](docs/screenshots/389-world-map-the-rim-and-the-three-isles.png) |
+| ![Penglai in pixels](docs/screenshots/392-penglai-in-pixels.png) | ![The autoplay bot at the keys](docs/screenshots/393-the-autoplay-bot.png) |
+
+#### A world with no corners (`world/immortals.ts`, `world/oceans.ts`, `world/continent.ts`)
+
+- **The rim** is a superellipse (`rimDepth`) pushed about by two scales of noise, so it wanders tens of tiles in and out along every side and cuts every corner of the old box deeply. Open sea past it, and never within nine tiles of any land, falls away to sky (`drawRim`); a band of deep water and wind runs just inside it, and `pastEdge` now asks the mask the build left (`setRim` / `beyondRim`) instead of a ruled rectangle. Where the land already reached the old edge, the sea stays: the rim never cuts the land.
+- **Guixu** is a ragged hole in the far south-east sea, its lip drawn round in a spiral; the **Last Lamp** stands on a red rock at its edge, reached by the **Pilgrims' Pier** from Yingzhou.
+- **Ragged shores** (`raggedShores`): coastal wild land is peeled back from the sea a ring at a time by a three-scale bite (broad bays, coves in them, nicks in the coves), and a tile goes only if taking it leaves the land round it in one piece (a *simple point* test), so a cove never cuts a neck of land through and no isle is lost; anyone a bite still cut off gets their land back. Then spits and capes grow out from wild shores a tile at a time, each keeping four tiles from any other landmass (so no two continents join), none in the Nine-Arch strait, none in the Sea of Pearls' lagoons.
+- **The Three Isles**: each is a set of noise-warped lobes with its own biome (**immortalisles**: jade moss, peach, pine and crystal), a peak, and a sanctum on its heights: Penglai's **Golden Terraces** and **Garden of Peaches**, Fangzhang's **Pool of a Hundred Years**, Yingzhou's **jade meadow** in the mist. The **White Jade Causeway** sets out from the Valley of Sunrise and runs isle to isle; roads ramp up from each landfall to its sanctum. Twelve named immortals and servants, 120 townsfolk (all mortal: the jianghu still keeps ten mortals to a cultivator), cranes wheeling round Penglai and an immortal riding his cloud from isle to isle.
+- Every older position is still the same spot: the world only grew east and south.
+
+```mermaid
+flowchart LR
+  subgraph build["buildWorld (authoring grid, 904 × 896)"]
+    L["lowlands() + fusangLand()<br/>+ immortalLand(): warped lobes"] --> CC["carveCoast · straits · sea<br/>jade causeways · the Last Lamp's rock"]
+    CC --> AC["applyCoast (after placement)"]
+    AC --> RS["raggedShores<br/>peel coves (simple points only)<br/>→ reconnect anyone cut off<br/>→ grow spits (never joining landmasses)"]
+    RS --> RIM["drawRim: sea where rimDepth is below 0<br/>and Guixu's hole → sky<br/>band of wind → setRim(mask)"]
+  end
+  RIM --> F["magnify ×2 → fine grid<br/>(sky kept past the rim)"]
+  RIM -. "beyondRim / pastEdge" .-> RT["runtime: the wind turns her back,<br/>spray on the updraft, the map's falls"]
+```
+
+#### The Underworld chart, and the whole world at a glance
+
+The world map (M) has two layers. **U** (or the 地上 / 地下 tabs) turns it over: the **Overworld** is the lands and the regions to fly to, with the sea pouring over the rim in curtains of foam and Guixu turning; the **Underworld** is the living rock under them, cut away like a cavern, with black water under the sea, magma under the ash, old ice under the snows, glowing roots under the forests, every **deep** marked where its mouth opens above, aglow in its own colour, and the **dragon veins** (地脉) pulsing gold between them, all draining down to the Nine Springs and Guixu's throat. Arrow keys fly between open deeps; **E** lands by the chosen deep's mouth and goes down into it with a raised torch (after any scene her landing brings on). A buried mouth, or a deep under a sealed region, is marked SEALED. **Z** shows either chart whole, shrunk to fit the screen, with the regions (or deeps) and continents named where their names fit.
+
+```mermaid
+stateDiagram-v2
+  [*] --> Overworld: M
+  Overworld --> Underworld: U
+  Underworld --> Overworld: U
+  Overworld --> Flying: pick a region
+  Underworld --> Flying: pick an open deep
+  Flying --> Overworld: arrives over a region
+  Flying --> Underworld: arrives over a deep's mouth
+  Overworld --> Explore: E · land
+  Underworld --> Cave: E · go down (the arrival scene first, if any)
+  note right of Overworld: Z toggles the whole-world view on either chart
+```
+
+#### The autoplay bot (`game/bot/autoplay.ts`, `npm run autoplay`, F9)
+
+The tale is now well over ten thousand quests, far too long to test by hand. **`AutoPlayer`** plays Lin Yue by itself, driving the game only through what a player has (keys, taps, the battle menu, the answers to questions) and reading only what a player sees (markers over heads, shrines, beasts, landmarks, the HUD's quest lines), so what it finds broken a player would find broken.
+
+- **In the browser:** press **F9** (or open `/?autoplay=1`; add `&travel=teleport`, `&choose=random`, `&assist=1`) and it plays at the keys, with a badge saying what it is doing; F9 or a click on the badge stops it. It is on `window.__pixelop.bot()` for tests.
+- **Headless:** `npm run autoplay -- --minutes 20 --seed 3 --choose random --travel teleport --assist --out report.json` builds the world in Node, plays that much game time (about seven times faster than real time) and prints a report: quests done in every thread, flags set, people spoken to, battles won and lost, choices made, jumps, **stalls** (with every quest line on the HUD when nothing had moved the tale on for a while) and **every exception the game threw** (exit code 1 if any, so it can run in CI).
+
+```mermaid
+flowchart TD
+  T["tick() — once a frame, before game.update"] --> M{game.mode}
+  M -- scene --> Q{"a question?"}
+  Q -- yes --> C["answer by policy<br/>first · cycle · random"]
+  Q -- no --> R["read on / skip the talk"]
+  M -- battle --> B["heal when low · qi when dry<br/>else the strongest technique it can pay for"]
+  M -- meditate --> TR["at the bottleneck: B (tribulation)<br/>else sit a while and get up"]
+  M -- "worldmap / shop" --> X["close it"]
+  M -- explore --> P{"pick a goal"}
+  P --> P1["at the bottleneck → nearest shrine, B"]
+  P --> P2["someone with news (a marker) in an open region"]
+  P --> P3["a beast not far above her"]
+  P --> P4["a landmark or region not yet seen"]
+  P1 & P2 & P3 & P4 --> W["walk at it · blocked 3 s → onto the sword<br/>· stuck 9 s (or far, with travel: teleport) → jump beside it"]
+  W --> A["arrive: talk (E) · fight · kneel (E/B) · look"]
+  S["no progress for stallAfter s"] --> L["log a stall with every quest line<br/>(assist: lift her a stage)"]
+```
+
+A ten-minute headless run from a new game reaches Chapter II with the halls, tiers, the war, the founding, the contention and the notices all begun, 90-odd conversations and a dozen battles, and no exceptions.
+
+#### Eight new moves, and the air about her
+
+**rimgaze** (at the lip of the world: a lean out over the falls, robes thrown up by the updraft), **peachpick** (up on her toes into the branches, and a sniff of the peach), **poolsip** (one knee down, the Pool of a Hundred Years cupped to her lips), **cranestance** (白鹤亮翅, one knee high and the arms open like wings), **torchraise** (a torch swept up against the dark of a deep), **cavepeer** (crouched at a cave mouth, a hand at her ear), **elixirbreath** (the elixir's steam drawn in to the dantian) and **turtlebow** (a bow to the turtle under the isle). She uses them in the immortals' scenes, when she goes down into a deep, and when she stands idle at the rim, on the isles or underground; the immortals, the lamp-keeper, miners and pilgrims share the ones that suit them. **New effects:** spray blown up over the lip on the updraft when she stands near the rim (thicker the nearer she is), jade motes drifting up out of the grass on the Three Isles, torch sparks as she goes down into a deep; on the map, foam sliding down the rim's falls and mist where they vanish, Guixu's slow spiral, the Underworld's magma embers, roof-drips, breathing chamber-glows and the pulses running along the dragon veins.
+
+| The new moves | |
+|---|---|
+| ![](docs/art/rim-moves.gif) | ![Looking over the lip](docs/screenshots/382-3d-looking-over-the-lip.png) ![The crane stance](docs/screenshots/384-3d-the-crane-stance.png) ![Raising a torch in the deep](docs/screenshots/388-3d-raising-a-torch-in-the-deep.png) |
+| ![A bow to the turtle](docs/screenshots/383-3d-a-bow-to-the-turtle.png) ![Breathing the elixir's steam](docs/screenshots/385-3d-breathing-the-elixirs-steam.png) | ![Picking a peach](docs/screenshots/386-3d-picking-a-peach.png) ![A sip of a hundred years](docs/screenshots/387-3d-a-sip-of-a-hundred-years.png) |
+
+#### The immortals' gifts
+
+The three masters each give her one gift on her first visit: **Anqi of Penglai** a breath of the elixir's steam (cultivation), **Old Fang of the Square Isle** a sip of the Pool of a Hundred Years (insight +2), **Lady Ying** a sprig of jade grass (three of each pill). Once she has met all three, the **Watcher of the Last Lamp** tells her what the rim of the world is, and why he keeps a lamp lit at the lip of Guixu (insight, and cultivation). Each has a marker over their head until then.
+
+
 ### The Contention of the Daos: Fusang, a world of powers with secrets, Daos that are law, and coasts that are no longer boxes
 
 The world grew east. Across the **Strait of Dawn** from Wavecrest Harbour lies a fifth continent, **Fusang (扶桑洲), the Dawn Continent**, where the sun comes up through the branches of the Fusang tree and the **Synod of Ten Seats** rules what each Great Dao *means*. Every coast was redrawn too: the old continents were rectangles with ruled edges and ruler-straight straits; now their shores are thrown out in capes and bitten into bays, and the straits meander.

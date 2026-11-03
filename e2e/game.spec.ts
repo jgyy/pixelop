@@ -534,4 +534,36 @@ test.describe("Jade Lotus Ascension", () => {
     await page.keyboard.press("KeyQ");
     await expect(page.getByTestId("battle-menu")).toContainText("Cloudstep Whirlwind");
   });
+  test("the Underworld chart: turn the map over, fly to a deep's mouth and go down into it", async ({ page }) => {
+    await startNewGame(page);
+    await patch(page, { flags: { metElder: true, villageSaved: true, villageArrived: true, metZhou: true } });
+    await page.keyboard.press("KeyM");
+    await expect(page.getByTestId("worldmap")).toBeVisible();
+    await page.getByTestId("map-layer-under").click();
+    await expect(page.getByTestId("worldmap")).toContainText("The Underworld");
+    // the Dragon Vein is still buried until the earth shakes it loose; the Sunken Grotto under the Mistmarsh is open
+    await expect(page.getByTestId("deep-vein")).toBeDisabled();
+    await expect(page.getByTestId("deep-grotto")).toBeEnabled();
+    await page.getByTestId("deep-grotto").click();
+    await expect.poll(() => page.evaluate(() => window.__pixelop!.game.worldMap?.travelling ?? false), { timeout: 15_000 }).toBe(false);
+    await expect(page.getByTestId("deep-grotto")).toContainText("Go down");
+    await page.keyboard.press("Enter");
+    // (landing in the Mistmarsh for the first time has a word to say first; she goes down when it is said)
+    await finishDialogue(page);
+    await expect.poll(() => page.evaluate(() => window.__pixelop!.game.inside), { timeout: 15_000 }).toBe("grotto");
+    await expect(page.getByTestId("place")).toContainText("Sunken Grotto");
+  });
+  test("the autoplay bot: F9 sets it playing, it talks and walks on its own, and F9 stops it", async ({ page }) => {
+    const errors: string[] = [];
+    page.on("pageerror", (e) => errors.push(String(e)));
+    await startNewGame(page, false);
+    await page.keyboard.press("F9");
+    await expect(page.getByTestId("autoplay-badge")).toBeVisible();
+    // it reads (skips) the opening and goes to speak with Elder Mo, who unlocks the world map
+    await expect.poll(async () => (await state(page)).flags.metElder ?? false, { timeout: 60_000 }).toBe(true);
+    await page.keyboard.press("F9");
+    await expect(page.getByTestId("autoplay-badge")).toBeHidden();
+    expect(await page.evaluate(() => window.__pixelop!.bot?.() ?? null)).toBeNull();
+    expect(errors).toEqual([]);
+  });
 });

@@ -228,7 +228,16 @@ export type AnimId =
   | "mudra"
   | "daovow"
   | "daodoubt"
-  | "steadyheart";
+  | "steadyheart"
+  // the rim of the world, the Three Isles and the Underworld
+  | "rimgaze"
+  | "peachpick"
+  | "poolsip"
+  | "cranestance"
+  | "torchraise"
+  | "cavepeer"
+  | "elixirbreath"
+  | "turtlebow";
 
 export interface Anim {
   fps: number;
@@ -2272,6 +2281,181 @@ human.skipstone = {
   },
 };
 
+// at the lip of the world: a step to the very edge, a lean out over the falls, robes and hair thrown up by the updraft, an arm
+// out for balance, then a step back
+human.rimgaze = {
+  n: 12,
+  fps: 6,
+  loop: false,
+  pose: (i) => {
+    const k = [0, 0.4, 0.8, 1, 1, 1, 1, 1, 1, 0.8, 0.4, 0][i];
+    const gust = Math.sin(i * 1.3) * 0.5;
+    return {
+      t: i,
+      lean: 0.3 * k,
+      bob: -0.3 * k,
+      handL: [-5.4 - k * 1.6, 1.2, 12.6 + k * 2.4],
+      handR: [2.2, 3 + 2 * k, 12 + 10 * k],
+      footL: [-1.8, 1.6 * k, 0],
+      footR: [1.8, -0.8, 0],
+      eyes: i === 6 ? "blink" : "open",
+      mouth: k > 0.9 ? "open" : "neutral",
+      // the wind comes up from below, off the falls
+      wind: [gust, 0.4, 1.6 * k],
+    };
+  },
+};
+// picking a peach of the immortals: up on her toes, a reach into the branches, the peach cupped down, and a sniff of it
+human.peachpick = {
+  n: 10,
+  fps: 7,
+  loop: false,
+  pose: (i) => {
+    const up = [0, 0.5, 1, 1, 1, 0.6, 0.2, 0, 0, 0][i];
+    const sniff = i >= 6 ? 1 : 0;
+    return {
+      t: i,
+      lift: up * 0.8,
+      lean: -0.06 * up,
+      handR: sniff ? [0.8, 4.4, 21] : [2.4, 3.6, 13 + up * 14],
+      handL: [-2.6, 2 + up * 1.6, 12 + up * 6],
+      held: i >= 4 ? "pebble" : undefined,
+      footL: [-1.6, 0, 0],
+      footR: [1.6, 0, 0],
+      eyes: sniff && i >= 7 ? "closed" : "open",
+      mouth: sniff ? "smile" : "neutral",
+      wind: [0, -0.2, 0],
+    };
+  },
+};
+// a sip from the Pool of a Hundred Years: down on one knee, both hands cupped into the water and raised to her lips, a breath
+// held a long moment, eyes shut
+human.poolsip = {
+  n: 12,
+  fps: 6,
+  loop: false,
+  pose: (i) => {
+    const low = [0, 0.6, 1, 1, 1, 1, 1, 1, 1, 1, 0.6, 0][i];
+    const lift = [0, 0, 0, 0, 0.5, 1, 1, 1, 1, 0.5, 0, 0][i];
+    return {
+      t: i,
+      stance: low > 0.5 ? "kneel" : "stand",
+      lean: 0.3 * low - lift * 0.18,
+      handL: [-0.8, 5 - lift * 1.4, 4 + lift * 15],
+      handR: [0.8, 5 - lift * 1.4, 4 + lift * 15],
+      eyes: lift > 0.9 ? "closed" : "open",
+      mouth: lift > 0.4 ? "open" : "neutral",
+      wind: [0, -0.2, 0],
+    };
+  },
+};
+// the crane stance (白鹤亮翅): one knee drawn up high, the arms opened out like wings, held, and a slow settle
+human.cranestance = {
+  n: 12,
+  fps: 6,
+  loop: false,
+  pose: (i) => {
+    const k = [0, 0.5, 1, 1, 1, 1, 1, 1, 1, 1, 0.5, 0][i];
+    const sway = Math.sin(i * 0.9) * 0.4 * k;
+    return {
+      t: i,
+      lift: 0.2 * k,
+      handL: [-4.4 - 4 * k, 1 - k, 11.2 + 9 * k + sway],
+      handR: [4.4 + 4 * k, 1 - k, 11.2 + 4 * k - sway],
+      footL: [-1.6, 0, 0],
+      footR: [1.4, 2.4 * k, 6.4 * k],
+      eyes: i >= 5 && i <= 7 ? "closed" : "open",
+      mouth: "neutral",
+      wind: [sway, -0.2, 0.3 * k],
+    };
+  },
+};
+// raising a torch against the dark of the deep: the torch swept up overhead, held high while she looks round, and lowered
+human.torchraise = {
+  n: 10,
+  fps: 7,
+  loop: false,
+  pose: (i) => {
+    const up = [0, 0.4, 0.8, 1, 1, 1, 1, 0.8, 0.4, 0][i];
+    const look = Math.sin(i * 0.8) * 0.8;
+    return {
+      t: i,
+      held: "torch",
+      lean: -0.05 * up,
+      handR: [2.4 + look, 2 + up * 1.4, 12 + up * 16],
+      handL: [-4.2, 1.6, 11.6 + up * 1.4],
+      footL: [-1.8, 0.4, 0],
+      footR: [1.8, -0.4, 0],
+      eyes: up > 0.9 && i % 3 === 0 ? "blink" : "open",
+      mouth: "neutral",
+      wind: [look * 0.4, -0.2, 0.2],
+    };
+  },
+};
+// peering down into a cave mouth: a crouch, a hand on the knee, a lean in and the other hand cupped at the ear, listening
+human.cavepeer = {
+  n: 10,
+  fps: 6,
+  loop: false,
+  pose: (i) => {
+    const low = [0, 0.5, 1, 1, 1, 1, 1, 1, 0.5, 0][i];
+    return {
+      t: i,
+      bob: -1.6 * low,
+      lean: 0.36 * low,
+      handL: [-2.4, 3 * low, 10 - 3 * low],
+      handR: [5, 1.4, 11.2 + 10 * low],
+      footL: [-2, 1.4 * low, 0],
+      footR: [2, -0.6, 0],
+      eyes: low > 0.9 && i >= 4 && i <= 6 ? "closed" : "open",
+      mouth: "neutral",
+      wind: [0, -0.3, 0],
+    };
+  },
+};
+// breathing in the elixir's steam: the arms drawn in from wide to the dantian, the chest lifting, a long breath let go
+human.elixirbreath = {
+  n: 12,
+  fps: 6,
+  loop: false,
+  pose: (i) => {
+    const draw = [0, 0.3, 0.6, 0.9, 1, 1, 1, 0.8, 0.6, 0.4, 0.2, 0][i];
+    const breath = [0, 0.3, 0.6, 1, 1, 1, 0.8, 0.4, 0.2, 0, 0, 0][i];
+    return {
+      t: i,
+      lift: breath * 0.3,
+      lean: -0.05 * breath,
+      handL: [-7 + draw * 5.6, 3 - draw * 0.6, 14 - draw * 3],
+      handR: [7 - draw * 5.6, 3 - draw * 0.6, 14 - draw * 3],
+      eyes: draw > 0.6 ? "closed" : "open",
+      mouth: breath > 0.8 ? "open" : "smile",
+      flash: draw > 0.9 ? 0.2 : 0,
+      aura: { kind: "wind", k: draw * 0.7 },
+      wind: [0, 0, 0.4 * breath],
+    };
+  },
+};
+// a bow to the turtle under the isle: a step back, the hands folded, a deep slow bow to the ground and up again
+human.turtlebow = {
+  n: 11,
+  fps: 6,
+  loop: false,
+  pose: (i) => {
+    const k = [0, 0.3, 0.6, 1, 1, 1, 1, 0.6, 0.3, 0, 0][i];
+    return {
+      t: i,
+      stance: k > 0.8 ? "kneel" : "stand",
+      lean: 0.62 * k,
+      bob: -0.6 * k,
+      handL: [-0.6, 4.4 + 2 * k, 12.8 - 6 * k],
+      handR: [0.6, 4.4 + 2 * k, 12.8 - 6 * k],
+      eyes: k > 0.5 ? "closed" : "open",
+      mouth: "neutral",
+      wind: [0, -0.2, 0],
+    };
+  },
+};
+
 // presenting credentials: a step in, a deep bow, the sealed scroll held out level in both hands, then straightening
 human.envoy = {
   n: 10,
@@ -3205,6 +3389,15 @@ const MORE: [AnimId, HumanId[]][] = [
   ["daovow", ["heroine", "discipleM", "discipleF"]],
   ["daodoubt", ["heroine", "swordsman"]],
   ["steadyheart", ["heroine", "monk", "abbot"]],
+  // the rim of the world, the Three Isles and the Underworld
+  ["rimgaze", ["heroine", "lampkeeper", "captain"]],
+  ["peachpick", ["heroine", "orchardist", "farmer", "child"]],
+  ["poolsip", ["heroine", "monk", "hermit"]],
+  ["cranestance", ["heroine", "hermit", "yearelder", "monk", "boy"]],
+  ["torchraise", ["heroine", "miner", "lampkeeper"]],
+  ["cavepeer", ["heroine", "miner", "scholar"]],
+  ["elixirbreath", ["heroine", "hermit", "yearelder", "monk"]],
+  ["turtlebow", ["heroine", "fishwife", "moonlady", "monk"]],
   // and what the courts' people are seen doing in the tale
   ["whisper", ["emperorliang"]],
   ["stargaze", ["emperorqi"]],

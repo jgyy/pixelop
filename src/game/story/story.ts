@@ -10,6 +10,7 @@ import { giveAttire } from "./wardrobe";
 import { sectHasNews, sectNpcScript, sectPreBattle, sectVictory, veinEpilogue } from "./sects";
 import { grandHallErrand, grandHallHasNews, grandHallNpcScript } from "./grandhalls";
 import { crowdNpcScript } from "./crowd";
+import { immortalHasNews, immortalNpcScript } from "./immortals";
 import { veinFate } from "../world/caves";
 import { calendarAt, worldTime } from "../world/calendar";
 import { almanacMasterScript, yearEpilogue, yearHasNews } from "./year";
@@ -236,7 +237,7 @@ export function hasNews(key: string, g: GameState): boolean {
     case "almanac":
       return yearHasNews(key, g, calendarAt(worldTime(g)));
     default:
-      return sectHasNews(key, g) ?? grandHallHasNews(key, g) ?? false;
+      return sectHasNews(key, g) ?? grandHallHasNews(key, g) ?? immortalHasNews(key, g);
   }
 }
 
@@ -872,7 +873,7 @@ export function npcScript(key: string, g: GameState): Step[] {
     case "restporter":
       return [named("porter", "Porter Lao", pick(g, ["Eating. Talking costs breath, and breath costs noodles.", "From the terraces to the sands with tea, from the sands to the harbour with salt. Then home to sleep for a week.", "My pole's older than me. My father's. Same shoulders, too."])), { anim: "restporter", name: "eat" }];
     default:
-      return warNpcScript(key, g) ?? roadNpcScript(key, g) ?? hallsNpcScript(key, g) ?? tiersNpcScript(key, g) ?? peoplesNpcScript(key, g) ?? seasNpcScript(key, g) ?? courtsNpcScript(key, g) ?? foundingNpcScript(key, g) ?? contentionNpcScript(key, g) ?? heightsNpcScript(key, g) ?? tierFolkScript(key, g) ?? quarterNpcScript(key, g) ?? sectNpcScript(key, g) ?? grandHallNpcScript(key, g) ?? townNpcScript(key, g) ?? tideNpcScript(key, g) ?? crowdNpcScript(key, g) ?? [say("narrator", "…")];
+      return warNpcScript(key, g) ?? roadNpcScript(key, g) ?? hallsNpcScript(key, g) ?? tiersNpcScript(key, g) ?? peoplesNpcScript(key, g) ?? seasNpcScript(key, g) ?? courtsNpcScript(key, g) ?? foundingNpcScript(key, g) ?? contentionNpcScript(key, g) ?? heightsNpcScript(key, g) ?? tierFolkScript(key, g) ?? quarterNpcScript(key, g) ?? sectNpcScript(key, g) ?? grandHallNpcScript(key, g) ?? townNpcScript(key, g) ?? tideNpcScript(key, g) ?? immortalNpcScript(key, g) ?? crowdNpcScript(key, g) ?? [say("narrator", "…")];
   }
 }
 

@@ -74,6 +74,9 @@ export const SKY_LANES: Lane[] = [
   { key: "monk-cloud", name: "a wandering immortal on his cloud", char: "monk", anim: "cloudride", speed: 1.2, alt: 4, n: 1, pts: GROVES.map((g) => g.c) },
   // and cranes over the Sea of Pearls
   { key: "cranes-sea", name: "a sea crane", char: "crane", anim: "fly", speed: 2.8, alt: 6, n: 3, pts: ring([500, 660], 80, 14, 0.3) },
+  // and over the Three Isles of the Immortals: cranes round Penglai's golden terraces, and an immortal riding his cloud from isle to isle
+  { key: "cranes-penglai", name: "an immortal's crane", char: "crane", anim: "fly", speed: 2.6, alt: 9, n: 5, pts: ring([838, 214], 34, 12, 0.2) },
+  { key: "immortal-isles", name: "an immortal on his cloud", char: "hermit", anim: "cloudride", speed: 1.6, alt: 7, n: 1, pts: [[838, 204], [852, 330], [852, 420], [836, 520], [826, 596], [848, 470], [860, 300]] },
 ];
 
 /** Can a ship pass this tile (open water, or under a plank bridge)? */

@@ -13,7 +13,8 @@ import { isWorldDef, regionAt, type WorldDef } from "../world/continent";
 import { regionDistance, WORLD_SCALE } from "../world/layout";
 import { LIQUID, TILE_KINDS, type TileMap } from "../world/tilemap";
 import { FINE, fineFloor, fineView, unpackHeight, unpackKind, type FineView } from "../world/refine";
-import { pastEdge } from "../world/oceans";
+import { beyondRim, pastEdge } from "../world/oceans";
+import { immortalLand } from "../world/immortals";
 import { applyPatches, patchMaxHeight } from "../world/terrain";
 import { applyHallLayer, hallMaxHeight, inHall, insideFlag, STOREY, storeyFlag, type GrandHall, type HallLayer } from "../world/grandhalls";
 import { ENEMIES, type EnemyId } from "../engine/enemies";
@@ -869,6 +870,7 @@ export class World {
     const rain = !this.interior && !this.cave && rainingAt(this.time) > 0.3 && CLIMATE[this.regionAt(h.x, h.y)] === "temperate";
     const outdoors = !this.interior && !this.cave;
     const fidgets = outdoors ? [...NPC_FIDGETS, ...(SEASON_FIDGETS[cal.season] ?? []), ...(night ? NIGHT_FIDGETS : [])] : NPC_FIDGETS;
+    if (outdoors && this.world) this.ambience(dt, t);
     for (const a of this.actors) {
       if (a.opacity !== undefined && a.opacity < 1) a.opacity = Math.min(1, a.opacity + dt * 1.5);
       if (a.holdUntil !== undefined && t >= a.holdUntil) {
@@ -1134,6 +1136,35 @@ export class World {
       a.x += (tx - a.x) * 0.3;
       a.y += (ty - a.y) * 0.3;
     }
+  }
+
+  /** Where she stands, as the ambient effects see it (looked up twice a second). */
+  private place: { at: number; isle: boolean; rim: number } = { at: -99, isle: false, rim: 0 };
+
+  /**
+   * The air about her: on the Three Isles, motes of jade light drifting up out
+   * of the grass; near the rim of the world, the spray of the falls blown up
+   * over the lip on the updraft (thicker the nearer she stands).
+   */
+  private ambience(dt: number, t: number): void {
+    const h = this.hero;
+    const S = 2;
+    if (t - this.place.at > 0.5) {
+      const [ci, cj] = [Math.floor(h.x / S), Math.floor(h.y / S)];
+      let rim = 0;
+      for (const r of [6, 10, 16, 24])
+        if ([[r, 0], [-r, 0], [0, r], [0, -r], [r, r], [-r, r], [r, -r], [-r, -r]].some(([dx, dy]) => beyondRim(ci + dx, cj + dy))) {
+          rim = 1 - r / 30;
+          break;
+        }
+      this.place = { at: t, isle: immortalLand(ci, cj), rim };
+    }
+    const x = isoX(h.x, h.y);
+    const y = isoY(h.x, h.y, h.z);
+    if (this.place.isle && Math.random() < dt * 9)
+      this.fx.emit({ x: x + (Math.random() - 0.5) * 160, y: y + (Math.random() - 0.3) * 70, vx: (Math.random() - 0.5) * 4, vy: -8 - Math.random() * 8, life: 1.6 + Math.random(), color: Math.random() < 0.6 ? "#9ff5de" : "#ffe9a8", size: Math.random() < 0.2 ? 2 : 1 });
+    if (this.place.rim > 0 && Math.random() < dt * 40 * this.place.rim)
+      this.fx.emit({ x: x + (Math.random() - 0.5) * 220, y: y + 40 + Math.random() * 40, vx: (Math.random() - 0.5) * 14, vy: -40 - Math.random() * 40, life: 1.2 + Math.random() * 0.8, color: Math.random() < 0.5 ? "#ffffff" : "#d8f0ff", size: Math.random() < 0.35 ? 2 : 1, drag: 0.6 });
   }
 
   /** Footprints in sand and snow, ripples under a skimming sword (call as the hero moves). */

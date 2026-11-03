@@ -45,6 +45,14 @@ import type { AreaId, OldAreaId } from "./ids";
  * world/fusang.ts). The world only grew to the east, so every older position
  * is still the same spot.
  *
+ * And last it grew both east and south, by another hundred and twenty-eight
+ * columns and ninety-six rows of sea: past Fusang lie the Three Isles of the
+ * Immortals, Penglai, Fangzhang and Yingzhou, joined by causeways of white
+ * jade, and at the far south-east Guixu, the abyss the sea drains into (see
+ * world/immortals.ts). The world no longer ends at a ruled line, either: the
+ * Encircling Sea runs out at a ragged, rounded rim where the water falls
+ * away into the clouds. Every older position is still the same spot.
+ *
  * The world is laid out on an "authoring" grid (the hand-built region
  * templates and the landmarks are written in it) and then magnified
  * WORLD_SCALE times: every authoring tile becomes WORLD_SCALE × WORLD_SCALE
@@ -53,8 +61,8 @@ import type { AreaId, OldAreaId } from "./ids";
 export const WORLD_SCALE = 2;
 
 /** The authoring grid the world is laid out on. */
-export const COARSE_W = 776;
-export const COARSE_H = 800;
+export const COARSE_W = 904;
+export const COARSE_H = 896;
 export const WORLD_W = COARSE_W * WORLD_SCALE;
 export const WORLD_H = COARSE_H * WORLD_SCALE;
 
@@ -142,8 +150,8 @@ export const DOMAIN: Partial<Record<AreaId, [number, number, number, number][]>>
   terraces: [[140, 238, 280, 556], [140, 556, 320, 660]],
   desert: [[290, 330, 640, 452], [290, 452, 480, 556]],
   // the harbour also holds the Tidewater Reach in the south-east, round the port of Hailing
-  // (and, across the Strait of Dawn, all of Fusang: the causeway sets out from the harbour's coast)
-  harbor: [[350, 150, 640, 330], [470, 456, 640, 556], [320, 556, 648, 800], [640, 40, 776, 800]],
+  // (and, across the Strait of Dawn, all of Fusang: the causeway sets out from the harbour's coast; and past Fusang the Three Isles and Guixu)
+  harbor: [[350, 150, 640, 330], [470, 456, 640, 556], [320, 556, 648, 896], [640, 40, 904, 896]],
   frost: [[350, 52, 640, 146]],
 };
 

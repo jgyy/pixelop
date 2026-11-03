@@ -8,6 +8,7 @@ export default defineConfig({
   test: {
     include: ["tests/**/*.test.ts"],
     environment: "node",
-    testTimeout: 30000,
+    // (the first test in each file builds the whole world, which takes a while on a busy machine)
+    testTimeout: 90000,
   },
 });

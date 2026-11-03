@@ -173,10 +173,11 @@ describe("the continuous world", () => {
     expect(falls).toBeGreaterThan(0);
   });
 
-  it("is four times the version 4 world across, has grown south and then east (Fusang) beyond that, with its landmarks on open land", () => {
-    // the old world is four version 4 worlds across, and Fusang's hundred and twenty-eight authoring columns were added east of it
-    expect(WORLD_W).toBe(324 * 4 + 128 * WORLD_SCALE);
-    expect(WORLD_H).toBe(800 * WORLD_SCALE);
+  it("is four times the version 4 world across, has grown south and then east (Fusang, then the Three Isles) beyond that, with its landmarks on open land", () => {
+    // the old world is four version 4 worlds across; Fusang's hundred and twenty-eight authoring columns were added east of it,
+    // and then another hundred and twenty-eight for the Three Isles, with ninety-six rows of the southern sea below
+    expect(WORLD_W).toBe(324 * 4 + 256 * WORLD_SCALE);
+    expect(WORLD_H).toBe(896 * WORLD_SCALE);
     expect(WORLD_H).toBeGreaterThan(232 * 4);
     expect(walkable.size).toBeGreaterThan(600000);
     expect(w.landmarks.length).toBeGreaterThanOrEqual(18);

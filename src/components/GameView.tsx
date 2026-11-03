@@ -9,12 +9,13 @@ import { CanvasSurface } from "@/game/runtime/CanvasSurface";
 import { pushSave } from "@/lib/saveClient";
 import { DEFAULT_SETTINGS, loadSettings, saveSettings, type Settings } from "@/lib/settings";
 import type { WorldView3D } from "@/game/three/WorldView3D";
+import { AutoPlayer } from "@/game/bot/autoplay";
 import { GameMenu } from "./GameMenu";
 import { useCanvasLoop } from "./useCanvasLoop";
 
 declare global {
   interface Window {
-    __pixelop?: { game: Game; save: () => Promise<boolean> };
+    __pixelop?: { game: Game; save: () => Promise<boolean>; bot?: () => AutoPlayer | null; setBot?: (on: boolean) => void };
   }
 }
 
@@ -36,12 +37,42 @@ export function GameView({ initial, intro, onQuit }: { initial: GameState; intro
   const [ui, setUi] = useState<UiSnapshot>(() => game.snapshot());
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const typing = useRef<{ done: boolean; finish: () => void }>({ done: true, finish: () => undefined });
+  // the autoplay bot (F9, or ?autoplay=1 in the address): it plays at the keys while it is on (see game/bot/autoplay.ts)
+  const bot = useRef<AutoPlayer | null>(null);
+  const [botLine, setBotLine] = useState<string | null>(null);
+  const setBot = useCallback(
+    (on: boolean) => {
+      if (on === !!bot.current) return;
+      if (on) {
+        const q = typeof window === "undefined" ? null : new URLSearchParams(window.location.search);
+        bot.current = new AutoPlayer(game, { travel: q?.get("travel") === "teleport" ? "teleport" : "walk", choose: (q?.get("choose") as "first" | "cycle" | "random" | null) ?? "cycle", read: q?.get("read") === "1", assist: q?.get("assist") === "1", onEvent: (e) => console.debug(`[autoplay ${e.t}s] ${e.kind}: ${e.text}`) });
+        setBotLine("starting");
+      } else {
+        bot.current = null;
+        game.steerTo(null);
+        setBotLine(null);
+      }
+    },
+    [game],
+  );
+  useEffect(() => {
+    const start = window.setTimeout(() => new URLSearchParams(window.location.search).get("autoplay") === "1" && setBot(true), 0);
+    const id = window.setInterval(() => {
+      const b = bot.current;
+      if (b) setBotLine(`${b.doing}${b.recent(1)[0] ? ` · ${b.recent(1)[0].text}` : ""}`);
+    }, 500);
+    return () => {
+      window.clearTimeout(start);
+      window.clearInterval(id);
+    };
+  }, [setBot]);
 
   useEffect(() => game.subscribe(setUi), [game]);
 
   const scale = useCanvasLoop(
     canvasRef,
     (s, _t, dt) => {
+      bot.current?.tick();
       game.update(dt);
       const [dx, dy] = game.getShake();
       const v = view3d.current;
@@ -125,9 +156,13 @@ export function GameView({ initial, intro, onQuit }: { initial: GameState; intro
   }, [game]);
 
   useEffect(() => {
-    window.__pixelop = { game, save };
+    window.__pixelop = { game, save, bot: () => bot.current, setBot };
     const down = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement) return;
+      if (e.code === "F9") {
+        e.preventDefault();
+        return setBot(!bot.current);
+      }
       // browser shortcuts (Ctrl+F to find, Ctrl+R to reload, Cmd+C to copy) are not game keys
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (CAPTURE.has(e.code)) e.preventDefault();
@@ -167,7 +202,7 @@ export function GameView({ initial, intro, onQuit }: { initial: GameState; intro
       window.clearInterval(autosave);
       if (window.__pixelop?.game === game) delete window.__pixelop;
     };
-  }, [game, save, turnCamera, resetCamera]);
+  }, [game, save, turnCamera, resetCamera, setBot]);
 
   const onCanvasPointer = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (view3d.current && (e.button === 2 || e.button === 1)) {
@@ -212,6 +247,11 @@ export function GameView({ initial, intro, onQuit }: { initial: GameState; intro
       />
       {view3dOn && settings.compass && ui.mode === "explore" && !ui.dialog && <Compass view={view3d} />}
       <div className="overlay">
+        {botLine && (
+          <button className="autoplay-badge panel" onClick={() => setBot(false)} title="The autoplay bot is playing (F9 to stop)" data-testid="autoplay-badge">
+            <b>AUTOPLAY · 自动</b> <span>{botLine}</span>
+          </button>
+        )}
         {ui.mode !== "worldmap" && !ui.narration && (
           <div className="hud panel" data-testid="hud">
             <div className="name">
@@ -259,7 +299,7 @@ export function GameView({ initial, intro, onQuit }: { initial: GameState; intro
           </div>
         )}
 
-        {ui.mode !== "battle" && !ui.narration && (
+        {ui.mode !== "battle" && !ui.narration && !ui.worldmap?.overview && (
           <div className="quest panel" data-testid="quest">
             <div className="chapter">
               {ui.quest.chapter} · {ui.quest.title}
@@ -962,11 +1002,32 @@ function JournalPanel({ journal, ui, game, onClose }: { journal: NonNullable<UiS
 
 function WorldMapPanel({ ui, game }: { ui: UiSnapshot; game: Game }) {
   const wm = ui.worldmap!;
+  const under = wm.layer === "under";
   return (
-    <div className="worldmap panel" data-testid="worldmap">
-      <h3>The Jianghu</h3>
+    <div className={`worldmap panel${under ? " under" : ""}`} data-testid="worldmap">
+      <h3>{under ? "The Underworld" : "The Jianghu"}</h3>
+      <div className="map-layers" role="tablist">
+        <button className={`btn${under ? "" : " on"}`} role="tab" aria-selected={!under} disabled={wm.travelling} onClick={() => under && game.toggleMapLayer()} data-testid="map-layer-over">
+          <span className="cn">地上</span> Overworld
+        </button>
+        <button className={`btn${under ? " on" : ""}`} role="tab" aria-selected={under} disabled={wm.travelling} onClick={() => !under && game.toggleMapLayer()} data-testid="map-layer-under">
+          <span className="cn">地下</span> Underworld
+        </button>
+      </div>
       <ul>
-        {wm.nodes.map((n) => {
+        {under &&
+          wm.deeps.map((d) => {
+            const here = d.id === wm.deep && !wm.travelling;
+            return (
+              <li key={d.id} className={d.locked ? "locked" : here ? "here" : undefined}>
+                <button className="btn" disabled={!!d.locked || wm.travelling} onClick={() => game.mapSelectDeep(d.id)} data-testid={`deep-${d.id}`}>
+                  <span className="cn">{d.hanzi}</span> {d.name}
+                  <small>{d.locked ?? (here ? "▼ Go down (E)" : d.subtitle)}</small>
+                </button>
+              </li>
+            );
+          })}
+        {!under && wm.nodes.map((n) => {
           const here = n.id === wm.at && !wm.travelling;
           return (
             <li key={n.id} className={n.locked ? "locked" : here ? "here" : undefined}>
@@ -979,8 +1040,11 @@ function WorldMapPanel({ ui, game }: { ui: UiSnapshot; game: Game }) {
         })}
       </ul>
       <div className="hint">
-        <span className="kbd">←↑→↓</span> fly along roads · <span className="kbd">E</span> land · <span className="kbd">M</span> close
+        <span className="kbd">←↑→↓</span> {under ? "fly between deeps" : "fly along roads"} · <span className="kbd">E</span> {under ? "go down" : "land"} · <span className="kbd">U</span> {under ? "overworld" : "underworld"} · <span className="kbd">M</span> close
       </div>
+      <button className="btn" onClick={() => game.toggleMapZoom()} data-testid="map-zoom">
+        {wm.overview ? "Close view" : "The whole world"} <span className="kbd">Z</span>
+      </button>
       <button className="btn" onClick={() => game.closeMap()} disabled={wm.travelling} data-testid="map-close">
         {wm.at === ui.area.id ? "Close map" : "Land"}
       </button>

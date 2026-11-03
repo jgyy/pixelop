@@ -1,3 +1,4 @@
+import { immortalNpcScript } from "@/game/story/immortals";
 import { describe, expect, it } from "vitest";
 import { contentionNpcScript } from "@/game/story/contention";
 import { cultivationNeeded, statsFor } from "@/game/engine/realms";
@@ -147,7 +148,7 @@ describe("the jianghu answers her cultivation", () => {
     const failed = failTribulation(at(1), stats(at(1)));
     expect(townNpcScript("fortune", failed)!.some((s) => "say" in s && /threw you down/.test(s.text))).toBe(true);
     // every townsperson of the new lands has something of their own to say
-    for (const n of getWorld().npcs.filter((x) => x.j > 464 * 2)) expect(townNpcScript(n.key, newGame()) ?? tideNpcScript(n.key, newGame()) ?? roadNpcScript(n.key, newGame()) ?? hallsNpcScript(n.key, newGame()) ?? tiersNpcScript(n.key, newGame()) ?? tierFolkScript(n.key, newGame()) ?? quarterNpcScript(n.key, newGame()) ?? crowdNpcScript(n.key, newGame()) ?? seasNpcScript(n.key, newGame()) ?? grandHallNpcScript(n.key, newGame()) ?? courtsNpcScript(n.key, newGame()) ?? foundingNpcScript(n.key, newGame()) ?? heightsNpcScript(n.key, newGame()) ?? contentionNpcScript(n.key, newGame()), n.key).not.toBeNull();
+    for (const n of getWorld().npcs.filter((x) => x.j > 464 * 2)) expect(townNpcScript(n.key, newGame()) ?? tideNpcScript(n.key, newGame()) ?? roadNpcScript(n.key, newGame()) ?? hallsNpcScript(n.key, newGame()) ?? tiersNpcScript(n.key, newGame()) ?? tierFolkScript(n.key, newGame()) ?? quarterNpcScript(n.key, newGame()) ?? crowdNpcScript(n.key, newGame()) ?? seasNpcScript(n.key, newGame()) ?? grandHallNpcScript(n.key, newGame()) ?? courtsNpcScript(n.key, newGame()) ?? foundingNpcScript(n.key, newGame()) ?? heightsNpcScript(n.key, newGame()) ?? contentionNpcScript(n.key, newGame()) ?? immortalNpcScript(n.key, newGame()), n.key).not.toBeNull();
   });
 });
 
