@@ -9,7 +9,8 @@ import { companionOf, magnifyMap, magnifyProp, pointTile, STRUCTURE_SCALE } from
 import { LIQUID, TileMap, TILE_KINDS, type TileKind } from "./tilemap";
 import { CAVE_IDS, CAVE_MOUTH, deepFolk } from "./caves";
 import { FINE, fineFloor, fineKind } from "./refine";
-import { coastWarp, inEdge, inSky, nearEdge, straitAt } from "./oceans";
+import { beyondRim, coastWarp, inEdge, inSky, nearEdge, setRim, straitAt } from "./oceans";
+import { ELIXIR_POOL, GUIXU, IMMORTAL_FOLK, IMMORTAL_ISLES, IMMORTAL_MARKS, IMMORTAL_RANGES, IMMORTAL_ROADS, IMMORTAL_TOWNSFOLK, immortalHome, immortalLand, immortalTown, inGuixu, isleOfKey, JADE_CAUSEWAYS, JADE_LANDING, JADE_MEADOW, LAST_LAMP, lastLampRock, PEACH_GARDEN, rimDepth } from "./immortals";
 import { CN_BOSSES, CN_FOES, CN_GROUND, DAWN_LANDING, FENG, FUSANG_FOLK, FUSANG_TOWNSFOLK, fusangTown, FUSANG_ROADS, fusangLand, HALL_OF_WRITS, KEEPER, SEAT_RING, SEATS, SPEAKER, TEN_SEATS, WUJI, YANGGU } from "./fusang";
 import { envoyKey, POWERS } from "./powers";
 import { COURT_COUNT, COURT_SPOTS, COURTS, WANDERING_CRAFTS, courtDiscipleKey, courtEmperorKey, courtFolkKey, courtGuideKey, courtLeaderKey, courtMasterKey, craftMasterKey, TOWNSFOLK_PER_COURT, townKey, townLook, townName, townTrade } from "./courts";
@@ -83,7 +84,7 @@ const GROUND: Ground[] = [...MAINLAND, "marsh", "terraces", "desert", "harbor", 
 const SKY: AreaId[] = ["sect", "peak"];
 
 /** Wild biomes: each ground region's own, the southern lands below the highway, and the far south and east the world grew into. */
-type WildId = Ground | "wastes" | "stoneforest" | "fields" | "highlands" | "marshland" | "terracehills" | "plum" | "sands" | "badlands" | "autumn" | "steppe" | "frostlands" | "coast" | "riverlands" | "tidelands" | "stairlands" | "heights" | "dawnlands";
+type WildId = Ground | "wastes" | "stoneforest" | "fields" | "highlands" | "marshland" | "terracehills" | "plum" | "sands" | "badlands" | "autumn" | "steppe" | "frostlands" | "coast" | "riverlands" | "tidelands" | "stairlands" | "heights" | "dawnlands" | "immortalisles";
 
 interface WildStyle {
   ground: (i: number, j: number) => TileKind;
@@ -131,6 +132,8 @@ const BIOME: Record<Exclude<WildId, "marsh" | "terraces" | "desert" | "harbor" |
   heights: { ground: (i, j) => (fbm(i * 0.16, j * 0.16, 166) > 0.6 ? "moss" : hash2(i, j, 167) > 0.82 ? "meadow" : "grass"), lift: 0, hills: 2.4, trees: ["pine", "bamboo", "pine", "karst", "maple"], treeP: 0.06, extras: ["tallgrass", "rock", "butterflies"], extraP: 0.05 },
   // Fusang, the Dawn Continent: blossom and maple on rolling green under the Fusang tree, moss in the hollows
   dawnlands: { ground: (i, j) => (fbm(i * 0.17, j * 0.17, 168) > 0.63 ? "moss" : fbm(i * 0.12, j * 0.12, 169) > 0.56 ? "meadow" : "grass"), lift: 1, hills: 3, trees: ["cherry", "maple", "pine", "cherry", "bamboo", "peachtree"], treeP: 0.08, extras: ["tallgrass", "butterflies", "rock", "tallgrass"], extraP: 0.06 },
+  // the Three Isles of the Immortals: jade-green moss and meadow, peach and pine and crystal, cranes in the long grass
+  immortalisles: { ground: (i, j) => (fbm(i * 0.16, j * 0.16, 171) > 0.62 ? "moss" : fbm(i * 0.11, j * 0.11, 172) > 0.55 ? "meadow" : "grass"), lift: 1, hills: 3.4, trees: ["peachtree", "pine", "cherry", "peachtree", "crystal", "spirittree"], treeP: 0.07, extras: ["butterflies", "tallgrass", "rock", "butterflies"], extraP: 0.06 },
   riverlands: { ground: (i, j) => (j > 538 + fbm(i * 0.1, j * 0.1, 150) * 12 ? "sand" : fbm(i * 0.16, j * 0.16, 151) > 0.6 ? "meadow" : "grass"), lift: 0, hills: 1.4, trees: ["willow", "maple", "haystack", "cherry", "willow"], treeP: 0.04, extras: ["tallgrass", "reeds", "butterflies", "tallgrass"], extraP: 0.06 },
 };
 // the new regions' own surroundings take after the lands they stand in
@@ -164,6 +167,10 @@ const ZONES: [WildId, [number, number, number, number]][] = [
   // and across the Strait of Dawn, Fusang
   ["dawnlands", [672, 80, 764, 300]],
   ["dawnlands", [668, 300, 760, 500]],
+  // and past Fusang, the Three Isles of the Immortals
+  ["immortalisles", [800, 150, 880, 290]],
+  ["immortalisles", [820, 380, 880, 460]],
+  ["immortalisles", [790, 560, 870, 630]],
 ];
 
 /** The old highway across the whole mainland, below the four regions. */
@@ -324,7 +331,7 @@ function lowlands(i: number, j: number): boolean {
   // the Tidewater Reach, round the port of Hailing and its lagoon
   const tide = j >= 440 + n && j <= 548 + n + shore * 0.3 && i >= 460 + n * 0.6 && i <= 628 + n * 0.6 + shore * 0.2;
   const east = j >= 56 + n - shore && j <= 448 + n + shore && i >= 346 + n * 0.6 && (j > 222 && j < 282 ? i <= 621 : i <= 636 + n * 0.6 + shore);
-  return old || south || east || river || tide || fusangLand(i, j);
+  return old || south || east || river || tide || fusangLand(i, j) || immortalLand(i, j);
 }
 const mainlandMask = (i: number, j: number) => lowlands(i, j) || stairBlob(i, j) || heightsLand(i, j);
 
@@ -385,6 +392,8 @@ const RANGES: { key: string; c: [number, number]; r: number; peak: number; seed:
   // the spine of Fusang, between the Valley of Sunrise and the free port
   { key: "dawnspine", c: [742, 300], r: 30, peak: 9, seed: 519 },
   { key: "sunrisewall", c: [744, 160], r: 22, peak: 7, seed: 520 },
+  // and the peaks of the Three Isles (see world/immortals.ts)
+  ...IMMORTAL_RANGES,
 ];
 
 /** How many levels the ranges lift a wild tile. */
@@ -527,7 +536,7 @@ function carveCoast(m: TileMap, fixed: Uint8Array, capes: Uint8Array): Uint8Arra
   m.each((i, j) => {
     const n = j * W + i;
     // (Fusang's shores were never ruled: they are left as they are)
-    if (near[n] <= 10 || m.kinds[n] === VOID || fusangLand(i, j)) return;
+    if (near[n] <= 10 || m.kinds[n] === VOID || fusangLand(i, j) || immortalLand(i, j)) return;
     // the capes stand out to sea where the ruled shore ran (though they are worn back at their tips)
     if (capes[n] && shore[n] > 2 + fbm(i * 0.11, j * 0.11, 328) * 3) return;
     // bays come and go along a shore every few dozen tiles (a slow bite alone only moves a ruled shore back in parallel)
@@ -602,6 +611,228 @@ function applyCoast(m: TileMap, fixed: Uint8Array, wildOf: Uint8Array, carve: Ui
     }
   }
 }
+
+/**
+ * Shores that still run ruled for long stretches get coves bitten into them
+ * and spits and capes thrown out from them. Nothing within a few tiles of
+ * anything of note (a region, a road, a bridge, a site, anyone placed in the
+ * wilds) is touched, no strait is narrowed, the Sea of Pearls' lagoons are
+ * left open, and every new spit grows out from wild land, so nobody is cut
+ * off and nothing new floats free.
+ */
+function raggedShores(m: TileMap, fixed: Uint8Array, wildOf: Uint8Array, sea: Uint8Array, strait: Uint8Array, keep: [number, number][]): void {
+  const W = m.w;
+  const H = m.h;
+  const N = W * H;
+  const kindAt = (n: number) => TILE_KINDS[m.kinds[n]];
+  const wet = (n: number) => kindAt(n) === "deep" || kindAt(n) === "water";
+  const open = (n: number) => !!sea[n] && wet(n);
+  const land = (n: number) => m.kinds[n] !== 0 && !LIQUID[kindAt(n)];
+  const kept = new Uint8Array(N);
+  for (const [x, y] of keep) if (m.inside(x, y)) kept[y * W + x] = 1;
+  // (the deep band round the world's edge is laid as a strait is, but it is no strait: a shore may grow or be bitten beside it)
+  const guard = chamfer(W, H, (n) => !!kept[n] || fixed[n] === 1 || (fixed[n] === 2 && !wet(n)) || kindAt(n) === "wood" || (!!strait[n] && !inEdge(n % W, (n / W) | 0)));
+  // coves: coastal wild land falls into the sea where a quick-varying bite reaches it
+  const toSea = chamfer(W, H, open);
+  // the land that can be walked to from the highway (a level a step at most, the bridges included), before and after the bite
+  const walk = (n: number) => m.kinds[n] !== 0 && (!LIQUID[kindAt(n)] || kindAt(n) === "wood");
+  const reach = () => {
+    const joined = new Uint8Array(N);
+    const start = 166 * W + 200;
+    const jq = [start];
+    joined[start] = 1;
+    for (let qi = 0; qi < jq.length; qi++) {
+      const n = jq[qi];
+      const i = n % W;
+      for (const nb of [i > 0 ? n - 1 : -1, i < W - 1 ? n + 1 : -1, n - W, n + W]) {
+        if (nb < 0 || nb >= N || joined[nb] || !walk(nb) || Math.abs(m.heights[nb] - m.heights[n]) > 1) continue;
+        joined[nb] = 1;
+        jq.push(nb);
+      }
+    }
+    return joined;
+  };
+  const joinedBefore = reach();
+  /** What each bitten tile was, so it can be put back if the bite cut someone off. */
+  const was = new Map<number, [number, number, number]>();
+  const lagoon = (i: number, j: number) => SEA_ISLES.some((s) => Math.hypot(i - s.c[0], j - s.c[1]) < Math.max(s.rx, s.ry) * 2 + 4);
+  // how deep the sea may bite at each coastal tile: broad bays every hundred tiles or so, coves in them, and nicks in the coves
+  const bite = new Float32Array(N);
+  m.each((i, j) => {
+    const n = j * W + i;
+    if (!land(n) || fixed[n] || guard[n] <= 6 || toSea[n] > 18 || immortalLand(i, j) || lagoon(i, j)) return;
+    bite[n] = Math.max(0, fbm(i * 0.017, j * 0.017, 909) - 0.48) * 44 + Math.max(0, fbm(i * 0.05, j * 0.05, 905) - 0.46) * 32 + Math.max(0, fbm(i * 0.13, j * 0.13, 906) - 0.55) * 12;
+  });
+  // the land is peeled back from the sea a ring at a time, and a tile goes only if the land round it stays in one piece
+  // without it (so a cove never cuts a neck of land through, and no isle is lost)
+  const solidAt = (i: number, j: number) => m.inside(i, j) && land(j * W + i);
+  const simple = (i: number, j: number) => {
+    // the eight neighbours, east first and round anticlockwise; the land must stay 4-connected round the tile
+    const x = [solidAt(i + 1, j), solidAt(i + 1, j - 1), solidAt(i, j - 1), solidAt(i - 1, j - 1), solidAt(i - 1, j), solidAt(i - 1, j + 1), solidAt(i, j + 1), solidAt(i + 1, j + 1)].map(Number);
+    let c = 0;
+    for (const k of [0, 2, 4, 6]) c += x[k] - x[k] * x[(k + 1) % 8] * x[(k + 2) % 8];
+    return c === 1;
+  };
+  for (let ring = 0; ring < 20; ring++) {
+    // only what the sea touched when this ring began (so a ring is one tile deep, not a cut run along a row)…
+    const ringTiles: number[] = [];
+    m.each((i, j) => {
+      const n = j * W + i;
+      if (bite[n] <= ring || !land(n)) return;
+      if ([n - 1, n + 1, n - W, n + W].some((nb) => nb >= 0 && nb < N && open(nb))) ringTiles.push(n);
+    });
+    if (!ringTiles.length) break;
+    // …and only if taking it leaves the land round it whole
+    for (const n of ringTiles) {
+      const i = n % W;
+      const j = (n / W) | 0;
+      if (!simple(i, j)) continue;
+      was.set(n, [m.kinds[n], m.heights[n], wildOf[n]]);
+      m.set(i, j, "deep", 0);
+      wildOf[n] = 0;
+      sea[n] = 1;
+      fixed[n] = 2;
+    }
+  }
+  // whoever a cove cut off from the highway gets their land back, a wider ring of it each time, until they are joined up again
+  {
+    for (const radius of [12, 24, 40, 70, 120]) {
+      const joined = reach();
+      const lost = keep.filter(([x, y]) => m.inside(x, y) && joinedBefore[y * W + x] && !joined[y * W + x]);
+      if (!lost.length) break;
+      for (const [n, [k, h, wo]] of was) {
+        const i = n % W;
+        const j = (n / W) | 0;
+        if (!lost.some(([x, y]) => Math.abs(i - x) <= radius && Math.abs(j - y) <= radius && Math.hypot(i - x, j - y) <= radius)) continue;
+        m.kinds[n] = k;
+        m.heights[n] = h;
+        wildOf[n] = wo;
+        sea[n] = 0;
+        fixed[n] = 0;
+        was.delete(n);
+      }
+    }
+  }
+  // spits and capes: open sea near a wild shore becomes land, grown out from it a tile at a time (and never so near another
+  // landmass that the two would join: every spit stays with the land it grew from; and none at all in the strait the Nine-Arch
+  // Bridge crosses, where Jinhe's cliffs and the Stairlands already all but touch)
+  const comp = new Int32Array(N).fill(-1);
+  {
+    let id = 0;
+    for (let n0 = 0; n0 < N; n0++) {
+      if (comp[n0] >= 0 || !land(n0)) continue;
+      const cq = [n0];
+      comp[n0] = id;
+      for (let qi = 0; qi < cq.length; qi++) {
+        const n = cq[qi];
+        const i = n % W;
+        for (const nb of [i > 0 ? n - 1 : -1, i < W - 1 ? n + 1 : -1, n - W, n + W]) {
+          if (nb < 0 || nb >= N || comp[nb] >= 0 || !land(nb)) continue;
+          comp[nb] = id;
+          cq.push(nb);
+        }
+      }
+      id++;
+    }
+  }
+  const strange = (i: number, j: number, own: number) => {
+    for (let b = -4; b <= 4; b++)
+      for (let a = -4; a <= 4; a++) {
+        if (!m.inside(i + a, j + b)) continue;
+        const c = comp[(j + b) * W + i + a];
+        if (c >= 0 && c !== own) return true;
+      }
+    return false;
+  };
+  const depth = new Int16Array(N).fill(-1);
+  const q: number[] = [];
+  m.each((i, j) => {
+    const n = j * W + i;
+    if (!land(n) || !wildOf[n] || fixed[n]) return;
+    if ([n - 1, n + 1, n - W, n + W].some((nb) => nb >= 0 && nb < N && open(nb))) {
+      depth[n] = 0;
+      q.push(n);
+    }
+  });
+  for (let qi = 0; qi < q.length; qi++) {
+    const n = q[qi];
+    const i = n % W;
+    for (const nb of [i > 0 ? n - 1 : -1, i < W - 1 ? n + 1 : -1, n - W, n + W]) {
+      if (nb < 0 || nb >= N || depth[nb] >= 0 || !open(nb) || guard[nb] <= 5) continue;
+      const ni = nb % W;
+      const nj = (nb / W) | 0;
+      const reach = Math.max(0, fbm(ni * 0.016, nj * 0.016, 910) - 0.5) * 70 + Math.max(0, fbm(ni * 0.04, nj * 0.04, 907) - 0.5) * 44 + Math.max(0, fbm(ni * 0.12, nj * 0.12, 908) - 0.58) * 12;
+      if (depth[n] + 1 >= reach || inEdge(ni, nj) || rimDepth(ni, nj, W, H) < 18 || lagoon(ni, nj) || Math.hypot(ni - GUIXU.c[0], nj - GUIXU.c[1]) < GUIXU.r + 30 || strange(ni, nj, comp[n]) || (ni > 140 && ni < 330 && nj > 532 && nj < 584)) continue;
+      depth[nb] = depth[n] + 1;
+      comp[nb] = comp[n];
+      const wild = wildOf[n];
+      const st = WILD[WILD_IDS[wild - 1]];
+      // the tip of a spit is sand, its spine the ground of the shore it grew from
+      m.set(ni, nj, reach - depth[nb] < 2.5 ? (st.ashen ? "ash" : "sand") : st.ground(ni, nj), 1);
+      wildOf[nb] = wild;
+      sea[nb] = 0;
+      fixed[nb] = 0;
+      q.push(nb);
+    }
+  }
+  // the shallows follow the shore as it now runs
+  m.each((i, j) => {
+    const n = j * W + i;
+    if (kindAt(n) === "water" && sea[n]) m.set(i, j, "deep", 0);
+  });
+  const shallows: number[] = [];
+  m.each((i, j) => {
+    const n = j * W + i;
+    if (!open(n) || inEdge(i, j)) return;
+    for (let b = -2; b <= 2; b++)
+      for (let a = -2; a <= 2; a++) {
+        if (!m.inside(i + a, j + b)) continue;
+        const k = m.kind(i + a, j + b);
+        if (k !== "void" && !LIQUID[k]) {
+          shallows.push(n);
+          return;
+        }
+      }
+  });
+  for (const n of shallows) m.set(n % W, (n / W) | 0, "water", 0);
+}
+
+/**
+ * The rim of the world: open sea past the world's ragged outline (and in
+ * Guixu's hole) falls away into the clouds, never within nine tiles of any
+ * land; a band of deep water and wind runs just inside it. Returns the mask
+ * the runtime asks (see pastEdge in world/oceans.ts): 2 past the rim, 1 in
+ * the wind inside it, 0 open to all.
+ */
+function drawRim(m: TileMap, sea: Uint8Array): Uint8Array {
+  const W = m.w;
+  const H = m.h;
+  const N = W * H;
+  const kindAt = (n: number) => TILE_KINDS[m.kinds[n]];
+  const solid = chamfer(W, H, (n) => m.kinds[n] !== 0 && (!LIQUID[kindAt(n)] || kindAt(n) === "wood"));
+  const past = new Uint8Array(N);
+  m.each((i, j) => {
+    const n = j * W + i;
+    if (!sea[n] || (kindAt(n) !== "deep" && kindAt(n) !== "water")) return;
+    const hole = inGuixu(i, j) && solid[n] > 4;
+    if (hole || (rimDepth(i, j, W, H) < 0 && solid[n] > 9)) past[n] = 2;
+  });
+  // the band of wind: within a few tiles of the rim (or the map's own edge) nobody goes
+  const toRim = chamfer(W, H, (n) => past[n] === 2 || n % W === 0 || n % W === W - 1 || n < W || n >= N - W);
+  m.each((i, j) => {
+    const n = j * W + i;
+    if (past[n] === 2) {
+      m.set(i, j, "void", 0);
+      return;
+    }
+    if (toRim[n] < EDGE_BAND - 2 && solid[n] > 1) past[n] = 1;
+    // the water deepens toward the lip
+    if (sea[n] && toRim[n] < EDGE_BAND && kindAt(n) === "water" && solid[n] > 2) m.set(i, j, "deep", 0);
+  });
+  return past;
+}
+/** The deep band just inside the rim of the world, in authoring tiles (as world/oceans.ts's EDGE). */
+const EDGE_BAND = 7;
 
 /** Props that stand in water. */
 export const FLOATS = new Set<PropId>(["lotus", "boat", "reeds", "waterwheel", "koi", "ship", "sampan"]);
@@ -845,6 +1076,16 @@ function buildWorld(): WorldDef {
     site(WUJI, 10, "dirt", 1, 0.6);
     site(DAWN_LANDING, 3.6, "plaza", 1, 0.3);
   }
+  // 4⅔. the Three Isles of the Immortals: each isle's sanctum levelled on its heights, Penglai's Garden of Peaches, Fangzhang's
+  // Pool of a Hundred Years and Yingzhou's jade meadow, and the White Jade Causeway's landing (see world/immortals.ts)
+  for (const isle of IMMORTAL_ISLES) {
+    site(isle.c, 9, isle.ground, isle.level, 0.5);
+    site(isle.c, 3.4, "marble", isle.level, 0.1);
+  }
+  site(PEACH_GARDEN, 7, "meadow", 4, 0.7);
+  site(ELIXIR_POOL, 4.4, "plaza", 2, 0.3);
+  site(JADE_MEADOW, 6, "moss", 2, 0.8);
+  site(JADE_LANDING, 3.4, "plaza", 1, 0.3);
   // 4¾. the Withered Lotus Basin, where she founds her own sect: a bowl of old paving round a marble heart, and the
   // market town's square of beaten earth outside its gate (see world/founding.ts)
   {
@@ -947,6 +1188,15 @@ function buildWorld(): WorldDef {
       run += len;
     }
   };
+  // the Three Isles' roads, climbing from each causeway's landfall up to the sanctum on the isle's heights (see world/immortals.ts)
+  // (an end at a sanctum, the garden, the pool or the meadow climbs to its level; an end where a causeway sets out stays at the planks')
+  {
+    const levels: [[number, number], number][] = [...IMMORTAL_ISLES.map((s): [[number, number], number] => [s.c, s.level]), [PEACH_GARDEN, 4], [ELIXIR_POOL, 2], [JADE_MEADOW, 2]];
+    const level = ([x, y]: [number, number]) => levels.find(([c]) => Math.hypot(c[0] - x, c[1] - y) < 6)?.[1] ?? 1;
+    for (const pts of IMMORTAL_ROADS) ramp(pts, 2.2, level(pts[0]), level(pts[pts.length - 1]));
+    // and a track out of the Valley of Sunrise, east to where the White Jade Causeway sets out over the sea
+    ramp([[731, 151], [746, 151], [760, 150]], 2.2, Math.max(1, m.height(731, 151)), 1);
+  }
   // into the Southern Heights: from the Stairlands to the Hanging City's gate, on to the Cliff Port, and west through the pillars
   for (const pts of HEIGHTS_ROADS) road(pts, 2.2, () => 2);
   // to the Scarlet Phoenix: along the red flats to the mine, and up the mesa's western stair
@@ -1002,7 +1252,7 @@ function buildWorld(): WorldDef {
   m.each((i, j) => {
     const n = j * COARSE_W + i;
     // (the Stairlands and the Southern Heights already have shores of their own shape: only the old lands' ruled edges fall away)
-    if (!fixed[n] && m.kinds[n] !== 0 && nearEdge(i, j) && !stairBlob(i, j) && !heightsLand(i, j) && !fusangLand(i, j)) {
+    if (!fixed[n] && m.kinds[n] !== 0 && nearEdge(i, j) && !stairBlob(i, j) && !heightsLand(i, j) && !fusangLand(i, j) && !immortalLand(i, j)) {
       m.set(i, j, "void", 0);
       wildOf[n] = 0;
     }
@@ -1087,6 +1337,24 @@ function buildWorld(): WorldDef {
         else return;
         fix(i, j, 2);
       });
+    // the White Jade Causeways, from Fusang's eastern shore out to Penglai and on, isle to isle, to Yingzhou (see world/immortals.ts)
+    for (const b of JADE_CAUSEWAYS)
+      stroke(b, 2.2, (i, j) => {
+        const k = m.kind(i, j);
+        if (k === "void" || LIQUID[k]) m.set(i, j, "wood", 1);
+        else if (!fixed[j * COARSE_W + i] || fixed[j * COARSE_W + i] === 2) m.set(i, j, "plaza", 1);
+        else return;
+        fix(i, j, 2);
+      });
+    // the Last Lamp's rock at the lip of Guixu: a crag of red rock round a little paving, and the lighthouse on it
+    for (let j = LAST_LAMP[1] - 9; j <= LAST_LAMP[1] + 9; j++)
+      for (let i = LAST_LAMP[0] - 9; i <= LAST_LAMP[0] + 9; i++) {
+        if (!lastLampRock(i, j)) continue;
+        const d = Math.hypot(i - LAST_LAMP[0], j - LAST_LAMP[1]);
+        m.set(i, j, d < 3 ? "plaza" : "redrock", 2);
+        fixed[j * COARSE_W + i] = 1;
+        sea[j * COARSE_W + i] = 0;
+      }
   }
 
   // 7. keep the wilds walkable: no tile rises or falls more than a level per
@@ -2529,6 +2797,54 @@ function buildWorld(): WorldDef {
         ([[-10, 4], [9, 6], [-6, -9], [8, -8]] as [number, number][]).forEach((d, n) => enemies.push({ key: `cnfoe-${k}-${n}`, enemy: CN_FOES[k], ...xy(at(g, d, 2)), range: 2.5, when: (f) => !!f[`cn:book:${k}`] }));
       });
     }
+    // the Three Isles of the Immortals (see world/immortals.ts): a sanctum on each isle's heights, Penglai's golden hall and
+    // its peaches, Fangzhang's pagoda and its pool, Yingzhou's spirit tree in the mist, and the Last Lamp at the lip of Guixu
+    {
+      const [P1, F1, Y1] = IMMORTAL_ISLES.map((s) => s.c);
+      put("hall", P1, [[0, -6]]);
+      put("pagoda", P1, [[-7, -2], [7, -2]]);
+      put("censer", P1, [[0, 0]]);
+      put("lanterns", P1, [[-3, 3], [3, 3]]);
+      put("crystal", P1, [[-8, 5], [8, 5]]);
+      put("peachtree", PEACH_GARDEN, [[-4, -3], [3, -4], [-5, 2], [5, 2], [0, 5], [-2, -6], [6, -1]]);
+      put("beehive", PEACH_GARDEN, [[1, 1]]);
+      put("pagoda", F1, [[0, -6]]);
+      put("xiangqitable", F1, [[6, -3]]);
+      put("stele", F1, [[-5, -1]]);
+      put("fountain", ELIXIR_POOL, [[0, 0]]);
+      put("cauldron", ELIXIR_POOL, [[-3, 2], [3, 2]]);
+      put("spirittree", Y1, [[0, -5]]);
+      put("lotus", Y1, [[-6, -2]]);
+      put("crystal", JADE_MEADOW, [[-2, -2], [2, 2]]);
+      put("lantern", JADE_LANDING, [[-2, -2], [2, -2]]);
+      put("lighthouse", LAST_LAMP, [[0, -1]]);
+      put("lantern", LAST_LAMP, [[-2, 2]]);
+      const hub = (k: (typeof IMMORTAL_FOLK)[number]) => immortalHome(k);
+      for (const f of IMMORTAL_FOLK) {
+        const anim = f.anim && hasAnim(f.char, f.anim) ? f.anim : undefined;
+        npcs.push({ key: f.key, name: f.name, char: f.char, ...xy(at(hub(f), [0, 0])), dir: 2, anim, wander: anim ? undefined : 1 });
+      }
+      for (let n = 0; n < IMMORTAL_TOWNSFOLK; n++) {
+        const f = immortalTown(n);
+        const c = isleOfKey(f.isle).c;
+        const a = hash2(n, 3, 833) * Math.PI * 2;
+        const r = 4 + Math.sqrt(hash2(n, 4, 834)) * 15;
+        const anim = hasAnim(f.char, f.anim) ? f.anim : undefined;
+        npcs.push({ key: f.key, name: f.name, char: f.char, ...xy(at(c, [Math.round(Math.cos(a) * r), Math.round(Math.sin(a) * r * 0.85)], 2)), dir: n % 4 ? 2 : 6, anim, wander: anim ? undefined : 1 });
+      }
+      it("im-penglai-shrine", "shrine", ...at(P1, [-4, 6]));
+      it("im-penglai-sign", "sign", ...at(P1, [5, 8]), "PENGLAI · 蓬莱. The Golden Terraces. Here the elixir of the immortals was first brewed, and here it was last refused. Mortals who reach this sign are asked to wipe their feet.");
+      it("im-penglai-chest", "chest", ...at(PEACH_GARDEN, [-6, 5]));
+      it("im-fangzhang-shrine", "shrine", ...at(F1, [4, 5]));
+      it("im-fangzhang-sign", "sign", ...at(F1, [-6, 4]), "FANGZHANG · 方丈. The Square Isle. Its hermits keep the Pool of a Hundred Years: one sip, a hundred years; two sips, the hermits would like a word.");
+      it("im-yingzhou-shrine", "shrine", ...at(Y1, [5, 4]));
+      it("im-yingzhou-sign", "sign", ...at(Y1, [-5, 5]), "YINGZHOU · 瀛洲. The Isle of Ocean Mist. The jade grass that wakes the dead grows in the meadow below. It does not wake them kindly.");
+      it("im-yingzhou-chest", "chest", ...at(JADE_MEADOW, [5, 4]));
+      it("im-jadegrass-1", "herb", ...at(JADE_MEADOW, [3, -2]));
+      it("im-jadegrass-2", "herb", ...at(JADE_MEADOW, [-3, 2]));
+      it("im-lamp-sign", "sign", ...at(LAST_LAMP, [3, -2]), "GUIXU · 归墟. The Returning Ruin. Every river and every sea under heaven drains here, and it has never filled. The lamp is so that something, at least, comes back.");
+      for (const [key, name, hanzi, icon, c] of IMMORTAL_MARKS) mark(key, name, hanzi, icon, ...c);
+    }
   }
 
   // 8⅞. the Founding: her sect in the Withered Lotus Basin, raised a building at a time, with its steward, elders,
@@ -2743,6 +3059,11 @@ function buildWorld(): WorldDef {
     });
     for (const [i, j] of shallows) m.set(i, j, "water", 0);
   }
+  // 9⅝. shores that still ran ruled for long stretches are notched into coves and thrown out in spits and capes, and the
+  // Encircling Sea runs out at the rim of the world, a ragged loop where the water falls away into the clouds (and, at the
+  // far south-east, into Guixu); see world/immortals.ts
+  raggedShores(m, fixed, wildOf, sea, strait, [...interacts, ...npcs, ...enemies, ...critters, ...props].map((x) => [x.i, x.j] as [number, number]));
+  setRim(drawRim(m, sea), COARSE_W, COARSE_H);
   // 9¾. and anyone (or any round or post of theirs) the sea, the straits and the edge of the world left in the water steps ashore
   {
     const wet = (i: number, j: number) => {
@@ -3247,9 +3568,9 @@ function buildWorld(): WorldDef {
     });
   }
 
-  // 12g. what cloud the magnifying left at the rim of the sect's own (a rounded-off corner) is sea too
+  // 12g. what cloud the magnifying left at the rim of the sect's own (a rounded-off corner) is sea too (but past the rim of the world, sky)
   fine.each((i, j) => {
-    if (fine.kinds[j * WORLD_W + i] === 0 && !inSky(Math.floor(i / S), Math.floor(j / S))) fine.set(i, j, "deep", 0);
+    if (fine.kinds[j * WORLD_W + i] === 0 && !inSky(Math.floor(i / S), Math.floor(j / S)) && !beyondRim(Math.floor(i / S), Math.floor(j / S))) fine.set(i, j, "deep", 0);
   });
 
   // 13. which region owns each tile

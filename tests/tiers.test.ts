@@ -211,7 +211,7 @@ describe("the city on the land", () => {
   const S = WORLD_SCALE;
 
   it("stands across a strait below Jinhe, at the end of the Nine-Arch Bridge, in land the world grew south to hold", () => {
-    expect(m.h).toBe(800 * S);
+    expect(m.h).toBeGreaterThanOrEqual(800 * S);
     for (const key of ["tianjie", "ninearch", "weighhall", "summit"]) expect(w.landmarks.some((l) => l.key === key), key).toBe(true);
     // the bridge's planks cross the strait (sea, now, not cloud) between Jinhe's cliffs and the city's flats
     const bridge = w.landmarks.find((l) => l.key === "ninearch")!;

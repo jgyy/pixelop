@@ -25,9 +25,16 @@ import { COARSE_H, COARSE_W, WORLD_SCALE } from "./layout";
  *   the Azure Cloud Sect, which still rides its own cloud (the only place
  *   left where the world drops away into sky).
  *
+ * - the Three Isles of the Immortals (三仙山), Penglai, Fangzhang and
+ *   Yingzhou, past Fusang to the east, strung on causeways of white jade;
+ *   and Guixu (归墟), the abyss at the far south-east the sea drains into
+ *   (see world/immortals.ts).
+ *
  * The roads cross the straits on plank bridges. Nobody crosses the sea at
- * the world's edge: within EDGE tiles of it the water is deep and the wind
- * turns back even a flying sword.
+ * the world's edge: it no longer runs out at a ruled line but at a ragged,
+ * rounded rim where the water pours over into the clouds (see rimDepth in
+ * world/immortals.ts), and within a few tiles of it the wind turns back even
+ * a flying sword.
  *
  * Kept free of map-building code, so the runtime can ask where the edge is
  * without building the world.
@@ -52,9 +59,30 @@ export const EDGE = 7;
 /** How close to the edge (in world tiles) anyone may go, walking, sailing or flying. */
 export const EDGE_LIMIT = (EDGE - 2) * WORLD_SCALE;
 
+/**
+ * The rim of the world as the build drew it: for every authoring tile, 1 if
+ * it is past the rim (where the sea falls away into the clouds) or in the
+ * band of wind just inside it, 2 if it is past the rim itself. Set once the
+ * world is built (see the rim pass in world/continent.ts); until then the
+ * world ends at the ruled band round its edge.
+ */
+let rim: { past: Uint8Array; w: number; h: number } | null = null;
+export function setRim(past: Uint8Array, w: number, h: number): void {
+  rim = { past, w, h };
+}
+/** Is an authoring tile past the rim of the world (open sky below, not sea)? */
+export function beyondRim(i: number, j: number): boolean {
+  if (!rim) return false;
+  if (i < 0 || j < 0 || i >= rim.w || j >= rim.h) return true;
+  return rim.past[j * rim.w + i] === 2;
+}
+
 /** Is a world point past the limit of the Encircling Sea (or off the map altogether)? */
 export function pastEdge(x: number, y: number, w = COARSE_W * WORLD_SCALE, h = COARSE_H * WORLD_SCALE): boolean {
-  return x < EDGE_LIMIT || y < EDGE_LIMIT || x > w - EDGE_LIMIT || y > h - EDGE_LIMIT;
+  if (x < EDGE_LIMIT || y < EDGE_LIMIT || x > w - EDGE_LIMIT || y > h - EDGE_LIMIT) return true;
+  // the rim the world was built with: the wind turns her back a few tiles short of where the sea falls away
+  if (rim && w === rim.w * WORLD_SCALE && h === rim.h * WORLD_SCALE) return rim.past[Math.floor(y / WORLD_SCALE) * rim.w + Math.floor(x / WORLD_SCALE)] > 0;
+  return false;
 }
 
 /**
@@ -176,4 +204,5 @@ export const CONTINENTS: Continent[] = [
   { key: "west", name: "The Western Continent", hanzi: "西洲", c: [56, 340] },
   { key: "south", name: "The Southern Continent", hanzi: "南洲", c: [150, 720] },
   { key: "fusang", name: "Fusang, the Dawn Continent", hanzi: "扶桑洲", c: [716, 300] },
+  { key: "immortals", name: "The Three Isles of the Immortals", hanzi: "三仙山", c: [840, 220] },
 ];

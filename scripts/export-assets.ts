@@ -505,6 +505,24 @@ const council: [CharId, AnimId][] = [
   ["unfettered", "laugh"],
 ];
 writeGif("contention-moves.gif", showcase(council.map(([id, anim]): Cell => ({ id, anim, dir: 1, label: `${charDef(id).name.split(" ").pop()} ${anim}` })), 7, 2, seconds), 12);
+// the rim of the world, the Three Isles of the Immortals and the Underworld: her new moves, and the immortals at theirs
+const rimMoves: [CharId, AnimId][] = [
+  ["heroine", "rimgaze"],
+  ["heroine", "peachpick"],
+  ["heroine", "poolsip"],
+  ["heroine", "cranestance"],
+  ["heroine", "torchraise"],
+  ["heroine", "cavepeer"],
+  ["heroine", "elixirbreath"],
+  ["heroine", "turtlebow"],
+  ["hermit", "cranestance"],
+  ["monk", "poolsip"],
+  ["lampkeeper", "rimgaze"],
+  ["orchardist", "peachpick"],
+  ["moonlady", "turtlebow"],
+  ["miner", "torchraise"],
+];
+writeGif("rim-moves.gif", showcase(rimMoves.map(([id, anim]): Cell => ({ id, anim, dir: 1, label: `${charDef(id).name.split(" ").pop()} ${anim}` })), 7, 2, seconds), 12);
 const fleet = (["junk", "skiff", "skyjunk"] as CharId[]).map((id): Cell => ({ id, anim: "idle", dir: "spin", label: charDef(id).name }));
 writeGif("ships.gif", showcase(fleet, 3, 1, seconds), 8);
 

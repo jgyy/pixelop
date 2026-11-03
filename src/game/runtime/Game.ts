@@ -42,7 +42,10 @@ import { aweAside, conditionAside, cultivationHasNews, heartDemonTrial, pointerA
 import { boltDamage, breathGain, conditionJournal, conditionLabel, CULT, failTribulation, foundationWound, heartDemons, insight, insightNeeded, passTribulation, shift, tendBreath, toxicity, tribulationBlock } from "../engine/cultivation";
 import { DAOS, dominantDao } from "../engine/dao";
 import { dirFrom, syncTerrain, World, type Actor } from "./world";
-import { WorldMap } from "./worldmap";
+import { WorldMap, type MapLayer } from "./worldmap";
+import { CAVE_IDS, type CaveId } from "../world/caves";
+import { beyondRim } from "../world/oceans";
+import { immortalLand } from "../world/immortals";
 import { caveArrival, repOf, SECT_IDS, SECTS, sectJournal, sectObjective, signScript, standing, type JournalEntry, type SectId } from "../story/sects";
 
 export type Mode = "explore" | "scene" | "battle" | "worldmap" | "shop" | "meditate" | "tribulation";
@@ -77,7 +80,19 @@ export interface UiSnapshot {
   choice: { prompt: string | null; options: { label: string; hint?: string }[]; selected: number; seq: number } | null;
   narration: { text: string; index: number; total: number } | null;
   battle: { enemy: EnemyId; enemyName: string; enemyHp: number; enemyMax: number; heroHp: number; heroQi: number; busy: boolean; log: string[]; boss: boolean; skills: SkillId[] } | null;
-  worldmap: { at: AreaId; travelling: boolean; heading: AreaId; nodes: { id: AreaId; name: string; hanzi: string; subtitle: string; locked: string | null }[] } | null;
+  worldmap: {
+    at: AreaId;
+    travelling: boolean;
+    heading: AreaId;
+    nodes: { id: AreaId; name: string; hanzi: string; subtitle: string; locked: string | null }[];
+    /** Which chart is up: the Overworld (the lands) or the Underworld (the deeps under them). */
+    layer: MapLayer;
+    /** The deep she hovers over on the Underworld chart. */
+    deep: CaveId | null;
+    /** The whole world at a glance (Z), rather than the close view. */
+    overview: boolean;
+    deeps: { id: CaveId; name: string; hanzi: string; subtitle: string; locked: string | null }[];
+  } | null;
   tribulation: string | null;
   banner: { title: string; hanzi: string; subtitle: string; seq: number } | null;
   /** The building she is inside, if any. */
@@ -332,6 +347,13 @@ export class Game {
   /** Tap/click on the canvas (in canvas pixels): walk there, or pick a world-map destination. */
   tap(sx: number, sy: number): void {
     if (this.mode === "worldmap" && this.worldMap) {
+      if (this.worldMap.layer === "under") {
+        for (const id of CAVE_IDS) {
+          const [x, y] = this.worldMap.deepScreen(id);
+          if (Math.hypot(sx - x, sy - y) < 18) return this.mapSelectDeep(id);
+        }
+        return;
+      }
       for (const id of AREA_IDS) {
         const [x, y] = this.worldMap.nodeScreen(id);
         if (Math.hypot(sx - x, sy - y) < 18) return this.mapSelect(id);
@@ -349,6 +371,28 @@ export class Game {
     const a = (sx - w.camX) / 16;
     const b = (sy - w.camY + z * 8) / 8;
     this.tapTarget = [(a + b) / 2, (b - a) / 2];
+  }
+
+  /** Walk (or ride, or fly) straight toward a point of the current map, in world tiles, as a tap would (null: stop). Used by the autoplay bot. */
+  steerTo(target: [number, number] | null): void {
+    this.tapTarget = target;
+  }
+
+  /** Where she is walking to, if anywhere (the autoplay bot reads it to see whether a move was cut short). */
+  get steering(): [number, number] | null {
+    return this.tapTarget;
+  }
+
+  /** Whether the menu, the journal or the wardrobe is open over the world. */
+  get overlayOpen(): boolean {
+    return this.menuOpen || this.journalOpen || this.wardrobeOpen;
+  }
+
+  /** Close the menu, the journal and the wardrobe, whichever is open. */
+  closeOverlays(): void {
+    if (!this.overlayOpen) return;
+    this.menuOpen = this.journalOpen = this.wardrobeOpen = false;
+    this.markDirty();
   }
 
   getShake(): [number, number] {
@@ -598,6 +642,69 @@ export class Game {
     this.markDirty();
   }
 
+  /** Why a deep cannot be gone down into yet (null: it is open): its mouth still buried, or the land round it sealed. */
+  deepLock(id: CaveId): string | null {
+    if (!roomOpen(id, this.state.flags)) return "Its mouth is buried, or something has not yet bared it.";
+    const region = WorldMap.deepRegion(id);
+    return lockReason(region, this.state);
+  }
+
+  /** Turn the world map over: the lands under heaven, or the Underworld chart of the deeps beneath them (U). */
+  toggleMapLayer(): void {
+    const wm = this.worldMap;
+    if (this.mode !== "worldmap" || !wm || wm.travelling) return;
+    const layer = wm.toggleLayer();
+    this.toast(layer === "under" ? "The Underworld · 地下 — the deeps, and the dragon veins between them" : "The Overworld · 地上 — the lands under heaven");
+    this.markDirty();
+  }
+
+  /** The whole world at a glance, or the close view that follows her (Z). */
+  toggleMapZoom(): void {
+    const wm = this.worldMap;
+    if (this.mode !== "worldmap" || !wm) return;
+    wm.overview = !wm.overview;
+    this.markDirty();
+  }
+
+  /** Pick a deep on the Underworld chart (fly over its mouth, or go down into it if already there). */
+  mapSelectDeep(id: CaveId): void {
+    const wm = this.worldMap;
+    if (this.mode !== "worldmap" || !wm) return;
+    const reason = this.deepLock(id);
+    if (reason) return this.toast(`${getRoom(id).name}: ${reason}`);
+    if (wm.layer !== "under") wm.layer = "under";
+    if (wm.deep === id && !wm.travelling) return this.descend(id);
+    wm.travelToDeep(id);
+    this.markDirty();
+  }
+
+  /** A deep she has asked to go down into from the Underworld chart, once the scene her landing brought on is over. */
+  private descending: CaveId | null = null;
+
+  /** Land by a deep's mouth and go down into it. */
+  descend(id: CaveId): void {
+    if (this.deepLock(id)) return;
+    const room = getRoom(id);
+    this.enterArea(WorldMap.deepRegion(id), room.outside);
+    // (if her arrival brought on a scene, it plays first, and she goes down when it is over)
+    if (this.mode !== "explore") {
+      this.descending = id;
+      return;
+    }
+    this.goDown(id);
+  }
+
+  private goDown(id: CaveId): void {
+    this.descending = null;
+    this.enterInterior(id);
+    // down in the dark, she lifts her torch to see where she has come
+    if (this.interior) {
+      const h = this.world.hero;
+      this.world.setAnim(h, "torchraise", this.clock, true);
+      this.world.fx.burst(isoX(h.x, h.y), isoY(h.x, h.y, h.z) - 22, 18, ["#ffb85a", "#ffe9a8", "#ff6a2a"], 40, { gravity: -20 });
+    }
+  }
+
   /** Fast travel: land at a region's waypoint (or a given world position) in the one continuous world. */
   enterArea(id: AreaId, pos?: [number, number]): void {
     this.dropInterior();
@@ -630,6 +737,7 @@ export class Game {
 
   /** Jump to a point of the open world, in world tiles. */
   debugGoto(x: number, y: number): void {
+    this.descending = null;
     this.dismount();
     this.runner = null;
     this.queue = [];
@@ -1208,9 +1316,13 @@ export class Game {
     this.markDirty();
   }
 
+  /** How the last battle ended, and against whom (the autoplay bot keeps score by it). */
+  lastBattle: { enemy: EnemyId; result: "won" | "lost" | "fled" | null; seq: number } | null = null;
+
   private endBattle(): void {
     const b = this.battle!;
     this.battle = null;
+    this.lastBattle = { enemy: b.enemy, result: b.result, seq: (this.lastBattle?.seq ?? 0) + 1 };
     this.mode = "explore";
     this.invulnerableUntil = this.clock + 2.2;
     this.land();
@@ -1689,8 +1801,16 @@ export class Game {
 
   /** By the water's edge she looks out to sea, or skips a stone across it. */
   private shoreFidgets(): AnimId[] {
-    if (this.interior || this.world.cave) return [];
+    if (this.interior || this.world.cave) {
+      // underground, she lifts her torch to see further, and stoops to listen down the dark passages
+      return this.world.cave ? ["torchraise", "cavepeer"] : [];
+    }
     const h = this.world.hero;
+    const [ci, cj] = [Math.floor(h.x / WORLD_SCALE), Math.floor(h.y / WORLD_SCALE)];
+    // on the Three Isles, the crane stance the immortals stand in
+    if (immortalLand(ci, cj)) return ["cranestance", "elixirbreath", "seagaze"];
+    // within sight of the rim of the world, she goes to the lip and looks over
+    for (const [dx, dy] of [[12, 0], [-12, 0], [0, 12], [0, -12], [8, 8], [-8, 8], [8, -8], [-8, -8]] as const) if (beyondRim(ci + dx, cj + dy)) return ["rimgaze", "rimgaze", "seagaze"];
     for (const [dx, dy] of [[3, 0], [-3, 0], [0, 3], [0, -3], [2, 2], [-2, 2], [2, -2], [-2, -2]] as const)
       if (LIQUID[this.world.kindAt(h.x + dx, h.y + dy)] === "water") return ["seagaze", "skipstone", "seagaze"];
     return [];
@@ -1974,11 +2094,15 @@ export class Game {
         const v = MOVE_KEYS[code];
         const wm = this.worldMap!;
         if (v) {
-          const n = wm.nudge(v[0], v[1] * 0.5, (id) => areaUnlocked(id, this.state));
-          if (!n) this.toast("No open road in that direction.");
+          const n = wm.nudge(v[0], v[1] * 0.5, (id) => areaUnlocked(id, this.state), (id) => !this.deepLock(id));
+          if (!n) this.toast(wm.layer === "under" ? "No open deep in that direction." : "No open road in that direction.");
           this.markDirty();
-        } else if (CONFIRM.has(code) && !wm.travelling) this.enterArea(wm.at);
-        else if (code === "Escape" || code === "KeyM") this.closeMap();
+        } else if (code === "KeyU") this.toggleMapLayer();
+        else if (code === "KeyZ") this.toggleMapZoom();
+        else if (CONFIRM.has(code) && !wm.travelling) {
+          if (wm.layer === "under" && wm.deep) this.descend(wm.deep);
+          else this.enterArea(wm.at);
+        } else if (code === "Escape" || code === "KeyM") this.closeMap();
         return;
       }
       case "explore":
@@ -2027,6 +2151,7 @@ export class Game {
       this.banner = null;
       this.markDirty();
     }
+    if (this.descending && this.mode === "explore" && !this.runner) this.goDown(this.descending);
     switch (this.mode) {
       case "explore":
         // with the menu open the world goes on, but she stands still
@@ -2058,9 +2183,10 @@ export class Game {
         this.world.update(dt, this.clock, true);
         break;
       case "worldmap": {
-        const arrived = this.worldMap!.update(dt);
+        const wm = this.worldMap!;
+        const arrived = wm.update(dt);
         if (arrived) {
-          this.toast(`${getArea(arrived).name} — press E / Enter to land`);
+          this.toast(wm.deep ? `${getRoom(wm.deep).name} — press E / Enter to go down` : `${getArea(arrived).name} — press E / Enter to land`);
           this.markDirty();
         }
         break;
@@ -2162,7 +2288,7 @@ export class Game {
       return;
     }
     if (this.mode === "worldmap" && this.worldMap) {
-      this.worldMap.render(s, this.clock, (id) => areaUnlocked(id, this.state), 1 / 60);
+      this.worldMap.render(s, this.clock, (id) => areaUnlocked(id, this.state), 1 / 60, (id) => !this.deepLock(id));
       this.drawOverlays(s);
       return;
     }
@@ -2289,6 +2415,13 @@ export class Game {
             nodes: (Object.keys(NODES) as AreaId[]).map((id) => {
               const d = getArea(id);
               return { id, name: d.name, hanzi: d.hanzi, subtitle: d.subtitle, locked: lockReason(id, this.state) };
+            }),
+            layer: wm.layer,
+            deep: wm.deep,
+            overview: wm.overview,
+            deeps: CAVE_IDS.map((id) => {
+              const d = getRoom(id);
+              return { id, name: d.name, hanzi: d.hanzi, subtitle: d.subtitle, locked: this.deepLock(id) };
             }),
           }
         : null,

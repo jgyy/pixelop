@@ -256,6 +256,40 @@ export class PixelBuffer {
     return n;
   }
 
+  /** Box-filtered downscale by a whole factor (each output pixel is the average of a factor × factor block, alpha-weighted). */
+  shrunk(factor: number): PixelBuffer {
+    const out = new PixelBuffer(Math.ceil(this.width / factor), Math.ceil(this.height / factor));
+    for (let y = 0; y < out.height; y++)
+      for (let x = 0; x < out.width; x++) {
+        let r = 0;
+        let g = 0;
+        let b = 0;
+        let a = 0;
+        let n = 0;
+        for (let dy = 0; dy < factor; dy++)
+          for (let dx = 0; dx < factor; dx++) {
+            const sx = x * factor + dx;
+            const sy = y * factor + dy;
+            if (sx >= this.width || sy >= this.height) continue;
+            const i = (sy * this.width + sx) * 4;
+            const al = this.data[i + 3];
+            r += this.data[i] * al;
+            g += this.data[i + 1] * al;
+            b += this.data[i + 2] * al;
+            a += al;
+            n++;
+          }
+        const di = (y * out.width + x) * 4;
+        if (a > 0) {
+          out.data[di] = r / a;
+          out.data[di + 1] = g / a;
+          out.data[di + 2] = b / a;
+        }
+        out.data[di + 3] = n ? a / n : 0;
+      }
+    return out;
+  }
+
   /** Nearest-neighbour upscale. */
   scaled(factor: number): PixelBuffer {
     const out = new PixelBuffer(this.width * factor, this.height * factor);

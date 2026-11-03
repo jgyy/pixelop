@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { getWorld } from "@/game/world/continent";
 import { LIQUID } from "@/game/world/tilemap";
 import { COARSE_H, COARSE_W, WORLD_SCALE } from "@/game/world/layout";
-import { CONTINENTS, EDGE, EDGE_LIMIT, inEdge, inSky, pastEdge, STRAITS, straitAt } from "@/game/world/oceans";
+import { beyondRim, CONTINENTS, EDGE, EDGE_LIMIT, inEdge, inSky, pastEdge, STRAITS, straitAt } from "@/game/world/oceans";
 import { oceanFrame } from "@/game/three/terrain";
 import { World } from "@/game/runtime/world";
 
@@ -20,21 +20,27 @@ describe("the Encircling Sea", () => {
         const k = m.kind(i, j);
         if (k === "void") {
           cloud++;
-          // what cloud is left lies under the sect's own
-          expect(inSky(Math.floor(i / S), Math.floor(j / S)), `cloud at ${i},${j}`).toBe(true);
+          // what cloud is left lies under the sect's own, or past the rim of the world where the sea falls away
+          expect(inSky(Math.floor(i / S), Math.floor(j / S)) || beyondRim(Math.floor(i / S), Math.floor(j / S)), `cloud at ${i},${j}`).toBe(true);
         } else if (k === "deep" || k === "water") sea++;
       }
-    expect(sea).toBeGreaterThan(cloud * 4);
+    // (the sky past the rim runs all round the world now, but the sea still outweighs it)
+    expect(sea).toBeGreaterThan(cloud * 1.5);
     expect(cloud).toBeGreaterThan(0);
   });
 
   it("runs deep water all round the world's edge, and turns everyone back before it", () => {
+    // the edge is deep water, or past the rim, where the sea has fallen away into the clouds
+    const edge = (i: number, j: number) => {
+      const k = m.kind(i * S, j * S);
+      return k === "deep" || (k === "void" && beyondRim(i, j));
+    };
     for (let i = 0; i < COARSE_W; i += 3)
       for (const j of [0, 1, COARSE_H - 2, COARSE_H - 1]) {
-        expect(m.kind(i * S, j * S), `${i},${j}`).toBe("deep");
+        expect(edge(i, j), `${i},${j}`).toBe(true);
         expect(inEdge(i, j)).toBe(true);
       }
-    for (let j = 0; j < COARSE_H; j += 3) for (const i of [0, COARSE_W - 1]) expect(m.kind(i * S, j * S), `${i},${j}`).toBe("deep");
+    for (let j = 0; j < COARSE_H; j += 3) for (const i of [0, COARSE_W - 1]) expect(edge(i, j), `${i},${j}`).toBe(true);
     // the limit lies inside the deep band
     expect(EDGE_LIMIT).toBeLessThan(EDGE * S);
     expect(pastEdge(EDGE_LIMIT - 1, 400)).toBe(true);
